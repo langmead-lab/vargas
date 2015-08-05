@@ -1,0 +1,3 @@
+[submodule "gssw"]
+	path = gssw
+	url = https://github.com/gaddra/gssw.git
