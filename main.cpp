@@ -3,7 +3,6 @@
 //
 
 #include "main.h"
-#include "gssw/src/gssw.h"
 
 using std::string;
 using std::cout;
@@ -14,13 +13,14 @@ int main(int argc, char *argv[]) {
     /** Scores **/
     int32_t match = 2, mismatch = 2;
     uint8_t gap_open = 3, gap_extension = 1;
-    string VCF, REF, outfile = "";
+    string VCF = "", REF = "", outfile = "", buildfile = "";
 
     GetOpt::GetOpt_pp args(argc, argv);
     if (args >> GetOpt::OptionPresent('h', "help")) {
         cout << "VMatch options:" << endl;
         cout << "-v\t--vcf           VCF file, uncompressed" << endl;
         cout << "-r\t--ref           reference FASTA" << endl;
+        cout << "-b\t--buildfile     quick rebuild file, required if -v, -r are not defined. Takes priority." << endl;
         cout << "-m\t--match         Match score, default  " << match << endl;
         cout << "-n\t--mismatch      Mismatch score, default " << mismatch << endl;
         cout << "-o\t--gap_open      Gap opening score, default " << gap_open << endl;
@@ -28,11 +28,15 @@ int main(int argc, char *argv[]) {
         cout << "-t\t--outfile       Output file for quick rebuild" << endl;
         exit(0);
     }
-    if (!(args >> GetOpt::Option('v', "vcf", VCF))
-        || !(args >> GetOpt::Option('r', "ref", REF))) {
-        cerr << "VCF and/or ref file not specified, use -v and -r." << endl;
-        exit(1);
+
+    if(!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
+        if (!(args >> GetOpt::Option('v', "vcf", VCF))
+            || !(args >> GetOpt::Option('r', "ref", REF))) {
+            cerr << "VCF and/or ref file not specified, use -v and -r or quick build with -b." << endl;
+            exit(1);
+        }
     }
+
     args >> GetOpt::Option('m', "match", match)
     >> GetOpt::Option('n', "mismatch", mismatch)
     >> GetOpt::Option('o', "gap_open", gap_open)
@@ -44,41 +48,61 @@ int main(int argc, char *argv[]) {
 
     int8_t *nt_table = gssw_create_nt_table(); // Nucleotide -> Num
     int8_t *mat = gssw_create_score_matrix(match, mismatch);
+    gssw_graph *graph;
+    if (buildfile.length() > 0) graph = buildGraph(buildfile, nt_table, mat);
+    else graph = generateGraph(REF, VCF, nt_table, mat, outfile);
 
-    gssw_graph *graph = generateGraph(REF, VCF, nt_table, mat, outfile);
-    gssw_graph_fill(graph, query, nt_table, mat, gap_open, gap_extension, 30, 2);
+    gssw_graph_fill(graph, query, nt_table, mat, gap_open, gap_extension, 15, 2);
     printNode(graph->max_node);
 
     gssw_graph_destroy(graph);
-
-/**    gssw_node* nodes[3];
-    nodes[0] = gssw_node_create(ref0, 0, ref0, nt_table, mat);
-    nodes[1] = gssw_node_create(ref1, 1, ref1, nt_table, mat);
-    nodes[2] = gssw_node_create(ref2, 2, ref1, nt_table, mat);
-
-    gssw_nodes_add_edge(nodes[0], nodes[1]);
-    gssw_nodes_add_edge(nodes[1], nodes[2]);
-
-    gssw_graph* graph = gssw_graph_create(3);
-    gssw_graph_add_node(graph, nodes[0]);
-    gssw_graph_add_node(graph, nodes[1]);
-    gssw_graph_add_node(graph, nodes[2]);
-
-    gssw_graph_fill(graph, query, nt_table, mat, gap_open, gap_extension, 15, 2);
-
-    printNode(graph->nodes[0]);
-    printNode(graph->nodes[1]);
-    printNode(graph->nodes[2]);
-    std::cout << graph->max_node->id;
-
-
-    gssw_graph_destroy(graph);
- **/
     delete[] nt_table;
     delete[] mat;
 
     return (0);
 }
+
+
+gssw_graph* buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
+    using namespace std;
+
+    string line;
+    ifstream graphDat(buildfile.c_str());
+    vector<string> lineSplit(0);
+    vector<gssw_node*> nodes(0);
+    uint32_t curr = 0;
+
+    while(getline(graphDat, line)) {
+        split(line, ',', lineSplit);
+        switch (lineSplit.size()) {
+            case 3:
+                curr = strtol(lineSplit[1].c_str(), NULL, 10);
+                nodes.push_back(gssw_node_create(strtol(lineSplit[0].c_str(), NULL, 10),
+                                                 curr,
+                                                 lineSplit[2].c_str(), nt_table, mat));
+
+                break;
+            case 2:
+                gssw_nodes_add_edge(nodes.end()[strtol(lineSplit[0].c_str(), NULL, 10)],
+                                    nodes.end()[strtol(lineSplit[1].c_str(), NULL, 10)]);
+                break;
+            default:
+                cerr << "Unexpected line in buildfile: " << endl << line << endl;
+                break;
+        }
+    }
+
+    nodes.push_back(gssw_node_create(NULL, ++curr, "", nt_table, mat));
+    gssw_nodes_add_edge(nodes.end()[-2], nodes.end()[-1]);
+
+    /** Add nodes to graph **/
+    gssw_graph* graph = gssw_graph_create(nodes.size());
+    for (int n = 0; n < nodes.size(); n++) {
+        gssw_graph_add_node(graph, nodes[n]);
+    }
+    return graph;
+}
+
 
 /// <summary>
 /// Generates a graph from the given reference and variant file.
@@ -177,7 +201,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
                 /** Connect to all of the previous alt/ref nodes **/
                 for (int i = 0; i < numalts; i++) {
                     gssw_nodes_add_edge(nodes.end()[-2 - i], nodes.end()[-1]);
-                    if (write) out << nodes.end()[-2 - i]->id << "," << nodes.end()[-1]->id << endl;
+                    if (write) out << -2 - i << "," << -1 << endl;
 #if debug > 4
                     cout << "Edge: " << nodes.end()[-2 - i]->id << ", " << nodes.end()[-1]->id << endl;
 #endif
@@ -217,7 +241,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
         for (int p = 0; p < numprev; p++) {
             for (int a = 0; a < numalts; a++) {
                 gssw_nodes_add_edge(nodes.end()[-1 - numalts - p], nodes.end()[-1 - a]);
-                if (write) out << nodes.end()[-1 - numalts - p]->id << "," << nodes.end()[-1 - a]->id << endl;
+                if (write) out << -1 - numalts - p << "," << -1 - a << endl;
 #if debug > 4
                 cout << "Edge: " << nodes.end()[-1 - numalts - p]->id << ", " << nodes.end()[-1 - a]->id << endl;
 #endif
@@ -249,7 +273,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
 void printNode(gssw_node *node) {
     using namespace std;
     cout << "Node sequence: " << node->seq << endl;
-    cout << "Ending position: " << node->data << endl;
+    cout << "Node end position: " << node->data << endl;
     cout << "optimal score: " << node->alignment->score1 << " end: " << node->alignment->ref_end1 << endl;
     cout << "suboptimal score: " << node->alignment->score2 << " end: " << node->alignment->ref_end2 << endl;
 }
