@@ -177,7 +177,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
                 /** Connect to all of the previous alt/ref nodes **/
                 for (int i = 0; i < numalts; i++) {
                     gssw_nodes_add_edge(nodes.end()[-2 - i], nodes.end()[-1]);
-                    if (write) out << nodes.end()[-2 - i] << "," << nodes.end()[-1] << endl;
+                    if (write) out << nodes.end()[-2 - i]->id << "," << nodes.end()[-1]->id << endl;
 #if debug > 4
                     cout << "Edge: " << nodes.end()[-2 - i]->id << ", " << nodes.end()[-1]->id << endl;
 #endif
@@ -217,7 +217,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
         for (int p = 0; p < numprev; p++) {
             for (int a = 0; a < numalts; a++) {
                 gssw_nodes_add_edge(nodes.end()[-1 - numalts - p], nodes.end()[-1 - a]);
-                if (write) out << nodes.end()[-1 - numalts - p] << "," << nodes.end()[-1 - a] << endl;
+                if (write) out << nodes.end()[-1 - numalts - p]->id << "," << nodes.end()[-1 - a]->id << endl;
 #if debug > 4
                 cout << "Edge: " << nodes.end()[-1 - numalts - p]->id << ", " << nodes.end()[-1 - a]->id << endl;
 #endif
