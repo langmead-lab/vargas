@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
     /** Scores **/
     int32_t match = 2, mismatch = 2;
     uint8_t gap_open = 3, gap_extension = 1;
-    string VCF, REF;
+    string VCF, REF, outfile = "";
 
     GetOpt::GetOpt_pp args(argc, argv);
     if (args >> GetOpt::OptionPresent('h', "help")) {
@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
         cout << "-n\t--mismatch      Mismatch score, default " << mismatch << endl;
         cout << "-o\t--gap_open      Gap opening score, default " << gap_open << endl;
         cout << "-e\t--gap_extend    Gap extend score, default " << gap_extension << endl;
+        cout << "-t\t--outfile       Output file for quick rebuild" << endl;
         exit(0);
     }
     if (!(args >> GetOpt::Option('v', "vcf", VCF))
@@ -35,7 +36,8 @@ int main(int argc, char *argv[]) {
     args >> GetOpt::Option('m', "match", match)
     >> GetOpt::Option('n', "mismatch", mismatch)
     >> GetOpt::Option('o', "gap_open", gap_open)
-    >> GetOpt::Option('e', "gap_extend", gap_extension);
+    >> GetOpt::Option('e', "gap_extend", gap_extension)
+    >> GetOpt::Option('t', "outfile", outfile);
 
 
     char *query = "CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTT";
@@ -43,7 +45,7 @@ int main(int argc, char *argv[]) {
     int8_t *nt_table = gssw_create_nt_table(); // Nucleotide -> Num
     int8_t *mat = gssw_create_score_matrix(match, mismatch);
 
-    gssw_graph *graph = generateGraph(REF, VCF, nt_table, mat);
+    gssw_graph *graph = generateGraph(REF, VCF, nt_table, mat, outfile);
     gssw_graph_fill(graph, query, nt_table, mat, gap_open, gap_extension, 30, 2);
     printNode(graph->max_node);
 
@@ -149,6 +151,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
         vpos = atoi(vline_split[pos].c_str());
         vref = vline_split[ref];
         valt = vline_split[alt];
+        cout << setw(12) << nodenum << '\r' << flush;
 
         /** build node string up to var pos **/
         while (rpos < vpos - 1) {
@@ -222,7 +225,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
         }
     }
 
-    cout << nodes.size() << " nodes generated. Building graph..." << endl;
+    cout << endl << nodes.size() << " nodes generated. Building graph..." << endl;
     /** Buffer node at the end, alignment doesn't seem to look at the last node. **/
     nodes.push_back(gssw_node_create(NULL, nodenum, "", nt_table, mat));
     gssw_nodes_add_edge(nodes.end()[-2], nodes.end()[-1]);
