@@ -78,8 +78,15 @@ int main(int argc, char *argv[]) {
     return (0);
 }
 
-
-gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, int8_t *mat) {
+/// <summary>
+/// Generates a graph from the given reference and variant file.
+/// </summary>
+/// <param name="REF">Reference FASTA</param>
+/// <param name="VCF">Variant File, uncompressed</param>
+/// <param name="nt_table">base table, construct using gssw_create_nt_table()</param>
+/// <param name="mat">Score matrix, use gssw_create_score_matrix()</param>
+/// <returns>Constructed gssw_graph</returns>
+gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, int8_t *mat, std::string outputFile) {
     using namespace std;
 
     /** reference line, variant line **/
@@ -98,9 +105,16 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
     /** strings that represent node contents **/
     string vref, valt, nodestring;
     char base;
+    bool write = false;
 
     ifstream variants(VCF.c_str(), ios_base::in | ios_base::binary);
     ifstream reference(REF.c_str());
+    ofstream out;
+
+    if(outputFile.size() > 0) {
+        write = true;
+        out.open(outputFile.c_str());
+    }
 
     if (!variants.good() || !reference.good()) {
         boolalpha(cout);
@@ -111,7 +125,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
     }
 
     getline(reference, fline);
-    if (fline.at(0) != '>') cerr << "Error in ref file format, first char should be >" << endl;
+    if (fline.at(0) != '>') cerr << "Error in ref file, first char should be >" << endl;
 
     /** Go to first VCF record **/
     do { getline(variants, vline); } while (vline.substr(0, 2) == "##");
@@ -151,6 +165,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
         /** If there is space between the variants, add a new node **/
         if (nodestring.length() > 0) {
             nodes.push_back(gssw_node_create(rpos, nodenum, nodestring.c_str(), nt_table, mat));
+            if (write) out << rpos << "," << nodenum << "," << nodestring.c_str() << endl;
 #if debug > 4
             cout << "Node: " << rpos << ", ID: " << nodenum << ", " << nodestring << endl;
 #endif
@@ -159,6 +174,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
                 /** Connect to all of the previous alt/ref nodes **/
                 for (int i = 0; i < numalts; i++) {
                     gssw_nodes_add_edge(nodes.end()[-2 - i], nodes.end()[-1]);
+                    if (write) out << nodes.end()[-2 - i] << "," << nodes.end()[-1] << endl;
 #if debug > 4
                     cout << "Edge: " << nodes.end()[-2 - i]->id << ", " << nodes.end()[-1]->id << endl;
 #endif
@@ -175,6 +191,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
             rpos++;
         }
         nodes.push_back(gssw_node_create(rpos, nodenum, vref.c_str(), nt_table, mat));
+        if (write) out << rpos << "," << nodenum << "," << vref.c_str() << endl;
 #if debug > 4
         cout << "Node: " << rpos << ", ID: " << nodenum << ", " << vref << endl;
 #endif
@@ -185,6 +202,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
         split(valt, ',', valt_split);
         for (int i = 0; i < valt_split.size(); i++) {
             nodes.push_back(gssw_node_create(rpos, nodenum, valt_split[i].c_str(), nt_table, mat));
+            if (write) out << rpos << "," << nodenum << "," << valt_split[i].c_str() << endl;
 #if debug > 4
                 cout << "Node: " << rpos << ", ID: " << nodenum << ", " << valt_split[i].c_str() << endl;
 #endif
@@ -196,6 +214,7 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
         for (int p = 0; p < numprev; p++) {
             for (int a = 0; a < numalts; a++) {
                 gssw_nodes_add_edge(nodes.end()[-1 - numalts - p], nodes.end()[-1 - a]);
+                if (write) out << nodes.end()[-1 - numalts - p] << "," << nodes.end()[-1 - a] << endl;
 #if debug > 4
                 cout << "Edge: " << nodes.end()[-1 - numalts - p]->id << ", " << nodes.end()[-1 - a]->id << endl;
 #endif
@@ -204,7 +223,10 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
     }
 
     cout << nodes.size() << " nodes generated. Building graph..." << endl;
-    if (nodes.size() > UINT32_MAX){
+    /** Buffer node at the end, alignment doesn't seem to look at the last node. **/
+    nodes.push_back(gssw_node_create(NULL, nodenum, "", nt_table, mat));
+    gssw_nodes_add_edge(nodes.end()[-2], nodes.end()[-1]);
+    if (nodes.size() > 4294967294){
         cerr << "Too many nodes to generate graph." << endl;
         exit(1);
     }
@@ -217,7 +239,10 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
     return graph;
 }
 
-
+/// <summary>
+/// Prints node information.
+/// </summary>
+/// <param name="node">gssw_node to print</param>
 void printNode(gssw_node *node) {
     using namespace std;
     cout << "Node sequence: " << node->seq << endl;
@@ -230,17 +255,14 @@ void printNode(gssw_node *node) {
 /// <summary>
 /// Splits the specified string, resets elems and returns with split string.
 /// </summary>
-/// <param name="s">The s.</param>
-/// <param name="delim">The delimiter.</param>
-/// <param name="elems">The elems.</param>
+/// <param name="s">The string</param>
+/// <param name="delim">The delimiter</param>
+/// <param name="elems">Vector to store results in. Vector is replaced!</param>
 /// <returns>Vector of split string.</returns>
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
     std::stringstream ss(s);
     std::string item;
-    int count = 0;
-
     elems = *new std::vector<std::string>(0);
-
 
     while (std::getline(ss, item, delim)) {
         elems.push_back(item);
