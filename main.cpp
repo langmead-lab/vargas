@@ -12,7 +12,7 @@ using std::cerr;
 
 int main(int argc, char *argv[]) {
     /** Scores **/
-    int32_t match = 2, mismatch = 2;
+    int32_t match = 2, mismatch = 2, readnum = 0;
     uint8_t gap_open = 3, gap_extension = 1;
     string VCF = "", REF = "", outfile = "", buildfile = "",
            readfile = "", alignfile = "", query, read;
@@ -73,6 +73,8 @@ int main(int argc, char *argv[]) {
         }
         aligns << "#node ID, node max position, score1, alignment end, score 2, alignment 2 end" << endl;
         while(std::getline(reads, read)){
+            readnum++;
+            cout << std::setw(12) << readnum << '\r' << std::flush;
             gssw_graph_fill(graph, read.c_str(), nt_table, mat, gap_open, gap_extension, read.length()/2, 2);
             aligns << ">" << read << ","
                    << graph->max_node->id << ","
