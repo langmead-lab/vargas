@@ -3,6 +3,7 @@
 //
 
 #include "main.h"
+#include "gssw/src/gssw.h"
 
 using std::string;
 using std::cout;
@@ -13,7 +14,10 @@ int main(int argc, char *argv[]) {
     /** Scores **/
     int32_t match = 2, mismatch = 2;
     uint8_t gap_open = 3, gap_extension = 1;
-    string VCF = "", REF = "", outfile = "", buildfile = "";
+    string VCF = "", REF = "", outfile = "", buildfile = "",
+           readfile = "", alignfile = "", query, read;
+    std::ifstream reads;
+    std::ofstream aligns;
 
     GetOpt::GetOpt_pp args(argc, argv);
     if (args >> GetOpt::OptionPresent('h', "help")) {
@@ -25,7 +29,10 @@ int main(int argc, char *argv[]) {
         cout << "-n\t--mismatch      Mismatch score, default " << mismatch << endl;
         cout << "-o\t--gap_open      Gap opening score, default " << gap_open << endl;
         cout << "-e\t--gap_extend    Gap extend score, default " << gap_extension << endl;
-        cout << "-t\t--outfile       Output file for quick rebuild" << endl;
+        cout << "-t\t--outfile       Output file for quick rebuild of graph" << endl;
+        cout << "-d\t--reads         Reads to align, one per line" << endl;
+        cout << "-a\t--aligns        Outputfile for alignments" << endl;
+        cout << "-s\t--string        Align a single string to stdout, overrides reads file" << endl;
         exit(0);
     }
 
@@ -41,10 +48,11 @@ int main(int argc, char *argv[]) {
     >> GetOpt::Option('n', "mismatch", mismatch)
     >> GetOpt::Option('o', "gap_open", gap_open)
     >> GetOpt::Option('e', "gap_extend", gap_extension)
-    >> GetOpt::Option('t', "outfile", outfile);
+    >> GetOpt::Option('t', "outfile", outfile)
+    >> GetOpt::Option('d', "reads", readfile)
+    >> GetOpt::Option('a', "aligns", alignfile)
+    >> GetOpt::Option('s', "string", query);
 
-
-    char *query = "CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTT";
 
     int8_t *nt_table = gssw_create_nt_table(); // Nucleotide -> Num
     int8_t *mat = gssw_create_score_matrix(match, mismatch);
@@ -52,8 +60,31 @@ int main(int argc, char *argv[]) {
     if (buildfile.length() > 0) graph = buildGraph(buildfile, nt_table, mat);
     else graph = generateGraph(REF, VCF, nt_table, mat, outfile);
 
-    gssw_graph_fill(graph, query, nt_table, mat, gap_open, gap_extension, 15, 2);
-    printNode(graph->max_node);
+    if(query.length() > 0){
+        gssw_graph_fill(graph, query.c_str(), nt_table, mat, gap_open, gap_extension, query.length()/2, 2);
+        printNode(graph->max_node);
+    }
+    else {
+        reads.open(readfile.c_str());
+        aligns.open(alignfile.c_str());
+        if (!reads.good() || !aligns.good()) {
+            cerr << "Error in opening files, specify -d and -a, or -s." << endl;
+            exit(1);
+        }
+        aligns << "#node ID, node max position, score1, alignment end, score 2, alignment 2 end" << endl;
+        while(std::getline(reads, read)){
+            gssw_graph_fill(graph, read.c_str(), nt_table, mat, gap_open, gap_extension, read.length()/2, 2);
+            aligns << ">" << read << ","
+                   << graph->max_node->id << ","
+                   << graph->max_node->data << ","
+                   << graph->max_node->alignment->score1 << ","
+                   << graph->max_node->alignment->ref_end1 << ","
+                   << graph->max_node->alignment->score2 << ","
+                   << graph->max_node->alignment->ref_end2 << endl;
+        }
+        reads.close();
+        aligns.close();
+    }
 
     gssw_graph_destroy(graph);
     delete[] nt_table;
@@ -100,18 +131,12 @@ gssw_graph* buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
     for (int n = 0; n < nodes.size(); n++) {
         gssw_graph_add_node(graph, nodes[n]);
     }
+
+    graphDat.close();
     return graph;
 }
 
 
-/// <summary>
-/// Generates a graph from the given reference and variant file.
-/// </summary>
-/// <param name="REF">Reference FASTA</param>
-/// <param name="VCF">Variant File, uncompressed</param>
-/// <param name="nt_table">base table, construct using gssw_create_nt_table()</param>
-/// <param name="mat">Score matrix, use gssw_create_score_matrix()</param>
-/// <returns>Constructed gssw_graph</returns>
 gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, int8_t *mat, std::string outputFile) {
     using namespace std;
 
@@ -263,13 +288,14 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
     for (int n = 0; n < nodes.size(); n++) {
         gssw_graph_add_node(graph, nodes[n]);
     }
+
+    variants.close();
+    reference.close();
+    out.close();
     return graph;
 }
 
-/// <summary>
-/// Prints node information.
-/// </summary>
-/// <param name="node">gssw_node to print</param>
+
 void printNode(gssw_node *node) {
     using namespace std;
     cout << "Node sequence: " << node->seq << endl;
@@ -279,13 +305,6 @@ void printNode(gssw_node *node) {
 }
 
 
-/// <summary>
-/// Splits the specified string, resets elems and returns with split string.
-/// </summary>
-/// <param name="s">The string</param>
-/// <param name="delim">The delimiter</param>
-/// <param name="elems">Vector to store results in. Vector is replaced!</param>
-/// <returns>Vector of split string.</returns>
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
     std::stringstream ss(s);
     std::string item;
