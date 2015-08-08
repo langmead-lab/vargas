@@ -1,9 +1,9 @@
 //
-// Created by gaddra on 8/6/15.
+// Aligns reads using gssw, traceback is not possible.
+// Created by Ravi Gaddipati (rgaddip1@jhu.edu).
 //
 
 #include "main.h"
-#include "gssw/src/gssw.h"
 
 using std::string;
 using std::cout;
@@ -12,12 +12,13 @@ using std::cerr;
 
 int main(int argc, char *argv[]) {
     /** Scores **/
-    int32_t match = 2, mismatch = 2, readnum = 0;
+    int32_t match = 2, mismatch = 2, readnum = 0, minpos = 0, maxpos = 2147483640;
     uint8_t gap_open = 3, gap_extension = 1;
     string VCF = "", REF = "", outfile = "", buildfile = "",
-           readfile = "", alignfile = "", query, read;
+           readfile = "", alignfile = "", query, read, region;
     std::ifstream reads;
     std::ofstream aligns;
+    bool print = true;
 
     GetOpt::GetOpt_pp args(argc, argv);
     if (args >> GetOpt::OptionPresent('h', "help")) {
@@ -33,6 +34,8 @@ int main(int argc, char *argv[]) {
         cout << "-d\t--reads         Reads to align, one per line" << endl;
         cout << "-a\t--aligns        Outputfile for alignments" << endl;
         cout << "-s\t--string        Align a single string to stdout, overrides reads file" << endl;
+        cout << "-p\t--noprint       0 to disable stdout printing" << endl;
+        cout << "-R\t--region        Ref region, inclusive. min:max" << endl;
         exit(0);
     }
 
@@ -51,14 +54,29 @@ int main(int argc, char *argv[]) {
     >> GetOpt::Option('t', "outfile", outfile)
     >> GetOpt::Option('d', "reads", readfile)
     >> GetOpt::Option('a', "aligns", alignfile)
-    >> GetOpt::Option('s', "string", query);
+    >> GetOpt::Option('s', "string", query)
+    >> GetOpt::Option('p', "noprint", print)
+    >> GetOpt::Option('R', "region", region);
 
 
     int8_t *nt_table = gssw_create_nt_table(); // Nucleotide -> Num
     int8_t *mat = gssw_create_score_matrix(match, mismatch);
     gssw_graph *graph;
+    std::vector<string> region_split(0);
+
+    /** Parse region **/
+    if(region.length() > 0) {
+        split(region, ':', region_split);
+        if (region_split.size() < 1) {
+            std::cerr << "Malformed region, must be in the form a:b" << endl;
+            exit(1);
+        }
+        minpos = std::atoi(region_split[0].c_str());
+        maxpos = std::atoi(region_split[1].c_str());
+    }
+
     if (buildfile.length() > 0) graph = buildGraph(buildfile, nt_table, mat);
-    else graph = generateGraph(REF, VCF, nt_table, mat, outfile);
+    else graph = generateGraph(REF, VCF, nt_table, mat, minpos, maxpos, outfile);
 
     if(query.length() > 0){
         gssw_graph_fill(graph, query.c_str(), nt_table, mat, gap_open, gap_extension, query.length()/2, 2);
@@ -68,7 +86,7 @@ int main(int argc, char *argv[]) {
         reads.open(readfile.c_str());
         aligns.open(alignfile.c_str());
         if (!reads.good() || !aligns.good()) {
-            cerr << "Error in opening files, specify -d and -a, or -s." << endl;
+            cerr << "Error in opening files, specify -d and -a, or -s to align a string." << endl;
             exit(1);
         }
         aligns << "#node ID, node max position, score1, alignment end, score 2, alignment 2 end" << endl;
@@ -108,14 +126,14 @@ gssw_graph* buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
     while(getline(graphDat, line)) {
         split(line, ',', lineSplit);
         switch (lineSplit.size()) {
-            case 3:
-                curr = strtol(lineSplit[1].c_str(), NULL, 10);
-                nodes.push_back(gssw_node_create(strtol(lineSplit[0].c_str(), NULL, 10),
+            case 3: // New node
+                curr = uint32_t(strtol(lineSplit[1].c_str(), NULL, 10));
+                nodes.push_back(gssw_node_create(int(strtol(lineSplit[0].c_str(), NULL, 10)),
                                                  curr,
                                                  lineSplit[2].c_str(), nt_table, mat));
 
                 break;
-            case 2:
+            case 2: // New edge
                 gssw_nodes_add_edge(nodes.end()[strtol(lineSplit[0].c_str(), NULL, 10)],
                                     nodes.end()[strtol(lineSplit[1].c_str(), NULL, 10)]);
                 break;
@@ -139,7 +157,7 @@ gssw_graph* buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
 }
 
 
-gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, int8_t *mat, std::string outputFile) {
+gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, int8_t *mat, int32_t minpos, int32_t maxpos, std::string outputFile) {
     using namespace std;
 
     /** reference line, variant line **/
@@ -196,10 +214,21 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
 
     /** Generate Nodes **/
     cout << "Generating nodes..." << endl;
+
+    // Go to minimum position
+    if(minpos > 0) {
+        while (rpos < minpos - 1) {
+            reference.get(base);
+            if (!isspace(base)) rpos++;
+        }
+    }
+
     while (getline(variants, vline)) {
         nodestring = "";
         split(vline, '\t', vline_split);
         vpos = atoi(vline_split[pos].c_str());
+        if (vpos <= rpos) goto endvar;
+        if (vpos > maxpos) break;
         vref = vline_split[ref];
         valt = vline_split[alt];
         cout << setw(12) << nodenum << '\r' << flush;
@@ -274,12 +303,39 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
 #endif
             }
         }
+        endvar:;
     }
 
+    /** The remaining bases after the last variant **/
+    nodestring = "";
+    while((rpos < maxpos || maxpos < 0) && reference.get(base)) {
+        if(!isspace(base)) {
+            nodestring += base;
+            rpos++;
+        }
+    }
+    nodes.push_back(gssw_node_create(rpos, nodenum, nodestring.c_str(), nt_table, mat));
+    if (write) out << rpos << "," << nodenum << "," << nodestring.c_str() << endl;
+#if debug > 4
+    cout << "Node: " << rpos << ", ID: " << nodenum << ", " << nodestring.c_str() << endl;
+#endif
+    nodenum++;
+    for (int p = 0; p < numalts; p++) {
+        gssw_nodes_add_edge(nodes.end()[-2 - p], nodes.end()[-1]);
+        if (write) out << -2 - p << "," << -1 << endl;
+#if debug > 4
+        cout << "Edge: " << nodes.end()[-2 - p]->id << ", " << nodes.end()[-1]->id << endl;
+#endif
+    }
     cout << endl << nodes.size() << " nodes generated. Building graph..." << endl;
+
     /** Buffer node at the end, alignment doesn't seem to look at the last node. **/
-    nodes.push_back(gssw_node_create(NULL, nodenum, "", nt_table, mat));
+    nodes.push_back(gssw_node_create(rpos, nodenum, "", nt_table, mat));
     gssw_nodes_add_edge(nodes.end()[-2], nodes.end()[-1]);
+#if debug > 4
+    cout << "Node: " << rpos << ", ID: " << nodenum << ", " << "" << endl;
+    cout << "Edge: " << nodes.end()[-2]->id << ", " << nodes.end()[-1]->id << endl;
+#endif
     if (nodes.size() > 4294967294){
         cerr << "Too many nodes to generate graph." << endl;
         exit(1);
