@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
-project ("VMatch")
+project ("vmatch")
 
 set(MAIN_SOURCES
 main.h
@@ -12,6 +12,6 @@ gssw/src/gssw.h
 gssw/src/gssw.c
 )
 
-add_executable(VMatch ${MAIN_SOURCES} ${GSSW_SOURCES})
+add_executable(vmatch ${MAIN_SOURCES} ${GSSW_SOURCES})
 
 add_definitions("-msse4")
