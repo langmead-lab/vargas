@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
         cout << "-N\t--numreads      Number of reads to simulate, default " << numreads << endl;
         cout << "-M\t--muterr        read mutation error rate, default " << muterr << endl;
         cout << "-I\t--indelerr      read Indel error rate, default " << indelerr << endl;
-        cout << "-L\t-readlen        nominal read length, default " << readlen << endl;
+        cout << "-L\t--readlen       nominal read length, default " << readlen << endl;
         exit(0);
     }
 
@@ -213,7 +213,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
                 nodes.push_back(gssw_node_create(int(strtol(lineSplit[0].c_str(), NULL, 10)),
                                                  curr,
                                                  lineSplit[2].c_str(), nt_table, mat));
-                if (print) cout << setw(12) << lineSplit[2] << '\r' << flush;
+                if (print) cout << setw(12) << curr << '\r' << flush;
 
                 break;
             case 2: // New edge
