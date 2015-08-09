@@ -5,7 +5,7 @@
 #ifndef VMATCH_H
 #define VMATCH_H
 
-#define debug 5
+#define debug 0
 
 #include <iostream>
 #include <fstream>
@@ -51,4 +51,6 @@ gssw_graph* buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat);
 /// <returns>Constructed gssw_graph</returns>
 gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, int8_t *mat, int32_t minpos, int32_t maxpos, std::string outputFile="");
 
+
+std::string generateRead(gssw_graph &graph, int readLen, float muterr, float indelerr);
 #endif //VMATCH_H

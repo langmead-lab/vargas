@@ -15,3 +15,4 @@ gssw/src/gssw.c
 add_executable(vmatch ${MAIN_SOURCES} ${GSSW_SOURCES})
 
 add_definitions("-msse4")
+set(CMAKE_BUILD_TYPE Release)

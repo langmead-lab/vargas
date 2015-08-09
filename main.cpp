@@ -16,12 +16,16 @@ bool novar = false;
 int main(int argc, char *argv[]) {
     /** Scores **/
     int32_t match = 2, mismatch = 2, readnum = 0, minpos = 0, maxpos = 2147483640;
+    float muterr = 0.01f, indelerr = 0.01f;
+    int32_t numreads = 1000, readlen = 100, readEnd;
+    bool simreads = false;
     uint8_t gap_open = 3, gap_extension = 1;
-    string VCF = "", REF = "", outfile = "", buildfile = "",
+    string VCF = "", REF = "", outfile = "", buildfile = "", simfile = "",
             readfile = "", alignfile = "", query, read, region;
     std::ifstream reads;
-    std::ofstream aligns;
+    std::ofstream aligns, out;
 
+    srand(time(NULL));
 
     GetOpt::GetOpt_pp args(argc, argv);
     if (args >> GetOpt::OptionPresent('h', "help")) {
@@ -34,12 +38,18 @@ int main(int argc, char *argv[]) {
         cout << "-o\t--gap_open      Gap opening score, default " << int32_t(gap_open) << endl;
         cout << "-e\t--gap_extend    Gap extend score, default " << int32_t(gap_extension) << endl;
         cout << "-t\t--outfile       Output file for quick rebuild of graph" << endl;
-        cout << "-d\t--reads         Reads to align, one per line" << endl;
-        cout << "-a\t--aligns        Outputfile for alignments" << endl;
+        cout << "-d\t--reads         Reads to align, one per line. set equal to -T to align after sim" << endl;
         cout << "-s\t--string        Align a single string to stdout, overrides reads file" << endl;
-        cout << "-p\t--noprint       0 to disable stdout printing" << endl;
+        cout << "-a\t--aligns        Outputfile for alignments" << endl;
         cout << "-R\t--region        Ref region, inclusive. min:max" << endl;
-        cout << "-x\t--novar         1 to generate and align to a no-variant graph" << endl;
+        cout << "-p\t--noprint       Disable stdout printing" << endl;
+        cout << "-x\t--novar         Generate and align to a no-variant graph" << endl;
+        cout << "-i\t--simreads      Simulate reads and write to the file specified by -T" << endl;
+        cout << "-T\t--readout       File to output reads to" << endl;
+        cout << "-N\t--numreads      Number of reads to simulate, default " << numreads << endl;
+        cout << "-M\t--muterr        read mutation error rate, default " << muterr << endl;
+        cout << "-I\t--indelerr      read Indel error rate, default " << indelerr << endl;
+        cout << "-L\t-readlen        nominal read length, default " << readlen << endl;
         exit(0);
     }
 
@@ -51,6 +61,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+
     args >> GetOpt::Option('m', "match", match)
     >> GetOpt::Option('n', "mismatch", mismatch)
     >> GetOpt::Option('o', "gap_open", gap_open)
@@ -59,11 +70,17 @@ int main(int argc, char *argv[]) {
     >> GetOpt::Option('d', "reads", readfile)
     >> GetOpt::Option('a', "aligns", alignfile)
     >> GetOpt::Option('s', "string", query)
-    >> GetOpt::Option('p', "noprint", print)
+    >> GetOpt::OptionPresent('p', "noprint", print)
     >> GetOpt::Option('R', "region", region)
-    >> GetOpt::Option('x', "novar", novar);
+    >> GetOpt::OptionPresent('x', "novar", novar)
+    >> GetOpt::Option('N', "numreads", numreads)
+    >> GetOpt::Option('M', "muterr", muterr)
+    >> GetOpt::Option('I', "indelerr", indelerr)
+    >> GetOpt::Option('L', "readlen", readlen)
+    >> GetOpt::OptionPresent('i', "simreads", simreads)
+    >> GetOpt::Option('T', "readout", simfile);
 
-
+    print = !print;
     int8_t *nt_table = gssw_create_nt_table(); // Nucleotide -> Num
     int8_t *mat = gssw_create_score_matrix(match, mismatch);
     gssw_graph *graph;
@@ -84,6 +101,22 @@ int main(int argc, char *argv[]) {
     if (buildfile.length() > 0) graph = buildGraph(buildfile, nt_table, mat);
     else graph = generateGraph(REF, VCF, nt_table, mat, minpos, maxpos, outfile);
 
+    /** Simulate reads **/
+    if (simreads) {
+        if(simfile.length() < 1) {
+            cerr << "Specify an output file for simulated reads with -T" << endl;
+            exit(1);
+        }
+        out.open(simfile.c_str());
+        if (print) cout << "Generating reads..." << endl;
+        for(int i = 0; i < numreads; i++) {
+            if (print) cout << std::setw(12) << i + 1 << '\r' << std::flush;
+            out << generateRead(*graph, readlen, muterr, indelerr) << endl;
+        }
+        cout << endl;
+        out.close();
+    }
+
     /** Align to graph **/
     if (query.length() > 0) {
         gssw_graph_fill(graph, query.c_str(), nt_table, mat, gap_open, gap_extension, query.length() / 2, 2);
@@ -93,21 +126,25 @@ int main(int argc, char *argv[]) {
         reads.open(readfile.c_str());
         aligns.open(alignfile.c_str());
         if (!reads.good() || !aligns.good()) {
-            cerr << "Error in opening files, specify -d and -a, or -s to align a string." << endl;
-            exit(1);
+            cerr << "No reads specified, no alignment will be done." << endl;
+            exit(0);
         }
-        aligns << "#node ID, node max position, score1, alignment end, score 2, alignment 2 end" << endl;
+        aligns << "#Read; node ID, node max ref position, score1, alignment end, score 2, alignment 2 end" << endl;
+        if (print) cout << "Aligning reads..." << endl;
         while (std::getline(reads, read)) {
             readnum++;
             if (print) cout << std::setw(12) << readnum << '\r' << std::flush;
-            gssw_graph_fill(graph, read.c_str(), nt_table, mat, gap_open, gap_extension, read.length() / 2, 2);
-            aligns << ">" << read << ","
+            readEnd = read.find('#');
+            if(readEnd == string::npos)  readEnd = read.length();
+            gssw_graph_fill(graph, read.substr(0, readEnd).c_str(), nt_table, mat, gap_open, gap_extension, read.length() / 2, 2);
+            aligns << ">" << read << ";"
             << graph->max_node->id << ","
             << graph->max_node->data << ","
             << graph->max_node->alignment->score1 << ","
             << graph->max_node->alignment->ref_end1 << ","
             << graph->max_node->alignment->score2 << ","
             << graph->max_node->alignment->ref_end2 << endl;
+
         }
         reads.close();
         aligns.close();
@@ -118,6 +155,44 @@ int main(int argc, char *argv[]) {
     delete[] mat;
 
     return (0);
+}
+
+
+std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float indelerr) {
+    gssw_node *node;
+    int base, RAND;
+    char mut;
+    std::stringstream readmut;
+    std::string read = "";
+
+    node = graph.nodes[rand() % (graph.size - 1)];
+    base = rand() % (node->len);
+
+    for(int i = 0; i < readLen; i++) {
+        read += node->seq[base];
+        base++;
+        if(base == node->len) {
+            node = node->next[rand() % node->count_next];
+            if(node->count_next == 0) break;
+            base = 0;
+        }
+    }
+
+    /** Mutate string **/
+    for(int i = 0; i < read.length(); i++) {
+        RAND = rand() % 100000;
+        mut = read.at(i);
+        if (RAND < (100000 - (100000 * indelerr / 2))) { // represents del
+            if (RAND > (100000 - (100000 * indelerr))) RAND = rand() % int32_t(100000 * muterr); // insert rand base
+            if (RAND < (100000 * muterr) / 4) mut = 'A';
+            else if (RAND < 2 * (100000 * muterr) / 4) mut = 'G';
+            else if (RAND < 3 * (100000 * muterr) / 4) mut = 'C';
+            else if (RAND < (100000 * muterr)) mut = 'T';
+            readmut << mut;
+        }
+    }
+    readmut << "#" << node->id << "," << node->data << "," << base;
+    return readmut.str();
 }
 
 
@@ -138,6 +213,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
                 nodes.push_back(gssw_node_create(int(strtol(lineSplit[0].c_str(), NULL, 10)),
                                                  curr,
                                                  lineSplit[2].c_str(), nt_table, mat));
+                if (print) cout << setw(12) << lineSplit[2] << '\r' << flush;
 
                 break;
             case 2: // New edge
