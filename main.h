@@ -5,7 +5,7 @@
 #ifndef VMATCH_H
 #define VMATCH_H
 
-#define debug 0
+#define debug 5
 
 #include <iostream>
 #include <fstream>
@@ -49,7 +49,8 @@ gssw_graph* buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat);
 /// <param name="nt_table">base table, construct using gssw_create_nt_table()</param>
 /// <param name="mat">Score matrix, use gssw_create_score_matrix()</param>
 /// <returns>Constructed gssw_graph</returns>
-gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, int8_t *mat, int32_t minpos, int32_t maxpos, std::string outputFile="");
+gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, int8_t *mat,
+                          int32_t minpos, int32_t maxpos, int32_t maxNodeLen, std::string outputFile="");
 
 
 std::string generateRead(gssw_graph &graph, int readLen, float muterr, float indelerr);

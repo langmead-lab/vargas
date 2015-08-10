@@ -41,8 +41,9 @@ int main(int argc, char *argv[]) {
     int8_t *nt_table = gssw_create_nt_table();
     int8_t *mat = gssw_create_score_matrix(match, mismatch);
 
-    /** Alignment graph **/
+    /** Alignment graph and max node length **/
     gssw_graph *graph;
+    int32_t maxNodelen = 100000;
 
     srand(time(NULL));
 
@@ -52,6 +53,7 @@ int main(int argc, char *argv[]) {
         cout << "-v\t--vcf           VCF file, uncompressed." << endl;
         cout << "-r\t--ref           reference single record FASTA" << endl;
         cout << "-b\t--buildfile     quick rebuild file, required if -v, -r are not defined. Takes priority." << endl;
+        cout << "-g\t--maxlen        Maximum node length, default " << maxNodelen << endl;
         cout << "-m\t--match         Match score, default  " << match << endl;
         cout << "-n\t--mismatch      Mismatch score, default " << mismatch << endl;
         cout << "-o\t--gap_open      Gap opening score, default " << int32_t(gap_open) << endl;
@@ -101,7 +103,8 @@ int main(int argc, char *argv[]) {
     >> GetOpt::Option('I', "indelerr", indelerr)
     >> GetOpt::Option('L', "readlen", readlen)
     >> GetOpt::OptionPresent('i', "simreads", simreads)
-    >> GetOpt::Option('T', "readout", simfile);
+    >> GetOpt::Option('T', "readout", simfile)
+    >> GetOpt::Option('g', "maxlen", maxNodelen);
 
     print = !print;
 
@@ -118,7 +121,7 @@ int main(int argc, char *argv[]) {
 
     /** Build graph **/
     if (buildfile.length() > 0) graph = buildGraph(buildfile, nt_table, mat);
-    else graph = generateGraph(REF, VCF, nt_table, mat, minpos, maxpos, outfile);
+    else graph = generateGraph(REF, VCF, nt_table, mat, minpos, maxpos, maxNodelen, outfile);
 
     /** Simulate reads **/
     if (simreads) {
@@ -273,6 +276,7 @@ gssw_graph *generateGraph(
         std::string REF, std::string VCF,
         int8_t *nt_table, int8_t *mat,
         int32_t minpos, int32_t maxpos, // Region to parse
+        int32_t maxNodeLen,
         std::string outputFile) {
 
     using namespace std;
@@ -292,6 +296,7 @@ gssw_graph *generateGraph(
     int numalts = 0, numprev;
     /** strings that represent node contents **/
     string vref, valt, nodestring;
+    int32_t nodelen = 0;
     char base;
     bool write = false;
 
@@ -333,7 +338,7 @@ gssw_graph *generateGraph(
     /** Generate Nodes **/
     if (print) cout << "Generating nodes..." << endl;
 
-    // Go to minimum position
+    /** Go to minimum position **/
     if (minpos > 0) {
         while (rpos < minpos - 1) {
             reference.get(base);
@@ -344,6 +349,7 @@ gssw_graph *generateGraph(
     /** Process variants **/
     while (getline(variants, vline)) {
         nodestring = "";
+        nodelen = 0;
         split(vline, '\t', vline_split);
         vpos = atoi(vline_split[pos].c_str());
         if (vpos <= rpos) goto endvar;
@@ -361,6 +367,27 @@ gssw_graph *generateGraph(
             if (!isspace(base)) {
                 nodestring += base;
                 rpos++;
+                nodelen++;
+            }
+
+            /** Max node length reached, split node **/
+            if (nodelen == maxNodeLen) {
+                nodes.push_back(gssw_node_create(rpos, nodenum, nodestring.c_str(), nt_table, mat));
+                if (write) out << rpos << "," << nodenum << "," << nodestring.c_str() << endl;
+                if (nodenum != 0) {
+                    /** Connect to all of the previous alt/ref nodes **/
+                    for (int i = 0; i < numalts; i++) {
+                        gssw_nodes_add_edge(nodes.end()[-2 - i], nodes.end()[-1]);
+                        if (write) out << -2 - i << "," << -1 << endl;
+#if debug > 4
+                        cout << "Edge: " << nodes.end()[-2 - i]->id << ", " << nodes.end()[-1]->id << endl;
+#endif
+                    }
+                }
+                nodenum++;
+                numalts = 1;
+                nodestring = "";
+                nodelen = 0;
             }
         }
 
