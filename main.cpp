@@ -31,19 +31,21 @@ int main(int argc, char *argv[]) {
 
     /** File names and arguments **/
     string VCF = "", REF = "", outfile = "", buildfile = "", simfile = "",
-            readfile = "", alignfile = "", query, read, region;
+            readfile = "", alignfile = "", query, read, region,
+            NVbuildfile;
 
     /** File streams **/
     std::ifstream reads;
-    std::ofstream aligns, out;
+    std::ofstream aligns, NValigns, simout;
 
     /** Graph score and conversion table **/
     int8_t *nt_table = gssw_create_nt_table();
     int8_t *mat = gssw_create_score_matrix(match, mismatch);
 
     /** Alignment graph and max node length **/
-    gssw_graph *graph;
+    gssw_graph *graph, *NVgraph;
     int32_t maxNodelen = 100000;
+    bool dual = false;
 
     srand(time(NULL));
 
@@ -53,6 +55,7 @@ int main(int argc, char *argv[]) {
         cout << "-v\t--vcf           VCF file, uncompressed." << endl;
         cout << "-r\t--ref           reference single record FASTA" << endl;
         cout << "-b\t--buildfile     quick rebuild file, required if -v, -r are not defined. Takes priority." << endl;
+        cout << "-B\t--NVbuildfile   quick rebuild file for no variant graph, use with -D." << endl;
         cout << "-g\t--maxlen        Maximum node length, default " << maxNodelen << endl;
         cout << "-m\t--match         Match score, default  " << match << endl;
         cout << "-n\t--mismatch      Mismatch score, default " << mismatch << endl;
@@ -61,10 +64,11 @@ int main(int argc, char *argv[]) {
         cout << "-t\t--outfile       Graph output file for quick rebuild" << endl;
         cout << "-d\t--reads         Reads to align, one per line. Reads can be appended with # and a comment." << endl;
         cout << "-s\t--string        Align a single string to stdout, overrides read file arguments" << endl;
-        cout << "-a\t--aligns        Output file for alignments, one per line." << endl;
+        cout << "-a\t--aligns        Output file for alignments, one per line. With -D, '.nv' will be appended." << endl;
         cout << "-R\t--region        Ref region, inclusive: min:max. Default is entire graph." << endl;
         cout << "-p\t--noprint       Disable stdout printing" << endl;
         cout << "-x\t--novar         Generate and align to a no-variant graph. VCF still required." << endl;
+        cout << "-D\t--dual          Align to both variant and non-variant graphs." << endl;
         cout << "-i\t--simreads      Simulate reads and write to the file specified by -T" << endl;
         cout << "-T\t--readout       Simulated reads output file, 1 per line followed by position information." << endl;
         cout << "-N\t--numreads      Number of reads to simulate, default " << numreads << endl;
@@ -104,7 +108,9 @@ int main(int argc, char *argv[]) {
     >> GetOpt::Option('L', "readlen", readlen)
     >> GetOpt::OptionPresent('i', "simreads", simreads)
     >> GetOpt::Option('T', "readout", simfile)
-    >> GetOpt::Option('g', "maxlen", maxNodelen);
+    >> GetOpt::Option('g', "maxlen", maxNodelen)
+    >> GetOpt::OptionPresent('D', "dual", dual)
+    >> GetOpt::Option('B', "NVbuildfile", NVbuildfile);
 
     print = !print;
 
@@ -120,8 +126,17 @@ int main(int argc, char *argv[]) {
     }
 
     /** Build graph **/
-    if (buildfile.length() > 0) graph = buildGraph(buildfile, nt_table, mat);
-    else graph = generateGraph(REF, VCF, nt_table, mat, minpos, maxpos, maxNodelen, outfile);
+    if(dual) {
+        if(buildfile.length() < 1 || NVbuildfile.length() < 1) {
+            cerr << "-b and -B need to be defined with -D." << endl;
+            exit(1);
+        }
+        graph = buildGraph(buildfile, nt_table, mat);
+        NVgraph = buildGraph(NVbuildfile,nt_table, mat);
+    } else {
+        if (buildfile.length() > 0) graph = buildGraph(buildfile, nt_table, mat);
+        else graph = generateGraph(REF, VCF, nt_table, mat, minpos, maxpos, maxNodelen, outfile);
+    }
 
     /** Simulate reads **/
     if (simreads) {
@@ -129,14 +144,14 @@ int main(int argc, char *argv[]) {
             cerr << "Specify an output file for simulated reads with -T" << endl;
             exit(1);
         }
-        out.open(simfile.c_str());
+        simout.open(simfile.c_str());
         if (print) cout << "Generating reads..." << endl;
         for(int i = 0; i < numreads; i++) {
             if (print) cout << std::setw(12) << i + 1 << '\r' << std::flush;
-            out << generateRead(*graph, readlen, muterr, indelerr) << endl;
+            simout << generateRead(*graph, readlen, muterr, indelerr) << endl;
         }
         cout << endl;
-        out.close();
+        simout.close();
     }
 
     /** Align to graph **/
@@ -149,18 +164,23 @@ int main(int argc, char *argv[]) {
         /** Read file **/
         reads.open(readfile.c_str());
         aligns.open(alignfile.c_str());
-        if (!reads.good() || !aligns.good()) {
-            cerr << "No reads specified, no alignment will be done." << endl;
+        if(dual) NValigns.open((alignfile + ".nv").c_str());
+        if (!reads.good() || !aligns.good() || (!NValigns.good() && dual)) {
+            cerr << "Error opening reads file or alignment files. No alignment will be done." << endl;
             exit(0);
         }
-        aligns << "#Read; node ID, node max position, score1, alignment end pos, score2, 2 max end position" << endl;
+        aligns << "#Read;NODE_ID,NODE_MAX,SCORE1,1_END_POS,SCORE2,2_END_MAX_POS" << endl;
+        if (dual) NValigns << "#Read;NODE_ID,NODE_MAX,SCORE1,1_END_POS,SCORE2,2_END_MAX_POS" << endl;
         if (print) cout << "Aligning reads..." << endl;
         while (std::getline(reads, read)) {
             readnum++;
             if (print) cout << std::setw(12) << readnum << '\r' << std::flush;
+
             readEnd = read.find('#');
             if(readEnd == string::npos)  readEnd = read.length();
+
             gssw_graph_fill(graph, read.substr(0, readEnd).c_str(), nt_table, mat, gap_open, gap_extension, read.length() / 2, 2);
+
             aligns << ">" << read << ";"
             << graph->max_node->id << ","
             << graph->max_node->data << ","
@@ -169,9 +189,21 @@ int main(int argc, char *argv[]) {
             << graph->max_node->alignment->score2 << ","
             << graph->max_node->alignment->ref_end2 << endl;
 
+            if(dual) {
+                gssw_graph_fill(NVgraph, read.substr(0, readEnd).c_str(), nt_table, mat, gap_open, gap_extension, read.length() / 2, 2);
+
+                NValigns << ">" << read << ";"
+                << NVgraph->max_node->id << ","
+                << NVgraph->max_node->data << ","
+                << NVgraph->max_node->alignment->score1 << ","
+                << NVgraph->max_node->alignment->ref_end1 << ","
+                << NVgraph->max_node->alignment->score2 << ","
+                << NVgraph->max_node->alignment->ref_end2 << endl;
+            }
         }
         reads.close();
         aligns.close();
+        if(dual) NValigns.close();
     }
 
     gssw_graph_destroy(graph);
@@ -234,7 +266,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
     uint32_t curr = 0;
 
     /** Build nodes and edges from buildfile **/
-    cout << "Generating Nodes..." << endl;
+    cout << "Generating Nodes (" << buildfile << ")" << "..." << endl;
     while (getline(graphDat, line)) {
         split(line, ',', lineSplit);
         switch (lineSplit.size()) {
@@ -256,6 +288,8 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
                 break;
         }
     }
+
+    cout << endl << "Building Graph..." << endl;
 
     /** Buffer node **/
     nodes.push_back(gssw_node_create(NULL, ++curr, "", nt_table, mat));
