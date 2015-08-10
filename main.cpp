@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
         cout << "-L\t--readlen       Nominal read length, default " << readlen << endl << endl;
 
         cout << "Sim read format:    READ#NODE_ID,NODE_MAX_POSITION,READ_END_POSITION" << endl;
-        cout << "Alignment format:  >READ;NODE_ID,NODE_MAX_POSITION,SCORE1,END_POSITION,SCORE2,END_POSITION" << endl;
+        cout << "Alignment format:  >READ;NODE_ID,NODE_MAX_POSITION,SCORE1,1_END_POSITION,SCORE2,2_MAX_END_POS" << endl;
         exit(0);
     }
 
@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
             cerr << "No reads specified, no alignment will be done." << endl;
             exit(0);
         }
-        aligns << "#Read; node ID, node max ref position, score1, alignment end, score 2, alignment 2 end" << endl;
+        aligns << "#Read; node ID, node max position, score1, alignment end pos, score2, 2 max end position" << endl;
         if (print) cout << "Aligning reads..." << endl;
         while (std::getline(reads, read)) {
             readnum++;
