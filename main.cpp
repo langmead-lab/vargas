@@ -15,44 +15,67 @@ bool novar = false;
 
 int main(int argc, char *argv[]) {
     /** Scores **/
-    int32_t match = 2, mismatch = 2, readnum = 0, minpos = 0, maxpos = 2147483640;
+    int32_t match = 2, mismatch = 2;
+    uint8_t gap_open = 3, gap_extension = 1;
+
+    /** read number, default region **/
+    int32_t readnum = 0, minpos = 0, maxpos = 2147483640;
+    std::vector<string> region_split(0);
+
+    /** Default sim read error **/
     float muterr = 0.01f, indelerr = 0.01f;
+
+    /** Read generation defaults **/
     int32_t numreads = 1000, readlen = 100, readEnd;
     bool simreads = false;
-    uint8_t gap_open = 3, gap_extension = 1;
+
+    /** File names and arguments **/
     string VCF = "", REF = "", outfile = "", buildfile = "", simfile = "",
             readfile = "", alignfile = "", query, read, region;
+
+    /** File streams **/
     std::ifstream reads;
     std::ofstream aligns, out;
+
+    /** Graph score and conversion table **/
+    int8_t *nt_table = gssw_create_nt_table();
+    int8_t *mat = gssw_create_score_matrix(match, mismatch);
+
+    /** Alignment graph **/
+    gssw_graph *graph;
 
     srand(time(NULL));
 
     GetOpt::GetOpt_pp args(argc, argv);
     if (args >> GetOpt::OptionPresent('h', "help")) {
-        cout << "VMatch options:" << endl;
-        cout << "-v\t--vcf           VCF file, uncompressed" << endl;
-        cout << "-r\t--ref           reference FASTA" << endl;
+        cout << "---------------------------- VMatch, August 2015. rgaddip1@jhu.edu ----------------------------" << endl;
+        cout << "-v\t--vcf           VCF file, uncompressed." << endl;
+        cout << "-r\t--ref           reference single record FASTA" << endl;
         cout << "-b\t--buildfile     quick rebuild file, required if -v, -r are not defined. Takes priority." << endl;
         cout << "-m\t--match         Match score, default  " << match << endl;
         cout << "-n\t--mismatch      Mismatch score, default " << mismatch << endl;
         cout << "-o\t--gap_open      Gap opening score, default " << int32_t(gap_open) << endl;
         cout << "-e\t--gap_extend    Gap extend score, default " << int32_t(gap_extension) << endl;
-        cout << "-t\t--outfile       Output file for quick rebuild of graph" << endl;
-        cout << "-d\t--reads         Reads to align, one per line. set equal to -T to align after sim" << endl;
-        cout << "-s\t--string        Align a single string to stdout, overrides reads file" << endl;
-        cout << "-a\t--aligns        Outputfile for alignments" << endl;
-        cout << "-R\t--region        Ref region, inclusive. min:max" << endl;
+        cout << "-t\t--outfile       Graph output file for quick rebuild" << endl;
+        cout << "-d\t--reads         Reads to align, one per line. Reads can be appended with # and a comment." << endl;
+        cout << "-s\t--string        Align a single string to stdout, overrides read file arguments" << endl;
+        cout << "-a\t--aligns        Output file for alignments, one per line." << endl;
+        cout << "-R\t--region        Ref region, inclusive: min:max. Default is entire graph." << endl;
         cout << "-p\t--noprint       Disable stdout printing" << endl;
-        cout << "-x\t--novar         Generate and align to a no-variant graph" << endl;
+        cout << "-x\t--novar         Generate and align to a no-variant graph. VCF still required." << endl;
         cout << "-i\t--simreads      Simulate reads and write to the file specified by -T" << endl;
-        cout << "-T\t--readout       File to output reads to" << endl;
+        cout << "-T\t--readout       Simulated reads output file, 1 per line followed by position information." << endl;
         cout << "-N\t--numreads      Number of reads to simulate, default " << numreads << endl;
-        cout << "-M\t--muterr        read mutation error rate, default " << muterr << endl;
-        cout << "-I\t--indelerr      read Indel error rate, default " << indelerr << endl;
-        cout << "-L\t--readlen       nominal read length, default " << readlen << endl;
+        cout << "-M\t--muterr        Simulated read mutation error rate, default " << muterr << endl;
+        cout << "-I\t--indelerr      Simulated read Indel error rate, default " << indelerr << endl;
+        cout << "-L\t--readlen       Nominal read length, default " << readlen << endl << endl;
+
+        cout << "Sim read format:    READ#NODE_ID,NODE_MAX_POSITION,READ_END_POSITION" << endl;
+        cout << "Alignment format:  >READ;NODE_ID,NODE_MAX_POSITION,SCORE1,END_POSITION,SCORE2,END_POSITION" << endl;
         exit(0);
     }
 
+    /** make sure there's a valid input **/
     if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
         if (!(args >> GetOpt::Option('v', "vcf", VCF))
             || !(args >> GetOpt::Option('r', "ref", REF))) {
@@ -81,10 +104,6 @@ int main(int argc, char *argv[]) {
     >> GetOpt::Option('T', "readout", simfile);
 
     print = !print;
-    int8_t *nt_table = gssw_create_nt_table(); // Nucleotide -> Num
-    int8_t *mat = gssw_create_score_matrix(match, mismatch);
-    gssw_graph *graph;
-    std::vector<string> region_split(0);
 
     /** Parse region **/
     if (region.length() > 0) {
@@ -119,10 +138,12 @@ int main(int argc, char *argv[]) {
 
     /** Align to graph **/
     if (query.length() > 0) {
+        /** If a single query is specified **/
         gssw_graph_fill(graph, query.c_str(), nt_table, mat, gap_open, gap_extension, query.length() / 2, 2);
         printNode(graph->max_node);
     }
     else {
+        /** Read file **/
         reads.open(readfile.c_str());
         aligns.open(alignfile.c_str());
         if (!reads.good() || !aligns.good()) {
@@ -165,15 +186,17 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
     std::stringstream readmut;
     std::string read = "";
 
+    /** initial random node and base **/
     node = graph.nodes[rand() % (graph.size - 1)];
     base = rand() % (node->len);
 
     for(int i = 0; i < readLen; i++) {
         read += node->seq[base];
         base++;
+        /** Go to next random node **/
         if(base == node->len) {
             node = node->next[rand() % node->count_next];
-            if(node->count_next == 0) break;
+            if(node->count_next == 0) break; // End of graph reached
             base = 0;
         }
     }
@@ -184,6 +207,7 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
         mut = read.at(i);
         if (RAND < (100000 - (100000 * indelerr / 2))) { // represents del
             if (RAND > (100000 - (100000 * indelerr))) RAND = rand() % int32_t(100000 * muterr); // insert rand base
+            /** Mutation **/
             if (RAND < (100000 * muterr) / 4) mut = 'A';
             else if (RAND < 2 * (100000 * muterr) / 4) mut = 'G';
             else if (RAND < 3 * (100000 * muterr) / 4) mut = 'C';
@@ -191,6 +215,7 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
             readmut << mut;
         }
     }
+    /** Append suffix recording read position **/
     readmut << "#" << node->id << "," << node->data << "," << base;
     return readmut.str();
 }
@@ -205,6 +230,8 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
     vector<gssw_node *> nodes(0);
     uint32_t curr = 0;
 
+    /** Build nodes and edges from buildfile **/
+    cout << "Generating Nodes..." << endl;
     while (getline(graphDat, line)) {
         split(line, ',', lineSplit);
         switch (lineSplit.size()) {
@@ -214,18 +241,20 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
                                                  curr,
                                                  lineSplit[2].c_str(), nt_table, mat));
                 if (print) cout << setw(12) << curr << '\r' << flush;
-
                 break;
+
             case 2: // New edge
                 gssw_nodes_add_edge(nodes.end()[strtol(lineSplit[0].c_str(), NULL, 10)],
                                     nodes.end()[strtol(lineSplit[1].c_str(), NULL, 10)]);
                 break;
+
             default:
                 cerr << "Unexpected line in buildfile: " << endl << line << endl;
                 break;
         }
     }
 
+    /** Buffer node **/
     nodes.push_back(gssw_node_create(NULL, ++curr, "", nt_table, mat));
     gssw_nodes_add_edge(nodes.end()[-2], nodes.end()[-1]);
 
@@ -266,6 +295,7 @@ gssw_graph *generateGraph(
     char base;
     bool write = false;
 
+    /** File stream **/
     ifstream variants(VCF.c_str(), ios_base::in | ios_base::binary);
     ifstream reference(REF.c_str());
     ofstream out;
@@ -311,6 +341,7 @@ gssw_graph *generateGraph(
         }
     }
 
+    /** Process variants **/
     while (getline(variants, vline)) {
         nodestring = "";
         split(vline, '\t', vline_split);
@@ -359,6 +390,9 @@ gssw_graph *generateGraph(
         /** Ref node **/
         for (int i = 0; i < vref.length(); i++) {
             reference.get(base);
+            if(isspace(base)) {
+                reference.get(base);
+            }
             rpos++;
         }
         nodes.push_back(gssw_node_create(rpos, nodenum, vref.c_str(), nt_table, mat));
@@ -454,6 +488,7 @@ void printNode(gssw_node *node) {
 
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
+    /** Split string with delim, return a vector **/
     std::stringstream ss(s);
     std::string item;
     elems = *new std::vector<std::string>(0);
