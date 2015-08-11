@@ -4,7 +4,6 @@
 //
 
 #include "main.h"
-#include "gssw/src/gssw.h"
 
 using std::string;
 using std::cout;
@@ -77,7 +76,7 @@ int main(int argc, char *argv[]) {
         cout << "-I\t--indelerr      Simulated read Indel error rate, default " << indelerr << endl;
         cout << "-L\t--readlen       Nominal read length, default " << readlen << endl << endl;
 
-        cout << "Sim read format:    READ#NODE_ID,NODE_MAX_POSITION,READ_END_POSITION" << endl;
+        cout << "Sim read format:    READ#NODE_ID, NODE_LEN, NODE_MAX_POSITION, READ_END_POSITION" << endl;
         cout << "Alignment format:   #READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " << endl;
         cout << "                    2_NODE_ID, 2_NODE_LEN, 2_NODE_MAX, 2_SCORE, 2_END_POS" << endl;
         cout << "Note: Suboptimal score only applies to nodes different then the best alignment " <<
@@ -264,7 +263,7 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
         }
     }
     /** Append suffix recording read position **/
-    readmut << "#" << node->id << "," << node->data << "," << base;
+    readmut << "#" << node->id << "," << node->len << "," << node->data << "," << base;
     return readmut.str();
 }
 
@@ -421,6 +420,9 @@ gssw_graph *generateGraph(
             if (nodelen == maxNodeLen) {
                 nodes.push_back(gssw_node_create(rpos, nodenum, nodestring.c_str(), nt_table, mat));
                 if (write) out << rpos << "," << nodenum << "," << nodestring.c_str() << endl;
+#if debug > 4
+            cout << "Node: " << rpos << ", ID: " << nodenum << ", " << nodestring << endl;
+#endif
                 if (nodenum != 0) {
                     /** Connect to all of the previous alt/ref nodes **/
                     for (int i = 0; i < numalts; i++) {
