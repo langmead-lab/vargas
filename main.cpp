@@ -4,6 +4,7 @@
 //
 
 #include "main.h"
+#include "gssw/src/gssw.h"
 
 using std::string;
 using std::cout;
@@ -44,7 +45,7 @@ int main(int argc, char *argv[]) {
 
     /** Alignment graph and max node length **/
     gssw_graph *graph, *NVgraph;
-    int32_t maxNodelen = 100000;
+    int32_t maxNodelen = 50000;
     bool dual = false;
 
     srand(time(NULL));
@@ -77,7 +78,9 @@ int main(int argc, char *argv[]) {
         cout << "-L\t--readlen       Nominal read length, default " << readlen << endl << endl;
 
         cout << "Sim read format:    READ#NODE_ID,NODE_MAX_POSITION,READ_END_POSITION" << endl;
-        cout << "Alignment format:  >READ;NODE_ID,NODE_MAX_POSITION,SCORE1,1_END_POSITION,SCORE2,2_MAX_END_POS" << endl;
+        cout << "Alignment format:   READ;1_NODE_ID,1_NODE_MAX,1SCORE,1_END_POS;2_NODE_MAX,2SCORE,2_END_POS" << endl;
+        cout << "Note: Suboptimal score only applies to nodes different then the best alignment " <<
+                endl << "node. Control granularity with --maxlen." << endl;
         exit(0);
     }
 
@@ -150,7 +153,7 @@ int main(int argc, char *argv[]) {
             if (print) cout << std::setw(12) << i + 1 << '\r' << std::flush;
             simout << generateRead(*graph, readlen, muterr, indelerr) << endl;
         }
-        cout << endl;
+        if(print) cout << endl;
         simout.close();
     }
 
@@ -169,8 +172,8 @@ int main(int argc, char *argv[]) {
             cerr << "Error opening reads file or alignment files. No alignment will be done." << endl;
             exit(0);
         }
-        aligns << "#Read;NODE_ID,NODE_MAX,SCORE1,1_END_POS,SCORE2,2_END_MAX_POS" << endl;
-        if (dual) NValigns << "#Read;NODE_ID,NODE_MAX,SCORE1,1_END_POS,SCORE2,2_END_MAX_POS" << endl;
+        aligns << "#READ;1_NODE_ID,1_NODE_MAX,1SCORE,1_END_POS;2_NODE_MAX,2SCORE,2_END_POS" << endl;
+        if (dual) NValigns << "#READ;NODE_ID,NODE_MAX,SCORE1,1_END_POS,SCORE2,2_END_MAX_POS" << endl;
         if (print) cout << "Aligning reads..." << endl;
         while (std::getline(reads, read)) {
             readnum++;
@@ -180,25 +183,26 @@ int main(int argc, char *argv[]) {
             if(readEnd == string::npos)  readEnd = read.length();
 
             gssw_graph_fill(graph, read.substr(0, readEnd).c_str(), nt_table, mat, gap_open, gap_extension, read.length() / 2, 2);
-
-            aligns << ">" << read << ";"
+            aligns << read << ";"
             << graph->max_node->id << ","
             << graph->max_node->data << ","
             << graph->max_node->alignment->score1 << ","
-            << graph->max_node->alignment->ref_end1 << ","
-            << graph->max_node->alignment->score2 << ","
-            << graph->max_node->alignment->ref_end2 << endl;
+            << graph->max_node->alignment->ref_end1 << ";"
+            << graph->nodes[graph->max_node->alignment->prevmax]->data << ","
+            << graph->nodes[graph->max_node->alignment->prevmax]->alignment->score1 << ","
+            << graph->nodes[graph->max_node->alignment->prevmax]->alignment->ref_end1 << endl;
 
+            /** Align to second graph if -D is specified **/
             if(dual) {
                 gssw_graph_fill(NVgraph, read.substr(0, readEnd).c_str(), nt_table, mat, gap_open, gap_extension, read.length() / 2, 2);
-
-                NValigns << ">" << read << ";"
+                NValigns << read << ";"
                 << NVgraph->max_node->id << ","
                 << NVgraph->max_node->data << ","
                 << NVgraph->max_node->alignment->score1 << ","
-                << NVgraph->max_node->alignment->ref_end1 << ","
-                << NVgraph->max_node->alignment->score2 << ","
-                << NVgraph->max_node->alignment->ref_end2 << endl;
+                << NVgraph->max_node->alignment->ref_end1 << ";"
+                << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->data << ","
+                << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->alignment->score1 << ","
+                << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->alignment->ref_end1 << endl;
             }
         }
         reads.close();
@@ -266,7 +270,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
     uint32_t curr = 0;
 
     /** Build nodes and edges from buildfile **/
-    cout << "Generating Nodes (" << buildfile << ")" << "..." << endl;
+    if(print) cout << "Generating Nodes (" << buildfile << ")" << "..." << endl;
     while (getline(graphDat, line)) {
         split(line, ',', lineSplit);
         switch (lineSplit.size()) {
@@ -289,7 +293,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
         }
     }
 
-    cout << endl << "Building Graph..." << endl;
+    if(print) cout << endl << "Building Graph..." << endl;
 
     /** Buffer node **/
     nodes.push_back(gssw_node_create(NULL, ++curr, "", nt_table, mat));
