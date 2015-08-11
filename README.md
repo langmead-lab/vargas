@@ -4,10 +4,11 @@
 -v     --vcf           VCF file, uncompressed
 -r     --ref           reference FASTA
 -b     --buildfile     quick rebuild file, required if -v, -r are not defined. Takes priority.
--m     --match         Match score, default  " << matc
--n     --mismatch      Mismatch score, default " << mismatc
--o     --gap_open      Gap opening score, default " << int32_t(gap_open
--e     --gap_extend    Gap extend score, default " << int32_t(gap_extension
+-B     --NVbuildfile   quick rebuild file for no variant graph, use with -D.
+-m     --match         Match score, default 2
+-n     --mismatch      Mismatch score, default 2
+-o     --gap_open      Gap opening score, default 3
+-e     --gap_extend    Gap extend score, default 1
 -t     --outfile       Output file for quick rebuild of graph
 -d     --reads         Reads to align, one per line. set equal to -T to align after sim
 -s     --string        Align a single string to stdout, overrides reads file
@@ -15,6 +16,7 @@
 -R     --region        Ref region, inclusive. min:max
 -p     --noprint       Disable stdout printing
 -x     --novar         Generate and align to a no-variant graph
+-D     --dual          Align to both variant and non-variant graphs.
 -i     --simreads      Simulate reads and write to the file specified by -T
 -T     --readout       File to output reads to
 -N     --numreads      Number of reads to simulate, default
@@ -33,7 +35,22 @@ cmake ..
 make
 export PATH=path_to_VMatch/build:$PATH
 ```
- 
+
+For an optimizied build a higher version of GCC is needed, such as gcc-4.9.3.
+
+```
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make
+export PATH=path_to_VMatch/build:$PATH
+```
+
+Before usage of vmatch,
+
+`export LD_LIBRARY_PATH=PATH_TO_GCC-4.9.3/lib64:$LD_LIBRARY_PATH`
+
+Using chr22 in the region of 21,000,000:51,000,000 with an optimized build, it takes ~10s to align to a variant and a no variant graph using the `-D` option in a 3GB memory footprint.
+
 ### Generating a graph
  
  A graph is built on every launch of the program. A graph can be built using the `-v` and `-r` arguments, specifying the VCF and reference FASTA resepectivly. For large graphs the the graph can be output with the `-t` option. This allows for a quick-rebuild of the graph in future alignments using the `-b` argument. A region can be specified with `-R`. A graph with no variants is built using the `-x` option. For example to generate a graph from `REF` and `VAR` from position `a` to position `b` without variants:
@@ -58,13 +75,20 @@ export PATH=path_to_VMatch/build:$PATH
  
  `vmatch -r REF.fa -v VAR.vcf -t GRAPH -R a:b -i -N 1000 -T SIMREADS -d SIMREADS -a ALIGNMENTS`
  
+ Reads can also be aligned to two graphs (intended for a variant and a no varant graph) using the `-D` option and specifying two build files. To generate 10000 reads and align it to both graphs:
+ 
+ `vmatch -D -b GRAPH -B GRAPH_NV -d READS -a ALIGNS -i -N 10000 -T READS`
+ 
  An example output with the corresponding format is below.
  
- `Simulated read` # `Node ID`,`node max position`,`end of read position in node`;`node ID`,`max position in node`,`best score`,`best score position in node`,`suboptimal score`,`suboptimal end in node`
+ Sim read format: `READ`#`NODE_ID`, `NODE_LEN`, `NODE_MAX_POSITION`, `READ_END_POSITION`
  
- ```
->GGAGG#110,488,2;12,33,8,12,0,-1
->AGATC#45,186,0;44,178,10,0,0,-1
->ATCGC#122,552,4;93,396,8,0,0,-1
->ATCTC#66,286,4;60,271,10,35,0,-1
+ Alignment format: #`READ`; `1_NODE_ID`, `NODE_LEN`, `1_NODE_MAX`, `1_SCORE`, `1_END_POS`; `2_NODE_ID`, `2_NODE_LEN`, `2_NODE_MAX`, `2_SCORE`, `2_END_POS`
+ 
+```
+CAGACAAATCTGGGTTCAAGTCCTCACTTT#54,13,217,10;54,13,217,60,9;0,8,8,10,4
+GCTGCTCTCTTCTTGTCAGATCGTATTCTC#197,14,915,5;197,14,915,56,4;0,8,8,6,4
+GAATCTTTCCAGAACCTGCTCTTTCCTCA#178,30,857,15;178,30,857,55,14;0,8,8,6,4
+GTGAAGCTGAGGGAATAGTGCCTGGCATAG#93,23,396,1;93,23,396,60,0;0,8,8,8,5
+GTTACTGTTATTTACTATGAATCCTCACCT#104,57,465,19;104,57,465,60,18;0,8,8,6,4
 ```
