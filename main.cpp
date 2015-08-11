@@ -78,9 +78,10 @@ int main(int argc, char *argv[]) {
         cout << "-L\t--readlen       Nominal read length, default " << readlen << endl << endl;
 
         cout << "Sim read format:    READ#NODE_ID,NODE_MAX_POSITION,READ_END_POSITION" << endl;
-        cout << "Alignment format:   READ;1_NODE_ID,1_NODE_MAX,1SCORE,1_END_POS;2_NODE_MAX,2SCORE,2_END_POS" << endl;
+        cout << "Alignment format:   #READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " << endl;
+        cout << "                    2_NODE_ID, 2_NODE_LEN, 2_NODE_MAX, 2_SCORE, 2_END_POS" << endl;
         cout << "Note: Suboptimal score only applies to nodes different then the best alignment " <<
-                endl << "node. Control granularity with --maxlen." << endl;
+                endl << "node. Control granularity with --maxlen." << endl << endl;
         exit(0);
     }
 
@@ -172,8 +173,10 @@ int main(int argc, char *argv[]) {
             cerr << "Error opening reads file or alignment files. No alignment will be done." << endl;
             exit(0);
         }
-        aligns << "#READ;1_NODE_ID,1_NODE_MAX,1SCORE,1_END_POS;2_NODE_MAX,2SCORE,2_END_POS" << endl;
-        if (dual) NValigns << "#READ;NODE_ID,NODE_MAX,SCORE1,1_END_POS,SCORE2,2_END_MAX_POS" << endl;
+        aligns << "#READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " <<
+                "2_NODE_ID, 2_NODE_LEN, 2_NODE_MAX, 2_SCORE, 2_END_POS" << endl;
+        if (dual) NValigns << "#READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " <<
+                    "2_NODE_ID, 2_NODE_LEN, 2_NODE_MAX, 2_SCORE, 2_END_POS" << endl;
         if (print) cout << "Aligning reads..." << endl;
         while (std::getline(reads, read)) {
             readnum++;
@@ -185,9 +188,12 @@ int main(int argc, char *argv[]) {
             gssw_graph_fill(graph, read.substr(0, readEnd).c_str(), nt_table, mat, gap_open, gap_extension, read.length() / 2, 2);
             aligns << read << ";"
             << graph->max_node->id << ","
+            << graph->max_node->len << ","
             << graph->max_node->data << ","
             << graph->max_node->alignment->score1 << ","
             << graph->max_node->alignment->ref_end1 << ";"
+            << graph->nodes[graph->max_node->alignment->prevmax]->id << ","
+            << graph->nodes[graph->max_node->alignment->prevmax]->len << ","
             << graph->nodes[graph->max_node->alignment->prevmax]->data << ","
             << graph->nodes[graph->max_node->alignment->prevmax]->alignment->score1 << ","
             << graph->nodes[graph->max_node->alignment->prevmax]->alignment->ref_end1 << endl;
@@ -197,9 +203,12 @@ int main(int argc, char *argv[]) {
                 gssw_graph_fill(NVgraph, read.substr(0, readEnd).c_str(), nt_table, mat, gap_open, gap_extension, read.length() / 2, 2);
                 NValigns << read << ";"
                 << NVgraph->max_node->id << ","
+                << NVgraph->max_node->len << ","
                 << NVgraph->max_node->data << ","
                 << NVgraph->max_node->alignment->score1 << ","
                 << NVgraph->max_node->alignment->ref_end1 << ";"
+                << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->id << ","
+                << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->len << ","
                 << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->data << ","
                 << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->alignment->score1 << ","
                 << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->alignment->ref_end1 << endl;
