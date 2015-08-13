@@ -4,8 +4,6 @@
 //
 
 #include "main.h"
-#include "gssw/src/gssw.h"
-
 
 using std::string;
 using std::cout;
@@ -15,31 +13,29 @@ using std::cerr;
 bool print = true;
 bool novar = false;
 
-
 int main(int argc, char *argv[]) {
     /** Scores **/
     int32_t match = 2, mismatch = 2;
     uint8_t gap_open = 3, gap_extension = 1;
 
     /** read number, default region **/
-    int32_t readnum = 0, minpos = 0, maxpos = 2147483640;
-    std::vector<string> region_split(0), line_split(0), read_split(0), opt_split(0), subopt_split(0), files(0);
+    int32_t regionMin = 0, regionMax = 2147483640;
+    std::vector<string> region_split(0);
 
     /** Default sim read error **/
     float muterr = 0.01f, indelerr = 0.01f;
 
     /** Read generation defaults **/
-    int32_t numreads = 1000, readlen = 100, readEnd, tol = 5;
-    bool simreads = false;
+    int32_t numreads = 1000, readlen = 100, tol = 5;
 
     /** File names and arguments **/
     string VCF = "", REF = "", outfile = "", buildfile = "", simfile = "",
-            readfile = "", alignfile = "", query, read, region,
+            readfile = "", alignfile = "", query, region,
             NVbuildfile, line;
 
     /** File streams **/
-    std::ifstream reads, alignsin, alignsinNV;
-    std::ofstream aligns, NValigns, simout;
+    std::ifstream alignsin, alignsinNV;
+    std::ofstream simout;
 
     /** Graph score and conversion table **/
     int8_t *nt_table = gssw_create_nt_table();
@@ -48,8 +44,11 @@ int main(int argc, char *argv[]) {
     /** Alignment graph and max node length **/
     gssw_graph *graph, *NVgraph;
     int32_t maxNodelen = 50000;
+
+    /** Modes of operation **/
     bool dual = false;
     bool statmode = false;
+    bool simreads = false;
 
     srand(uint32_t(time(NULL)));
 
@@ -123,68 +122,14 @@ int main(int argc, char *argv[]) {
     >> GetOpt::Option('T', "readout", simfile)
     >> GetOpt::Option('g', "maxlen", maxNodelen)
     >> GetOpt::OptionPresent('D', "dual", dual)
-    >> GetOpt::Option('B', "NVbuildfile", NVbuildfile);
+    >> GetOpt::Option('B', "NVbuildfile", NVbuildfile)
+    >> GetOpt::Option('X', "tol", tol);
 
     print = !print;
 
     /** Stat mode **/
     if (statmode) {
-        split(alignfile, ',', files);
-        int32_t readPos, optPos, correct, total,
-                tCorrect = 0, tReads = 0, tCorrectNV = 0, tReadsNV = 0;
-
-        for(int i = 0; i < files.size(); i++) {
-            correct = 0;
-            total = 0;
-            alignsin.open(files[i].c_str());
-            if (!alignsin.good()) {
-                cerr << "Error opening input file " << alignfile << endl;
-                exit(1);
-            }
-
-            while (std::getline(alignsin, line)) {
-                if (line.at(0) != '#') {
-                    split(line, ';', line_split);
-                    split(line_split[0], ',', read_split);
-                    split(line_split[1], ',', opt_split);
-                    split(line_split[2], ',', subopt_split);
-                    readPos = atoi(read_split[2].c_str()) - atoi(read_split[1].c_str()) + atoi(read_split[3].c_str());
-                    optPos = atoi(opt_split[2].c_str()) - atoi(opt_split[1].c_str()) + atoi(opt_split[4].c_str());
-                    if (optPos > readPos - tol && optPos < readPos + tol) correct++;
-                    total++;
-                }
-            }
-            cout <<files[i] << ": " << correct << "/" << total << " correct." << endl;
-            alignsin.close();
-            tCorrect += correct; tReads += total;
-            correct = 0;
-            total = 0;
-
-            alignsinNV.open((files[i] + ".nv").c_str());
-            if (alignsinNV.good()) {
-                while (std::getline(alignsinNV, line)) {
-                    if (line.at(0) != '#') {
-                        split(line, ';', line_split);
-                        split(line_split[0], ',', read_split);
-                        split(line_split[1], ',', opt_split);
-                        split(line_split[2], ',', subopt_split);
-                        readPos = atoi(read_split[2].c_str()) - atoi(read_split[1].c_str()) + atoi(read_split[3].c_str());
-                        optPos = atoi(opt_split[2].c_str()) - atoi(opt_split[1].c_str()) + atoi(opt_split[4].c_str());
-                        if (optPos > readPos - tol && optPos < readPos + tol) correct++;
-                        total++;
-                    }
-                }
-                cout << files[i] << ".nv: " << correct << "/" << total << " correct." << endl;
-            } else {
-                cout << "No-variant aligns " << files[i] << ".nv found." << endl;
-            }
-            alignsinNV.close();
-            tCorrectNV += correct; tReadsNV += total;
-            cout << endl;
-        }
-        cout << "Total: " << tCorrect << "/" << tReads << "(" << float(tCorrect)/tReads << "%) correct." << endl;
-        cout << "Total NV: " << tCorrectNV << "/" << tReadsNV << "(" << float(tCorrectNV)/tReadsNV << "%) correct." << endl;
-        cout << "Tolerance: " << tol << endl;
+        stat_main(alignfile, tol);
         exit(0);
     }
 
@@ -195,8 +140,8 @@ int main(int argc, char *argv[]) {
             std::cerr << "Malformed region, must be in the form a:b" << endl;
             exit(1);
         }
-        minpos = std::atoi(region_split[0].c_str());
-        maxpos = std::atoi(region_split[1].c_str());
+        regionMin = std::atoi(region_split[0].c_str());
+        regionMax = std::atoi(region_split[1].c_str());
     }
 
     /** Build graph **/
@@ -209,7 +154,7 @@ int main(int argc, char *argv[]) {
         NVgraph = buildGraph(NVbuildfile, nt_table, mat);
     } else {
         if (buildfile.length() > 0) graph = buildGraph(buildfile, nt_table, mat);
-        else graph = generateGraph(REF, VCF, nt_table, mat, minpos, maxpos, maxNodelen, outfile);
+        else graph = generateGraph(REF, VCF, nt_table, mat, regionMin, regionMax, maxNodelen, outfile);
     }
 
     /** Simulate reads **/
@@ -234,72 +179,151 @@ int main(int argc, char *argv[]) {
         gssw_graph_fill(graph, query.c_str(), nt_table, mat, gap_open, gap_extension, uint32_t(query.length() / 2), 2);
         printNode(graph->max_node);
     } else {
-        /** Read file **/
-        reads.open(readfile.c_str());
-        aligns.open(alignfile.c_str());
-        if (dual) NValigns.open((alignfile + ".nv").c_str());
-        if (!reads.good() || !aligns.good() || (!NValigns.good() && dual)) {
-            cerr << "Error opening reads file or alignment files. No alignment will be done." << endl;
-            exit(0);
-        }
-        aligns << "#READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " <<
-        "2_NODE_ID, 2_NODE_LEN, 2_NODE_MAX, 2_SCORE, 2_END_POS" << endl;
-        if (dual)
-            NValigns << "#READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " <<
-            "2_NODE_ID, 2_NODE_LEN, 2_NODE_MAX, 2_SCORE, 2_END_POS" << endl;
-        if (print) cout << "Aligning reads..." << endl;
-        while (std::getline(reads, read)) {
-            readnum++;
-            if (print) cout << std::setw(12) << readnum << '\r' << std::flush;
+        align_main(graph, NVgraph, mat, nt_table, gap_open, gap_extension, readfile, alignfile, dual);
+    }
 
-            readEnd = int32_t(read.find('#'));
-            if (readEnd == string::npos) readEnd = int32_t(read.length());
+    gssw_graph_destroy(graph);
+    gssw_graph_destroy(NVgraph);
+    delete[] nt_table;
+    delete[] mat;
 
-            gssw_graph_fill(graph, read.substr(0, readEnd).c_str(), nt_table, mat,
-                            gap_open, gap_extension, uint32_t(read.length() / 2), 2);
-            aligns << read << ";"
-            << graph->max_node->id << ","
-            << graph->max_node->len << ","
-            << graph->max_node->data << ","
-            << graph->max_node->alignment->score1 << ","
-            << graph->max_node->alignment->ref_end1 << ";";
-            if (graph->max_node->alignment->prevmax >= 0) {
-                aligns << graph->nodes[graph->max_node->alignment->prevmax]->id << ","
-                << graph->nodes[graph->max_node->alignment->prevmax]->len << ","
-                << graph->nodes[graph->max_node->alignment->prevmax]->data << ","
-                << graph->nodes[graph->max_node->alignment->prevmax]->alignment->score1 << ","
-                << graph->nodes[graph->max_node->alignment->prevmax]->alignment->ref_end1 << endl;
-            } else {aligns << "-1,-1,-1,-1,-1" << endl;}
+    return (0);
+}
 
-            /** Align to second graph if -D is specified **/
-            if (dual) {
-                gssw_graph_fill(NVgraph, read.substr(0, readEnd).c_str(), nt_table, mat,
-                                gap_open, gap_extension, int32_t(read.length() / 2), 2);
-                NValigns << read << ";"
-                << NVgraph->max_node->id << ","
-                << NVgraph->max_node->len << ","
-                << NVgraph->max_node->data << ","
-                << NVgraph->max_node->alignment->score1 << ","
-                << NVgraph->max_node->alignment->ref_end1 << ";";
-                if (NVgraph->max_node->alignment->prevmax >= 0) {
+
+void align_main(gssw_graph *graph, gssw_graph *NVgraph,
+                int8_t *mat, int8_t *nt_table,
+                uint8_t gap_open, uint8_t gap_extension,
+                std::string readfile, std::string alignfile, bool dual) {
+
+    std::ifstream reads;
+    std::ofstream aligns, NValigns;
+    string read;
+    int32_t readnum = 0, readEndPos;
+
+    reads.open(readfile.c_str());
+    aligns.open(alignfile.c_str());
+    if (dual) NValigns.open((alignfile + ".nv").c_str());
+    if (!reads.good() || !aligns.good() || (!NValigns.good() && dual)) {
+        cerr << "Error opening reads file or alignment files. No alignment will be done." << endl;
+        exit(0);
+    }
+    aligns << "#READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " <<
+    "2_NODE_ID, 2_NODE_LEN, 2_NODE_MAX, 2_SCORE, 2_END_POS" << endl;
+    if (dual)
+        NValigns << "#READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " <<
+                "2_NODE_ID, 2_NODE_LEN, 2_NODE_MAX, 2_SCORE, 2_END_POS" << endl;
+    if (print) cout << "Aligning reads..." << endl;
+    while (std::getline(reads, read)) {
+        readnum++;
+        if (print) cout << std::setw(12) << readnum << '\r' << std::flush;
+
+        readEndPos = int32_t(read.find('#'));
+        if (readEndPos == string::npos) readEndPos = int32_t(read.length());
+
+        gssw_graph_fill(graph, read.substr(0, readEndPos).c_str(), nt_table, mat,
+                        gap_open, gap_extension, uint32_t(read.length() / 2), 2);
+        aligns << read << ";"
+        << graph->max_node->id << ","
+        << graph->max_node->len << ","
+        << graph->max_node->data << ","
+        << graph->max_node->alignment->score1 << ","
+        << graph->max_node->alignment->ref_end1 << ";";
+        if (graph->max_node->alignment->prevmax >= 0) {
+            aligns << graph->nodes[graph->max_node->alignment->prevmax]->id << ","
+            << graph->nodes[graph->max_node->alignment->prevmax]->len << ","
+            << graph->nodes[graph->max_node->alignment->prevmax]->data << ","
+            << graph->nodes[graph->max_node->alignment->prevmax]->alignment->score1 << ","
+            << graph->nodes[graph->max_node->alignment->prevmax]->alignment->ref_end1 << endl;
+        } else {aligns << "-1,-1,-1,-1,-1" << endl;}
+
+        /** Align to second graph if -D is specified **/
+        if (dual) {
+            gssw_graph_fill(NVgraph, read.substr(0, readEndPos).c_str(), nt_table, mat,
+                            gap_open, gap_extension, int32_t(read.length() / 2), 2);
+            NValigns << read << ";"
+            << NVgraph->max_node->id << ","
+            << NVgraph->max_node->len << ","
+            << NVgraph->max_node->data << ","
+            << NVgraph->max_node->alignment->score1 << ","
+            << NVgraph->max_node->alignment->ref_end1 << ";";
+            if (NVgraph->max_node->alignment->prevmax >= 0) {
                 NValigns << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->id << ","
                 << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->len << ","
                 << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->data << ","
                 << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->alignment->score1 << ","
                 << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->alignment->ref_end1 << endl;
-                } else {NValigns << "-1,-1,-1,-1,-1" << endl;}
+            } else {NValigns << "-1,-1,-1,-1,-1" << endl;}
+        }
+    }
+    reads.close();
+    aligns.close();
+    if (dual) NValigns.close();
+}
+
+
+void stat_main(std::string alignfile, int32_t tol) {
+
+    string line;
+    std::ifstream alignsin;
+    std::vector<string> line_split(0), read_split(0), opt_split(0), subopt_split(0), files(0);
+    int32_t readPos, optPos, correct, total,
+            tCorrect = 0, tReads = 0, tCorrectNV = 0, tReadsNV = 0;
+
+    split(alignfile, ',', files);
+
+    for(int i = 0; i < files.size(); i++) {
+        correct = 0;
+        total = 0;
+        alignsin.open(files[i].c_str());
+        if (!alignsin.good()) {
+            cerr << "Error opening input file " << alignfile << endl;
+            exit(1);
+        }
+
+        while (std::getline(alignsin, line)) {
+            if (line.at(0) != '#') {
+                split(line, ';', line_split);
+                split(line_split[0], ',', read_split);
+                split(line_split[1], ',', opt_split);
+                split(line_split[2], ',', subopt_split);
+                readPos = atoi(read_split[2].c_str()) - atoi(read_split[1].c_str()) + atoi(read_split[3].c_str());
+                optPos = atoi(opt_split[2].c_str()) - atoi(opt_split[1].c_str()) + atoi(opt_split[4].c_str());
+                if (optPos > readPos - tol && optPos < readPos + tol) correct++;
+                total++;
             }
         }
-        reads.close();
-        aligns.close();
-        if (dual) NValigns.close();
+        cout <<files[i] << ": " << correct << "/" << total << " correct." << endl;
+        alignsin.close();
+        tCorrect += correct; tReads += total;
+        correct = 0;
+        total = 0;
+
+        alignsin.open((files[i] + ".nv").c_str());
+        if (alignsin.good()) {
+            while (std::getline(alignsin, line)) {
+                if (line.at(0) != '#') {
+                    split(line, ';', line_split);
+                    split(line_split[0], ',', read_split);
+                    split(line_split[1], ',', opt_split);
+                    split(line_split[2], ',', subopt_split);
+                    readPos = atoi(read_split[2].c_str()) - atoi(read_split[1].c_str()) + atoi(read_split[3].c_str());
+                    optPos = atoi(opt_split[2].c_str()) - atoi(opt_split[1].c_str()) + atoi(opt_split[4].c_str());
+                    if (optPos > readPos - tol && optPos < readPos + tol) correct++;
+                    total++;
+                }
+            }
+            cout << files[i] << ".nv: " << correct << "/" << total << " correct." << endl;
+        } else {
+            cout << "No-variant aligns " << files[i] << ".nv found." << endl;
+        }
+        alignsin.close();
+        tCorrectNV += correct; tReadsNV += total;
+        cout << endl;
     }
-
-    gssw_graph_destroy(graph);
-    delete[] nt_table;
-    delete[] mat;
-
-    return (0);
+    cout << "Total: " << tCorrect << "/" << tReads << "(" << float(tCorrect)/tReads << "%) correct." << endl;
+    cout << "Total NV: " << tCorrectNV << "/" << tReadsNV << "(" << float(tCorrectNV)/tReadsNV << "%) correct." << endl;
+    cout << "Tolerance: " << tol << endl;
 }
 
 
@@ -405,20 +429,20 @@ gssw_graph *generateGraph(
     using namespace std;
 
     /** reference line, variant line **/
-    string fline, vline;
+    string ref_line, vcf_line;
     /** Parsed lines, VCF header row **/
-    vector<string> vline_split(0), valt_split(0), header(0);
+    vector<string> vline_split(0), altList_split(0), header(0);
     /** Vector of all the nodes in the graph **/
     vector<gssw_node *> nodes(0);
     /** columns in VCF file, current ref pos **/
-    int32_t pos = -1, ref = -1, alt = -1, rpos = 0;
+    int32_t posColumn = -1, refColumn = -1, altColumn = -1, ref_position = 0;
     int32_t nodenum = 0;
     /** Pos from variant file **/
     int vpos;
     /** To track edges that need to be built **/
     int numalts = 0, numprev;
     /** strings that represent node contents **/
-    string vref, valt, nodestring;
+    string variantRef, variantAlt, nodestring;
     int32_t nodelen = 0;
     char base;
     bool write = false;
@@ -441,19 +465,19 @@ gssw_graph *generateGraph(
         exit(1);
     }
 
-    getline(reference, fline);
-    if (fline.at(0) != '>') cerr << "Error in ref file, first char should be >" << endl;
+    getline(reference, ref_line);
+    if (ref_line.at(0) != '>') cerr << "Error in ref file, first char should be >" << endl;
 
     /** Go to first VCF record **/
-    do { getline(variants, vline); } while (vline.substr(0, 2) == "##");
-    transform(vline.begin(), vline.end(), vline.begin(), ::tolower);
-    split(vline, '\t', header);
-    pos = int32_t(find(header.begin(), header.end(), "pos") - header.begin());
-    ref = int32_t(find(header.begin(), header.end(), "ref") - header.begin());
-    alt = int32_t(find(header.begin(), header.end(), "alt") - header.begin());
+    do { getline(variants, vcf_line); } while (vcf_line.substr(0, 2) == "##");
+    transform(vcf_line.begin(), vcf_line.end(), vcf_line.begin(), ::tolower);
+    split(vcf_line, '\t', header);
+    posColumn = int32_t(find(header.begin(), header.end(), "pos") - header.begin());
+    refColumn = int32_t(find(header.begin(), header.end(), "ref") - header.begin());
+    altColumn = int32_t(find(header.begin(), header.end(), "alt") - header.begin());
 
     /** Find the POS, REF, ALT cols **/
-    if (pos < 0 || ref < 0 || alt < 0) {
+    if (posColumn < 0 || refColumn < 0 || altColumn < 0) {
         cerr << "POS, REF, and/or ALT not found in VCF header." << endl;
         exit(1);
     }
@@ -463,42 +487,42 @@ gssw_graph *generateGraph(
 
     /** Go to minimum position **/
     if (minpos > 0) {
-        while (rpos < minpos - 1) {
+        while (ref_position < minpos - 1) {
             reference.get(base);
-            if (!isspace(base)) rpos++;
+            if (!isspace(base)) ref_position++;
         }
     }
 
     /** Process variants **/
-    while (getline(variants, vline)) {
+    while (getline(variants, vcf_line)) {
         nodestring = "";
         nodelen = 0;
-        split(vline, '\t', vline_split);
-        vpos = atoi(vline_split[pos].c_str());
-        if (vpos <= rpos) goto endvar;
+        split(vcf_line, '\t', vline_split);
+        vpos = atoi(vline_split[posColumn].c_str());
+        if (vpos <= ref_position) goto endvar;
         if (vpos > maxpos) break;
-        vref = vline_split[ref];
-        valt = vline_split[alt];
+        variantRef = vline_split[refColumn];
+        variantAlt = vline_split[altColumn];
         if (print) cout << setw(12) << nodenum << '\r' << flush;
 
         /** build node string up to var pos **/
-        while (rpos < vpos - 1) {
+        while (ref_position < vpos - 1) {
             if (!reference.get(base)) {
                 cerr << "End of ref found while looking for variant pos " << vpos << endl;
                 exit(1);
             }
             if (!isspace(base)) {
                 nodestring += base;
-                rpos++;
+                ref_position++;
                 nodelen++;
             }
 
             /** Max node length reached, split node **/
             if (nodelen == maxNodeLen) {
-                nodes.push_back(gssw_node_create(rpos, nodenum, nodestring.c_str(), nt_table, mat));
-                if (write) out << rpos << "," << nodenum << "," << nodestring.c_str() << endl;
+                nodes.push_back(gssw_node_create(ref_position, nodenum, nodestring.c_str(), nt_table, mat));
+                if (write) out << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
 #if debug > 4
-            cout << "Node: " << rpos << ", ID: " << nodenum << ", " << nodestring << endl;
+            cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring << endl;
 #endif
                 if (nodenum != 0) {
                     /** Connect to all of the previous alt/ref nodes **/
@@ -519,10 +543,10 @@ gssw_graph *generateGraph(
 
         /** If there is space between the variants, add a new node **/
         if (nodestring.length() > 0) {
-            nodes.push_back(gssw_node_create(rpos, nodenum, nodestring.c_str(), nt_table, mat));
-            if (write) out << rpos << "," << nodenum << "," << nodestring.c_str() << endl;
+            nodes.push_back(gssw_node_create(ref_position, nodenum, nodestring.c_str(), nt_table, mat));
+            if (write) out << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
 #if debug > 4
-            cout << "Node: " << rpos << ", ID: " << nodenum << ", " << nodestring << endl;
+            cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring << endl;
 #endif
             /** Only connect with edge if it's not the first node **/
             if (nodenum != 0) {
@@ -541,29 +565,29 @@ gssw_graph *generateGraph(
         else numprev = numalts;
 
         /** Ref node **/
-        for (int i = 0; i < vref.length(); i++) {
+        for (int i = 0; i < variantRef.length(); i++) {
             reference.get(base);
             if (isspace(base)) {
                 reference.get(base);
             }
-            rpos++;
+            ref_position++;
         }
-        nodes.push_back(gssw_node_create(rpos, nodenum, vref.c_str(), nt_table, mat));
-        if (write) out << rpos << "," << nodenum << "," << vref.c_str() << endl;
+        nodes.push_back(gssw_node_create(ref_position, nodenum, variantRef.c_str(), nt_table, mat));
+        if (write) out << ref_position << "," << nodenum << "," << variantRef.c_str() << endl;
 #if debug > 4
-        cout << "Node: " << rpos << ", ID: " << nodenum << ", " << vref << endl;
+        cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << variantRef << endl;
 #endif
         nodenum++;
         numalts = 1;
 
         /** Variants **/
         if (!novar) {
-            split(valt, ',', valt_split);
-            for (int i = 0; i < valt_split.size(); i++) {
-                nodes.push_back(gssw_node_create(rpos, nodenum, valt_split[i].c_str(), nt_table, mat));
-                if (write) out << rpos << "," << nodenum << "," << valt_split[i].c_str() << endl;
+            split(variantAlt, ',', altList_split);
+            for (int i = 0; i < altList_split.size(); i++) {
+                nodes.push_back(gssw_node_create(ref_position, nodenum, altList_split[i].c_str(), nt_table, mat));
+                if (write) out << ref_position << "," << nodenum << "," << altList_split[i].c_str() << endl;
 #if debug > 4
-                cout << "Node: " << rpos << ", ID: " << nodenum << ", " << valt_split[i].c_str() << endl;
+                cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << altList_split[i].c_str() << endl;
 #endif
                 nodenum++;
                 numalts++;
@@ -585,16 +609,16 @@ gssw_graph *generateGraph(
 
     /** The remaining bases after the last variant **/
     nodestring = "";
-    while ((rpos < maxpos || maxpos < 0) && reference.get(base)) {
+    while ((ref_position < maxpos || maxpos < 0) && reference.get(base)) {
         if (!isspace(base)) {
             nodestring += base;
-            rpos++;
+            ref_position++;
         }
     }
-    nodes.push_back(gssw_node_create(rpos, nodenum, nodestring.c_str(), nt_table, mat));
-    if (write) out << rpos << "," << nodenum << "," << nodestring.c_str() << endl;
+    nodes.push_back(gssw_node_create(ref_position, nodenum, nodestring.c_str(), nt_table, mat));
+    if (write) out << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
 #if debug > 4
-    cout << "Node: " << rpos << ", ID: " << nodenum << ", " << nodestring.c_str() << endl;
+    cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring.c_str() << endl;
 #endif
     nodenum++;
     for (int p = 0; p < numalts; p++) {
@@ -607,10 +631,10 @@ gssw_graph *generateGraph(
     if (print) cout << endl << nodes.size() << " nodes generated. Building graph..." << endl;
 
     /** Buffer node at the end, alignment doesn't seem to look at the last node. **/
-    nodes.push_back(gssw_node_create(rpos, nodenum, "", nt_table, mat));
+    nodes.push_back(gssw_node_create(ref_position, nodenum, "", nt_table, mat));
     gssw_nodes_add_edge(nodes.end()[-2], nodes.end()[-1]);
 #if debug > 4
-    cout << "Node: " << rpos << ", ID: " << nodenum << ", " << "" << endl;
+    cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << "" << endl;
     cout << "Edge: " << nodes.end()[-2]->id << ", " << nodes.end()[-1]->id << endl;
 #endif
     if (nodes.size() > 4294967294) {
@@ -632,7 +656,8 @@ gssw_graph *generateGraph(
 
 
 void printNode(gssw_node *node) {
-    using namespace std;
+    using std::cout;
+    using std::endl;
     cout << "Node sequence: " << node->seq << endl;
     cout << "Node end position: " << node->data << endl;
     cout << "optimal score: " << node->alignment->score1 << " end: " << node->alignment->ref_end1 << endl;

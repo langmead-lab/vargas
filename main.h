@@ -22,6 +22,7 @@
 /// <param name="node">gssw_node to print</param>
 void printNode(gssw_node *node);
 
+
 /// <summary>
 /// Splits the specified string, resets elems and returns with split string.
 /// </summary>
@@ -30,6 +31,7 @@ void printNode(gssw_node *node);
 /// <param name="elems">Vector to store results in. Vector is replaced!</param>
 /// <returns>Vector of split string.</returns>
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems);
+
 
 /// <summary>
 /// Builds a previously built graph without the reference or VCF file.
@@ -61,5 +63,32 @@ gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, in
 /// <param name="indelerr">Indel error rate</param>
 /// <returns>Constructed gssw_graph</returns>
 std::string generateRead(gssw_graph &graph, int readLen, float muterr, float indelerr);
+
+
+/// <summary>
+/// Generates stats from a list of alignment files.
+/// </summary>
+/// <param name="alignfile">alignment file or comma delimited list</param>
+/// <param name="tol">Count as match if the alignment is within this tolerance</param>
+void stat_main(std::string alignfile, int32_t tol);
+
+
+/// <summary>
+/// Aligns a list of reads to the provided graphs.
+/// </summary>
+/// <param name="graph">Graph to align to.</param>
+/// <param name="NVgraph">Second graph to align to, empty graph if not used.</param>
+/// <param name="mat">Score matrix, use gssw_create_score_matrix()</param>
+/// <param name="nt_table">base table, construct using gssw_create_nt_table()</param>
+/// <param name="gap_open">Gap open cost</param>
+/// <param name="gap_extension">Gap extension cost</param>
+/// <param name="readfile">List of input reads</param>
+/// <param name="alignfile">Alignment output</param>
+/// <param name="dual">True if aligning to graph and NVgraph</param>
+/// <returns>Constructed gssw_graph</returns>
+void align_main(gssw_graph *graph, gssw_graph *NVgraph,
+                int8_t *mat, int8_t *nt_table,
+                uint8_t gap_open, uint8_t gap_extension,
+                std::string readfile, std::string alignfile, bool dual);
 
 #endif //VMATCH_H
