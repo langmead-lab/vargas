@@ -23,13 +23,13 @@ int main(int argc, char *argv[]) {
 
     /** read number, default region **/
     int32_t readnum = 0, minpos = 0, maxpos = 2147483640;
-    std::vector<string> region_split(0), line_split(0), read_split(0), opt_split(0), subopt_split(0);
+    std::vector<string> region_split(0), line_split(0), read_split(0), opt_split(0), subopt_split(0), files(0);
 
     /** Default sim read error **/
     float muterr = 0.01f, indelerr = 0.01f;
 
     /** Read generation defaults **/
-    int32_t numreads = 1000, readlen = 100, readEnd;
+    int32_t numreads = 1000, readlen = 100, readEnd, tol = 5;
     bool simreads = false;
 
     /** File names and arguments **/
@@ -81,7 +81,8 @@ int main(int argc, char *argv[]) {
         cout << "-I\t--indelerr      Simulated read Indel error rate, default " << indelerr << endl;
         cout << "-L\t--readlen       Nominal read length, default " << readlen << endl << endl;
 
-        cout << "-S\t--stat          Alignment stats, specify alignment file" << endl << endl;
+        cout << "-S\t--stat          Alignment stats of file(s), aligns1[,aligns2,...]" << endl;
+        cout << "-X\t--tol           Alignment within x bases to be as correct, default "<< tol << endl << endl;
 
         cout << "Sim read format:    READ#NODE_ID, NODE_LEN, NODE_MAX_POSITION, READ_END_POSITION" << endl;
         cout << "Alignment format:   #READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " << endl;
@@ -128,34 +129,18 @@ int main(int argc, char *argv[]) {
 
     /** Stat mode **/
     if (statmode) {
-        alignsin.open(alignfile.c_str());
-        if (!alignsin.good()) {
-            cerr << "Error opening input file " << alignfile << endl;
-            exit(1);
-        }
+        split(alignfile, ',', files);
+        int32_t readPos, optPos, correct = 0, total = 0,
+                tCorrect = 0, tReads = 0, tCorrectNV = 0, tReadsNV = 0;
 
-        int32_t readPos, tol = 3, optPos, correct = 0, total = 0;
-
-        while (std::getline(alignsin, line)) {
-            if (line.at(0) != '#') {
-                split(line, ';', line_split);
-                split(line_split[0], ',', read_split);
-                split(line_split[1], ',', opt_split);
-                split(line_split[2], ',', subopt_split);
-                readPos = atoi(read_split[2].c_str()) - atoi(read_split[1].c_str()) + atoi(read_split[3].c_str());
-                optPos = atoi(opt_split[2].c_str()) - atoi(opt_split[1].c_str()) + atoi(opt_split[4].c_str());
-                if (optPos > readPos - tol && optPos < readPos + tol) correct++;
-                total++;
+        for(int i = 0; i < files.size(); i++) {
+            alignsin.open(files[i].c_str());
+            if (!alignsin.good()) {
+                cerr << "Error opening input file " << alignfile << endl;
+                exit(1);
             }
-        }
-        cout << alignfile << ": " << correct << "/" << total << " correct." << endl;
 
-        alignsin.close();
-        alignsinNV.open((alignfile + ".nv").c_str());
-        if (alignsinNV.good()) {
-            correct = 0;
-            total = 0;
-            while (std::getline(alignsinNV, line)) {
+            while (std::getline(alignsin, line)) {
                 if (line.at(0) != '#') {
                     split(line, ';', line_split);
                     split(line_split[0], ',', read_split);
@@ -167,11 +152,37 @@ int main(int argc, char *argv[]) {
                     total++;
                 }
             }
-            cout << alignfile << ".nv: " << correct << "/" << total << " correct." << endl;
-        } else {
-            cout << "No-variant aligns " << alignfile << ".nv found." << endl;
+            cout <<files[i] << ": " << correct << "/" << total << " correct." << endl;
+            alignsin.close();
+            tCorrect += correct; tReads += total;
+
+            alignsinNV.open((files[i] + ".nv").c_str());
+            if (alignsinNV.good()) {
+                correct = 0;
+                total = 0;
+                while (std::getline(alignsinNV, line)) {
+                    if (line.at(0) != '#') {
+                        split(line, ';', line_split);
+                        split(line_split[0], ',', read_split);
+                        split(line_split[1], ',', opt_split);
+                        split(line_split[2], ',', subopt_split);
+                        readPos = atoi(read_split[2].c_str()) - atoi(read_split[1].c_str()) + atoi(read_split[3].c_str());
+                        optPos = atoi(opt_split[2].c_str()) - atoi(opt_split[1].c_str()) + atoi(opt_split[4].c_str());
+                        if (optPos > readPos - tol && optPos < readPos + tol) correct++;
+                        total++;
+                    }
+                }
+                cout << files[i] << ".nv: " << correct << "/" << total << " correct." << endl;
+            } else {
+                cout << "No-variant aligns " << files[i] << ".nv found." << endl;
+            }
+            alignsinNV.close();
+            tCorrectNV += correct; tReadsNV += total;
+            cout << endl;
         }
-        alignsinNV.close();
+        cout << "Total: " << tCorrect << "/" << tReads << "(" << (tCorrect/tReads) << "%) correct." << endl;
+        cout << "Total NV: " << tCorrectNV << "/" << tReadsNV << "(" << (tCorrectNV/tReadsNV) << "%) correct." << endl;
+        cout << "Tolerance: " << tol << endl;
         exit(0);
     }
 
