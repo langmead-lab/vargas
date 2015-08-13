@@ -52,6 +52,14 @@ gssw_graph* buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat);
 gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, int8_t *mat,
                           int32_t minpos, int32_t maxpos, int32_t maxNodeLen, std::string outputFile="");
 
-
+/// <summary>
+/// Generates a random read from the given graph. Edges are taken at random.
+/// </summary>
+/// <param name="graph">Graph to simulate a read from.</param>
+/// <param name="readLen">Length of the read to simulate</param>
+/// <param name="muterr">Mutation error rate</param>
+/// <param name="indelerr">Indel error rate</param>
+/// <returns>Constructed gssw_graph</returns>
 std::string generateRead(gssw_graph &graph, int readLen, float muterr, float indelerr);
+
 #endif //VMATCH_H
