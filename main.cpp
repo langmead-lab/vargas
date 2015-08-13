@@ -130,10 +130,12 @@ int main(int argc, char *argv[]) {
     /** Stat mode **/
     if (statmode) {
         split(alignfile, ',', files);
-        int32_t readPos, optPos, correct = 0, total = 0,
+        int32_t readPos, optPos, correct, total,
                 tCorrect = 0, tReads = 0, tCorrectNV = 0, tReadsNV = 0;
 
         for(int i = 0; i < files.size(); i++) {
+            correct = 0;
+            total = 0;
             alignsin.open(files[i].c_str());
             if (!alignsin.good()) {
                 cerr << "Error opening input file " << alignfile << endl;
@@ -155,11 +157,11 @@ int main(int argc, char *argv[]) {
             cout <<files[i] << ": " << correct << "/" << total << " correct." << endl;
             alignsin.close();
             tCorrect += correct; tReads += total;
+            correct = 0;
+            total = 0;
 
             alignsinNV.open((files[i] + ".nv").c_str());
             if (alignsinNV.good()) {
-                correct = 0;
-                total = 0;
                 while (std::getline(alignsinNV, line)) {
                     if (line.at(0) != '#') {
                         split(line, ';', line_split);
@@ -180,8 +182,8 @@ int main(int argc, char *argv[]) {
             tCorrectNV += correct; tReadsNV += total;
             cout << endl;
         }
-        cout << "Total: " << tCorrect << "/" << tReads << "(" << (tCorrect/tReads) << "%) correct." << endl;
-        cout << "Total NV: " << tCorrectNV << "/" << tReadsNV << "(" << (tCorrectNV/tReadsNV) << "%) correct." << endl;
+        cout << "Total: " << tCorrect << "/" << tReads << "(" << float(tCorrect)/tReads << "%) correct." << endl;
+        cout << "Total NV: " << tCorrectNV << "/" << tReadsNV << "(" << float(tCorrectNV)/tReadsNV << "%) correct." << endl;
         cout << "Tolerance: " << tol << endl;
         exit(0);
     }
