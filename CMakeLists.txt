@@ -13,6 +13,6 @@ gssw/src/gssw.c
 )
 
 add_executable(vmatch ${MAIN_SOURCES} ${GSSW_SOURCES})
-SET(CMAKE_BUILD_TYPE Release)
+SET(CMAKE_BUILD_TYPE RelWithDebInfo)
 
-add_definitions("-msse4")
+add_definitions("-msse4 -fno-omit-frame-pointer")

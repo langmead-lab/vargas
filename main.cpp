@@ -183,7 +183,7 @@ int main(int argc, char *argv[]) {
     }
 
     gssw_graph_destroy(graph);
-    gssw_graph_destroy(NVgraph);
+    if (dual)gssw_graph_destroy(NVgraph);
     delete[] nt_table;
     delete[] mat;
 
