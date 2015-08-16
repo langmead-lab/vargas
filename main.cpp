@@ -361,7 +361,7 @@ void stat_main(std::string alignfile, int32_t tol) {
 
 std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float indelerr) {
     gssw_node *node;
-    int base, RAND;
+    int base, RAND, ambig = 0;
     char mut;
     std::stringstream readmut;
     std::string read = "";
@@ -372,6 +372,7 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
 
     for (int i = 0; i < readLen; i++) {
         read += node->seq[base];
+        if (node->seq[base] == 'N') ambig++;
         base++;
         /** Go to next random node **/
         if (base == node->len) {
@@ -380,6 +381,8 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
             base = 0;
         }
     }
+
+    if(ambig > readLen / 2 || read.length() < readLen / 2) return generateRead(graph, readLen, muterr, indelerr);
 
     /** Mutate string **/
     for (int i = 0; i < read.length(); i++) {
@@ -395,6 +398,7 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
             readmut << mut;
         }
     }
+
     /** Append suffix recording read position **/
     readmut << "#" << node->data - node->len + base;
     return readmut.str();
@@ -441,7 +445,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
     gssw_nodes_add_edge(nodes.end()[-2], nodes.end()[-1]);
 
     /** Add nodes to graph **/
-    gssw_graph *graph = gssw_graph_create(int32_t(nodes.size()));
+    gssw_graph *graph = gssw_graph_create(uint32_t(nodes.size()));
     for (int n = 0; n < nodes.size(); n++) {
         gssw_graph_add_node(graph, nodes[n]);
     }

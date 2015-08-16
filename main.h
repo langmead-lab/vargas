@@ -16,7 +16,14 @@
 #include "gssw/src/gssw.h"
 #include "getopt_pp.h"
 
+
+/// <summary>
+/// Prints graph to a DOT format.
+/// </summary>
+/// <param name="graph">gssw_graph to print</param>
+/// <param name="output">output file name</param>
 void graphToDot(gssw_graph *graph, std::string output);
+
 
 /// <summary>
 /// Prints node information.
