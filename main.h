@@ -16,6 +16,8 @@
 #include "gssw/src/gssw.h"
 #include "getopt_pp.h"
 
+void graphToDot(gssw_graph *graph, std::string output);
+
 /// <summary>
 /// Prints node information.
 /// </summary>

@@ -4,6 +4,7 @@
 //
 
 #include "main.h"
+#include "gssw/src/gssw.h"
 
 using std::string;
 using std::cout;
@@ -49,6 +50,7 @@ int main(int argc, char *argv[]) {
     bool dual = false;
     bool statmode = false;
     bool simreads = false;
+    bool dot = false;
 
     srand(uint32_t(time(NULL)));
 
@@ -81,11 +83,13 @@ int main(int argc, char *argv[]) {
         cout << "-L\t--readlen       Nominal read length, default " << readlen << endl << endl;
 
         cout << "-S\t--stat          Alignment stats of file(s), aligns1[,aligns2,...]" << endl;
-        cout << "-X\t--tol           Alignment within x bases to be as correct, default "<< tol << endl << endl;
+        cout << "-X\t--tol           Alignment within x bases to be as correct, default " << tol << endl << endl;
+
+        cout << "-P\t--dot           Output graph in dot format." << endl << endl;
 
         cout << "Sim read format:    READ#NODE_ID, NODE_LEN, NODE_MAX_POSITION, READ_END_POSITION" << endl;
-        cout << "Alignment format:   #READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " << endl;
-        cout << "                    2_NODE_ID, 2_NODE_LEN, 2_NODE_MAX, 2_SCORE, 2_END_POS" << endl;
+        cout << "Alignment format:   #READ; OPTIMAL_SCORE, OPTIMAL_END_POS, NUM_OPTIMAL_POSITIONS;" << endl;
+        cout << "                    SUBOPTIMAL_SCORE, SUBOPTIMAL_END_POS, NUM_SUBOPTIMAL_POSITIONS" << endl;
         cout << "Note: Suboptimal score only applies to nodes different then the best alignment " <<
         endl << "node. Control granularity with --maxlen." << endl << endl;
 
@@ -123,7 +127,8 @@ int main(int argc, char *argv[]) {
     >> GetOpt::Option('g', "maxlen", maxNodelen)
     >> GetOpt::OptionPresent('D', "dual", dual)
     >> GetOpt::Option('B', "NVbuildfile", NVbuildfile)
-    >> GetOpt::Option('X', "tol", tol);
+    >> GetOpt::Option('X', "tol", tol)
+    >> GetOpt::OptionPresent('P', "dot", dot);
 
     print = !print;
 
@@ -157,6 +162,10 @@ int main(int argc, char *argv[]) {
         else graph = generateGraph(REF, VCF, nt_table, mat, regionMin, regionMax, maxNodelen, outfile);
     }
 
+    /** Output to dot format **/
+    if (dot) graphToDot(graph, "graph.dot");
+    if (dot && dual) graphToDot(NVgraph, "NVgraph.dot");
+
     /** Simulate reads **/
     if (simreads) {
         if (simfile.length() < 1) {
@@ -173,11 +182,13 @@ int main(int argc, char *argv[]) {
         simout.close();
     }
 
+
     /** Align to graph **/
     if (query.length() > 0) {
         /** If a single query is specified **/
-        gssw_graph_fill(graph, query.c_str(), nt_table, mat, gap_open, gap_extension, uint32_t(query.length() / 2), 2);
+        gssw_graph_fill(graph, query.c_str(), nt_table, mat, gap_open, gap_extension, uint32_t(query.length()), 2);
         printNode(graph->max_node);
+        printNode(graph->submax_node);
     } else {
         align_main(graph, NVgraph, mat, nt_table, gap_open, gap_extension, readfile, alignfile, dual);
     }
@@ -190,6 +201,23 @@ int main(int argc, char *argv[]) {
     return (0);
 }
 
+void graphToDot(gssw_graph *graph, std::string output) {
+    using namespace std;
+    ofstream out;
+    out.open(output.c_str());
+
+    out << "digraph gssw {\n";
+    out << "rankdir=\"LR\";\n";
+
+    for (int i = 0; i < graph->size; i++) {
+        out << graph->nodes[i]->id << " [label=\"" << graph->nodes[i]->data << ":" << graph->nodes[i]->seq << "\"];\n";
+    }
+    for (int i = 0; i < graph->size; i++) {
+        for (int n = 0; n < graph->nodes[i]->count_next; n++)
+            out << graph->nodes[i]->id << " -> " << graph->nodes[i]->next[n]->id << ";\n";
+    }
+    out << "}";
+}
 
 void align_main(gssw_graph *graph, gssw_graph *NVgraph,
                 int8_t *mat, int8_t *nt_table,
@@ -208,11 +236,7 @@ void align_main(gssw_graph *graph, gssw_graph *NVgraph,
         cerr << "Error opening reads file or alignment files. No alignment will be done." << endl;
         exit(0);
     }
-    aligns << "#READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " <<
-    "2_NODE_ID, 2_NODE_LEN, 2_NODE_MAX, 2_SCORE, 2_END_POS" << endl;
-    if (dual)
-        NValigns << "#READ; 1_NODE_ID, NODE_LEN, 1_NODE_MAX, 1_SCORE, 1_END_POS; " <<
-                "2_NODE_ID, 2_NODE_LEN, 2_NODE_MAX, 2_SCORE, 2_END_POS" << endl;
+
     if (print) cout << "Aligning reads..." << endl;
     while (std::getline(reads, read)) {
         readnum++;
@@ -222,38 +246,43 @@ void align_main(gssw_graph *graph, gssw_graph *NVgraph,
         if (readEndPos == string::npos) readEndPos = int32_t(read.length());
 
         gssw_graph_fill(graph, read.substr(0, readEndPos).c_str(), nt_table, mat,
-                        gap_open, gap_extension, uint32_t(read.length() / 2), 2);
+                        gap_open, gap_extension, uint32_t(read.length()), 2);
+
         aligns << read << ";"
-        << graph->max_node->id << ","
-        << graph->max_node->len << ","
-        << graph->max_node->data << ","
-        << graph->max_node->alignment->score1 << ","
-        << graph->max_node->alignment->ref_end1 << ";";
-        if (graph->max_node->alignment->prevmax >= 0) {
-            aligns << graph->nodes[graph->max_node->alignment->prevmax]->id << ","
-            << graph->nodes[graph->max_node->alignment->prevmax]->len << ","
-            << graph->nodes[graph->max_node->alignment->prevmax]->data << ","
-            << graph->nodes[graph->max_node->alignment->prevmax]->alignment->score1 << ","
-            << graph->nodes[graph->max_node->alignment->prevmax]->alignment->ref_end1 << endl;
-        } else {aligns << "-1,-1,-1,-1,-1" << endl;}
+        << graph->max_node->alignment->score << ","
+        << (graph->max_node->data + 1 - graph->max_node->len + graph->max_node->alignment->ref_end) << ","
+        << graph->maxCount << ";";
+        if (graph->submax_node) {
+            aligns << graph->submax_node->alignment->score << ","
+            << (graph->submax_node->data + 1 -
+                graph->submax_node->len +
+                graph->submax_node->alignment->ref_end) << ","
+            << graph->submaxCount;
+        } else {
+            aligns << "-1,-1,-1";
+        }
+        aligns << endl;
 
         /** Align to second graph if -D is specified **/
         if (dual) {
             gssw_graph_fill(NVgraph, read.substr(0, readEndPos).c_str(), nt_table, mat,
-                            gap_open, gap_extension, int32_t(read.length() / 2), 2);
+                            gap_open, gap_extension, int32_t(read.length()), 2);
+
             NValigns << read << ";"
-            << NVgraph->max_node->id << ","
-            << NVgraph->max_node->len << ","
-            << NVgraph->max_node->data << ","
-            << NVgraph->max_node->alignment->score1 << ","
-            << NVgraph->max_node->alignment->ref_end1 << ";";
-            if (NVgraph->max_node->alignment->prevmax >= 0) {
-                NValigns << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->id << ","
-                << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->len << ","
-                << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->data << ","
-                << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->alignment->score1 << ","
-                << NVgraph->nodes[NVgraph->max_node->alignment->prevmax]->alignment->ref_end1 << endl;
-            } else {NValigns << "-1,-1,-1,-1,-1" << endl;}
+            << NVgraph->max_node->alignment->score << ","
+            << (NVgraph->max_node->data + 1 - NVgraph->max_node->len + NVgraph->max_node->alignment->ref_end) << ","
+            << NVgraph->maxCount << ";";
+            if (NVgraph->submax_node) {
+                NValigns << NVgraph->submax_node->alignment->score << ","
+                << (NVgraph->submax_node->data + 1 -
+                    NVgraph->submax_node->len +
+                    NVgraph->submax_node->alignment->ref_end) << ","
+                << NVgraph->submaxCount;
+            } else {
+                NValigns << "-1,-1,-1";
+            }
+            NValigns << endl;
+
         }
     }
     reads.close();
@@ -272,7 +301,7 @@ void stat_main(std::string alignfile, int32_t tol) {
 
     split(alignfile, ',', files);
 
-    for(int i = 0; i < files.size(); i++) {
+    for (int i = 0; i < files.size(); i++) {
         correct = 0;
         total = 0;
         alignsin.open(files[i].c_str());
@@ -293,9 +322,10 @@ void stat_main(std::string alignfile, int32_t tol) {
                 total++;
             }
         }
-        cout <<files[i] << ": " << correct << "/" << total << " correct." << endl;
+        cout << files[i] << ": " << correct << "/" << total << " correct." << endl;
         alignsin.close();
-        tCorrect += correct; tReads += total;
+        tCorrect += correct;
+        tReads += total;
         correct = 0;
         total = 0;
 
@@ -318,11 +348,13 @@ void stat_main(std::string alignfile, int32_t tol) {
             cout << "No-variant aligns " << files[i] << ".nv found." << endl;
         }
         alignsin.close();
-        tCorrectNV += correct; tReadsNV += total;
+        tCorrectNV += correct;
+        tReadsNV += total;
         cout << endl;
     }
-    cout << "Total: " << tCorrect << "/" << tReads << "(" << float(tCorrect)/tReads << "%) correct." << endl;
-    cout << "Total NV: " << tCorrectNV << "/" << tReadsNV << "(" << float(tCorrectNV)/tReadsNV << "%) correct." << endl;
+    cout << "Total: " << tCorrect << "/" << tReads << "(" << float(tCorrect) / tReads << "%) correct." << endl;
+    cout << "Total NV: " << tCorrectNV << "/" << tReadsNV << "(" << float(tCorrectNV) / tReadsNV << "%) correct." <<
+    endl;
     cout << "Tolerance: " << tol << endl;
 }
 
@@ -364,7 +396,7 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
         }
     }
     /** Append suffix recording read position **/
-    readmut << "#" << node->id << "," << node->len << "," << node->data << "," << base;
+    readmut << "#" << node->data - node->len + base;
     return readmut.str();
 }
 
@@ -659,9 +691,8 @@ void printNode(gssw_node *node) {
     using std::cout;
     using std::endl;
     cout << "Node sequence: " << node->seq << endl;
-    cout << "Node end position: " << node->data << endl;
-    cout << "optimal score: " << node->alignment->score1 << " end: " << node->alignment->ref_end1 << endl;
-    cout << "suboptimal score: " << node->alignment->score2 << " end: " << node->alignment->ref_end2 << endl;
+    cout << "Score: " << node->alignment->score << " end: " << node->data + 1 - node->len + node->alignment->ref_end <<
+    endl;
 }
 
 
