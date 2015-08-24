@@ -388,14 +388,24 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
     for (int i = 0; i < read.length(); i++) {
         RAND = rand() % 100000;
         mut = read.at(i);
+
         if (RAND < (100000 - (100000 * indelerr / 2))) { // represents del
-            if (RAND > (100000 - (100000 * indelerr))) RAND = rand() % int32_t(100000 * muterr); // insert rand base
             /** Mutation **/
-            if (RAND < (100000 * muterr) / 4) mut = 'A';
-            else if (RAND < 2 * (100000 * muterr) / 4) mut = 'G';
-            else if (RAND < 3 * (100000 * muterr) / 4) mut = 'C';
-            else if (RAND < (100000 * muterr)) mut = 'T';
+            if (RAND < (100000 * muterr) / 4) mut += 'A';
+            else if (RAND < 2 * (100000 * muterr) / 4) mut += 'G';
+            else if (RAND < 3 * (100000 * muterr) / 4) mut += 'C';
+            else if (RAND < (100000 * muterr)) mut += 'T';
             readmut << mut;
+
+            /* Insertion **/
+            if (RAND > (100000 - (100000 * indelerr))) {
+                RAND = rand() % int32_t(100000 * muterr);
+                if (RAND < (100000 * muterr) / 4) mut = 'A';
+                else if (RAND < 2 * (100000 * muterr) / 4) mut = 'G';
+                else if (RAND < 3 * (100000 * muterr) / 4) mut = 'C';
+                else if (RAND < (100000 * muterr)) mut = 'T';
+                readmut << mut;
+            }
         }
     }
 
