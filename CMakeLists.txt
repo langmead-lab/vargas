@@ -16,4 +16,4 @@ add_executable(vmatch ${MAIN_SOURCES} ${GSSW_SOURCES})
 set(CMAKE_BUILD_TYPE RelWithDebInfo)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
 
-add_definitions("-msse4 -pg")
+add_definitions("-msse4 -pg -g")
