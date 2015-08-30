@@ -694,7 +694,7 @@ gssw_graph *generateGraph(
         for (int c = 0; c < inGroupCols.size(); c++) {
           /** Check if it is in the ingroup **/
           //TODO parse rather than at, check diploid
-          if (vline_split[inGroupCols[c]].at(0) == '1') {
+          if (strtol(&vline_split[inGroupCols[c]].at(0), NULL, 10) == i + 1) {
             inVar.push_back(inGroupCols[c]);
           }
         }
@@ -809,5 +809,6 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
   while (std::getline(ss, item, delim)) {
     elems.push_back(item);
   }
+  if (s.at(s.length() - 1) == ',') elems.push_back("");
   return elems;
 }
