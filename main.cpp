@@ -378,6 +378,10 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
   if (node->indivSize > 0) currIndiv = node->indiv[rand() % node->indivSize];
 
   for (int i = 0; i < readLen; i++) {
+    read += node->seq[base];
+    if (node->seq[base] == 'N') ambig++;
+    base++;
+
     /** Go to next random node **/
     if (base == node->len) {
       do {
@@ -400,9 +404,6 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
       if (node->count_next == 0) break; // End of graph reached
       base = 0;
     }
-    read += node->seq[base];
-    if (node->seq[base] == 'N') ambig++;
-    base++;
   }
 
   if (ambig > readLen / 2 || read.length() < readLen / 2) return generateRead(graph, readLen, muterr, indelerr);
