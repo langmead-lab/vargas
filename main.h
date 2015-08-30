@@ -5,7 +5,7 @@
 #ifndef VMATCH_H
 #define VMATCH_H
 
-#define debug 0
+#define debug 6
 
 #include <iostream>
 #include <fstream>
@@ -49,7 +49,7 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
 /// <param name="nt_table">base table, construct using gssw_create_nt_table()</param>
 /// <param name="mat">Score matrix, use gssw_create_score_matrix()</param>
 /// <returns>Constructed gssw graph.</returns>
-gssw_graph* buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat);
+gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat);
 
 
 /// <summary>
@@ -59,9 +59,11 @@ gssw_graph* buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat);
 /// <param name="VCF">Variant File, uncompressed</param>
 /// <param name="nt_table">base table, construct using gssw_create_nt_table()</param>
 /// <param name="mat">Score matrix, use gssw_create_score_matrix()</param>
+/// <param name="inGroup">Percent of indivudals used to generate graph, default all.</param>
 /// <returns>Constructed gssw_graph</returns>
-gssw_graph* generateGraph(std::string REF, std::string VCF, int8_t *nt_table, int8_t *mat,
-                          int32_t minpos, int32_t maxpos, int32_t maxNodeLen, std::string outputFile="");
+gssw_graph *generateGraph(std::string REF, std::string VCF, int8_t *nt_table, int8_t *mat,
+                          int32_t minpos, int32_t maxpos, int32_t maxNodeLen, std::string outputFile = "",
+                          int32_t inGroup = -1);
 
 /// <summary>
 /// Generates a random read from the given graph. Edges are taken at random.
