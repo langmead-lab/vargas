@@ -522,6 +522,7 @@ gssw_graph *generateGraph(
   int32_t nodenum = 0, numIndivs;
   /** Pos from variant file **/
   int vpos;
+  int32_t cn;
   /** To track edges that need to be built **/
   int numalts = 0, numprev;
   /** strings that represent node contents **/
@@ -698,6 +699,13 @@ gssw_graph *generateGraph(
           }
         }
         if (inVar.size() > 0) {
+          if(altList_split[i].substr(0, 3) == "<CN") {
+            cn = int32_t(strtol(altList_split[i].substr(3, altList_split[i].length() - 4).c_str(), NULL, 10));
+            altList_split[i] = "";
+            for (int v = 0; v < cn; v++){
+              altList_split[i] += variantRef;
+            }
+          }
           nodes.push_back(gssw_node_create(ref_position, nodenum, altList_split[i].c_str(), nt_table, mat));
           if (write) out << ref_position << "," << nodenum << "," << altList_split[i].c_str() << endl;
 #if debug > 4
