@@ -5,7 +5,7 @@
 #ifndef VMATCH_H
 #define VMATCH_H
 
-#define debug 0
+#define debug 6
 
 #include <iostream>
 #include <fstream>

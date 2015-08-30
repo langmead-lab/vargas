@@ -719,7 +719,7 @@ gssw_graph *generateGraph(
           for (int n = 0; n < inVar.size(); n++) {
             gssw_node_add_indiv(nodes.back(), inVar[n]);
 #if debug > 5
-            cout << "Add Indiv: " << inVar[n] << endl;
+            cout << "Add Indiv(" << int32_t(nodes.back()->indivSize) << "): " << inVar[n] << endl;
 #endif
             if (write) out << inVar[n];
             if (n != inVar.size() - 1 && write) out << ',';
