@@ -363,15 +363,17 @@ void stat_main(std::string alignfile, int32_t tol) {
 
 
 std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float indelerr) {
-  gssw_node *node;
-  int base, RAND, ambig = 0;
+  gssw_node *node, *nodeCandidate;
+  int32_t base, RAND, ambig = 0, currIndiv = -1;
   char mut;
   std::stringstream readmut;
   std::string read = "";
+  bool valid;
 
   /** initial random node and base **/
   node = graph.nodes[rand() % (graph.size - 1)];
   base = rand() % (node->len);
+  if (node->indivSize > 0) currIndiv = node->indiv[rand() % node->indivSize];
 
   for (int i = 0; i < readLen; i++) {
     read += node->seq[base];
@@ -379,7 +381,23 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
     base++;
     /** Go to next random node **/
     if (base == node->len) {
-      node = node->next[rand() % node->count_next];
+      do {
+        nodeCandidate = node->next[rand() % node->count_next];
+        valid = false;
+        if (nodeCandidate->indivSize == 0) break;
+        if(currIndiv < 0){
+          RAND = rand() % nodeCandidate->indivSize;
+          currIndiv = nodeCandidate->indiv[RAND];
+          break;
+        }
+        for (int i = 0; i < nodeCandidate->indivSize; i++) {
+          if (currIndiv == nodeCandidate->indiv[i]) {
+            valid = true;
+            break;
+          }
+        }
+      } while (node->indivSize == 0 || !valid);
+      node = nodeCandidate;
       if (node->count_next == 0) break; // End of graph reached
       base = 0;
     }
@@ -413,7 +431,7 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
   }
 
   /** Append suffix recording read position **/
-  readmut << "#" << node->data - node->len + base;
+  readmut << '#' << node->data - node->len + base << ',' << currIndiv;
   return readmut.str();
 }
 
