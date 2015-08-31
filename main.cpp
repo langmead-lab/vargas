@@ -322,7 +322,7 @@ void stat_main(std::string alignfile, int32_t tol) {
 
         split(read_split[0], '#', read_split);
         readPos = atoi(read_split[1].c_str());
-        optPos = atoi(opt_split[1].c_str()));
+        optPos = atoi(opt_split[1].c_str());
         if (optPos > readPos - tol && optPos < readPos + tol) correct++;
         total++;
       }
@@ -344,7 +344,7 @@ void stat_main(std::string alignfile, int32_t tol) {
           split(line_split[2], ',', subopt_split);
           split(read_split[0], '#', read_split);
           readPos = atoi(read_split[1].c_str());
-          optPos = atoi(opt_split[1].c_str()));
+          optPos = atoi(opt_split[1].c_str());
           if (optPos > readPos - tol && optPos < readPos + tol) correct++;
           total++;
         }
