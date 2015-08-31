@@ -319,8 +319,10 @@ void stat_main(std::string alignfile, int32_t tol) {
         split(line_split[0], ',', read_split);
         split(line_split[1], ',', opt_split);
         split(line_split[2], ',', subopt_split);
-        readPos = atoi(read_split[2].c_str()) - atoi(read_split[1].c_str()) + atoi(read_split[3].c_str());
-        optPos = atoi(opt_split[2].c_str()) - atoi(opt_split[1].c_str()) + atoi(opt_split[4].c_str());
+
+        split(read_split[0], '#', read_split);
+        readPos = atoi(read_split[1].c_str());
+        optPos = atoi(opt_split[1].c_str()));
         if (optPos > readPos - tol && optPos < readPos + tol) correct++;
         total++;
       }
@@ -340,8 +342,9 @@ void stat_main(std::string alignfile, int32_t tol) {
           split(line_split[0], ',', read_split);
           split(line_split[1], ',', opt_split);
           split(line_split[2], ',', subopt_split);
-          readPos = atoi(read_split[2].c_str()) - atoi(read_split[1].c_str()) + atoi(read_split[3].c_str());
-          optPos = atoi(opt_split[2].c_str()) - atoi(opt_split[1].c_str()) + atoi(opt_split[4].c_str());
+          split(read_split[0], '#', read_split);
+          readPos = atoi(read_split[1].c_str());
+          optPos = atoi(opt_split[1].c_str()));
           if (optPos > readPos - tol && optPos < readPos + tol) correct++;
           total++;
         }
