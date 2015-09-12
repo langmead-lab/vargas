@@ -16,6 +16,7 @@
 #include "gssw/src/gssw.h"
 #include "getopt_pp.h"
 
+#include "buildMain.h"
 
 /// <summary>
 /// Prints graph to a DOT format.
@@ -101,5 +102,7 @@ void align_main(gssw_graph *graph, gssw_graph *NVgraph,
                 int8_t *mat, int8_t *nt_table,
                 uint8_t gap_open, uint8_t gap_extension,
                 std::string readfile, std::string alignfile, bool dual);
+
+void printMainHelp();
 
 #endif //VMATCH_H

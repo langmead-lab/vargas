@@ -4,7 +4,6 @@
 //
 
 #include "main.h"
-#include "gssw/src/gssw.h"
 
 using std::string;
 using std::cout;
@@ -12,16 +11,13 @@ using std::endl;
 using std::cerr;
 
 bool print = true;
-bool novar = false;
 
 int main(int argc, char *argv[]) {
   /** Scores **/
   int32_t match = 2, mismatch = 2;
   uint8_t gap_open = 3, gap_extension = 1;
 
-  /** read number, default region **/
-  int32_t regionMin = 0, regionMax = 2147483640;
-  std::vector<string> region_split(0);
+
 
   /** Default sim read error **/
   float muterr = 0.01f, indelerr = 0.01f;
@@ -31,7 +27,7 @@ int main(int argc, char *argv[]) {
 
   /** File names and arguments **/
   string VCF = "", REF = "", outfile = "", buildfile = "", simfile = "",
-      readfile = "", alignfile = "", query, region,
+      readfile = "", alignfile = "", query,
       NVbuildfile, line;
 
   /** File streams **/
@@ -44,10 +40,11 @@ int main(int argc, char *argv[]) {
 
   /** Alignment graph and max node length **/
   gssw_graph *graph, *NVgraph;
-  int32_t maxNodelen = 50000;
-  int32_t ingroup = -1;
+
+
 
   /** Modes of operation **/
+  static enum modes { build, sim, align, stat };
   bool dual = false;
   bool statmode = false;
   bool simreads = false;
@@ -57,25 +54,20 @@ int main(int argc, char *argv[]) {
 
   GetOpt::GetOpt_pp args(argc, argv);
   if (args >> GetOpt::OptionPresent('h', "help")) {
-    cout << "---------------------------- VMatch, August 2015. rgaddip1@jhu.edu ----------------------------" <<
-        endl;
-    cout << "-v\t--vcf           VCF file, uncompressed." << endl;
-    cout << "-r\t--ref           reference single record FASTA" << endl;
     cout << "-b\t--buildfile     quick rebuild file, required if -v, -r are not defined." << endl;
     cout << "-B\t--NVbuildfile   quick rebuild file for no variant graph, use with -D." << endl;
-    cout << "-G\t--ingroup       Percent of individuals to build graph from, default all." << endl;
-    cout << "-g\t--maxlen        Maximum node length, default " << maxNodelen << endl;
+
+
     cout << "-m\t--match         Match score, default  " << match << endl;
     cout << "-n\t--mismatch      Mismatch score, default " << mismatch << endl;
     cout << "-o\t--gap_open      Gap opening score, default " << int32_t(gap_open) << endl;
     cout << "-e\t--gap_extend    Gap extend score, default " << int32_t(gap_extension) << endl;
-    cout << "-t\t--outfile       Graph output file for quick rebuild" << endl;
+
     cout << "-d\t--reads         Reads to align, one per line. Symbols after '#' are ignored." << endl;
     cout << "-s\t--string        Align a single string to stdout, overrides read file arguments" << endl;
     cout << "-a\t--aligns        Output alignments, one per line. With -D, '.nv' will be appended." << endl;
-    cout << "-R\t--region        Ref region, inclusive: min:max. Default is entire graph." << endl;
+
     cout << "-p\t--noprint       Disable stdout printing" << endl;
-    cout << "-x\t--novar         Generate and align to a no-variant graph. VCF still required." << endl;
     cout << "-D\t--dual          Align to both variant and non-variant graphs." << endl;
     cout << "-i\t--simreads      Simulate reads and write to the file specified by -T" << endl;
     cout << "-T\t--readout       Simulated reads output, 1 per line with position information." << endl;
@@ -97,14 +89,32 @@ int main(int argc, char *argv[]) {
 
     exit(0);
   }
+  if (argc > 1) {
+    if (argv[1] == "build") {
+      build_main(argc, argv);
+      exit(0);
+    }
+    else if (argv[1] == "sim") {
+      sim_main(argc, argv);
+      exit(0);
+    }
+    else if (argv[1] == "align") {
+      align_main(argc, argv);
+      exit(0);
+    }
+    else if (argv[1] == "stat") {
+      stat_main(argc, argv);
+      exit(0);
+    }
+  }
+  cerr << "Error, please define a valid mode of operation." << endl;
+  printMainHelp();
+  exit(1);
+
 
   /** make sure there's a valid input **/
   if (!(args >> GetOpt::Option('b', "buildfile", buildfile)) && !(args >> GetOpt::Option('S', "stat", alignfile))) {
-    if (!(args >> GetOpt::Option('v', "vcf", VCF))
-        || !(args >> GetOpt::Option('r', "ref", REF))) {
-      cerr << "No inputs specified, see options with -h" << endl;
-      exit(1);
-    }
+
   }
 
   if (alignfile.length() > 0) statmode = true;
@@ -118,20 +128,18 @@ int main(int argc, char *argv[]) {
       >> GetOpt::Option('a', "aligns", alignfile)
       >> GetOpt::Option('s', "string", query)
       >> GetOpt::OptionPresent('p', "noprint", print)
-      >> GetOpt::Option('R', "region", region)
-      >> GetOpt::OptionPresent('x', "novar", novar)
+
+
       >> GetOpt::Option('N', "numreads", numreads)
       >> GetOpt::Option('M', "muterr", muterr)
       >> GetOpt::Option('I', "indelerr", indelerr)
       >> GetOpt::Option('L', "readlen", readlen)
       >> GetOpt::OptionPresent('i', "simreads", simreads)
       >> GetOpt::Option('T', "readout", simfile)
-      >> GetOpt::Option('g', "maxlen", maxNodelen)
       >> GetOpt::OptionPresent('D', "dual", dual)
       >> GetOpt::Option('B', "NVbuildfile", NVbuildfile)
       >> GetOpt::Option('X', "tol", tol)
-      >> GetOpt::OptionPresent('P', "dot", dot)
-      >> GetOpt::Option('G', "ingroup", ingroup);
+      >> GetOpt::OptionPresent('P', "dot", dot);
 
   print = !print;
 
@@ -141,16 +149,6 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
 
-  /** Parse region **/
-  if (region.length() > 0) {
-    split(region, ':', region_split);
-    if (region_split.size() < 1) {
-      std::cerr << "Malformed region, must be in the form a:b" << endl;
-      exit(1);
-    }
-    regionMin = std::atoi(region_split[0].c_str());
-    regionMax = std::atoi(region_split[1].c_str());
-  }
 
   /** Build graph **/
   if (dual) {
@@ -502,299 +500,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
 }
 
 
-gssw_graph *generateGraph(
-    std::string REF, std::string VCF,
-    int8_t *nt_table, int8_t *mat,
-    int32_t minpos, int32_t maxpos, // Region to parse
-    int32_t maxNodeLen,
-    std::string outputFile,
-    int32_t inGroup) {
 
-  using namespace std;
-
-  /** Used to track which indivs have a variant **/
-  vector<int16_t> inVar(0);
-
-  /** reference line, variant line **/
-  string ref_line, vcf_line;
-  /** Parsed lines, VCF header row **/
-  vector<string> vline_split(0), altList_split(0), header(0);
-  /** Vector of all the nodes in the graph **/
-  vector<gssw_node *> nodes(0);
-  /** Columns used to build graph **/
-  vector<int32_t> inGroupCols(0);
-  /** columns in VCF file, current ref pos **/
-  int32_t posColumn = -1, refColumn = -1, altColumn = -1, formatColumn = -1, ref_position = 0;
-  int32_t nodenum = 0, numIndivs;
-  /** Pos from variant file **/
-  int vpos;
-  int32_t cn;
-  /** To track edges that need to be built **/
-  int numalts = 0, numprev;
-  /** strings that represent node contents **/
-  string variantRef, variantAlt, nodestring;
-  int32_t nodelen = 0;
-  char base;
-  bool write = false;
-  int32_t randtemp;
-
-  /** File stream **/
-  ifstream variants(VCF.c_str(), ios_base::in | ios_base::binary);
-  ifstream reference(REF.c_str());
-  ofstream out;
-
-  if (outputFile.size() > 0) {
-    write = true;
-    out.open(outputFile.c_str());
-  }
-
-  if (!variants.good() || !reference.good()) {
-    boolalpha(cout);
-    cerr << "Error in opening files." << endl;
-    cerr << VCF << ": " << variants.good() << endl;
-    cerr << REF << ": " << reference.good() << endl;
-    exit(1);
-  }
-
-  getline(reference, ref_line);
-  if (ref_line.at(0) != '>') cerr << "Error in ref file, first char should be >" << endl;
-
-  /** Go to first VCF record **/
-  do { getline(variants, vcf_line); } while (vcf_line.substr(0, 2) == "##");
-  transform(vcf_line.begin(), vcf_line.end(), vcf_line.begin(), ::tolower);
-  split(vcf_line, '\t', header);
-  posColumn = int32_t(find(header.begin(), header.end(), "pos") - header.begin());
-  refColumn = int32_t(find(header.begin(), header.end(), "ref") - header.begin());
-  altColumn = int32_t(find(header.begin(), header.end(), "alt") - header.begin());
-  formatColumn = int32_t(find(header.begin(), header.end(), "format") - header.begin());
-  numIndivs = int32_t(header.size() - formatColumn - 1);
-
-  /** Construct the in group, the graph will be built with these individuals **/
-  if (write) out << '#';
-  if (inGroup >= 0) {
-    for (int i = 0; i < int32_t((numIndivs / 100.0f) * inGroup); i++) {
-      randtemp = rand() % numIndivs + formatColumn + 1;
-      if(find(inGroupCols.begin(), inGroupCols.end(), randtemp) == inGroupCols.end()) {
-        inGroupCols.push_back(randtemp);
-        out << inGroupCols[i] << ',';
-      } else i--;
-    }
-    sort(inGroupCols.begin(), inGroupCols.end());
-  } else {
-    for (int i = 0; i < numIndivs; i++) {
-      inGroupCols.push_back(i + formatColumn + 1);
-      out << inGroupCols[i] << ',';
-    }
-  }
-  if (write) out << endl;
-
-  /** Find the POS, REF, ALT cols **/
-  if (posColumn < 0 || refColumn < 0 || altColumn < 0 || formatColumn < 0) {
-    cerr << "POS, REF, ALT, and/or INFO not found in VCF header." << endl;
-    exit(1);
-  }
-
-  /** Generate Nodes **/
-  if (print) cout << "Generating nodes..." << endl;
-
-  /** Go to minimum position **/
-  if (minpos > 0) {
-    while (ref_position < minpos - 1) {
-      reference.get(base);
-      if (!isspace(base)) ref_position++;
-    }
-  }
-
-  /** Process variants **/
-  while (getline(variants, vcf_line)) {
-    nodestring = "";
-    nodelen = 0;
-    split(vcf_line, '\t', vline_split);
-    vpos = atoi(vline_split[posColumn].c_str());
-    if (vpos <= ref_position) goto endvar;
-    if (vpos > maxpos) break;
-    variantRef = vline_split[refColumn];
-    variantAlt = vline_split[altColumn];
-    if (print) cout << setw(12) << nodenum << '\r' << flush;
-
-    /** build node string up to var pos **/
-    while (ref_position < vpos - 1) {
-      if (!reference.get(base)) {
-        cerr << "End of ref found while looking for variant pos " << vpos << endl;
-        exit(1);
-      }
-      if (!isspace(base)) {
-        nodestring += base;
-        ref_position++;
-        nodelen++;
-      }
-
-      /** Max node length reached, split node **/
-      if (nodelen == maxNodeLen) {
-        nodes.push_back(gssw_node_create(ref_position, nodenum, nodestring.c_str(), nt_table, mat));
-        if (write) out << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
-#if debug > 4
-        cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring << endl;
-#endif
-        if (nodenum != 0) {
-          /** Connect to all of the previous alt/ref nodes **/
-          for (int i = 0; i < numalts; i++) {
-            gssw_nodes_add_edge(nodes.end()[-2 - i], nodes.end()[-1]);
-            if (write) out << -2 - i << "," << -1 << endl;
-#if debug > 4
-            cout << "Edge: " << nodes.end()[-2 - i]->id << ", " << nodes.end()[-1]->id << endl;
-#endif
-          }
-        }
-        nodenum++;
-        numalts = 1;
-        nodestring = "";
-        nodelen = 0;
-      }
-    }
-
-    /** If there is space between the variants, add a new node **/
-    if (nodestring.length() > 0) {
-      nodes.push_back(gssw_node_create(ref_position, nodenum, nodestring.c_str(), nt_table, mat));
-      if (write) out << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
-#if debug > 4
-      cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring << endl;
-#endif
-      /** Only connect with edge if it's not the first node **/
-      if (nodenum != 0) {
-        /** Connect to all of the previous alt/ref nodes **/
-        for (int i = 0; i < numalts; i++) {
-          gssw_nodes_add_edge(nodes.end()[-2 - i], nodes.end()[-1]);
-          if (write) out << -2 - i << "," << -1 << endl;
-#if debug > 4
-          cout << "Edge: " << nodes.end()[-2 - i]->id << ", " << nodes.end()[-1]->id << endl;
-#endif
-        }
-      }
-      nodenum++;
-      numprev = 1;
-    }
-    else numprev = numalts;
-
-    /** Ref node **/
-    for (int i = 0; i < variantRef.length(); i++) {
-      reference.get(base);
-      if (isspace(base)) {
-        reference.get(base);
-      }
-      ref_position++;
-    }
-    nodes.push_back(gssw_node_create(ref_position, nodenum, variantRef.c_str(), nt_table, mat));
-    if (write) out << ref_position << "," << nodenum << "," << variantRef.c_str() << endl;
-#if debug > 4
-    cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << variantRef << endl;
-#endif
-    nodenum++;
-    numalts = 1;
-
-    /** Variants **/
-    if (!novar) {
-      split(variantAlt, ',', altList_split);
-      for (int i = 0; i < altList_split.size(); i++) {
-        inVar.clear();
-        for (int c = 0; c < inGroupCols.size(); c++) {
-          /** Check if it is in the ingroup **/
-          //TODO parse rather than at, check diploid
-          if (strtol(&vline_split[inGroupCols[c]].at(0), NULL, 10) == i + 1) {
-            inVar.push_back(inGroupCols[c]);
-          }
-        }
-        if (inVar.size() > 0) {
-          if(altList_split[i].substr(0, 3) == "<CN") {
-            cn = int32_t(strtol(altList_split[i].substr(3, altList_split[i].length() - 4).c_str(), NULL, 10));
-            altList_split[i] = "";
-            for (int v = 0; v < cn; v++){
-              altList_split[i] += variantRef;
-            }
-          }
-          nodes.push_back(gssw_node_create(ref_position, nodenum, altList_split[i].c_str(), nt_table, mat));
-          if (write) out << ref_position << "," << nodenum << "," << altList_split[i].c_str() << endl;
-#if debug > 4
-          cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << altList_split[i].c_str() << endl;
-#endif
-          nodenum++;
-          numalts++;
-
-          /** Add the individuals that have this particular variant **/
-          if(write) out << '[';
-          for (int n = 0; n < inVar.size(); n++) {
-            gssw_node_add_indiv(nodes.back(), inVar[n]);
-#if debug > 5
-            cout << "Add Indiv(" << int32_t(nodes.back()->indivSize) << "): " << inVar[n] << endl;
-#endif
-            if (write) out << inVar[n];
-            if (n != inVar.size() - 1 && write) out << ',';
-          }
-          if (write) out << ']' << endl;
-
-        }
-      }
-    }
-
-    /** Build edges **/
-    for (int p = 0; p < numprev; p++) {
-      for (int a = 0; a < numalts; a++) {
-        gssw_nodes_add_edge(nodes.end()[-1 - numalts - p], nodes.end()[-1 - a]);
-        if (write) out << -1 - numalts - p << "," << -1 - a << endl;
-#if debug > 4
-        cout << "Edge: " << nodes.end()[-1 - numalts - p]->id << ", " << nodes.end()[-1 - a]->id << endl;
-#endif
-      }
-    }
-    endvar:;
-  }
-
-  /** The remaining bases after the last variant **/
-  nodestring = "";
-  while ((ref_position < maxpos || maxpos < 0) && reference.get(base)) {
-    if (!isspace(base)) {
-      nodestring += base;
-      ref_position++;
-    }
-  }
-  nodes.push_back(gssw_node_create(ref_position, nodenum, nodestring.c_str(), nt_table, mat));
-  if (write) out << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
-#if debug > 4
-  cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring.c_str() << endl;
-#endif
-  nodenum++;
-  for (int p = 0; p < numalts; p++) {
-    gssw_nodes_add_edge(nodes.end()[-2 - p], nodes.end()[-1]);
-    if (write) out << -2 - p << "," << -1 << endl;
-#if debug > 4
-    cout << "Edge: " << nodes.end()[-2 - p]->id << ", " << nodes.end()[-1]->id << endl;
-#endif
-  }
-  if (print) cout << endl << nodes.size() << " nodes generated. Building graph..." << endl;
-
-  /** Buffer node at the end, alignment doesn't seem to look at the last node. **/
-  nodes.push_back(gssw_node_create(ref_position, nodenum, "", nt_table, mat));
-  gssw_nodes_add_edge(nodes.end()[-2], nodes.end()[-1]);
-#if debug > 4
-  cout << "Node: " << ref_position << ", ID: " << nodenum << ", " << "" << endl;
-  cout << "Edge: " << nodes.end()[-2]->id << ", " << nodes.end()[-1]->id << endl;
-#endif
-  if (nodes.size() > 4294967294) {
-    cerr << "Too many nodes to generate graph." << endl;
-    exit(1);
-  }
-
-  /** Add nodes to graph **/
-  gssw_graph *graph = gssw_graph_create(nodes.size());
-  for (int n = 0; n < nodes.size(); n++) {
-    gssw_graph_add_node(graph, nodes[n]);
-  }
-
-  variants.close();
-  reference.close();
-  out.close();
-  return graph;
-}
 
 
 void printNode(gssw_node *node) {
@@ -817,4 +523,17 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
   }
   if (s.at(s.length() - 1) == ',') elems.push_back("");
   return elems;
+}
+
+void printMainHelp() {
+  using std::cout;
+  using std::endl;
+
+  cout << "---------------------------- VMatch, September 2015. rgaddip1@jhu.edu ----------------------------" << endl;
+  cout << "Operating modes \'vmatch MODE\':" << endl;
+  cout << "build     Generate graph build file from reference and VCF files." << endl;
+  cout << "sim       Simulate reads from a graph." << endl;
+  cout << "align     Align reads to a graph." << endl;
+  cout << "stat      Basic stats about alignment results." << endl;
+
 }

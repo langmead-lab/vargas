@@ -6,7 +6,9 @@ main.h
 main.cpp
 getopt_pp.cpp
 getopt_pp.h
-)
+        buildMain.cpp
+        buildMain.h utils.cpp utils.h)
+
 set(GSSW_SOURCES
 gssw/src/gssw.h
 gssw/src/gssw.c
