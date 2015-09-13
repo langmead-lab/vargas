@@ -59,7 +59,10 @@ void align(gssw_graph *graph,
 
   std::ifstream reads;
   string read;
-  int32_t readnum = 0, readEndPos;
+  int32_t readEndPos, optAlignEnd, suboptAlignEnd;
+  std::vector<string> readMeta(0);
+  int32_t readSampleLoc = -1;
+  int32_t tol;
 
   reads.open(readfile.c_str());
   if (!reads.good()) {
@@ -69,28 +72,38 @@ void align(gssw_graph *graph,
 
   cerr << "Aligning reads..." << endl;
   while (std::getline(reads, read)) {
-    readnum++;
-
+    readSampleLoc = -1;
     readEndPos = int32_t(read.find('#'));
     if (readEndPos == string::npos) readEndPos = int32_t(read.length());
+    else {
+      split(read.substr(readEndPos + 1, read.length() - readEndPos - 1), ',', readMeta);
+      readSampleLoc = atoi(readMeta[0].c_str());
+    }
+    tol = (readEndPos / 10) + 1;
 
     gssw_graph_fill(graph, read.substr(0, readEndPos).c_str(), nt_table, mat,
                     gap_open, gap_extension, uint32_t(read.length()), 2);
 
-    cout << read << ";"
+    optAlignEnd = graph->max_node->data + 1 - graph->max_node->len + graph->max_node->alignment->ref_end;
+    suboptAlignEnd = graph->submax_node->data + 1 - graph->submax_node->len + graph->submax_node->alignment->ref_end;
+
+    if (readSampleLoc > 0) {
+      if (readSampleLoc > optAlignEnd - tol && readSampleLoc < optAlignEnd + tol) readSampleLoc = 0;
+      else if (readSampleLoc > suboptAlignEnd - tol && readSampleLoc < suboptAlignEnd + tol) readSampleLoc = 1;
+      else readSampleLoc = 2;
+    }
+    cout << read << ","
         << graph->max_node->alignment->score << ","
-        << (graph->max_node->data + 1 - graph->max_node->len + graph->max_node->alignment->ref_end) << ","
-        << graph->maxCount << ";";
+        << optAlignEnd << ","
+        << graph->maxCount << ",";
     if (graph->submax_node) {
       cout << graph->submax_node->alignment->score << ","
-          << (graph->submax_node->data + 1 -
-              graph->submax_node->len +
-              graph->submax_node->alignment->ref_end) << ","
-          << graph->submaxCount;
+          << suboptAlignEnd << ","
+          << graph->submaxCount << ",";
     } else {
-      cout << "-1,-1,-1";
+      cout << "-1,-1,-1,";
     }
-    cout << endl;
+    cout << readSampleLoc << endl;
   }
   reads.close();
 }
@@ -106,5 +119,9 @@ void printAlignHelp() {
   cout << "-e\t--gap_extend    Gap extend score, default " << 1 << endl;
   cout << "-r\t--reads         Reads to align, one per line. Symbols after '#' are ignored." << endl;
   cout << endl << "Alignments output to stdout." << endl;
+  cout << "Output format:" << endl;
+  cout << "READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE," << endl;
+  cout << "SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH" << endl;
+  cout << "ALIGNMENT_MATCH: 0-optimal matches read location, 1-suboptimal matches read loc, 2-no match" << endl;
 
 }

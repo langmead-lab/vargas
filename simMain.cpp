@@ -142,4 +142,6 @@ void printSimHelp() {
   cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;
   cout << "-l\t--readlen       Nominal read length" << endl << endl;
   cout << "Reads are printed on stdout." << endl;
+  cout << "Read Format:" << endl;
+  cout << "READ#READ_END_POSITION,INDIVIDUAL" << endl;
 }
