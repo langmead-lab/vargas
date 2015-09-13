@@ -25,7 +25,8 @@ void align_main(int argc, char *argv[]);
 /// <param name="gap_extension">Gap extension cost</param>
 void align(gssw_graph *graph,
            int8_t *mat, int8_t *nt_table,
-           uint8_t gap_open, uint8_t gap_extension);
+           uint8_t gap_open, uint8_t gap_extension,
+           std::string readsfile, bool readsin);
 void printAlignHelp();
 
 #endif //VMATCH_ALIGNMAIN_H

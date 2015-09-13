@@ -20,6 +20,7 @@ void align_main(int argc, char *argv[]) {
 
   string buildfile = "", readsfile = "";
   gssw_graph *graph;
+  bool readsin = false;
 
   GetOpt::GetOpt_pp args(argc, argv);
 
@@ -38,8 +39,10 @@ void align_main(int argc, char *argv[]) {
       >> GetOpt::Option('o', "gap_open", gap_open)
       >> GetOpt::Option('e', "gap_extend", gap_extension);
 
+  if ((args >> GetOpt::Option('r', "reads", readsfile))) readsin = true;
+
   graph = buildGraph(buildfile, nt_table, mat);
-  align(graph, mat, nt_table, gap_open, gap_extension);
+  align(graph, mat, nt_table, gap_open, gap_extension, readsfile, readsin);
 
   gssw_graph_destroy(graph);
   delete[] nt_table;
@@ -49,20 +52,24 @@ void align_main(int argc, char *argv[]) {
 
 void align(gssw_graph *graph,
            int8_t *mat, int8_t *nt_table,
-           uint8_t gap_open, uint8_t gap_extension) {
+           uint8_t gap_open, uint8_t gap_extension,
+           std::string readsfile, bool readsin) {
   using std::cout;
   using std::cerr;
   using std::endl;
   using std::string;
 
+  std::ifstream reads;
+  if (readsin) reads.open(readsfile.c_str());
+
   string read;
   int32_t readEndPos, optAlignEnd, suboptAlignEnd;
   std::vector<string> readMeta(0);
-  int32_t readSampleLoc = -1;
+  int32_t readSampleLoc;
   int32_t tol;
 
   cerr << "Aligning reads..." << endl;
-  while (std::getline(std::cin, read)) {
+  while (((readsin) ? std::getline(reads, read) : std::getline(std::cin, read))) {
     readSampleLoc = -1;
     readEndPos = int32_t(read.find('#'));
     if (readEndPos == string::npos) readEndPos = int32_t(read.length());
@@ -107,7 +114,9 @@ void printAlignHelp() {
   cout << "-n\t--mismatch      Mismatch score, default " << 2 << endl;
   cout << "-o\t--gap_open      Gap opening score, default " << 3 << endl;
   cout << "-e\t--gap_extend    Gap extend score, default " << 1 << endl;
-  cout << endl << "Alignments output to stdout. Reads read from stdin, 1 per line." << endl;
+  cout << "-r\t--reads         Reads to align. If not specified, read from stdin" << endl;
+
+  cout << endl << "Alignments output to stdout. Reads read from stdin or -r, 1 per line." << endl;
   cout << "Output format:" << endl;
   cout << "READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE," << endl;
   cout << "SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH" << endl << endl;
