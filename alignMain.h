@@ -23,11 +23,9 @@ void align_main(int argc, char *argv[]);
 /// <param name="nt_table">base table, construct using gssw_create_nt_table()</param>
 /// <param name="gap_open">Gap open cost</param>
 /// <param name="gap_extension">Gap extension cost</param>
-/// <param name="readfile">List of input reads</param>
 void align(gssw_graph *graph,
            int8_t *mat, int8_t *nt_table,
-           uint8_t gap_open, uint8_t gap_extension,
-           std::string readfile);
+           uint8_t gap_open, uint8_t gap_extension);
 void printAlignHelp();
 
 #endif //VMATCH_ALIGNMAIN_H

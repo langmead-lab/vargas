@@ -36,11 +36,10 @@ void align_main(int argc, char *argv[]) {
   args >> GetOpt::Option('m', "match", match)
       >> GetOpt::Option('n', "mismatch", mismatch)
       >> GetOpt::Option('o', "gap_open", gap_open)
-      >> GetOpt::Option('e', "gap_extend", gap_extension)
-      >> GetOpt::Option('r', "reads", readsfile);
+      >> GetOpt::Option('e', "gap_extend", gap_extension);
 
   graph = buildGraph(buildfile, nt_table, mat);
-  align(graph, mat, nt_table, gap_open, gap_extension, readsfile);
+  align(graph, mat, nt_table, gap_open, gap_extension);
 
   gssw_graph_destroy(graph);
   delete[] nt_table;
@@ -50,28 +49,20 @@ void align_main(int argc, char *argv[]) {
 
 void align(gssw_graph *graph,
            int8_t *mat, int8_t *nt_table,
-           uint8_t gap_open, uint8_t gap_extension,
-           std::string readfile) {
+           uint8_t gap_open, uint8_t gap_extension) {
   using std::cout;
   using std::cerr;
   using std::endl;
   using std::string;
 
-  std::ifstream reads;
   string read;
   int32_t readEndPos, optAlignEnd, suboptAlignEnd;
   std::vector<string> readMeta(0);
   int32_t readSampleLoc = -1;
   int32_t tol;
 
-  reads.open(readfile.c_str());
-  if (!reads.good()) {
-    cerr << "Error opening reads file. No alignment will be done." << endl;
-    exit(0);
-  }
-
   cerr << "Aligning reads..." << endl;
-  while (std::getline(reads, read)) {
+  while (std::getline(std::cin, read)) {
     readSampleLoc = -1;
     readEndPos = int32_t(read.find('#'));
     if (readEndPos == string::npos) readEndPos = int32_t(read.length());
@@ -105,7 +96,6 @@ void align(gssw_graph *graph,
     }
     cout << readSampleLoc << endl;
   }
-  reads.close();
 }
 
 void printAlignHelp() {
@@ -117,8 +107,7 @@ void printAlignHelp() {
   cout << "-n\t--mismatch      Mismatch score, default " << 2 << endl;
   cout << "-o\t--gap_open      Gap opening score, default " << 3 << endl;
   cout << "-e\t--gap_extend    Gap extend score, default " << 1 << endl;
-  cout << "-r\t--reads         Reads to align, one per line. Symbols after '#' are ignored." << endl;
-  cout << endl << "Alignments output to stdout." << endl;
+  cout << endl << "Alignments output to stdout. Reads read from stdin, 1 per line." << endl;
   cout << "Output format:" << endl;
   cout << "READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE," << endl;
   cout << "SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH" << endl << endl;
