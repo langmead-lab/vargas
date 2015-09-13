@@ -1,17 +1,9 @@
 //
 // Created by gaddra on 9/12/15.
 //
-#include "getopt_pp.h"
-#include <iostream>
-#include <stdlib.h>
-#include <cstdlib>
-#include "utils.h"
-#include <fstream>
-#include <algorithm>
-#include "gssw/src/gssw.h"
+
 #include "buildMain.h"
 
-bool print = true;
 
 void build_main(int argc, char *argv[]) {
   using std::cout;
@@ -35,14 +27,13 @@ void build_main(int argc, char *argv[]) {
 
   if (!(args >> GetOpt::Option('v', "vcf", VCF))
       || !(args >> GetOpt::Option('r', "ref", REF))) {
-    cerr << "No inputs specified, see options with -h" << endl;
+    cerr << "No inputs specified!" << endl;
     exit(1);
   }
 
-  args >> GetOpt::Option('g', "maxlen", maxNodelen)
+  args >> GetOpt::Option('l', "maxlen", maxNodelen)
       >> GetOpt::Option('R', "region", region)
-      >> GetOpt::OptionPresent('p', "noprint", print)
-      >> GetOpt::Option('G', "ingroup", ingroup);
+      >> GetOpt::Option('g', "ingroup", ingroup);
 
   /** Parse region **/
   if (region.length() > 0) {
@@ -127,7 +118,8 @@ void generateGraph(
   } else {
     for (int i = 0; i < numIndivs; i++) {
       inGroupCols.push_back(i + formatColumn + 1);
-      cout << inGroupCols[i] << ',';
+      cout << inGroupCols[i];
+      if (i < numIndivs - 1) cout << ',';
     }
   }
   cout << endl;
@@ -300,7 +292,6 @@ void generateGraph(
 #endif
   }
 
-
   variants.close();
   reference.close();
 
@@ -309,13 +300,13 @@ void generateGraph(
 void printBuildHelp() {
   using std::cout;
   using std::endl;
-  cout << "------------------------- VMatch build, September 2015. rgaddip1@jhu.edu -------------------------" <<
+  cout << endl << "------------------- VMatch build, September 2015. rgaddip1@jhu.edu -------------------" <<
       endl;
-  cout << "-v\t--vcf           VCF file, uncompressed." << endl;
-  cout << "-r\t--ref           reference single record FASTA" << endl;
-  cout << "-g\t--maxlen        Maximum node length" << endl;
+  cout << "-v\t--vcf           (required) VCF file, uncompressed." << endl;
+  cout << "-r\t--ref           (required) reference single record FASTA" << endl;
+  cout << "-l\t--maxlen        Maximum node length" << endl;
   cout << "-R\t--region        [min:max] Ref region, inclusive. Default is entire graph." << endl;
-  cout << "-G\t--ingroup       Percent of individuals to build graph from, default all." << endl;
+  cout << "-g\t--ingroup       Percent of individuals to build graph from, default all." << endl;
 
   cout << endl << "Buildfile is printed on stdout." << endl;
 }
