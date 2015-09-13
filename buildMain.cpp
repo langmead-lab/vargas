@@ -36,7 +36,7 @@ void build_main(int argc, char *argv[]) {
       >> GetOpt::Option('R', "region", region)
       >> GetOpt::Option('g', "ingroup", ingroup)
       >> GetOpt::OptionPresent('c', "complement", genComplement)
-      >> GetOpt::Option('b', "buildfile", buildfile);
+      >> GetOpt::Option('c', "complement", buildfile);
 
   /** Parse region **/
   if (region.length() > 0) {
@@ -340,8 +340,7 @@ void printBuildHelp() {
   cout << "-l\t--maxlen        Maximum node length" << endl;
   cout << "-R\t--region        [min:max] Ref region, inclusive. Default is entire graph." << endl;
   cout << "-g\t--ingroup       Percent of individuals to build graph from, default all." << endl;
-  cout << "-c\t--complement    Generate a complement of the graph specified with -b." << endl;
-  cout << "-b\t--buildfile     Buildfile of the graph to generate a complement of." << endl;
+  cout << "-c\t--complement    Generate a complement of the specified graph" << endl;
 
   cout << endl << "Buildfile is printed on stdout." << endl;
 }

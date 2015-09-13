@@ -161,5 +161,5 @@ void printSimHelp() {
   cout << "-l\t--readlen       Nominal read length" << endl << endl;
   cout << "Reads are printed on stdout." << endl;
   cout << "Read Format:" << endl;
-  cout << "READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES" << endl;
+  cout << "READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES" << endl << endl;
 }

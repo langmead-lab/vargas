@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
     printMainHelp();
     exit(0);
   }
-  cerr << "Error: Please define a valid mode of operation. See options with -h" << endl;
+  cerr << "Error: Please define a valid mode of operation. See options with -h." << endl;
   exit(1);
 
 }
@@ -48,6 +48,6 @@ void printMainHelp() {
   cout << "build     Generate graph build file from reference and VCF files." << endl;
   cout << "sim       Simulate reads from a graph." << endl;
   cout << "align     Align reads to a graph." << endl;
-  cout << "export    Export graph in DOT format." << endl;
+  cout << "export    Export graph in DOT format." << endl << endl;
 
 }

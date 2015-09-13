@@ -16,6 +16,7 @@
 -l     --maxlen        Maximum node length
 -R     --region        [min:max] Ref region, inclusive. Default is entire graph.
 -g     --ingroup       Percent of individuals to build graph from, default all.
+-c     --complement    Generate a complement of a graph (outgroup becomes ingroup).
 
 Buildfile is printed on stdout.
  ```
@@ -29,6 +30,8 @@ Buildfile is printed on stdout.
 -l     --readlen       Nominal read length
   
 Reads are printed on stdout.
+Read Format:
+READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES
  ```
  
  ```
@@ -41,6 +44,11 @@ Reads are printed on stdout.
 -r     --reads         Reads to align, one per line. Symbols after '#' are ignored.
 
 Alignments output to stdout.
+Output format:
+READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE,
+SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH
+
+ALIGNMENT_MATCH: 0- optimal match, 1- suboptimal match, 2- no match
 ```
 
 ```

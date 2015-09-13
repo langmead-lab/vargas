@@ -27,7 +27,7 @@ void exportDOT(int argc, char *argv[]) {
     exit(0);
   }
   if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
-    std::cerr << "Error: No buildfile defined." << std::endl;
+    std::cerr << "Error: No buildfile defined." << std::endl << std::endl;
     exit(1);
   }
   graph = buildGraph(buildfile, nt_table, mat);
