@@ -333,7 +333,7 @@ void generateGraph(
 void printBuildHelp() {
   using std::cout;
   using std::endl;
-  cout << endl << "------------------- VMatch build, September 2015. rgaddip1@jhu.edu -------------------" <<
+  cout << endl << "------------------- VMatch build, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" <<
       endl;
   cout << "-v\t--vcf           (required) VCF file, uncompressed." << endl;
   cout << "-r\t--ref           (required) reference single record FASTA" << endl;

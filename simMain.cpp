@@ -57,9 +57,9 @@ void sim_main(int argc, char *argv[]) {
 
 std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float indelerr) {
   gssw_node *node, *nodeCandidate;
-  int32_t base, RAND, ambig = 0, currIndiv = -1;
+  int32_t base, RAND, ambig = 0, currIndiv = -1, numSubErr = 0, numVarNodes = 0, numVarBases = 0;
   char mut;
-  std::stringstream readmut, path;
+  std::stringstream readmut;
   std::string read = "";
   bool valid;
 
@@ -68,10 +68,14 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
     node = graph.nodes[rand() % (graph.size - 1)];
   } while (node->len < 1);
   base = rand() % (node->len);
-  if (node->indivSize > 0) currIndiv = node->indiv[rand() % node->indivSize];
+  if (node->indivSize > 0) {
+    currIndiv = node->indiv[rand() % node->indivSize];
+    numVarNodes++;
+  }
 
   for (int i = 0; i < readLen; i++) {
-    read += node->seq[base];
+    if (node->len != 0) read += node->seq[base];
+    if (node->indivSize > 0) numVarBases++;
     if (node->seq[base] == 'N') ambig++;
     base++;
 
@@ -94,6 +98,7 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
         }
       } while (node->indivSize == 0 || !valid);
       node = nodeCandidate;
+      if (node->indivSize > 0) numVarNodes++;
       if (node->count_next == 0) break; // End of graph reached
       base = 0;
     }
@@ -108,10 +113,22 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
 
     if (RAND < (100000 - (100000 * indelerr / 2))) { // represents del
       /** Mutation **/
-      if (RAND < (100000 * muterr) / 4) mut = 'A';
-      else if (RAND < 2 * (100000 * muterr) / 4) mut = 'G';
-      else if (RAND < 3 * (100000 * muterr) / 4) mut = 'C';
-      else if (RAND < (100000 * muterr)) mut = 'T';
+      if (RAND < (100000 * muterr) / 4 && mut != 'A') {
+        mut = 'A';
+        numSubErr++;
+      }
+      else if (RAND < 2 * (100000 * muterr) / 4 && mut != 'G') {
+        mut = 'G';
+        numSubErr++;
+      }
+      else if (RAND < 3 * (100000 * muterr) / 4 && mut != 'C') {
+        mut = 'C';
+        numSubErr++;
+      }
+      else if (RAND < (100000 * muterr) && mut != 'T') {
+        mut = 'T';
+        numSubErr++;
+      }
       readmut << mut;
 
       /* Insertion **/
@@ -127,7 +144,8 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
   }
 
   /** Append suffix recording read position **/
-  readmut << '#' << node->data - node->len + base << ',' << currIndiv;
+  readmut << '#' << node->data - node->len + base << ',' << currIndiv << ',' << numSubErr
+      << "," << numVarNodes << "," << numVarBases;
   return readmut.str();
 }
 
@@ -135,7 +153,7 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
 void printSimHelp() {
   using std::cout;
   using std::endl;
-  cout << endl << "------------------- VMatch sim, September 2015. rgaddip1@jhu.edu -------------------" << endl;
+  cout << endl << "------------------- VMatch sim, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
   cout << "-b\t--buildfile     quick rebuild file, required if -v, -r are not defined." << endl;
   cout << "-n\t--numreads      Number of reads to simulate" << endl;
   cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
@@ -143,5 +161,5 @@ void printSimHelp() {
   cout << "-l\t--readlen       Nominal read length" << endl << endl;
   cout << "Reads are printed on stdout." << endl;
   cout << "Read Format:" << endl;
-  cout << "READ#READ_END_POSITION,INDIVIDUAL" << endl;
+  cout << "READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES" << endl;
 }

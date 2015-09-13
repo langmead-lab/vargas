@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
 
 void printMainHelp() {
 
-  cout << endl << "---------------------- VMatch, September 2015. rgaddip1@jhu.edu ----------------------" << endl;
+  cout << endl << "---------------------- VMatch, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
   cout << "Operating modes \'vmatch MODE\':" << endl;
   cout << "build     Generate graph build file from reference and VCF files." << endl;
   cout << "sim       Simulate reads from a graph." << endl;

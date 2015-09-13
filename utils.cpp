@@ -19,7 +19,8 @@ void exportDOT(int argc, char *argv[]) {
 
   GetOpt::GetOpt_pp args(argc, argv);
   if ((args >> GetOpt::OptionPresent('h', "help"))) {
-    std::cout << std::endl << "------------------- VMatch export, September 2015. rgaddip1@jhu.edu -------------------"
+    std::cout << std::endl << "------------------- VMatch export, " << __DATE__
+        << ". rgaddip1@jhu.edu -------------------"
         << std::endl;
     std::cout << "-b\t--buildfile    Graph to export to DOT." << std::endl;
     std::cout << std::endl << "DOT file printed to stdout." << std::endl;
@@ -74,11 +75,6 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
       }
     }
   }
-
-
-  /** Buffer node **/
-  nodes.push_back(gssw_node_create(-1, ++curr, "", nt_table, mat));
-  gssw_nodes_add_edge(nodes.end()[-2], nodes.end()[-1]);
 
   /** Add nodes to graph **/
   gssw_graph *graph = gssw_graph_create(uint32_t(nodes.size()));

@@ -111,7 +111,7 @@ void align(gssw_graph *graph,
 void printAlignHelp() {
   using std::cout;
   using std::endl;
-  cout << endl << "------------------- VMatch align, September 2015. rgaddip1@jhu.edu -------------------" << endl;
+  cout << endl << "------------------- VMatch align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
   cout << "-b\t--buildfile     quick rebuild file, required if -v, -r are not defined." << endl;
   cout << "-m\t--match         Match score, default  " << 2 << endl;
   cout << "-n\t--mismatch      Mismatch score, default " << 2 << endl;
@@ -122,6 +122,6 @@ void printAlignHelp() {
   cout << "Output format:" << endl;
   cout << "READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE," << endl;
   cout << "SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH" << endl;
-  cout << "ALIGNMENT_MATCH: 0-optimal matches read location, 1-suboptimal matches read loc, 2-no match" << endl;
+  cout << "ALIGNMENT_MATCH: 0- optimal match, 1- suboptimal match, 2- no match" << endl;
 
 }
