@@ -19,7 +19,10 @@ void exportDOT(int argc, char *argv[]) {
 
   GetOpt::GetOpt_pp args(argc, argv);
   if ((args >> GetOpt::OptionPresent('h', "help"))) {
-    std::cout << "Export graph in DOT format. specify buildfile with -b." << std::endl;
+    std::cout << std::endl << "------------------- VMatch export, September 2015. rgaddip1@jhu.edu -------------------"
+        << std::endl;
+    std::cout << "-b\t--buildfile    Graph to export to DOT." << std::endl;
+    std::cout << std::endl << "DOT file printed to stdout." << std::endl;
     exit(0);
   }
   if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
@@ -96,6 +99,10 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
 
   if (s.length() == 0) {
     elems.push_back("");
+    return elems;
+  }
+  else if (s.length() == 1) {
+    elems.push_back(s.substr(0, 1));
     return elems;
   }
   while (std::getline(ss, item, delim)) {

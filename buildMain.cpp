@@ -11,8 +11,9 @@ void build_main(int argc, char *argv[]) {
   using std::endl;
   using std::string;
 
-  string VCF = "", REF = "", region;
+  string VCF = "", REF = "", region, buildfile = "";
   int32_t maxNodelen = 50000, ingroup = -1;
+  bool genComplement = false;
 
   /**default region **/
   int32_t regionMin = 0, regionMax = 2147483640;
@@ -33,7 +34,9 @@ void build_main(int argc, char *argv[]) {
 
   args >> GetOpt::Option('l', "maxlen", maxNodelen)
       >> GetOpt::Option('R', "region", region)
-      >> GetOpt::Option('g', "ingroup", ingroup);
+      >> GetOpt::Option('g', "ingroup", ingroup)
+      >> GetOpt::OptionPresent('c', "complement", genComplement)
+      >> GetOpt::Option('b', "buildfile", buildfile);
 
   /** Parse region **/
   if (region.length() > 0) {
@@ -45,19 +48,27 @@ void build_main(int argc, char *argv[]) {
     regionMin = std::atoi(region_split[0].c_str());
     regionMax = std::atoi(region_split[1].c_str());
   }
-  generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, ingroup);
+  generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, ingroup, genComplement, buildfile);
 }
 
 void generateGraph(
     std::string REF, std::string VCF,
     int32_t minpos, int32_t maxpos, // Region to parse
     int32_t maxNodeLen,
-    int32_t inGroup) {
+    int32_t inGroup,
+    bool genComplement,
+    std::string buildfile) {
 
   using namespace std;
 
   /** Used to track which indivs have a variant **/
   vector<int16_t> inVar(0);
+
+  /** To process complement graph **/
+  vector<string> inputGroup(0);
+  vector<int32_t> inputGroupInt(0);
+  string inputGroupLine;
+  int32_t ingroupSize;
 
   /** reference line, variant line **/
   string ref_line, vcf_line;
@@ -82,6 +93,7 @@ void generateGraph(
   /** File stream **/
   ifstream variants(VCF.c_str(), ios_base::in | ios_base::binary);
   ifstream reference(REF.c_str());
+  ifstream build;
 
   if (!variants.good() || !reference.good()) {
     boolalpha(cout);
@@ -106,20 +118,41 @@ void generateGraph(
 
   /** Construct the in group, the graph will be built with these individuals **/
   cout << '#';
-  if (inGroup >= 0) {
-    for (int i = 0; i < int32_t((numIndivs / 100.0f) * inGroup); i++) {
-      randtemp = rand() % numIndivs + formatColumn + 1;
-      if (find(inGroupCols.begin(), inGroupCols.end(), randtemp) == inGroupCols.end()) {
-        inGroupCols.push_back(randtemp);
-        cout << inGroupCols[i] << ',';
-      } else i--;
+  if (genComplement) {
+    /** Ingroup is the indivs not included in the specified file **/
+    if (buildfile.length() == 0) {
+      cerr << "Error: No buildfile specified, complement cannot be built. Aborting." << endl;
+      exit(1);
     }
-    sort(inGroupCols.begin(), inGroupCols.end());
+    build.open(buildfile.c_str());
+    getline(build, inputGroupLine);
+    inputGroupLine = inputGroupLine.substr(1, inputGroupLine.length() - 2);
+    split(inputGroupLine, ',', inputGroup);
+    for (int32_t i = 0; i < inputGroup.size(); i++) {
+      inputGroupInt.push_back(atoi(inputGroup.at(i).c_str()));
+    }
+    for (int32_t i = 0; i < numIndivs; i++) {
+      if (find(inputGroupInt.begin(), inputGroupInt.end(), i + formatColumn + 1) == inputGroupInt.end()) {
+        inGroupCols.push_back(i + formatColumn + 1);
+        cout << inGroupCols[i] << ',';
+      }
+    }
+
   } else {
-    for (int i = 0; i < numIndivs; i++) {
-      inGroupCols.push_back(i + formatColumn + 1);
-      cout << inGroupCols[i];
-      if (i < numIndivs - 1) cout << ',';
+    if (inGroup >= 0) {
+      for (int32_t i = 0; i < int32_t((numIndivs / 100.0f) * inGroup); i++) {
+        randtemp = rand() % numIndivs + formatColumn + 1;
+        if (find(inGroupCols.begin(), inGroupCols.end(), randtemp) == inGroupCols.end()) {
+          inGroupCols.push_back(randtemp);
+          cout << inGroupCols[i] << ',';
+        } else i--;
+      }
+      sort(inGroupCols.begin(), inGroupCols.end());
+    } else {
+      for (int32_t i = 0; i < numIndivs; i++) {
+        inGroupCols.push_back(i + formatColumn + 1);
+        cout << inGroupCols[i] << ',';
+      }
     }
   }
   cout << endl;
@@ -307,6 +340,8 @@ void printBuildHelp() {
   cout << "-l\t--maxlen        Maximum node length" << endl;
   cout << "-R\t--region        [min:max] Ref region, inclusive. Default is entire graph." << endl;
   cout << "-g\t--ingroup       Percent of individuals to build graph from, default all." << endl;
+  cout << "-c\t--complement    Generate a complement of the graph specified with -b." << endl;
+  cout << "-b\t--buildfile     Buildfile of the graph to generate a complement of." << endl;
 
   cout << endl << "Buildfile is printed on stdout." << endl;
 }

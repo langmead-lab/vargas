@@ -7,7 +7,7 @@
 
 void sim_main(int argc, char *argv[]) {
   /** Default sim read error **/
-  float muterr = 0.01f, indelerr = 0.01f;
+  float muterr = 0.01f, indelerr = 0.0f;
 
   /** Graph to build reads from **/
   std::string buildfile = "";
@@ -141,4 +141,5 @@ void printSimHelp() {
   cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
   cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;
   cout << "-l\t--readlen       Nominal read length" << endl << endl;
+  cout << "Reads are printed on stdout." << endl;
 }

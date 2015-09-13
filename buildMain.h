@@ -24,12 +24,16 @@ void build_main(int argc, char *argv[]);
 /// <param name="nt_table">base table, construct using gssw_create_nt_table()</param>
 /// <param name="mat">Score matrix, use gssw_create_score_matrix()</param>
 /// <param name="inGroup">Percent of indivudals used to generate graph, default all.</param>
+/// <param name="genComplement">Build the complement graph of buildfile</param>
+/// <param name="buildfile">Buildfile of the graph to build a complement of.</param>
 /// <returns>Constructed gssw_graph</returns>
 void generateGraph(
     std::string REF, std::string VCF,
     int32_t minpos, int32_t maxpos, // Region to parse
     int32_t maxNodeLen,
-    int32_t inGroup);
+    int32_t inGroup,
+    bool genComplement,
+    std::string buildfile);
 
 
 void printBuildHelp();
