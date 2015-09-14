@@ -199,7 +199,7 @@ void printSimHelp() {
   cout << "-r\t--rand          Use a random mutation error rate, up to the value specified by -m." << endl;
   cout << "-l\t--readlen       Nominal read length" << endl;
   cout << "-e\t--regex         Match regex expressions. Produces -n of each, discard others." << endl;
-  cout << "  \t                List of expressions is space deliminated -e \"exp1 exp2\"." << endl << endl;
+  cout << "  \t                List of expressions is space delimited -e \"exp1 exp2\"." << endl << endl;
 
   cout << "NOTE: End of line anchor may not work in regex depending on C++ version. " << endl;
   cout << "Reads are printed on stdout." << endl;

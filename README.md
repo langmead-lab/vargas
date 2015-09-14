@@ -27,7 +27,10 @@ Buildfile is printed on stdout.
 -n     --numreads      Number of reads to simulate
 -m     --muterr        Simulated read mutation error rate
 -i     --indelerr      Simulated read Indel error rate
+-r     --rand          Use a random mutation error rate, up to the value specified by -m.
 -l     --readlen       Nominal read length
+-e     --regex         Match regex expressions. Produces -n of each, discard others.
+                       List of expressions is space delimited -e "exp1 exp2"
   
 Reads are printed on stdout.
 Read Format:
@@ -79,6 +82,8 @@ export PATH=path_to_VMatch/build:$PATH
  Reads can be simulated with `vmatch sim`. Mutation error and Indel errors can be introduced (default 1%). Reads take random paths through the graph. To generate 1000 reads of length 100 and a 1% error rate from a graph:
  
  `vmatch sim -b GRAPH -n 1000 -l 100 -m 0.01 -i 0.01 > SIMREADS`
+ 
+ To target certain kinds of reads, a list of space delimited regular expressions can be provided with `-e`. `-n` reads will be genereated for each regular expression. Any reads that do not match the expression will be discarded.
 
 ### Aligning to the graph
  
