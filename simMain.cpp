@@ -7,7 +7,7 @@
 
 void sim_main(int argc, char *argv[]) {
   /** Default sim read error **/
-  float muterr = 0.01f, indelerr = 0.0f;
+  float muterr = 0.01f, indelerr = 0.0f, randMuterr;
 
   /** Graph to build reads from **/
   std::string buildfile = "", regexpStr = "", read;
@@ -16,6 +16,7 @@ void sim_main(int argc, char *argv[]) {
   int32_t *counters;
   int32_t totalReads = 0;
   bool useRegex = false;
+  bool randErr = false;
 
   /** Read generation defaults **/
   int32_t numreads = 1000, readlen = 100, tol = 5;
@@ -44,7 +45,8 @@ void sim_main(int argc, char *argv[]) {
       >> GetOpt::Option('m', "muterr", muterr)
       >> GetOpt::Option('i', "indelerr", indelerr)
       >> GetOpt::Option('l', "readlen", readlen)
-      >> GetOpt::Option('e', "regex", regexpStr);
+      >> GetOpt::Option('e', "regex", regexpStr)
+      >> GetOpt::OptionPresent('r', "rand", randErr);
 
   gssw_graph *graph = buildGraph(buildfile, nt_table, mat);
   if ((args >> GetOpt::Option('e', "regex", regexpStr))) useRegex = true;
@@ -60,11 +62,12 @@ void sim_main(int argc, char *argv[]) {
   }
 
   /** Simulate reads **/
-
+  randMuterr = muterr;
   std::cerr << "Generating reads..." << std::endl;
   if (useRegex) {
     while (1) {
-      read = generateRead(*graph, readlen, muterr, indelerr);
+      if (randErr) randMuterr = (rand() % int32_t(muterr * 100000)) / 100000.0f;
+      read = generateRead(*graph, readlen, randMuterr, indelerr);
       for (int32_t i = 0; i < regexps.size(); i++) {
         if (counters[i] < numreads) {
           if (std::regex_match(read.begin(), read.end(), regexps[i])) {
@@ -79,7 +82,8 @@ void sim_main(int argc, char *argv[]) {
     }
   } else {
     for (int i = 0; i < numreads; i++) {
-      read = generateRead(*graph, readlen, muterr, indelerr);
+      if (randErr) randMuterr = (rand() % int32_t(muterr * 100000)) / 100000.0f;
+      read = generateRead(*graph, readlen, randMuterr, indelerr);
       std::cout << read << std::endl;
     }
   }
@@ -192,9 +196,11 @@ void printSimHelp() {
   cout << "-n\t--numreads      Number of reads to simulate" << endl;
   cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
   cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;
+  cout << "-r\t--rand          Use a random mutation error rate, up to the value specified by -m." << endl;
   cout << "-l\t--readlen       Nominal read length" << endl;
   cout << "-e\t--regex         Match regex expressions. Produces -n of each, discard others." << endl;
   cout << "  \t                List of expressions is space deliminated -e \"exp1 exp2\"." << endl << endl;
+
   cout << "NOTE: End of line anchor may not work in regex depending on C++ version. " << endl;
   cout << "Reads are printed on stdout." << endl;
   cout << "Read Format:" << endl;
