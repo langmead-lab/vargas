@@ -10,7 +10,12 @@ void sim_main(int argc, char *argv[]) {
   float muterr = 0.01f, indelerr = 0.0f;
 
   /** Graph to build reads from **/
-  std::string buildfile = "";
+  std::string buildfile = "", regexpStr = "", read;
+  std::vector<std::string> regexpStr_split(0);
+  std::vector<std::regex> regexps(0);
+  int32_t *counters;
+  int32_t totalReads = 0;
+  bool useRegex = false;
 
   /** Read generation defaults **/
   int32_t numreads = 1000, readlen = 100, tol = 5;
@@ -38,17 +43,46 @@ void sim_main(int argc, char *argv[]) {
   args >> GetOpt::Option('n', "numreads", numreads)
       >> GetOpt::Option('m', "muterr", muterr)
       >> GetOpt::Option('i', "indelerr", indelerr)
-      >> GetOpt::Option('l', "readlen", readlen);
+      >> GetOpt::Option('l', "readlen", readlen)
+      >> GetOpt::Option('e', "regex", regexpStr);
 
   gssw_graph *graph = buildGraph(buildfile, nt_table, mat);
+  if ((args >> GetOpt::Option('e', "regex", regexpStr))) useRegex = true;
+
+  /** Build list of regex */
+  if (useRegex) {
+    split(regexpStr, ' ', regexpStr_split);
+    for (int32_t i = 0; i < regexpStr_split.size(); i++) {
+      std::cout << "# " << regexpStr_split[i] << std::endl;
+      regexps.push_back(std::regex(regexpStr_split[i]));
+    }
+    counters = new int[regexps.size()]();
+  }
 
   /** Simulate reads **/
 
   std::cerr << "Generating reads..." << std::endl;
-  for (int i = 0; i < numreads; i++) {
-    std::cout << generateRead(*graph, readlen, muterr, indelerr) << std::endl;
+  if (useRegex) {
+    while (1) {
+      read = generateRead(*graph, readlen, muterr, indelerr);
+      for (int32_t i = 0; i < regexps.size(); i++) {
+        if (counters[i] < numreads) {
+          if (std::regex_match(read.begin(), read.end(), regexps[i])) {
+            counters[i]++;
+            totalReads++;
+            std::cout << read << std::endl;
+            break;
+          }
+        }
+      }
+      if (totalReads >= regexps.size() * numreads) break;
+    }
+  } else {
+    for (int i = 0; i < numreads; i++) {
+      read = generateRead(*graph, readlen, muterr, indelerr);
+      std::cout << read << std::endl;
+    }
   }
-
   gssw_graph_destroy(graph);
   delete[] nt_table;
   delete[] mat;
@@ -158,7 +192,10 @@ void printSimHelp() {
   cout << "-n\t--numreads      Number of reads to simulate" << endl;
   cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
   cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;
-  cout << "-l\t--readlen       Nominal read length" << endl << endl;
+  cout << "-l\t--readlen       Nominal read length" << endl;
+  cout << "-e\t--regex         Match regex expressions. Produces -n of each, discard others." << endl;
+  cout << "  \t                List of expressions is space deliminated -e \"exp1 exp2\"." << endl << endl;
+  cout << "NOTE: End of line anchor may not work in regex depending on C++ version. " << endl;
   cout << "Reads are printed on stdout." << endl;
   cout << "Read Format:" << endl;
   cout << "READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES" << endl << endl;

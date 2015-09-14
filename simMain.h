@@ -9,9 +9,11 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
+#include <regex>
 #include "utils.h"
 
 void sim_main(int argc, char *argv[]);
+
 
 /// <summary>
 /// Generates a random read from the given graph. Edges are taken at random.
