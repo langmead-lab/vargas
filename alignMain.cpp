@@ -65,7 +65,7 @@ void align(gssw_graph *graph,
   string read;
   int32_t readEndPos, optAlignEnd, suboptAlignEnd;
   std::vector<string> readMeta(0);
-  int32_t readSampleLoc;
+  int32_t readSampleLoc; //TODO May overflow with whole genome
   int32_t tol;
 
   cerr << "Aligning reads..." << endl;
@@ -81,7 +81,7 @@ void align(gssw_graph *graph,
       tol = (readEndPos / 10) + 1;
 
       gssw_graph_fill(graph, read.substr(0, readEndPos).c_str(), nt_table, mat,
-                      gap_open, gap_extension, uint32_t(read.length()), 2);
+                      gap_open, gap_extension, uint32_t(read.length()), 2, readSampleLoc);
 
       optAlignEnd = graph->max_node->data + 1 - graph->max_node->len + graph->max_node->alignment->ref_end;
       suboptAlignEnd = graph->submax_node->data + 1 - graph->submax_node->len + graph->submax_node->alignment->ref_end;
