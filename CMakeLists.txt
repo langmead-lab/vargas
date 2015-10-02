@@ -7,7 +7,7 @@ main.cpp
 getopt_pp.cpp
 getopt_pp.h
         buildMain.cpp
-        buildMain.h utils.cpp utils.h alignMain.cpp alignMain.h simMain.cpp simMain.h job_main.cpp job_main.h)
+        buildMain.h utils.cpp utils.h alignMain.cpp alignMain.h simMain.cpp simMain.h jobMain.cpp jobMain.h)
 
 set(GSSW_SOURCES
 gssw/src/gssw.h

@@ -6,5 +6,6 @@
 #define VMATCH_JOB_MAIN_H
 
 int job_main(int argc, char *argv[]);
+void printJobHelp();
 
 #endif //VMATCH_JOB_MAIN_H

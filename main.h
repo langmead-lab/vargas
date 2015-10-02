@@ -12,7 +12,7 @@
 #include "buildMain.h"
 #include "alignMain.h"
 #include "simMain.h"
-#include "job_main.h"
+#include "jobMain.h"
 
 void printMainHelp();
 
