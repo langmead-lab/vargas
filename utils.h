@@ -45,7 +45,7 @@ void printNode(gssw_node *node);
 /// <param name="graph">gssw_graph to print</param>
 void graphToDot(gssw_graph *graph);
 
-void exportDOT(int argc, char *argv[]);
+int exportDOT(int argc, char *argv[]);
 
 
 #endif //VMATCH_UTILS_H

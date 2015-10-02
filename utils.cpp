@@ -5,7 +5,7 @@
 
 #include "utils.h"
 
-void exportDOT(int argc, char *argv[]) {
+int exportDOT(int argc, char *argv[]) {
   using std::string;
   /** Scores **/
   int32_t match = 2, mismatch = 2;
@@ -24,14 +24,16 @@ void exportDOT(int argc, char *argv[]) {
         << std::endl;
     std::cout << "-b\t--buildfile    Graph to export to DOT." << std::endl;
     std::cout << std::endl << "DOT file printed to stdout." << std::endl;
-    exit(0);
+    return 0;
   }
   if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
     std::cerr << "Error: No buildfile defined." << std::endl << std::endl;
-    exit(1);
+    return 1;
   }
   graph = buildGraph(buildfile, nt_table, mat);
   graphToDot(graph);
+
+  return 0;
 }
 
 gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {

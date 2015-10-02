@@ -5,7 +5,7 @@
 
 #include "simMain.h"
 
-void sim_main(int argc, char *argv[]) {
+int sim_main(int argc, char *argv[]) {
   /** Default sim read error **/
   float muterr = 0.01f, indelerr = 0.0f, randMuterr;
 
@@ -33,12 +33,12 @@ void sim_main(int argc, char *argv[]) {
 
   if ((args >> GetOpt::OptionPresent('h', "help"))) {
     printSimHelp();
-    exit(0);
+    return 0;
   }
 
   if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
     std::cerr << "Error: no build file defined." << std::endl;
-    exit(1);
+    return 1;
   }
 
   args >> GetOpt::Option('n', "numreads", numreads)
@@ -90,6 +90,8 @@ void sim_main(int argc, char *argv[]) {
   gssw_graph_destroy(graph);
   delete[] nt_table;
   delete[] mat;
+
+  return 0;
 }
 
 

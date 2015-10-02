@@ -4,7 +4,7 @@
 
 #include "alignMain.h"
 
-void align_main(int argc, char *argv[]) {
+int align_main(int argc, char *argv[]) {
   using std::cout;
   using std::cerr;
   using std::endl;
@@ -26,12 +26,12 @@ void align_main(int argc, char *argv[]) {
 
   if (args >> GetOpt::OptionPresent('h', "help")) {
     printAlignHelp();
-    exit(0);
+    return 0;
   }
   /** make sure there's a valid input **/
   if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
     cerr << "Error: no build file defined." << endl;
-    exit(1);
+    return 1;
   }
 
   args >> GetOpt::Option('m', "match", match)
@@ -45,9 +45,10 @@ void align_main(int argc, char *argv[]) {
   align(graph, mat, nt_table, gap_open, gap_extension, readsfile, readsin);
 
   gssw_graph_destroy(graph);
-  delete[] nt_table;
-  delete[] mat;
+  free(nt_table);
+  free(mat);
 
+  return 0;
 }
 
 void align(gssw_graph *graph,
@@ -69,14 +70,15 @@ void align(gssw_graph *graph,
   int32_t tol;
 
   cerr << "Aligning reads..." << endl;
-  while (((readsin) ? std::getline(reads, read) : std::getline(std::cin, read))) {
-    if (read.at(0) != '#') {
+  while ((readsin ? std::getline(reads, read) : std::getline(std::cin, read))) {
+    if (read.length() > 0 && read.at(0) != '#') {
       readSampleLoc = -1;
       readEndPos = int32_t(read.find('#'));
       if (readEndPos == string::npos) readEndPos = int32_t(read.length());
       else {
+        // Get the original read location, else -1
         split(read.substr(readEndPos + 1, read.length() - readEndPos - 1), ',', readMeta);
-        readSampleLoc = atoi(readMeta[0].c_str());
+        readSampleLoc = readMeta[0].length() > 0 ? atoi(readMeta[0].c_str()) : -1;
       }
       tol = (readEndPos / 10) + 1;
 

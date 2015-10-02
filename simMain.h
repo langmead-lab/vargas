@@ -12,7 +12,7 @@
 #include <regex>
 #include "utils.h"
 
-void sim_main(int argc, char *argv[]);
+int sim_main(int argc, char *argv[]);
 
 
 /// <summary>

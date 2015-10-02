@@ -5,7 +5,7 @@
 #include "buildMain.h"
 
 
-void build_main(int argc, char *argv[]) {
+int build_main(int argc, char *argv[]) {
   using std::cout;
   using std::cerr;
   using std::endl;
@@ -23,13 +23,13 @@ void build_main(int argc, char *argv[]) {
 
   if (args >> GetOpt::OptionPresent('h', "help")) {
     printBuildHelp();
-    exit(0);
+    return 0;
   }
 
   if (!(args >> GetOpt::Option('v', "vcf", VCF))
       || !(args >> GetOpt::Option('r', "ref", REF))) {
     cerr << "No inputs specified!" << endl;
-    exit(1);
+    return 1;
   }
 
   args >> GetOpt::Option('l', "maxlen", maxNodelen)
@@ -43,12 +43,14 @@ void build_main(int argc, char *argv[]) {
     split(region, ':', region_split);
     if (region_split.size() < 1) {
       std::cerr << "Malformed region, must be in the form a:b" << endl;
-      exit(1);
+      return 1;
     }
     regionMin = std::atoi(region_split[0].c_str());
     regionMax = std::atoi(region_split[1].c_str());
   }
   generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, ingroup, genComplement, buildfile);
+
+  return 0;
 }
 
 void generateGraph(
