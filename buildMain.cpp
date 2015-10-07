@@ -14,6 +14,9 @@ int build_main(int argc, char *argv[]) {
   string VCF = "", REF = "", region, buildfile = "";
   int32_t maxNodelen = 50000, ingroup = -1;
   bool genComplement = false;
+  bool set = false;
+  std::string setString;
+  std::vector<std::string> setSplit(0);
 
   /**default region **/
   int32_t regionMin = 0, regionMax = 2147483640;
@@ -32,6 +35,11 @@ int build_main(int argc, char *argv[]) {
     return 1;
   }
 
+  if ((args >> GetOpt::Option('s', "set", setString))) {
+    set = true;
+    split(setString, ',', setSplit);
+  }
+
   args >> GetOpt::Option('l', "maxlen", maxNodelen)
       >> GetOpt::Option('R', "region", region)
       >> GetOpt::Option('g', "ingroup", ingroup)
@@ -48,7 +56,25 @@ int build_main(int argc, char *argv[]) {
     regionMin = std::atoi(region_split[0].c_str());
     regionMax = std::atoi(region_split[1].c_str());
   }
-  generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, ingroup, genComplement, buildfile);
+  if (set) {
+    std::ofstream out(0);
+    auto oldBuf = std::cout.rdbuf(out.rdbuf());
+    std::stringstream fileName, compFilename;
+    for (auto ingrp : setSplit) {
+      fileName << ingrp << "In.build";
+      compFilename << ingrp << "Out.build";
+      out.open(fileName.str());
+      generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, stoi(ingrp), false, "");
+      out.close();
+      out.open(compFilename.str());
+      generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, stoi(ingrp), true, fileName.str());
+      out.close();
+      fileName.str("");
+      compFilename.str("");
+    }
+    std::cout.rdbuf(oldBuf);
+
+  } else generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, ingroup, genComplement, buildfile);
 
   return 0;
 }
@@ -343,6 +369,9 @@ void printBuildHelp() {
   cout << "-R\t--region        [min:max] Ref region, inclusive. Default is entire graph." << endl;
   cout << "-g\t--ingroup       Percent of individuals to build graph from, default all." << endl;
   cout << "-c\t--complement    Generate a complement of the specified graph" << endl;
+  cout << "-s\t--set           <#,#,..,#> Generate a buildfile for a list of ingroup %'s and their complements."
+      << endl;
+  cout << "\t                  -s utput to files." << endl;
 
   cout << endl << "Buildfile is printed on stdout." << endl;
 }
