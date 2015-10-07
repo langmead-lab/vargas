@@ -15,8 +15,11 @@ int sim_main(int argc, char *argv[]) {
   std::vector<std::regex> regexps(0);
   int32_t *counters;
   int32_t totalReads = 0;
+  std::ofstream outFile;
   bool useRegex = false;
   bool randErr = false;
+  bool splitFile = false;
+  std::string filePrefix = "f";
 
   /** Read generation defaults **/
   int32_t numreads = 1000, readlen = 100, tol = 5;
@@ -41,6 +44,11 @@ int sim_main(int argc, char *argv[]) {
     return 1;
   }
 
+  if ((args >> GetOpt::OptionPresent('f', "splitfile"))) {
+    args >> GetOpt::Option('f', "filesplit", filePrefix);
+    splitFile = true;
+  }
+
   args >> GetOpt::Option('n', "numreads", numreads)
       >> GetOpt::Option('m', "muterr", muterr)
       >> GetOpt::Option('i', "indelerr", indelerr)
@@ -51,12 +59,21 @@ int sim_main(int argc, char *argv[]) {
   gssw_graph *graph = buildGraph(buildfile, nt_table, mat);
   if ((args >> GetOpt::Option('e', "regex", regexpStr))) useRegex = true;
 
+  std::stringstream fileName;
+
   /** Build list of regex */
   if (useRegex) {
     split(regexpStr, ' ', regexpStr_split);
     for (int32_t i = 0; i < regexpStr_split.size(); i++) {
-      std::cout << "# " << regexpStr_split[i] << std::endl;
       regexps.push_back(std::regex(regexpStr_split[i]));
+      if (splitFile) {
+        fileName << filePrefix << i << ".reads";
+        outFile.open(fileName.str());
+        outFile << "#" << regexpStr_split[i] << std::endl;
+        outFile.close();
+        fileName.clear();
+        fileName.str("");
+      } else std::cout << "# " << regexpStr_split[i] << std::endl;
     }
     counters = new int[regexps.size()]();
   }
@@ -73,7 +90,15 @@ int sim_main(int argc, char *argv[]) {
           if (std::regex_match(read.begin(), read.end(), regexps[i])) {
             counters[i]++;
             totalReads++;
-            std::cout << read << std::endl;
+            if (splitFile) {
+              fileName << filePrefix << i << ".reads";
+              outFile.open(fileName.str(), std::ios_base::app);
+              outFile << read << std::endl;
+              outFile.close();
+              fileName.clear();
+              fileName.str("");
+            }
+            else std::cout << read << std::endl;
             break;
           }
         }
@@ -201,6 +226,8 @@ void printSimHelp() {
   cout << "-r\t--rand          Use a random mutation error rate, up to the value specified by -m." << endl;
   cout << "-l\t--readlen       Nominal read length" << endl;
   cout << "-e\t--regex         Match regex expressions. Produces -n of each, discard others." << endl;
+  cout << "-f\t--filesplit     Each regex put in seperate files, with prefix specified. Otherwise all to stdout"
+      << endl;
   cout << "  \t                List of expressions is space delimited -e \"exp1 exp2\"." << endl << endl;
 
   cout << "NOTE: End of line anchor may not work in regex depending on C++ version. " << endl;
