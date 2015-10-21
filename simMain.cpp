@@ -22,7 +22,7 @@ int sim_main(int argc, char *argv[]) {
   std::string filePrefix = "f";
 
   /** Read generation defaults **/
-  int32_t numreads = 1000, readlen = 100, tol = 5;
+  int32_t numreads = 1000, readlen = 100;
 
   /** Scores **/
   int32_t match = 2, mismatch = 2;
@@ -63,7 +63,7 @@ int sim_main(int argc, char *argv[]) {
 
   /** Build list of regex */
   if (useRegex) {
-    split(regexpStr, ' ', regexpStr_split);
+    regexpStr_split = split(regexpStr, ' ');
     for (int32_t i = 0; i < regexpStr_split.size(); i++) {
       regexps.push_back(std::regex(regexpStr_split[i]));
       if (splitFile) {
@@ -172,7 +172,7 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
   if (ambig > readLen / 2 || read.length() < readLen / 2) return generateRead(graph, readLen, muterr, indelerr);
 
   /** Mutate string **/
-  for (int i = 0; i < read.length(); i++) {
+  for (uint32_t i = 0; i < read.length(); i++) {
     RAND = rand() % 100000;
     mut = read.at(i);
 
@@ -219,7 +219,7 @@ void printSimHelp() {
   using std::cout;
   using std::endl;
   cout << endl << "------------------- VMatch sim, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
-  cout << "-b\t--buildfile     quick rebuild file, required if -v, -r are not defined." << endl;
+  cout << "-b\t--buildfile     quick rebuild file, generate with vmatch build" << endl;
   cout << "-n\t--numreads      Number of reads to simulate" << endl;
   cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
   cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;

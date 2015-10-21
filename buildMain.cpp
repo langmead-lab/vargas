@@ -37,7 +37,7 @@ int build_main(int argc, char *argv[]) {
 
   if ((args >> GetOpt::Option('s', "set", setString))) {
     set = true;
-    split(setString, ',', setSplit);
+    setSplit = split(setString, ',');
   }
 
   args >> GetOpt::Option('l', "maxlen", maxNodelen)
@@ -48,7 +48,7 @@ int build_main(int argc, char *argv[]) {
 
   /** Parse region **/
   if (region.length() > 0) {
-    split(region, ':', region_split);
+    region_split = split(region, ':');
     if (region_split.size() < 1) {
       std::cerr << "Malformed region, must be in the form a:b" << endl;
       return 1;
@@ -57,10 +57,12 @@ int build_main(int argc, char *argv[]) {
     regionMax = std::atoi(region_split[1].c_str());
   }
   if (set) {
+    // Gen a set of ingroup build files
     std::ofstream out(0);
     auto oldBuf = std::cout.rdbuf(out.rdbuf());
     std::stringstream fileName, compFilename;
     for (auto ingrp : setSplit) {
+      // Generates a buildfile for all % ingroup specified, as well as the outgroup buildfiles
       fileName << ingrp << "In.build";
       compFilename << ingrp << "Out.build";
       out.open(fileName.str());
@@ -96,7 +98,6 @@ void generateGraph(
   vector<string> inputGroup(0);
   vector<int32_t> inputGroupInt(0);
   string inputGroupLine;
-  int32_t ingroupSize;
 
   /** reference line, variant line **/
   string ref_line, vcf_line;
@@ -137,7 +138,7 @@ void generateGraph(
   /** Go to first VCF record **/
   do { getline(variants, vcf_line); } while (vcf_line.substr(0, 2) == "##");
   transform(vcf_line.begin(), vcf_line.end(), vcf_line.begin(), ::tolower);
-  split(vcf_line, '\t', header);
+  header = split(vcf_line, '\t');
   posColumn = int32_t(find(header.begin(), header.end(), "pos") - header.begin());
   refColumn = int32_t(find(header.begin(), header.end(), "ref") - header.begin());
   altColumn = int32_t(find(header.begin(), header.end(), "alt") - header.begin());
@@ -155,7 +156,7 @@ void generateGraph(
     build.open(buildfile.c_str());
     getline(build, inputGroupLine);
     inputGroupLine = inputGroupLine.substr(1, inputGroupLine.length() - 2);
-    split(inputGroupLine, ',', inputGroup);
+    inputGroup = split(inputGroupLine, ',');
     for (int32_t i = 0; i < inputGroup.size(); i++) {
       inputGroupInt.push_back(atoi(inputGroup.at(i).c_str()));
     }
@@ -205,7 +206,7 @@ void generateGraph(
   while (getline(variants, vcf_line)) {
     nodestring = "";
     nodelen = 0;
-    split(vcf_line, '\t', vline_split);
+    vline_split = split(vcf_line, '\t');
     vpos = atoi(vline_split[posColumn].c_str());
     if (vpos <= ref_position) goto endvar;
     if (vpos > maxpos) break;
@@ -283,7 +284,7 @@ void generateGraph(
     numalts = 1;
 
     /** Variants **/
-    split(variantAlt, ',', altList_split);
+    altList_split = split(variantAlt, ',');
     for (int i = 0; i < altList_split.size(); i++) {
       inVar.clear();
       for (int c = 0; c < inGroupCols.size(); c++) {

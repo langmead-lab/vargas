@@ -51,12 +51,12 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
     if (line.at(0) != '#') {
       if (line.at(0) == '[') {
         line = line.substr(1, line.length() - 2);
-        split(line, ',', lineSplit);
+        lineSplit = split(line, ',');
         for (int i = 0; i < lineSplit.size(); i++) {
           gssw_node_add_indiv(nodes.back(), strtol(lineSplit[i].c_str(), NULL, 10));
         }
       } else {
-        split(line, ',', lineSplit);
+        lineSplit = split(line, ',');
         switch (lineSplit.size()) {
           case 3: // New node
             curr = uint32_t(strtol(lineSplit[1].c_str(), NULL, 10));
@@ -89,25 +89,25 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
 }
 
 
-std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
+std::vector<std::string> split(const std::string &s, char delim) {
   /** Split string with delim, return a vector **/
   std::stringstream ss(s);
   std::string item;
-  elems = *new std::vector<std::string>(0);
+  std::vector<std::string> newElems(0);
 
   if (s.length() == 0) {
-    elems.push_back("");
-    return elems;
+    newElems.push_back("");
+    return newElems;
   }
   else if (s.length() == 1) {
-    elems.push_back(s.substr(0, 1));
-    return elems;
+    newElems.push_back(s.substr(0, 1));
+    return newElems;
   }
   while (std::getline(ss, item, delim)) {
-    elems.push_back(item);
+    newElems.push_back(item);
   }
-  if (s.at(s.length() - 1) == ',') elems.push_back("");
-  return elems;
+  if (s.at(s.length() - 1) == ',') newElems.push_back("");
+  return newElems;
 }
 
 
@@ -117,7 +117,7 @@ void graphToDot(gssw_graph *graph) {
   cout << "digraph gssw {\n";
   cout << "rankdir=\"LR\";\n";
 
-  for (int i = 0; i < graph->size; i++) {
+  for (uint32_t i = 0; i < graph->size; i++) {
     cout << graph->nodes[i]->id << " [label=\"" << graph->nodes[i]->data << ":" << graph->nodes[i]->seq << "\"];\n";
   }
   for (int i = 0; i < graph->size; i++) {

@@ -77,7 +77,7 @@ void align(gssw_graph *graph,
       if (readEndPos == string::npos) readEndPos = int32_t(read.length());
       else {
         // Get the original read location, else -1
-        split(read.substr(readEndPos + 1, read.length() - readEndPos - 1), ',', readMeta);
+        readMeta = split(read.substr(readEndPos + 1, read.length() - readEndPos - 1), ',');
         readSampleLoc = readMeta[0].length() > 0 ? atoi(readMeta[0].c_str()) : -1;
       }
       tol = (readEndPos / 10) + 1;

@@ -29,7 +29,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat);
 /// <param name="delim">The delimiter</param>
 /// <param name="elems">Vector to store results in. Vector is replaced!</param>
 /// <returns>Vector of split string.</returns>
-std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems);
+std::vector<std::string> split(const std::string &s, char delim);
 
 
 /// <summary>

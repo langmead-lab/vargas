@@ -38,10 +38,10 @@ int job_main(int argc, char *argv[]) {
       >> Option('s', "numsubserr", numsuberr)
       >> Option('g', "numvarbase", numvarbase);
 
-  split(ingroups, ',', ingroupsSplit);
-  split(numvarnodes, ',', numvarnodesSplit);
-  split(numvarbase, ',', numvarbaseSplit);
-  split(numsuberr, ',', numsuberrSplit);
+  ingroupsSplit = split(ingroups, ',');
+  numvarnodesSplit = split(numvarnodes, ',');
+  numvarbaseSplit = split(numvarbase, ',');
+  numsuberrSplit = split(numsuberr, ',');
 
   for (auto ig : ingroupsSplit) {
     tmp << ig << "inGroup.build";
@@ -56,7 +56,7 @@ int job_main(int argc, char *argv[]) {
     }
   }
 
-
+  return 0;
 }
 
 template<typename t>
