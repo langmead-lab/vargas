@@ -5,7 +5,7 @@
 #include "buildMain.h"
 
 
-void build_main(int argc, char *argv[]) {
+int build_main(int argc, char *argv[]) {
   using std::cout;
   using std::cerr;
   using std::endl;
@@ -14,6 +14,9 @@ void build_main(int argc, char *argv[]) {
   string VCF = "", REF = "", region, buildfile = "";
   int32_t maxNodelen = 50000, ingroup = -1;
   bool genComplement = false;
+  bool set = false;
+  std::string setString;
+  std::vector<std::string> setSplit(0);
 
   /**default region **/
   int32_t regionMin = 0, regionMax = 2147483640;
@@ -23,13 +26,18 @@ void build_main(int argc, char *argv[]) {
 
   if (args >> GetOpt::OptionPresent('h', "help")) {
     printBuildHelp();
-    exit(0);
+    return 0;
   }
 
   if (!(args >> GetOpt::Option('v', "vcf", VCF))
       || !(args >> GetOpt::Option('r', "ref", REF))) {
     cerr << "No inputs specified!" << endl;
-    exit(1);
+    return 1;
+  }
+
+  if ((args >> GetOpt::Option('s', "set", setString))) {
+    set = true;
+    setSplit = split(setString, ',');
   }
 
   args >> GetOpt::Option('l', "maxlen", maxNodelen)
@@ -40,15 +48,37 @@ void build_main(int argc, char *argv[]) {
 
   /** Parse region **/
   if (region.length() > 0) {
-    split(region, ':', region_split);
+    region_split = split(region, ':');
     if (region_split.size() < 1) {
       std::cerr << "Malformed region, must be in the form a:b" << endl;
-      exit(1);
+      return 1;
     }
     regionMin = std::atoi(region_split[0].c_str());
     regionMax = std::atoi(region_split[1].c_str());
   }
-  generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, ingroup, genComplement, buildfile);
+  if (set) {
+    // Gen a set of ingroup build files
+    std::ofstream out(0);
+    auto oldBuf = std::cout.rdbuf(out.rdbuf());
+    std::stringstream fileName, compFilename;
+    for (auto ingrp : setSplit) {
+      // Generates a buildfile for all % ingroup specified, as well as the outgroup buildfiles
+      fileName << ingrp << "In.build";
+      compFilename << ingrp << "Out.build";
+      out.open(fileName.str());
+      generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, stoi(ingrp), false, "");
+      out.close();
+      out.open(compFilename.str());
+      generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, stoi(ingrp), true, fileName.str());
+      out.close();
+      fileName.str("");
+      compFilename.str("");
+    }
+    std::cout.rdbuf(oldBuf);
+
+  } else generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, ingroup, genComplement, buildfile);
+
+  return 0;
 }
 
 void generateGraph(
@@ -68,7 +98,6 @@ void generateGraph(
   vector<string> inputGroup(0);
   vector<int32_t> inputGroupInt(0);
   string inputGroupLine;
-  int32_t ingroupSize;
 
   /** reference line, variant line **/
   string ref_line, vcf_line;
@@ -109,7 +138,7 @@ void generateGraph(
   /** Go to first VCF record **/
   do { getline(variants, vcf_line); } while (vcf_line.substr(0, 2) == "##");
   transform(vcf_line.begin(), vcf_line.end(), vcf_line.begin(), ::tolower);
-  split(vcf_line, '\t', header);
+  header = split(vcf_line, '\t');
   posColumn = int32_t(find(header.begin(), header.end(), "pos") - header.begin());
   refColumn = int32_t(find(header.begin(), header.end(), "ref") - header.begin());
   altColumn = int32_t(find(header.begin(), header.end(), "alt") - header.begin());
@@ -127,7 +156,7 @@ void generateGraph(
     build.open(buildfile.c_str());
     getline(build, inputGroupLine);
     inputGroupLine = inputGroupLine.substr(1, inputGroupLine.length() - 2);
-    split(inputGroupLine, ',', inputGroup);
+    inputGroup = split(inputGroupLine, ',');
     for (int32_t i = 0; i < inputGroup.size(); i++) {
       inputGroupInt.push_back(atoi(inputGroup.at(i).c_str()));
     }
@@ -177,7 +206,7 @@ void generateGraph(
   while (getline(variants, vcf_line)) {
     nodestring = "";
     nodelen = 0;
-    split(vcf_line, '\t', vline_split);
+    vline_split = split(vcf_line, '\t');
     vpos = atoi(vline_split[posColumn].c_str());
     if (vpos <= ref_position) goto endvar;
     if (vpos > maxpos) break;
@@ -255,7 +284,7 @@ void generateGraph(
     numalts = 1;
 
     /** Variants **/
-    split(variantAlt, ',', altList_split);
+    altList_split = split(variantAlt, ',');
     for (int i = 0; i < altList_split.size(); i++) {
       inVar.clear();
       for (int c = 0; c < inGroupCols.size(); c++) {
@@ -341,6 +370,9 @@ void printBuildHelp() {
   cout << "-R\t--region        [min:max] Ref region, inclusive. Default is entire graph." << endl;
   cout << "-g\t--ingroup       Percent of individuals to build graph from, default all." << endl;
   cout << "-c\t--complement    Generate a complement of the specified graph" << endl;
+  cout << "-s\t--set           <#,#,..,#> Generate a buildfile for a list of ingroup %'s and their complements."
+      << endl;
+  cout << "\t                  -s utput to files." << endl;
 
   cout << endl << "Buildfile is printed on stdout." << endl;
 }

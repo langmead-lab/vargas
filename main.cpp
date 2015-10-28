@@ -14,20 +14,19 @@ int main(int argc, char *argv[]) {
 
   if (argc > 1) {
     if (!strcmp(argv[1], "build")) {
-      build_main(argc, argv);
-      exit(0);
+      exit(build_main(argc, argv));
     }
     else if (!strcmp(argv[1], "sim")) {
-      sim_main(argc, argv);
-      exit(0);
+      exit(sim_main(argc, argv));
     }
     else if (!strcmp(argv[1], "align")) {
-      align_main(argc, argv);
-      exit(0);
+      exit(align_main(argc, argv));
     }
     else if (!strcmp(argv[1], "export")) {
-      exportDOT(argc, argv);
-      exit(0);
+      exit(exportDOT(argc, argv));
+    }
+    else if (!strcmp(argv[1], "job")) {
+      exit(job_main(argc, argv));
     }
   }
   GetOpt::GetOpt_pp args(argc, argv);

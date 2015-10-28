@@ -5,7 +5,7 @@
 
 #include "simMain.h"
 
-void sim_main(int argc, char *argv[]) {
+int sim_main(int argc, char *argv[]) {
   /** Default sim read error **/
   float muterr = 0.01f, indelerr = 0.0f, randMuterr;
 
@@ -15,11 +15,14 @@ void sim_main(int argc, char *argv[]) {
   std::vector<std::regex> regexps(0);
   int32_t *counters;
   int32_t totalReads = 0;
+  std::ofstream outFile;
   bool useRegex = false;
   bool randErr = false;
+  bool splitFile = false;
+  std::string filePrefix = "f";
 
   /** Read generation defaults **/
-  int32_t numreads = 1000, readlen = 100, tol = 5;
+  int32_t numreads = 1000, readlen = 100;
 
   /** Scores **/
   int32_t match = 2, mismatch = 2;
@@ -33,12 +36,17 @@ void sim_main(int argc, char *argv[]) {
 
   if ((args >> GetOpt::OptionPresent('h', "help"))) {
     printSimHelp();
-    exit(0);
+    return 0;
   }
 
   if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
     std::cerr << "Error: no build file defined." << std::endl;
-    exit(1);
+    return 1;
+  }
+
+  if ((args >> GetOpt::OptionPresent('f', "splitfile"))) {
+    args >> GetOpt::Option('f', "filesplit", filePrefix);
+    splitFile = true;
   }
 
   args >> GetOpt::Option('n', "numreads", numreads)
@@ -51,12 +59,21 @@ void sim_main(int argc, char *argv[]) {
   gssw_graph *graph = buildGraph(buildfile, nt_table, mat);
   if ((args >> GetOpt::Option('e', "regex", regexpStr))) useRegex = true;
 
+  std::stringstream fileName;
+
   /** Build list of regex */
   if (useRegex) {
-    split(regexpStr, ' ', regexpStr_split);
+    regexpStr_split = split(regexpStr, ' ');
     for (int32_t i = 0; i < regexpStr_split.size(); i++) {
-      std::cout << "# " << regexpStr_split[i] << std::endl;
       regexps.push_back(std::regex(regexpStr_split[i]));
+      if (splitFile) {
+        fileName << filePrefix << i << ".reads";
+        outFile.open(fileName.str());
+        outFile << "#" << regexpStr_split[i] << std::endl;
+        outFile.close();
+        fileName.clear();
+        fileName.str("");
+      } else std::cout << "# " << regexpStr_split[i] << std::endl;
     }
     counters = new int[regexps.size()]();
   }
@@ -73,7 +90,15 @@ void sim_main(int argc, char *argv[]) {
           if (std::regex_match(read.begin(), read.end(), regexps[i])) {
             counters[i]++;
             totalReads++;
-            std::cout << read << std::endl;
+            if (splitFile) {
+              fileName << filePrefix << i << ".reads";
+              outFile.open(fileName.str(), std::ios_base::app);
+              outFile << read << std::endl;
+              outFile.close();
+              fileName.clear();
+              fileName.str("");
+            }
+            else std::cout << read << std::endl;
             break;
           }
         }
@@ -90,6 +115,8 @@ void sim_main(int argc, char *argv[]) {
   gssw_graph_destroy(graph);
   delete[] nt_table;
   delete[] mat;
+
+  return 0;
 }
 
 
@@ -145,7 +172,7 @@ std::string generateRead(gssw_graph &graph, int32_t readLen, float muterr, float
   if (ambig > readLen / 2 || read.length() < readLen / 2) return generateRead(graph, readLen, muterr, indelerr);
 
   /** Mutate string **/
-  for (int i = 0; i < read.length(); i++) {
+  for (uint32_t i = 0; i < read.length(); i++) {
     RAND = rand() % 100000;
     mut = read.at(i);
 
@@ -192,13 +219,15 @@ void printSimHelp() {
   using std::cout;
   using std::endl;
   cout << endl << "------------------- VMatch sim, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
-  cout << "-b\t--buildfile     quick rebuild file, required if -v, -r are not defined." << endl;
+  cout << "-b\t--buildfile     quick rebuild file, generate with vmatch build" << endl;
   cout << "-n\t--numreads      Number of reads to simulate" << endl;
   cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
   cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;
   cout << "-r\t--rand          Use a random mutation error rate, up to the value specified by -m." << endl;
   cout << "-l\t--readlen       Nominal read length" << endl;
   cout << "-e\t--regex         Match regex expressions. Produces -n of each, discard others." << endl;
+  cout << "-f\t--filesplit     Each regex put in seperate files, with prefix specified. Otherwise all to stdout"
+      << endl;
   cout << "  \t                List of expressions is space delimited -e \"exp1 exp2\"." << endl << endl;
 
   cout << "NOTE: End of line anchor may not work in regex depending on C++ version. " << endl;

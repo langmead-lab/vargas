@@ -4,7 +4,7 @@
 
 #include "alignMain.h"
 
-void align_main(int argc, char *argv[]) {
+int align_main(int argc, char *argv[]) {
   using std::cout;
   using std::cerr;
   using std::endl;
@@ -26,12 +26,12 @@ void align_main(int argc, char *argv[]) {
 
   if (args >> GetOpt::OptionPresent('h', "help")) {
     printAlignHelp();
-    exit(0);
+    return 0;
   }
   /** make sure there's a valid input **/
   if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
     cerr << "Error: no build file defined." << endl;
-    exit(1);
+    return 1;
   }
 
   args >> GetOpt::Option('m', "match", match)
@@ -45,9 +45,10 @@ void align_main(int argc, char *argv[]) {
   align(graph, mat, nt_table, gap_open, gap_extension, readsfile, readsin);
 
   gssw_graph_destroy(graph);
-  delete[] nt_table;
-  delete[] mat;
+  free(nt_table);
+  free(mat);
 
+  return 0;
 }
 
 void align(gssw_graph *graph,
@@ -65,23 +66,24 @@ void align(gssw_graph *graph,
   string read;
   int32_t readEndPos, optAlignEnd, suboptAlignEnd;
   std::vector<string> readMeta(0);
-  int32_t readSampleLoc;
+  int32_t readSampleLoc; //TODO May overflow with whole genome
   int32_t tol;
 
   cerr << "Aligning reads..." << endl;
-  while (((readsin) ? std::getline(reads, read) : std::getline(std::cin, read))) {
-    if (read.at(0) != '#') {
+  while ((readsin ? std::getline(reads, read) : std::getline(std::cin, read))) {
+    if (read.length() > 0 && read.at(0) != '#') {
       readSampleLoc = -1;
       readEndPos = int32_t(read.find('#'));
       if (readEndPos == string::npos) readEndPos = int32_t(read.length());
       else {
-        split(read.substr(readEndPos + 1, read.length() - readEndPos - 1), ',', readMeta);
-        readSampleLoc = atoi(readMeta[0].c_str());
+        // Get the original read location, else -1
+        readMeta = split(read.substr(readEndPos + 1, read.length() - readEndPos - 1), ',');
+        readSampleLoc = readMeta[0].length() > 0 ? atoi(readMeta[0].c_str()) : -1;
       }
       tol = (readEndPos / 10) + 1;
 
       gssw_graph_fill(graph, read.substr(0, readEndPos).c_str(), nt_table, mat,
-                      gap_open, gap_extension, uint32_t(read.length()), 2);
+                      gap_open, gap_extension, uint32_t(read.length()), 2, readSampleLoc);
 
       optAlignEnd = graph->max_node->data + 1 - graph->max_node->len + graph->max_node->alignment->ref_end;
       suboptAlignEnd = graph->submax_node->data + 1 - graph->submax_node->len + graph->submax_node->alignment->ref_end;

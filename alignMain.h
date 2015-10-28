@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include "utils.h"
 
-void align_main(int argc, char *argv[]);
+int align_main(int argc, char *argv[]);
 
 
 /// <summary>

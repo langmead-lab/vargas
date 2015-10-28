@@ -14,7 +14,7 @@
 
 #define debug 0
 
-void build_main(int argc, char *argv[]);
+int build_main(int argc, char *argv[]);
 
 /// <summary>
 /// Generates a graph from the given reference and variant file.
