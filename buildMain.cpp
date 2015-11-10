@@ -372,7 +372,7 @@ void printBuildHelp() {
   cout << "-c\t--complement    Generate a complement of the specified graph" << endl;
   cout << "-s\t--set           <#,#,..,#> Generate a buildfile for a list of ingroup %'s and their complements."
       << endl;
-  cout << "\t                  -s utput to files." << endl;
+  cout << "\t                  -s output to files." << endl;
 
   cout << endl << "Buildfile is printed on stdout." << endl;
 }
