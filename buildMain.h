@@ -33,7 +33,8 @@ void generateGraph(
     int32_t maxNodeLen,
     int32_t inGroup,
     bool genComplement,
-    std::string buildfile);
+    std::string buildfile,
+    bool maxAF);
 
 
 void printBuildHelp();

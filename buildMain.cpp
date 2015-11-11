@@ -15,6 +15,7 @@ int build_main(int argc, char *argv[]) {
   int32_t maxNodelen = 50000, ingroup = -1;
   bool genComplement = false;
   bool set = false;
+  bool maxAF = false; // Max allele frequency graph
   std::string setString;
   std::vector<std::string> setSplit(0);
 
@@ -44,7 +45,8 @@ int build_main(int argc, char *argv[]) {
       >> GetOpt::Option('R', "region", region)
       >> GetOpt::Option('g', "ingroup", ingroup)
       >> GetOpt::OptionPresent('c', "complement", genComplement)
-      >> GetOpt::Option('c', "complement", buildfile);
+      >> GetOpt::Option('c', "complement", buildfile)
+      >> GetOpt::OptionPresent('m', "maxref", maxAF);
 
   /** Parse region **/
   if (region.length() > 0) {
@@ -56,6 +58,12 @@ int build_main(int argc, char *argv[]) {
     regionMin = std::atoi(region_split[0].c_str());
     regionMax = std::atoi(region_split[1].c_str());
   }
+  // max AF ref overrides other opts
+  if (maxAF) {
+    set = false;
+    genComplement = false;
+    ingroup = -1;
+  }
   if (set) {
     // Gen a set of ingroup build files
     std::ofstream out(0);
@@ -66,17 +74,17 @@ int build_main(int argc, char *argv[]) {
       fileName << ingrp << "In.build";
       compFilename << ingrp << "Out.build";
       out.open(fileName.str());
-      generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, stoi(ingrp), false, "");
+      generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, stoi(ingrp), false, "", false);
       out.close();
       out.open(compFilename.str());
-      generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, stoi(ingrp), true, fileName.str());
+      generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, stoi(ingrp), true, fileName.str(), false);
       out.close();
       fileName.str("");
       compFilename.str("");
     }
     std::cout.rdbuf(oldBuf);
 
-  } else generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, ingroup, genComplement, buildfile);
+  } else generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, ingroup, genComplement, buildfile, maxAF);
 
   return 0;
 }
@@ -87,7 +95,8 @@ void generateGraph(
     int32_t maxNodeLen,
     int32_t inGroup,
     bool genComplement,
-    std::string buildfile) {
+    std::string buildfile,
+    bool maxAF) {
 
   using namespace std;
 
@@ -102,11 +111,11 @@ void generateGraph(
   /** reference line, variant line **/
   string ref_line, vcf_line;
   /** Parsed lines, VCF header row **/
-  vector<string> vline_split(0), altList_split(0), header(0);
+  vector<string> vline_split(0), altList_split(0), header(0), info_split(0);
   /** Columns used to build graph **/
   vector<int32_t> inGroupCols(0);
   /** columns in VCF file, current ref pos **/
-  int32_t posColumn = -1, refColumn = -1, altColumn = -1, formatColumn = -1, ref_position = 0;
+  int32_t posColumn, refColumn, altColumn, formatColumn, infoColumn, ref_position = 0;
   int32_t nodenum = 0, numIndivs;
   /** Pos from variant file **/
   int vpos;
@@ -114,10 +123,15 @@ void generateGraph(
   /** To track edges that need to be built **/
   int numalts = 0, numprev;
   /** strings that represent node contents **/
-  string variantRef, variantAlt, nodestring;
+  string variantRef, variantAlt, nodestring, info;
   int32_t nodelen = 0;
   char base;
   int32_t randtemp;
+
+  double altAFsum;
+  double maxAltAF;
+  int32_t maxAltAFIdx;
+  double af;
 
   /** File stream **/
   ifstream variants(VCF.c_str(), ios_base::in | ios_base::binary);
@@ -142,6 +156,7 @@ void generateGraph(
   posColumn = int32_t(find(header.begin(), header.end(), "pos") - header.begin());
   refColumn = int32_t(find(header.begin(), header.end(), "ref") - header.begin());
   altColumn = int32_t(find(header.begin(), header.end(), "alt") - header.begin());
+  infoColumn = int32_t(find(header.begin(), header.end(), "info") - header.begin());
   formatColumn = int32_t(find(header.begin(), header.end(), "format") - header.begin());
   numIndivs = int32_t(header.size() - formatColumn - 1);
 
@@ -188,7 +203,7 @@ void generateGraph(
 
   /** Find the POS, REF, ALT cols **/
   if (posColumn < 0 || refColumn < 0 || altColumn < 0 || formatColumn < 0) {
-    cerr << "POS, REF, ALT, and/or INFO not found in VCF header." << endl;
+    cerr << "POS, REF, ALT, FORMAT, and/or INFO not found in VCF header." << endl;
     exit(1);
   }
 
@@ -208,10 +223,54 @@ void generateGraph(
     nodelen = 0;
     vline_split = split(vcf_line, '\t');
     vpos = atoi(vline_split[posColumn].c_str());
-    if (vpos <= ref_position) goto endvar;
+    if (vpos <= ref_position) continue;
     if (vpos > maxpos) break;
     variantRef = vline_split[refColumn];
     variantAlt = vline_split[altColumn];
+
+    // Get list of allele frequencies
+    if (maxAF) {
+      info = vline_split[infoColumn];
+      info_split = split(info, ';');
+      maxAltAF = 0;
+      altAFsum = 0;
+      maxAltAFIdx = -1;
+      maxAF = false; // Using as a flag to make sure 'AF' is found in INFO
+      for (auto infItem : info_split) {
+        std::transform(infItem.begin(), infItem.end(), infItem.begin(), ::tolower);
+        if (infItem.substr(0, 2) == "af") {
+          // Find the list of AF's (allele frequencies)
+          info = infItem.substr(3, string::npos);
+          maxAF = true;
+          break;
+        }
+      }
+      if (!maxAF) {
+        std::cerr << "Error: AF not found in INFO field." << std::endl;
+        std::cerr << "At variant position " << vline_split[1] << std::endl;
+        exit(1);
+      }
+      // Get the raw list of AF's
+      info_split = split(info, ',');
+      // Find the max AF and its index, as well as the sum of all alternate AF's
+      for (uint16_t i = 0; i < info_split.size(); i++) {
+        af = stod(info_split[i]);
+        if (af > maxAltAF) {
+          maxAltAF = af;
+          maxAltAFIdx = i;
+        }
+        altAFsum += af;
+      }
+      if (maxAltAFIdx < 0) {
+        std::cerr << "Error: max AF not found." << std::endl;
+        std::cerr << "At VCF pos " << vline_split[1] << std::endl;
+        std::cerr << "AF list: " << info << std::endl;
+        std::cerr << "Continuing with reference node." << std::endl;
+      }
+      // The reference has the highest AF, so go to the next VCF line. As a result, the reference is used.
+      if (1 - altAFsum >= maxAltAF || maxAltAFIdx < 0) continue;
+    }
+
 
     /** build node string up to var pos **/
     while (ref_position < vpos - 1) {
@@ -270,21 +329,29 @@ void generateGraph(
 
     /** Ref node **/
     for (int i = 0; i < variantRef.length(); i++) {
-      reference.get(base);
+        reference.get(base);
       if (isspace(base)) {
         reference.get(base);
       }
       ref_position++;
-    }
-    cout << ref_position << "," << nodenum << "," << variantRef.c_str() << endl;
+      }
+    numalts = 0;
+    if (!maxAF) {
+      cout << ref_position << "," << nodenum << "," << variantRef.c_str() << endl;
 #if debug > 4
-    cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << variantRef << endl;
+      cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << variantRef << endl;
 #endif
-    nodenum++;
-    numalts = 1;
-
+      nodenum++;
+      numalts = 1;
+    }
     /** Variants **/
-    altList_split = split(variantAlt, ',');
+    if (maxAF) {
+      // Only use the max AF variant
+      altList_split.clear();
+      altList_split.push_back(split(variantAlt, ',')[maxAltAFIdx]);
+    } else {
+      altList_split = split(variantAlt, ',');
+    }
     for (int i = 0; i < altList_split.size(); i++) {
       inVar.clear();
       for (int c = 0; c < inGroupCols.size(); c++) {
@@ -332,7 +399,6 @@ void generateGraph(
 #endif
       }
     }
-    endvar:;
   }
 
   /** The remaining bases after the last variant **/
@@ -372,7 +438,8 @@ void printBuildHelp() {
   cout << "-c\t--complement    Generate a complement of the specified graph" << endl;
   cout << "-s\t--set           <#,#,..,#> Generate a buildfile for a list of ingroup %'s and their complements."
       << endl;
-  cout << "\t                  -s output to files." << endl;
+  cout << "-m\t--maxref        Generate a graph using allele's w/ the highest frequency. Overrides other opts." << endl;
+  cout << "\t                  -s outputs to files." << endl;
 
   cout << endl << "Buildfile is printed on stdout." << endl;
 }
