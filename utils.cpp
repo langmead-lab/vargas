@@ -52,7 +52,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
       if (line.at(0) == '[') {
         line = line.substr(1, line.length() - 2);
         lineSplit = split(line, ',');
-        for (int i = 0; i < lineSplit.size(); i++) {
+        for (uint32_t i = 0; i < lineSplit.size(); i++) {
           gssw_node_add_indiv(nodes.back(), strtol(lineSplit[i].c_str(), NULL, 10));
         }
       } else {
@@ -80,7 +80,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
 
   /** Add nodes to graph **/
   gssw_graph *graph = gssw_graph_create(uint32_t(nodes.size()));
-  for (int n = 0; n < nodes.size(); n++) {
+  for (uint32_t n = 0; n < nodes.size(); n++) {
     gssw_graph_add_node(graph, nodes[n]);
   }
 
@@ -120,8 +120,8 @@ void graphToDot(gssw_graph *graph) {
   for (uint32_t i = 0; i < graph->size; i++) {
     cout << graph->nodes[i]->id << " [label=\"" << graph->nodes[i]->data << ":" << graph->nodes[i]->seq << "\"];\n";
   }
-  for (int i = 0; i < graph->size; i++) {
-    for (int n = 0; n < graph->nodes[i]->count_next; n++)
+  for (uint32_t i = 0; i < graph->size; i++) {
+    for (int32_t n = 0; n < graph->nodes[i]->count_next; n++)
       cout << graph->nodes[i]->id << " -> " << graph->nodes[i]->next[n]->id << ";\n";
   }
   cout << "}";

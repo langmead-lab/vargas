@@ -14,7 +14,7 @@ int sim_main(int argc, char *argv[]) {
   std::vector<std::string> regexpStr_split(0);
   std::vector<std::regex> regexps(0);
   int32_t *counters;
-  int32_t totalReads = 0;
+  uint32_t totalReads = 0;
   std::ofstream outFile;
   bool useRegex = false;
   bool randErr = false;
@@ -64,7 +64,7 @@ int sim_main(int argc, char *argv[]) {
   /** Build list of regex */
   if (useRegex) {
     regexpStr_split = split(regexpStr, ' ');
-    for (int32_t i = 0; i < regexpStr_split.size(); i++) {
+    for (uint32_t i = 0; i < regexpStr_split.size(); i++) {
       regexps.push_back(std::regex(regexpStr_split[i]));
       if (splitFile) {
         fileName << filePrefix << i << ".reads";
@@ -85,7 +85,7 @@ int sim_main(int argc, char *argv[]) {
     while (1) {
       if (randErr) randMuterr = (rand() % int32_t(muterr * 100000)) / 100000.0f;
       read = generateRead(*graph, readlen, randMuterr, indelerr);
-      for (int32_t i = 0; i < regexps.size(); i++) {
+      for (uint32_t i = 0; i < regexps.size(); i++) {
         if (counters[i] < numreads) {
           if (std::regex_match(read.begin(), read.end(), regexps[i])) {
             counters[i]++;

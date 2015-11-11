@@ -172,7 +172,7 @@ void generateGraph(
     getline(build, inputGroupLine);
     inputGroupLine = inputGroupLine.substr(1, inputGroupLine.length() - 2);
     inputGroup = split(inputGroupLine, ',');
-    for (int32_t i = 0; i < inputGroup.size(); i++) {
+    for (uint32_t i = 0; i < inputGroup.size(); i++) {
       inputGroupInt.push_back(atoi(inputGroup.at(i).c_str()));
     }
     for (int32_t i = 0; i < numIndivs; i++) {
@@ -326,13 +326,13 @@ void generateGraph(
     else numprev = numalts;
 
     /** Ref node **/
-    for (int i = 0; i < variantRef.length(); i++) {
-        reference.get(base);
+    for (uint32_t i = 0; i < variantRef.length(); i++) {
+      reference.get(base);
       if (isspace(base)) {
         reference.get(base);
       }
       ref_position++;
-      }
+    }
     numalts = 0;
 
     /** Variants **/
@@ -356,9 +356,9 @@ void generateGraph(
       numalts = 1;
     }
 
-    for (int i = 0; i < altList_split.size(); i++) {
+    for (uint32_t i = 0; i < altList_split.size(); i++) {
       inVar.clear();
-      for (int c = 0; c < inGroupCols.size(); c++) {
+      for (uint32_t c = 0; c < inGroupCols.size(); c++) {
         /** Check if it is in the ingroup **/
         //TODO parse rather than at, check diploid
         if (strtol(&vline_split[inGroupCols[c]].at(0), NULL, 10) == i + 1) {
@@ -385,7 +385,7 @@ void generateGraph(
 
         /** Add the individuals that have this particular variant **/
         cout << '[';
-        for (int n = 0; n < inVar.size(); n++) {
+        for (uint32_t n = 0; n < inVar.size(); n++) {
 #if debug > 5
           cerr << "Add Indiv(" << int32_t(nodes.back()->indivSize) << "): " << inVar[n] << endl;
 #endif

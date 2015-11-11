@@ -30,4 +30,4 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse4")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++11")
 
 #Debug Options
-set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -pedantic")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -pedantic -Wall -Wextra -Wno-unused-function")
