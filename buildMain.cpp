@@ -267,8 +267,6 @@ void generateGraph(
         std::cerr << "AF list: " << info << std::endl;
         std::cerr << "Continuing with reference node." << std::endl;
       }
-      // The reference has the highest AF, so go to the next VCF line. As a result, the reference is used.
-      if (1 - altAFsum >= maxAltAF || maxAltAFIdx < 0) continue;
     }
 
 
@@ -336,7 +334,20 @@ void generateGraph(
       ref_position++;
       }
     numalts = 0;
-    if (!maxAF) {
+
+    /** Variants **/
+    if (maxAF) {
+      // Only use the max AF variant
+      altList_split.clear();
+      // The reference has the highest AF, so add a ref node (moved below)
+      if (1 - altAFsum >= maxAltAF || maxAltAFIdx < 0);
+        // an Alt is the highest AF, so add that to the cleared var list
+      else altList_split.push_back(split(variantAlt, ',')[maxAltAFIdx]);
+    } else {
+      altList_split = split(variantAlt, ',');
+    }
+    // Add a single node if not doing max AF or the max AF is the ref
+    if (!maxAF || (maxAF && (1 - altAFsum >= maxAltAF || maxAltAFIdx < 0))) {
       cout << ref_position << "," << nodenum << "," << variantRef.c_str() << endl;
 #if debug > 4
       cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << variantRef << endl;
@@ -344,14 +355,7 @@ void generateGraph(
       nodenum++;
       numalts = 1;
     }
-    /** Variants **/
-    if (maxAF) {
-      // Only use the max AF variant
-      altList_split.clear();
-      altList_split.push_back(split(variantAlt, ',')[maxAltAFIdx]);
-    } else {
-      altList_split = split(variantAlt, ',');
-    }
+
     for (int i = 0; i < altList_split.size(); i++) {
       inVar.clear();
       for (int c = 0; c < inGroupCols.size(); c++) {
@@ -361,7 +365,10 @@ void generateGraph(
           inVar.push_back(inGroupCols[c]);
         }
       }
+
+      // if there are variants, add node otherwise continue (i.e. ref is merged with previous node)
       if (inVar.size() > 0) {
+
         if (altList_split[i].substr(0, 3) == "<CN") {
           cn = int32_t(strtol(altList_split[i].substr(3, altList_split[i].length() - 4).c_str(), NULL, 10));
           altList_split[i] = "";
