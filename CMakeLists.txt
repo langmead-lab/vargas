@@ -13,8 +13,6 @@ set(MAIN_SOURCES
         alignMain.h
         simMain.cpp     # Simulates reads from a graph
         simMain.h
-        jobMain.cpp     # Generate a HHPC job script (incomplete)
-        jobMain.h
 )
 
 set(GSSW_SOURCES
