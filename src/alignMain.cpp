@@ -41,7 +41,7 @@ int align_main(int argc, char *argv[]) {
 
   if ((args >> GetOpt::Option('r', "reads", readsfile))) readsin = true;
 
-  graph = buildGraph(buildfile, nt_table, mat);
+  ;//  graph = buildGraph(buildfile, nt_table, mat);
   align(graph, mat, nt_table, gap_open, gap_extension, readsfile, readsin);
 
   gssw_graph_destroy(graph);

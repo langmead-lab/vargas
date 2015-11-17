@@ -56,7 +56,7 @@ int sim_main(int argc, char *argv[]) {
       >> GetOpt::Option('e', "regex", regexpStr)
       >> GetOpt::OptionPresent('r', "rand", randErr);
 
-  gssw_graph *graph = buildGraph(buildfile, nt_table, mat);
+  gssw_graph *graph;// = buildGraph(buildfile, nt_table, mat);
   if ((args >> GetOpt::Option('e', "regex", regexpStr))) useRegex = true;
 
   std::stringstream fileName;

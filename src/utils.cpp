@@ -4,13 +4,13 @@
 //
 
 #include "../include/utils.h"
-
+/****
 int exportDOT(int argc, char *argv[]) {
   using std::string;
-  /** Scores **/
+  // Scores
   int32_t match = 2, mismatch = 2;
 
-  /** Graph score and conversion table **/
+  // Graph score and conversion table
   int8_t *nt_table = gssw_create_nt_table();
   int8_t *mat = gssw_create_score_matrix(match, mismatch);
 
@@ -45,7 +45,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
   vector<gssw_node *> nodes(0);
   uint32_t curr = 0;
 
-  /** Build nodes and edges from buildfile **/
+  // Build nodes and edges from buildfile
   cerr << "Building graph..." << endl;
   while (getline(graphDat, line)) {
     if (line.at(0) != '#') {
@@ -78,7 +78,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
     }
   }
 
-  /** Add nodes to graph **/
+  // Add nodes to graph
   gssw_graph *graph = gssw_graph_create(uint32_t(nodes.size()));
   for (uint32_t n = 0; n < nodes.size(); n++) {
     gssw_graph_add_node(graph, nodes[n]);
@@ -88,6 +88,7 @@ gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat) {
   return graph;
 }
 
+*/
 
 std::vector<std::string> split(const std::string &s, char delim) {
   /** Split string with delim, return a vector **/
@@ -110,7 +111,7 @@ std::vector<std::string> split(const std::string &s, char delim) {
   return newElems;
 }
 
-
+/*
 void graphToDot(gssw_graph *graph) {
   using namespace std;
 
@@ -134,3 +135,4 @@ void printNode(gssw_node *node) {
   cout << "Score: " << node->alignment->score << " end: " << node->data + 1 - node->len + node->alignment->ref_end <<
       endl;
 }
+*/

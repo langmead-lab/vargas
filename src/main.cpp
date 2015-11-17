@@ -14,17 +14,13 @@ using std::cerr;
 int main(int argc, char *argv[]) {
 
   if (argc > 1) {
-    if (!strcmp(argv[1], "build")) {
-      exit(build_main(argc, argv));
+    if (!strcmp(argv[1], "build")) { ;//    exit(build_main(argc, argv));
     }
-    else if (!strcmp(argv[1], "sim")) {
-      exit(sim_main(argc, argv));
+    else if (!strcmp(argv[1], "sim")) { ;//      exit(sim_main(argc, argv));
     }
-    else if (!strcmp(argv[1], "align")) {
-      exit(align_main(argc, argv));
+    else if (!strcmp(argv[1], "align")) { ;//     exit(align_main(argc, argv));
     }
-    else if (!strcmp(argv[1], "export")) {
-      exit(exportDOT(argc, argv));
+    else if (!strcmp(argv[1], "export")) { ;//      exit(exportDOT(argc, argv));
     }
   }
   GetOpt::GetOpt_pp args(argc, argv);

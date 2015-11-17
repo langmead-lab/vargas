@@ -1,19 +1,19 @@
 project("vmatch")
 
 set(MAIN_SOURCES
-        main.h
-        main.cpp        # Main entry point, launches below functions
-        getopt_pp.cpp   # Parser for program arguments
-        getopt_pp.h
-        buildMain.cpp   # Generate a build file from a ref and VCF
-        buildMain.h
-        utils.cpp       # Export graph to DOT, split a string, generate a graph from a build file
-        utils.h
-        alignMain.cpp   # Aligns a read to a graph
-        alignMain.h
-        simMain.cpp     # Simulates reads from a graph
-        simMain.h
-)
+        include/main.h
+        src/main.cpp        # Main entry point, launches below functions
+        src/getopt_pp.cpp   # Parser for program arguments
+        include/getopt_pp.h
+        src/buildMain.cpp   # Generate a build file from a ref and VCF
+        include/buildMain.h
+        src/utils.cpp       # Export graph to DOT, split a string, generate a graph from a build file
+        include/utils.h
+        src/alignMain.cpp   # Aligns a read to a graph
+        include/alignMain.h
+        src/simMain.cpp     # Simulates reads from a graph
+        include/simMain.h
+        src/graph.cpp include/graph.h)
 
 set(GSSW_SOURCES
         gssw/src/gssw.h

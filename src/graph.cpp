@@ -1,104 +1,102 @@
 //
-// Created by gaddra on 9/12/15.
+// Created by gaddra on 11/12/15.
 //
 
-#include "buildMain.h"
+#include "../include/graph.h"
 
 
-int build_main(int argc, char *argv[]) {
+void vmatch::Graph::exportDOT() {
   using std::cout;
-  using std::cerr;
-  using std::endl;
-  using std::string;
+  using std::cin;
 
-  string VCF = "", REF = "", region, buildfile = "";
-  int32_t maxNodelen = 50000, ingroup = -1;
-  bool genComplement = false;
-  bool set = false;
-  bool maxAF = false; // Max allele frequency graph
-  std::string setString;
-  std::vector<std::string> setSplit(0);
-
-  /**default region **/
-  int32_t regionMin = 0, regionMax = 2147483640;
-  std::vector<string> region_split(0);
-
-  GetOpt::GetOpt_pp args(argc, argv);
-
-  if (args >> GetOpt::OptionPresent('h', "help")) {
-    printBuildHelp();
-    return 0;
+  if (graph == NULL) {
+    std::cerr << "Error: No graph has been build. Aborting export." << std::endl;
+    return;
   }
 
-  if (!(args >> GetOpt::Option('v', "vcf", VCF))
-      || !(args >> GetOpt::Option('r', "ref", REF))) {
-    cerr << "No inputs specified!" << endl;
-    return 1;
+  cout << "digraph gssw_graph {\n";
+  cout << "rankdir=\"LR\";\n";
+
+  for (uint32_t i = 0; i < graph->size; i++) {
+    cout << graph->nodes[i]->id << " [label=\"" << graph->nodes[i]->data << ":" << graph->nodes[i]->seq << "\"];\n";
   }
-
-  if ((args >> GetOpt::Option('s', "set", setString))) {
-    set = true;
-    setSplit = split(setString, ',');
+  for (uint32_t i = 0; i < graph->size; i++) {
+    for (int32_t n = 0; n < graph->nodes[i]->count_next; n++)
+      cout << graph->nodes[i]->id << " -> " << graph->nodes[i]->next[n]->id << ";\n";
   }
-
-  args >> GetOpt::Option('l', "maxlen", maxNodelen)
-      >> GetOpt::Option('R', "region", region)
-      >> GetOpt::Option('g', "ingroup", ingroup)
-      >> GetOpt::OptionPresent('c', "complement", genComplement)
-      >> GetOpt::Option('c', "complement", buildfile)
-      >> GetOpt::OptionPresent('m', "maxref", maxAF);
-
-  /** Parse region **/
-  if (region.length() > 0) {
-    region_split = split(region, ':');
-    if (region_split.size() < 1) {
-      std::cerr << "Malformed region, must be in the form a:b" << endl;
-      return 1;
-    }
-    regionMin = std::atoi(region_split[0].c_str());
-    regionMax = std::atoi(region_split[1].c_str());
-  }
-  // max AF ref overrides other opts
-  if (maxAF) {
-    set = false;
-    genComplement = false;
-    ingroup = -1;
-  }
-  if (set) {
-    // Gen a set of ingroup build files
-    std::ofstream out(0);
-    auto oldBuf = std::cout.rdbuf(out.rdbuf());
-    std::stringstream fileName, compFilename;
-    for (auto ingrp : setSplit) {
-      // Generates a buildfile for all % ingroup specified, as well as the outgroup buildfiles
-      fileName << ingrp << "In.build";
-      compFilename << ingrp << "Out.build";
-      out.open(fileName.str());
-      generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, stoi(ingrp), false, "", false);
-      out.close();
-      out.open(compFilename.str());
-      generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, stoi(ingrp), true, fileName.str(), false);
-      out.close();
-      fileName.str("");
-      compFilename.str("");
-    }
-    std::cout.rdbuf(oldBuf);
-
-  } else generateGraph(REF, VCF, regionMin, regionMax, maxNodelen, ingroup, genComplement, buildfile, maxAF);
-
-  return 0;
+  cout << "}";
 }
 
-void generateGraph(
-    std::string REF, std::string VCF,
-    int32_t minpos, int32_t maxpos, // Region to parse
-    int32_t maxNodeLen,
-    int32_t inGroup,
-    bool genComplement,
-    std::string buildfile,
-    bool maxAF) {
+void vmatch::Graph::exportBuildfile(std::ofstream &out) {
 
-  using namespace std;
+}
+
+void vmatch::Graph::buildGraph(std::istream &graphDat) {
+
+  using std::string;
+  using std::endl;
+  using std::vector;
+  using std::cerr;
+
+  if (graph != NULL) {
+    delete graph;
+  }
+
+  string line;
+  vector<string> lineSplit(0);
+  vector<gssw_node *> nodes(0);
+  uint32_t curr = 0;
+
+  /** Build nodes and edges from buildfile **/
+  cerr << "Building graph..." << endl;
+  while (getline(graphDat, line)) {
+    if (line.at(0) != '#') {
+      if (line.at(0) == '[') {
+        line = line.substr(1, line.length() - 2);
+        lineSplit = split(line, ',');
+        for (uint32_t i = 0; i < lineSplit.size(); i++) {
+          gssw_node_add_indiv(nodes.back(), strtol(lineSplit[i].c_str(), NULL, 10));
+        }
+      } else {
+        lineSplit = split(line, ',');
+        switch (lineSplit.size()) {
+          case 3: // New node
+            curr = uint32_t(strtol(lineSplit[1].c_str(), NULL, 10));
+            nodes.push_back(gssw_node_create(int32_t(strtol(lineSplit[0].c_str(), NULL, 10)),
+                                             curr,
+                                             lineSplit[2].c_str(), params.nt_table, params.mat));
+            break;
+
+          case 2: // New edge
+            gssw_nodes_add_edge(nodes.end()[strtol(lineSplit[0].c_str(), NULL, 10)],
+                                nodes.end()[strtol(lineSplit[1].c_str(), NULL, 10)]);
+            break;
+
+          default:
+            cerr << "Unexpected line in buildfile: " << endl << line << endl;
+            break;
+        }
+      }
+    }
+  }
+
+  /** Add nodes to graph **/
+  graph = gssw_graph_create(uint32_t(nodes.size()));
+  for (uint32_t n = 0; n < nodes.size(); n++) {
+    gssw_graph_add_node(graph, nodes[n]);
+  }
+
+}
+
+std::iostream &vmatch::Graph::buildGraph(std::istream &reference, std::istream &variants) {
+  using std::vector;
+  using std::endl;
+  using std::cerr;
+  using std::string;
+
+  std::stringstream *cout_p = new std::stringstream(); // Output stream
+  std::stringstream &cout = *cout_p;
+  std::ifstream build; // Used for complement graph
 
   /** Used to track which indivs have a variant **/
   vector<int16_t> inVar(0);
@@ -133,18 +131,9 @@ void generateGraph(
   int32_t maxAltAFIdx;
   double af;
 
-  /** File stream **/
-  ifstream variants(VCF.c_str(), ios_base::in | ios_base::binary);
-  ifstream reference(REF.c_str());
-  ifstream build;
-
-  if (!variants.good() || !reference.good()) {
-    boolalpha(cout);
-    cerr << "Error in opening files." << endl;
-    cerr << VCF << ": " << variants.good() << endl;
-    cerr << REF << ": " << reference.good() << endl;
-    exit(1);
-  }
+  // Get region
+  uint32_t minpos, maxpos;
+  parseRegion(params.region, &minpos, &maxpos);
 
   getline(reference, ref_line);
   if (ref_line.at(0) != '>') cerr << "Error in ref file, first char should be >" << endl;
@@ -162,13 +151,13 @@ void generateGraph(
 
   /** Construct the in group, the graph will be built with these individuals **/
   cout << '#';
-  if (genComplement) {
+  if (params.genComplement) {
     /** Ingroup is the indivs not included in the specified file **/
-    if (buildfile.length() == 0) {
+    if (params.buildfile.length() == 0) {
       cerr << "Error: No buildfile specified, complement cannot be built. Aborting." << endl;
       exit(1);
     }
-    build.open(buildfile.c_str());
+    build.open(params.buildfile.c_str());
     getline(build, inputGroupLine);
     inputGroupLine = inputGroupLine.substr(1, inputGroupLine.length() - 2);
     inputGroup = split(inputGroupLine, ',');
@@ -183,8 +172,8 @@ void generateGraph(
     }
 
   } else {
-    if (inGroup >= 0) {
-      for (int32_t i = 0; i < int32_t((numIndivs / 100.0f) * inGroup); i++) {
+    if (params.ingroup >= 0) {
+      for (int32_t i = 0; i < int32_t((numIndivs / 100.0f) * params.ingroup); i++) {
         randtemp = rand() % numIndivs + formatColumn + 1;
         if (find(inGroupCols.begin(), inGroupCols.end(), randtemp) == inGroupCols.end()) {
           inGroupCols.push_back(randtemp);
@@ -229,23 +218,23 @@ void generateGraph(
     variantAlt = vline_split[altColumn];
 
     // Get list of allele frequencies
-    if (maxAF) {
+    if (params.maxAF) {
       info = vline_split[infoColumn];
       info_split = split(info, ';');
       maxAltAF = 0;
       altAFsum = 0;
       maxAltAFIdx = -1;
-      maxAF = false; // Using as a flag to make sure 'AF' is found in INFO
+      params.maxAF = false; // Using as a flag to make sure 'AF' is found in INFO
       for (auto infItem : info_split) {
         std::transform(infItem.begin(), infItem.end(), infItem.begin(), ::tolower);
         if (infItem.substr(0, 2) == "af") {
           // Find the list of AF's (allele frequencies)
           info = infItem.substr(3, string::npos);
-          maxAF = true;
+          params.maxAF = true;
           break;
         }
       }
-      if (!maxAF) {
+      if (!params.maxAF) {
         std::cerr << "Error: AF not found in INFO field." << std::endl;
         std::cerr << "At variant position " << vline_split[1] << std::endl;
         exit(1);
@@ -283,7 +272,7 @@ void generateGraph(
       }
 
       /** Max node length reached, split node **/
-      if (nodelen == maxNodeLen) {
+      if (nodelen == params.maxNodeLen) {
         cout << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
 #if debug > 4
         cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring << endl;
@@ -336,7 +325,7 @@ void generateGraph(
     numalts = 0;
 
     /** Variants **/
-    if (maxAF) {
+    if (params.maxAF) {
       // Only use the max AF variant
       altList_split.clear();
       // The reference has the highest AF, so add a ref node (moved below)
@@ -347,7 +336,7 @@ void generateGraph(
       altList_split = split(variantAlt, ',');
     }
     // Add a single node if not doing max AF or the max AF is the ref
-    if (!maxAF || (maxAF && (1 - altAFsum >= maxAltAF || maxAltAFIdx < 0))) {
+    if (!params.maxAF || (params.maxAF && (1 - altAFsum >= maxAltAF || maxAltAFIdx < 0))) {
       cout << ref_position << "," << nodenum << "," << variantRef.c_str() << endl;
 #if debug > 4
       cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << variantRef << endl;
@@ -410,7 +399,7 @@ void generateGraph(
 
   /** The remaining bases after the last variant **/
   nodestring = "";
-  while ((ref_position < maxpos || maxpos < 0) && reference.get(base)) {
+  while ((ref_position < maxpos) && reference.get(base)) {
     if (!isspace(base)) {
       nodestring += base;
       ref_position++;
@@ -427,26 +416,22 @@ void generateGraph(
 #endif
   }
 
-  variants.close();
-  reference.close();
-
+  return cout;
 }
 
-void printBuildHelp() {
-  using std::cout;
-  using std::endl;
-  cout << endl << "------------------- VMatch build, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" <<
-      endl;
-  cout << "-v\t--vcf           (required) VCF file, uncompressed." << endl;
-  cout << "-r\t--ref           (required) reference single record FASTA" << endl;
-  cout << "-l\t--maxlen        Maximum node length" << endl;
-  cout << "-R\t--region        [min:max] Ref region, inclusive. Default is entire graph." << endl;
-  cout << "-g\t--ingroup       Percent of individuals to build graph from, default all." << endl;
-  cout << "-c\t--complement    Generate a complement of the specified graph" << endl;
-  cout << "-s\t--set           <#,#,..,#> Generate a buildfile for a list of ingroup %'s and their complements."
-      << endl;
-  cout << "-m\t--maxref        Generate a graph using allele's w/ the highest frequency. Overrides other opts." << endl;
-  cout << "\t                  -s outputs to files." << endl;
-
-  cout << endl << "Buildfile is printed on stdout." << endl;
+void vmatch::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max) {
+  std::vector<std::string> region_split(0);
+  if (region.length() > 0) {
+    region_split = split(region, ':');
+    if (region_split.size() < 1) {
+      std::cerr << "Malformed region, must be in the form a:b" << std::endl;
+      *min = 0;
+      *max = UINT32_MAX;
+    }
+    *min = (uint32_t) std::atoi(region_split[0].c_str());
+    *max = (uint32_t) std::atoi(region_split[1].c_str());
+  } else {
+    *min = 0;
+    *max = UINT32_MAX;
+  }
 }
