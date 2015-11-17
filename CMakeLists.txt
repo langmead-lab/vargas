@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.3)
+
 project("vmatch")
 
 set(MAIN_SOURCES
@@ -18,7 +20,7 @@ set(MAIN_SOURCES
 set(GSSW_SOURCES
         gssw/src/gssw.h
         gssw/src/gssw.c # Main SSW aligner
-)
+        test/graphTest.cpp test/graphTest.h)
 
 add_executable(vmatch ${MAIN_SOURCES} ${GSSW_SOURCES})
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
@@ -29,3 +31,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++11")
 
 #Debug Options
 set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -pedantic -Wall -Wextra -Wno-unused-function")
+
+# Tests
+include_directories(test/googletest/include test/googletest)
+add_executable(vmatchTests test/test.cpp test/graphTest.cpp)
