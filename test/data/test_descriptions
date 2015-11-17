@@ -1,0 +1,3 @@
+test descriptions:
+1) improper FASTA, no VCF records. expect fatal
+2) no vcf records, expect b2, g2
