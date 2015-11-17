@@ -55,6 +55,7 @@ class Graph {
 
   // Delete gssw graph
   ~Graph() {
+    if (graph != NULL)
     gssw_graph_destroy(graph);
   }
 
@@ -79,7 +80,7 @@ class Graph {
   }
 
 
- private:
+ protected:
   GraphParams params;
   gssw_graph *graph = NULL; // The graph
 

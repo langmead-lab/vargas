@@ -18,7 +18,7 @@ set(MAIN_SOURCES
 set(GSSW_SOURCES
         gssw/src/gssw.h
         gssw/src/gssw.c # Main SSW aligner
-        test/graphTest.cpp test/graphTest.h)
+        )
 
 add_library(vmatch_lib ${MAIN_SOURCES})
 add_library(gssw_lib ${GSSW_SOURCES})
@@ -34,10 +34,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++11")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -pedantic -Wall -Wextra -Wno-unused-function")
 
 # Tests
-    add_subdirectory(test/googletest/googletest)
-    enable_testing()
-    include_directories(${gtest_SOURCE_DIR}/include/ ${gtest_SOURCE_DIR}/)
-    add_executable(vmatchTests test/graphTest.cpp)
-    target_link_libraries(vmatchTests gtest gtest_main)
-    target_link_libraries(vmatchTests vmatch_lib gssw_lib)
+add_subdirectory(test/googletest/googletest)
+enable_testing()
+include_directories(${gtest_SOURCE_DIR}/include/ ${gtest_SOURCE_DIR}/)
+add_executable(vmatchTests test/graphTest.cpp)
+target_link_libraries(vmatchTests gtest gtest_main)
+target_link_libraries(vmatchTests vmatch_lib gssw_lib)
 
