@@ -97,17 +97,15 @@ std::vector<std::string> split(const std::string &s, char delim) {
   std::vector<std::string> newElems(0);
 
   if (s.length() == 0) {
-    newElems.push_back("");
     return newElems;
   }
-  else if (s.length() == 1) {
+  else if (s.length() == 1 && s.at(0) != delim) {
     newElems.push_back(s.substr(0, 1));
     return newElems;
   }
   while (std::getline(ss, item, delim)) {
-    newElems.push_back(item);
+    if (item.size() != 0) newElems.push_back(item);
   }
-  if (s.at(s.length() - 1) == ',') newElems.push_back("");
   return newElems;
 }
 

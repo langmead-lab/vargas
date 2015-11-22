@@ -6,6 +6,167 @@
 #include "../include/graph.h"
 #include "googletest/googletest/include/gtest/gtest.h"
 
+// Empty class to test protected member
+class GraphTestR: public vmatch::Graph, public ::testing::Test { };
+
+//TODO fatal and graphBuild test fixtures are equivalent, how to use the same one for multiple tests?
+class fatalGraphBuildTests: public ::testing::TestWithParam<int>, public vmatch::Graph {
+ protected:
+  int testNo;
+  virtual void SetUp() {
+    testNo = GetParam();
+    ref.open("data/r" + std::to_string(testNo));
+    vcf.open("data/v" + std::to_string(testNo));
+    cb.open("data/b" + std::to_string(testNo));
+    cg.open("data/g" + std::to_string(testNo));
+    ASSERT_TRUE(ref.good());
+    ASSERT_TRUE(vcf.good());
+  }
+  virtual void TearDown() {
+    ref.close();
+    vcf.close();
+    cb.close();
+    cg.close();
+  }
+  void build() {
+    buildout << buildGraph(ref, vcf).rdbuf();
+    correctbuild << cb.rdbuf();
+
+    buildGraph(buildout);
+    exportDOT(out);
+    correctout << cg.rdbuf();
+  }
+  std::stringstream buildout, correctbuild;
+  std::stringstream out, correctout;
+  std::ifstream ref, vcf, cb, cg;
+};
+class graphBuildTests: public ::testing::TestWithParam<int>, public vmatch::Graph {
+ protected:
+  int testNo;
+  virtual void SetUp() {
+    testNo = GetParam();
+    ref.open("data/r" + std::to_string(testNo));
+    vcf.open("data/v" + std::to_string(testNo));
+    cb.open("data/b" + std::to_string(testNo));
+    cg.open("data/g" + std::to_string(testNo));
+    ASSERT_TRUE(ref.good());
+    ASSERT_TRUE(vcf.good());
+  }
+  virtual void TearDown() {
+    ref.close();
+    vcf.close();
+    cb.close();
+    cg.close();
+  }
+  void build() {
+    buildout << buildGraph(ref, vcf).rdbuf();
+    correctbuild << cb.rdbuf();
+
+    buildGraph(buildout);
+    exportDOT(out);
+    correctout << cg.rdbuf();
+  }
+  std::stringstream buildout, correctbuild;
+  std::stringstream out, correctout;
+  std::ifstream ref, vcf, cb, cg;
+};
+
+
+//TODO exportDOT tests
+
+TEST_P(fatalGraphBuildTests, FatalTests) {
+  ASSERT_ANY_THROW(build());
+}
+INSTANTIATE_TEST_CASE_P(fatalGraphBuild, fatalGraphBuildTests, ::testing::Range(1, 2));
+
+TEST_P(graphBuildTests, graphs) {
+  build();
+  // Check buildfile output
+  ASSERT_EQ(correctbuild.str(), buildout.str());
+  // Check graph output
+  ASSERT_EQ(correctout.str(), out.str());
+}
+INSTANTIATE_TEST_CASE_P(graphBuild, graphBuildTests, ::testing::Range(2, 8));
+
+
+/********************* Region tests *********************/
+TEST_F(GraphTestR, regionParseEmpty) {
+  uint32_t min, max;
+
+  parseRegion("", &min, &max);
+  ASSERT_EQ(0, min);
+  ASSERT_EQ(UINT32_MAX, max);
+}
+TEST_F(GraphTestR, regionParseInvalid) {
+  uint32_t min, max;
+
+  parseRegion("ds", &min, &max);
+  ASSERT_EQ(0, min);
+  ASSERT_EQ(UINT32_MAX, max);
+}
+TEST_F(GraphTestR, regionParseNoNum) {
+  uint32_t min, max;
+
+  parseRegion(":", &min, &max);
+  ASSERT_EQ(0, min);
+  ASSERT_EQ(UINT32_MAX, max);
+}
+TEST_F(GraphTestR, regionParseNoMin) {
+  uint32_t min, max;
+
+  parseRegion(":100", &min, &max);
+  ASSERT_EQ(0, min);
+  ASSERT_EQ(UINT32_MAX, max);
+}
+TEST_F(GraphTestR, regionParseNoMax) {
+  uint32_t min, max;
+
+  parseRegion("100:", &min, &max);
+  ASSERT_EQ(0, min);
+  ASSERT_EQ(UINT32_MAX, max);
+}
+TEST_F(GraphTestR, regionParseNegMin) {
+  uint32_t min, max;
+
+  parseRegion("-100:", &min, &max);
+  ASSERT_EQ(0, min);
+  ASSERT_EQ(UINT32_MAX, max);
+}
+TEST_F(GraphTestR, regionParseNegMax) {
+  uint32_t min, max;
+
+  parseRegion(":-100", &min, &max);
+  ASSERT_EQ(0, min);
+  ASSERT_EQ(UINT32_MAX, max);
+}
+TEST_F(GraphTestR, regionParseCorrect) {
+  uint32_t min, max;
+
+  parseRegion("0:5000", &min, &max);
+  ASSERT_EQ(0, min);
+  ASSERT_EQ(5000, max);
+}
+TEST_F(GraphTestR, regionParseDoubleSpace) {
+  uint32_t min, max;
+
+  parseRegion("0 : 5000", &min, &max);
+  ASSERT_EQ(0, min);
+  ASSERT_EQ(5000, max);
+}
+TEST_F(GraphTestR, regionParseSingleSpace) {
+  uint32_t min, max;
+  parseRegion("25: 500", &min, &max);
+  ASSERT_EQ(25, min);
+  ASSERT_EQ(500, max);
+}
+TEST_F(GraphTestR, regionParseSpaceBegin) {
+  uint32_t min, max;
+  parseRegion(" 25:500", &min, &max);
+  ASSERT_EQ(25, min);
+  ASSERT_EQ(500, max);
+}
+
+/********************* Constructor tests *********************/
 TEST(GraphTest, paramConstructor) {
   struct vmatch::Graph::GraphParams gParam;
   gParam.match = 0;
@@ -19,6 +180,7 @@ TEST(GraphTest, paramConstructor) {
   ASSERT_EQ(3, g.getParamsCopy().gap_extension);
 }
 
+/********************* Params test *********************/
 TEST(GraphTest, defaultParams) {
   vmatch::Graph g;
   ASSERT_EQ(50000, g.getParamsCopy().maxNodeLen);
@@ -44,7 +206,7 @@ TEST(GraphTest, setScores) {
 
 TEST(GraphTest, setParams) {
   vmatch::Graph g;
-  struct vmatch::Graph::GraphParams gParam = g.getParamsCopy();
+  struct vmatch::Graph::GraphParams gParam;
   gParam.match = 0;
   gParam.mismatch = 1;
   gParam.gap_open = 2;

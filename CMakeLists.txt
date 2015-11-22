@@ -1,6 +1,9 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 2.8)
 
 project("vmatch")
+
+SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+SET(LIBRARY_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
 set(MAIN_SOURCES
         src/getopt_pp.cpp   # Parser for program arguments
@@ -34,10 +37,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++11")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -pedantic -Wall -Wextra -Wno-unused-function")
 
 # Tests
+set(TEST_SOURCES test/graphTest.cpp test/utilsTest.cpp)
 add_subdirectory(test/googletest/googletest)
 enable_testing()
 include_directories(${gtest_SOURCE_DIR}/include/ ${gtest_SOURCE_DIR}/)
-add_executable(vmatchTests test/graphTest.cpp)
+add_executable(vmatchTests ${TEST_SOURCES})
 target_link_libraries(vmatchTests gtest gtest_main)
 target_link_libraries(vmatchTests vmatch_lib gssw_lib)
 

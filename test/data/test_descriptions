@@ -1,3 +1,9 @@
 test descriptions:
 1) improper FASTA, no VCF records. expect fatal
 2) no vcf records, expect b2, g2
+3) single branch
+4) Multiple alts
+
+TBD:
+
+Multiple variants next to each other

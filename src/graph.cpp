@@ -5,29 +5,27 @@
 #include "../include/graph.h"
 
 
-void vmatch::Graph::exportDOT() {
-  using std::cout;
-  using std::cin;
+void vmatch::Graph::exportDOT(std::ostream &out) {
 
   if (graph == NULL) {
-    std::cerr << "Error: No graph has been build. Aborting export." << std::endl;
+    std::cerr << "Error: No graph has been built. Aborting export." << std::endl;
     return;
   }
 
-  cout << "digraph gssw_graph {\n";
-  cout << "rankdir=\"LR\";\n";
+  out << "digraph gssw_graph {\n";
+  out << "rankdir=\"LR\";\n";
 
   for (uint32_t i = 0; i < graph->size; i++) {
-    cout << graph->nodes[i]->id << " [label=\"" << graph->nodes[i]->data << ":" << graph->nodes[i]->seq << "\"];\n";
+    out << graph->nodes[i]->id << " [label=\"" << graph->nodes[i]->data << ":" << graph->nodes[i]->seq << "\"];\n";
   }
   for (uint32_t i = 0; i < graph->size; i++) {
     for (int32_t n = 0; n < graph->nodes[i]->count_next; n++)
-      cout << graph->nodes[i]->id << " -> " << graph->nodes[i]->next[n]->id << ";\n";
+      out << graph->nodes[i]->id << " -> " << graph->nodes[i]->next[n]->id << ";\n";
   }
-  cout << "}";
+  out << "}";
 }
 
-void vmatch::Graph::exportBuildfile(std::ofstream &out) {
+void vmatch::Graph::exportBuildfile(std::ostream &out) {
 
 }
 
@@ -39,7 +37,7 @@ void vmatch::Graph::buildGraph(std::istream &graphDat) {
   using std::cerr;
 
   if (graph != NULL) {
-    delete graph;
+    gssw_graph_destroy(graph);
   }
 
   string line;
@@ -136,7 +134,9 @@ std::iostream &vmatch::Graph::buildGraph(std::istream &reference, std::istream &
   parseRegion(params.region, &minpos, &maxpos);
 
   getline(reference, ref_line);
-  if (ref_line.at(0) != '>') cerr << "Error in ref file, first char should be >" << endl;
+  if (ref_line.at(0) != '>') {
+    throw std::invalid_argument("Error in ref file, first char should be >");
+  }
 
   /** Go to first VCF record **/
   do { getline(variants, vcf_line); } while (vcf_line.substr(0, 2) == "##");
@@ -154,8 +154,7 @@ std::iostream &vmatch::Graph::buildGraph(std::istream &reference, std::istream &
   if (params.genComplement) {
     /** Ingroup is the indivs not included in the specified file **/
     if (params.buildfile.length() == 0) {
-      cerr << "Error: No buildfile specified, complement cannot be built. Aborting." << endl;
-      exit(1);
+      throw std::invalid_argument("Error: No buildfile specified, complement cannot be built. Aborting.");
     }
     build.open(params.buildfile.c_str());
     getline(build, inputGroupLine);
@@ -192,8 +191,7 @@ std::iostream &vmatch::Graph::buildGraph(std::istream &reference, std::istream &
 
   /** Find the POS, REF, ALT cols **/
   if (posColumn < 0 || refColumn < 0 || altColumn < 0 || formatColumn < 0) {
-    cerr << "POS, REF, ALT, FORMAT, and/or INFO not found in VCF header." << endl;
-    exit(1);
+    throw std::invalid_argument("POS, REF, ALT, FORMAT, and/or INFO not found in VCF header.");
   }
 
   /** Generate Nodes **/
@@ -235,9 +233,10 @@ std::iostream &vmatch::Graph::buildGraph(std::istream &reference, std::istream &
         }
       }
       if (!params.maxAF) {
-        std::cerr << "Error: AF not found in INFO field." << std::endl;
-        std::cerr << "At variant position " << vline_split[1] << std::endl;
-        exit(1);
+        std::stringstream err;
+        err << "Error: AF not found in INFO field." << std::endl;
+        err << "At variant position " << vline_split[1] << std::endl;
+        throw std::invalid_argument(err.str());
       }
       // Get the raw list of AF's
       info_split = split(info, ',');
@@ -262,8 +261,9 @@ std::iostream &vmatch::Graph::buildGraph(std::istream &reference, std::istream &
     /** build node string up to var pos **/
     while (ref_position < vpos - 1) {
       if (!reference.get(base)) {
-        cerr << "End of ref found while looking for variant pos " << vpos << endl;
-        exit(1);
+        std::stringstream err;
+        err << "End of ref found while looking for variant pos " << vpos << endl;
+        throw std::range_error(err.str());
       }
       if (!isspace(base)) {
         nodestring += base;
@@ -423,13 +423,14 @@ void vmatch::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max
   std::vector<std::string> region_split(0);
   if (region.length() > 0) {
     region_split = split(region, ':');
-    if (region_split.size() < 1) {
+    if (region_split.size() < 2) {
       std::cerr << "Malformed region, must be in the form a:b" << std::endl;
       *min = 0;
       *max = UINT32_MAX;
+    } else {
+      *min = (uint32_t) std::atoi(region_split[0].c_str());
+      *max = (uint32_t) std::atoi(region_split[1].c_str());
     }
-    *min = (uint32_t) std::atoi(region_split[0].c_str());
-    *max = (uint32_t) std::atoi(region_split[1].c_str());
   } else {
     *min = 0;
     *max = UINT32_MAX;

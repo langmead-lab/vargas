@@ -1,0 +1,14 @@
+digraph gssw_graph {
+rankdir="LR";
+0 [label="3:GAA"];
+1 [label="4:A"];
+2 [label="4:G"];
+3 [label="4:C"];
+4 [label="7:TCA"];
+0 -> 3;
+0 -> 2;
+0 -> 1;
+1 -> 4;
+2 -> 4;
+3 -> 4;
+}
