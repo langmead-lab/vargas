@@ -18,8 +18,8 @@ set(MAIN_SOURCES
         include/simMain.h
         src/graph.cpp
         include/graph.h
-        src/vcfStream.cpp
-        include/vcfStream.h)
+        src/vcfstream.cpp
+        include/vcfstream.h)
 
 set(GSSW_SOURCES
         gssw/src/gssw.h

@@ -76,12 +76,12 @@ class vcfstream {
   std::vector<std::string>
       splitTemp, // Used as a temp vector to split various items
       splitRecord, // The entire split currentRecord
-      splitHaplo; // Used to split haplotypes
+      splitDiploid; // Used to split haplotypes
   std::vector<uint32_t> ingroup; // List of all individuals in the ingroup. Should always be sorted
   bool initilized = false;
 
   // Holds the locations of all of the fields in the VCF. Found during init.
-  struct fieldPositions {
+  struct {
     int32_t chrom = -1;
     int32_t pos = -1;
     int32_t id = -1;

@@ -20,7 +20,7 @@
 #include <vector>
 #include <algorithm>
 #include "../include/utils.h"
-#include "../include/vcfStream.h"
+#include "../include/vcfstream.h"
 #include <stdexcept>
 
 namespace vmatch {
@@ -31,7 +31,7 @@ class Graph {
 
  public:
 
-  /** Struct defining the main paramemters and options used when building a graph **/
+  /** Struct defining the main parameters and options used when building a graph **/
   struct GraphParams {
     uint32_t maxNodeLen = 50000; // Maximum length of a single node graph
     int32_t ingroup = 100; // percent of individuals to include
@@ -39,17 +39,14 @@ class Graph {
     std::string buildfile = ""; // existing buildfile to build the complement
     bool genComplement = false; // Generate a graph with individuals not in buildfile
     bool maxAF = false; // Linear graph with only the variants/ref with maximum allele frequency
-    int8_t *nt_table = NULL; // Table of nt mappings
-    int8_t *mat = NULL; // table of scores
     int32_t match = 2, mismatch = 2; // default scores
     uint8_t gap_open = 3, gap_extension = 1; // default gap scores
+    int8_t *nt_table = gssw_create_nt_table(); // Table of nt mappings
+    int8_t *mat = gssw_create_score_matrix(match, mismatch); // table of scores
   };
 
   /** Empty graph uses default parameters **/
-  Graph() {
-    params.nt_table = gssw_create_nt_table();
-    params.mat = gssw_create_score_matrix(params.match, params.mismatch);
-  }
+  Graph() { }
 
   /** Create a graph with given parameters **/
   Graph(GraphParams p) {
@@ -58,16 +55,22 @@ class Graph {
     params = p;
   }
 
-  /**  Build a graph from a FASTA and a VCF **/
-  Graph(std::istream &reference, std::istream &vcf) {
-    Graph();
-    buildGraph(buildGraph(reference, vcf));
+  Graph(std::string refFile, std::string vcfFile, std::string buildFile) {
+    std::ifstream ref(refFile);
+    std::ofstream buildOut(buildFile);
+    if (!ref.good() || !buildOut.good()) throw std::invalid_argument("Error opening files.");
+    vcfstream vcf(vcfFile);
+    buildGraph(ref, vcf, buildOut);
+    buildOut.close();
+    std::ifstream buildIn(buildFile);
+    buildGraph(buildIn);
   }
 
-  /** Build a graph from a buildfile, as made by exportBuildfile **/
-  Graph(std::ifstream &buildfile) {
-    Graph();
-    buildGraph(buildfile);
+  /** Build a graph from a buildfile **/
+  Graph(std::string buildfile) {
+    std::ifstream build(buildfile);
+    if (!build.good()) throw std::invalid_argument("Error opening buildfile.");
+    buildGraph(build);
   }
 
   /** Delete gssw graph on destruction **/
@@ -76,11 +79,14 @@ class Graph {
   }
 
   /** Export the graph as a DOT representation **/
+  void exportDot(std::string file) {
+    std::ofstream out(file);
+    exportDOT(out);
+  }
   void exportDOT(std::ostream &out) const;
 
-  /** Export a quickbuild file to avoid processing the FASTA and VCF again **/
-  void exportBuildfile(std::ostream &out) const;
-  std::iostream &buildGraph(std::istream &reference, std::istream &variants);
+  /** Build a graph from a vcf and variant for a buildfile **/
+  void buildGraph(std::istream &reference, vcfstream &variants, std::ostream &buildout);
   void buildGraph(std::istream &buildfile);
 
   gssw_graph *getGSSWGraph() const {
@@ -106,6 +112,7 @@ class Graph {
   gssw_graph *graph = NULL; // The graph
 
   void parseRegion(std::string region, uint32_t *min, uint32_t *max);
+  void generateIngroup(vcfstream &variants);
 
 };
 

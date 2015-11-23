@@ -2,7 +2,7 @@
 // Created by gaddra on 11/22/15.
 //
 
-#include "../include/vcfStream.h"
+#include "../include/vcfstream.h"
 #include "googletest/googletest/include/gtest/gtest.h"
 
 // Empty class to test protected member

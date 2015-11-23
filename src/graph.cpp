@@ -25,10 +25,6 @@ void vmatch::Graph::exportDOT(std::ostream &out) const {
   out << "}";
 }
 
-void vmatch::Graph::exportBuildfile(std::ostream &out) const {
-
-}
-
 void vmatch::Graph::buildGraph(std::istream &graphDat) {
 
   using std::string;
@@ -50,6 +46,7 @@ void vmatch::Graph::buildGraph(std::istream &graphDat) {
   while (getline(graphDat, line)) {
     if (line.at(0) != '#') {
       if (line.at(0) == '[') {
+        // Add individuals to the last node
         line = line.substr(1, line.length() - 2);
         split(line, ',', lineSplit);
         for (uint32_t i = 0; i < lineSplit.size(); i++) {
@@ -81,362 +78,195 @@ void vmatch::Graph::buildGraph(std::istream &graphDat) {
 
   /** Add nodes to graph **/
   graph = gssw_graph_create(uint32_t(nodes.size()));
-  for (uint32_t n = 0; n < nodes.size(); n++) {
-    gssw_graph_add_node(graph, nodes[n]);
+  for (auto &n : nodes) {
+    gssw_graph_add_node(graph, n);
   }
 
 }
 
+void vmatch::Graph::generateIngroup(vcfstream &variants) {
+  using std::string;
+  using std::vector;
 
-std::iostream &vmatch::Graph::buildGraph(std::istream &reference, std::istream &variants) {
+  if (params.genComplement) {
+    /** Ingroup is the indivs not included in the specified file **/
+    if (params.buildfile.length() == 0) {
+      throw std::invalid_argument("Error: No buildfile specified, complement cannot be built.");
+    }
+    std::ifstream complementSource(params.buildfile.c_str());
+    string inputGroupLine;
+    getline(complementSource, inputGroupLine);
+    inputGroupLine = inputGroupLine.substr(1); // Remove #
+    vector<string> inputGroup = split(inputGroupLine, ',');
+    vector<uint32_t> inputGroupIndivs(0);
+    for (uint32_t i = 0; i < inputGroup.size(); i++) {
+      inputGroupIndivs.push_back(uint32_t(atoi(inputGroup.at(i).c_str())));
+    }
+    variants.createComplementIngroup(inputGroupIndivs);
+    complementSource.close();
+  }
+  else if (params.ingroup >= 0) {
+    // Use a percentage of individuals
+    variants.createIngroup(params.ingroup);
+  }
+  else {
+    // use all individuals
+    variants.createIngroup(100);
+  }
+}
+
+void vmatch::Graph::buildGraph(std::istream &reference, vcfstream &variants, std::ostream &buildout) {
   using std::vector;
   using std::endl;
-  using std::cerr;
   using std::string;
-
-  std::stringstream *cout_p = new std::stringstream(); // Output stream
-  std::stringstream &cout = *cout_p;
-  std::ifstream build; // Used for complement graph
-
-  /** Used to track which indivs have a variant **/
-  vector<int16_t> inVar(0);
-
-  /** To process complement graph **/
-  vector<string> inputGroup(0);
-  vector<int32_t> inputGroupInt(0);
-  string inputGroupLine;
-
-  /** reference line, variant line **/
-  string ref_line, vcf_line;
-  /** Parsed lines, VCF header row **/
-  vector<string> vline_split(0), altList_split(0), header(0), info_split(0);
-  /** Columns used to build graph **/
-  vector<int32_t> inGroupCols(0);
-  /** columns in VCF file, current ref pos **/
-  int32_t posColumn, refColumn, altColumn, formatColumn, infoColumn, ref_position = 0;
-  int32_t nodenum = 0, numIndivs;
-  /** Pos from variant file **/
-  int vpos;
-  int32_t cn;
-  /** To track edges that need to be built **/
-  int numalts = 0, numprev;
-  /** strings that represent node contents **/
-  string variantRef, variantAlt, nodestring, info;
-  int32_t nodelen = 0;
-  char base;
-  int32_t randtemp;
-
-  double altAFsum;
-  double maxAltAF;
-  int32_t maxAltAFIdx;
-  double af;
 
   // Get region
   uint32_t minpos, maxpos;
   parseRegion(params.region, &minpos, &maxpos);
 
-  getline(reference, ref_line);
-  if (ref_line.at(0) != '>') {
+  // Create the ingroup
+  generateIngroup(variants);
+  variants.printIngroup(buildout);
+
+  // Check FASTA header
+  std::string refLine;
+  getline(reference, refLine);
+  if (refLine.at(0) != '>') {
     throw std::invalid_argument("Error in ref file, first char should be >");
   }
 
-  /** Go to first VCF record **/
-  do { getline(variants, vcf_line); } while (vcf_line.substr(0, 2) == "##");
-  transform(vcf_line.begin(), vcf_line.end(), vcf_line.begin(), ::tolower);
-  header = split(vcf_line, '\t');
-  posColumn = int32_t(find(header.begin(), header.end(), "pos") - header.begin());
-  refColumn = int32_t(find(header.begin(), header.end(), "ref") - header.begin());
-  altColumn = int32_t(find(header.begin(), header.end(), "alt") - header.begin());
-  infoColumn = int32_t(find(header.begin(), header.end(), "info") - header.begin());
-  formatColumn = int32_t(find(header.begin(), header.end(), "format") - header.begin());
-  numIndivs = int32_t(header.size() - formatColumn - 1);
+  // Buildfile comments
+  buildout << "##Reference: " << refLine.substr(1) << endl;
+  buildout << "##Graph params: "
+      << "Max Node Len: " << params.maxNodeLen
+      << ", In-group Percent: " << params.ingroup
+      << ", Use max AF? " << params.maxAF;
+  if (params.region.length() > 0)
+    buildout << ", Region: " << params.region;
+  if (params.genComplement)
+    buildout << ", Complement source: " << params.buildfile;
+  buildout << endl;
 
-  /** Construct the in group, the graph will be built with these individuals **/
-  cout << '#';
-  if (params.genComplement) {
-    /** Ingroup is the indivs not included in the specified file **/
-    if (params.buildfile.length() == 0) {
-      throw std::invalid_argument("Error: No buildfile specified, complement cannot be built. Aborting.");
-    }
-    build.open(params.buildfile.c_str());
-    getline(build, inputGroupLine);
-    inputGroupLine = inputGroupLine.substr(1, inputGroupLine.length() - 2);
-    inputGroup = split(inputGroupLine, ',');
-    for (uint32_t i = 0; i < inputGroup.size(); i++) {
-      inputGroupInt.push_back(atoi(inputGroup.at(i).c_str()));
-    }
-    for (int32_t i = 0; i < numIndivs; i++) {
-      if (find(inputGroupInt.begin(), inputGroupInt.end(), i + formatColumn + 1) == inputGroupInt.end()) {
-        inGroupCols.push_back(i + formatColumn + 1);
-        cout << inGroupCols[i] << ',';
-      }
-    }
 
-  } else {
-    if (params.ingroup >= 0) {
-      for (int32_t i = 0; i < int32_t((numIndivs / 100.0f) * params.ingroup); i++) {
-        randtemp = rand() % numIndivs + formatColumn + 1;
-        if (find(inGroupCols.begin(), inGroupCols.end(), randtemp) == inGroupCols.end()) {
-          inGroupCols.push_back(randtemp);
-          cout << inGroupCols[i] << ',';
-        } else i--;
-      }
-      sort(inGroupCols.begin(), inGroupCols.end());
-    } else {
-      for (int32_t i = 0; i < numIndivs; i++) {
-        inGroupCols.push_back(i + formatColumn + 1);
-        cout << inGroupCols[i] << ',';
-      }
-    }
-  }
-  cout << endl;
-
-  /** Find the POS, REF, ALT cols **/
-  if (posColumn < 0 || refColumn < 0 || altColumn < 0 || formatColumn < 0) {
-    throw std::invalid_argument("POS, REF, ALT, FORMAT, and/or INFO not found in VCF header.");
-  }
-
-  /** Generate Nodes **/
 
   /** Go to minimum position **/
+  uint32_t currentRefPosition = 0;
+  char base;
   if (minpos > 0) {
-    while (ref_position < minpos - 1) {
+    while (currentRefPosition < minpos - 1) {
       reference.get(base);
-      if (!isspace(base)) ref_position++;
+      if (!isspace(base)) currentRefPosition++;
     }
   }
 
   /** Process variants **/
-  while (getline(variants, vcf_line)) {
-    nodestring = "";
-    nodelen = 0;
-    vline_split = split(vcf_line, '\t');
-    vpos = atoi(vline_split[posColumn].c_str());
-    if (vpos <= ref_position) continue;
-    if (vpos > maxpos) break;
-    variantRef = vline_split[refColumn];
-    variantAlt = vline_split[altColumn];
+  vcfrecord variantRecord;
+  string nodestring = "";
+  uint32_t nodenum = 0;
+  int32_t numUnconnectedPrev = 0, numUnconnectedCurr = 0;
+  while (variants.getRecord(variantRecord)) {
+    if (variantRecord.pos <= currentRefPosition) continue;
+    if (variantRecord.pos > maxpos) break;
 
-    // Get list of allele frequencies
-    if (params.maxAF) {
-      info = vline_split[infoColumn];
-      info_split = split(info, ';');
-      maxAltAF = 0;
-      altAFsum = 0;
-      maxAltAFIdx = -1;
-      params.maxAF = false; // Using as a flag to make sure 'AF' is found in INFO
-      for (auto infItem : info_split) {
-        std::transform(infItem.begin(), infItem.end(), infItem.begin(), ::tolower);
-        if (infItem.substr(0, 2) == "af") {
-          // Find the list of AF's (allele frequencies)
-          info = infItem.substr(3, string::npos);
-          params.maxAF = true;
-          break;
-        }
-      }
-      if (!params.maxAF) {
-        std::stringstream err;
-        err << "Error: AF not found in INFO field." << std::endl;
-        err << "At variant position " << vline_split[1] << std::endl;
-        throw std::invalid_argument(err.str());
-      }
-      // Get the raw list of AF's
-      info_split = split(info, ',');
-      // Find the max AF and its index, as well as the sum of all alternate AF's
-      for (uint16_t i = 0; i < info_split.size(); i++) {
-        af = stod(info_split[i]);
-        if (af > maxAltAF) {
-          maxAltAF = af;
-          maxAltAFIdx = i;
-        }
-        altAFsum += af;
-      }
-      if (maxAltAFIdx < 0) {
-        std::cerr << "Error: max AF not found." << std::endl;
-        std::cerr << "At VCF pos " << vline_split[1] << std::endl;
-        std::cerr << "AF list: " << info << std::endl;
-        std::cerr << "Continuing with reference node." << std::endl;
-      }
-    }
-
-
-    /** build node string up to var pos **/
-    while (ref_position < vpos - 1) {
+    /** build node string up to variant position **/
+    while (currentRefPosition < variantRecord.pos - 1) {
       if (!reference.get(base)) {
-        std::stringstream err;
-        err << "End of ref found while looking for variant pos " << vpos << endl;
-        throw std::range_error(err.str());
+        throw std::range_error("End of ref found while looking for pos " + std::to_string(variantRecord.pos));
       }
       if (!isspace(base)) {
         nodestring += base;
-        ref_position++;
-        nodelen++;
+        currentRefPosition++;
       }
 
       /** Max node length reached, split node **/
-      if (nodelen == params.maxNodeLen) {
-        cout << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
-#if debug > 4
-        cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring << endl;
-#endif
-        if (nodenum != 0) {
+      if (nodestring.length() == params.maxNodeLen) {
+        buildout << currentRefPosition << "," << nodenum << "," << nodestring.c_str() << endl;
           /** Connect to all of the previous alt/ref nodes **/
-          for (int i = 0; i < numalts; i++) {
-            cout << -2 - i << "," << -1 << endl;
-#if debug > 4
-            cerr << "Edge: " << nodes.end()[-2 - i]->id << ", " << nodes.end()[-1]->id << endl;
-#endif
+        for (int i = 0; i < numUnconnectedPrev; ++i) {
+          buildout << -2 - i << "," << -1 << endl;
           }
-        }
+        numUnconnectedPrev = 1; // We have one node at the tail of the graph
         nodenum++;
-        numalts = 1;
         nodestring = "";
-        nodelen = 0;
       }
     }
 
     /** If there is space between the variants, add a new node **/
     if (nodestring.length() > 0) {
-      cout << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
-#if debug > 4
-      cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring << endl;
-#endif
-      /** Only connect with edge if it's not the first node **/
-      if (nodenum != 0) {
+      buildout << currentRefPosition << "," << nodenum << "," << nodestring.c_str() << endl;
         /** Connect to all of the previous alt/ref nodes **/
-        for (int i = 0; i < numalts; i++) {
-          cout << -2 - i << "," << -1 << endl;
-#if debug > 4
-          cerr << "Edge: " << nodes.end()[-2 - i]->id << ", " << nodes.end()[-1]->id << endl;
-#endif
+      for (int i = 0; i < numUnconnectedPrev; ++i) {
+        buildout << -2 - i << "," << -1 << endl;
         }
-      }
+      numUnconnectedPrev = 1;
       nodenum++;
-      numprev = 1;
+      nodestring = "";
     }
-    else numprev = numalts;
 
-    /** Ref node **/
-    for (uint32_t i = 0; i < variantRef.length(); i++) {
+    /** progress reference position past the ref that's stored in the variant file **/
+    for (int i = 0; i < variantRecord.ref.length(); ++i) {
       reference.get(base);
       if (isspace(base)) {
         reference.get(base);
       }
-      ref_position++;
+      if (variantRecord.ref.at(i) != base)
+        throw std::invalid_argument("VCF reference does not match at " + std::to_string(variantRecord.pos));
+      currentRefPosition++;
     }
-    numalts = 0;
 
-    /** Variants **/
+    /** Variants and ref **/
+    numUnconnectedCurr = 0;
     if (params.maxAF) {
-      // Only use the max AF variant
-      altList_split.clear();
-      // The reference has the highest AF, so add a ref node (moved below)
-      if (1 - altAFsum >= maxAltAF || maxAltAFIdx < 0);
-        // an Alt is the highest AF, so add that to the cleared var list
-      else altList_split.push_back(split(variantAlt, ',')[maxAltAFIdx]);
+
     } else {
-      altList_split = split(variantAlt, ',');
-    }
-    // Add a single node if not doing max AF or the max AF is the ref
-    if (!params.maxAF || (params.maxAF && (1 - altAFsum >= maxAltAF || maxAltAFIdx < 0))) {
-      cout << ref_position << "," << nodenum << "," << variantRef.c_str() << endl;
-#if debug > 4
-      cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << variantRef << endl;
-#endif
+      buildout << currentRefPosition << "," << nodenum << "," << variantRecord.ref << endl;
       nodenum++;
-      numalts = 1;
-    }
-
-    for (uint32_t i = 0; i < altList_split.size(); i++) {
-      inVar.clear();
-      for (uint32_t c = 0; c < inGroupCols.size(); c++) {
-        /** Check if it is in the ingroup **/
-        //TODO parse rather than at, check diploid
-        if (strtol(&vline_split[inGroupCols[c]].at(0), NULL, 10) == i + 1) {
-          inVar.push_back(inGroupCols[c]);
-        }
-      }
-
-      // if there are variants, add node otherwise continue (i.e. ref is merged with previous node)
-      if (inVar.size() > 0) {
-
-        if (altList_split[i].substr(0, 3) == "<CN") {
-          cn = int32_t(strtol(altList_split[i].substr(3, altList_split[i].length() - 4).c_str(), NULL, 10));
-
-          altList_split[i] = (cn == 0) ? "-" : "";
-          for (int v = 0; v < cn; v++) {
-            altList_split[i] += variantRef;
-          }
-        }
-        cout << ref_position << "," << nodenum << "," << altList_split[i].c_str() << endl;
-#if debug > 4
-        cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << altList_split[i].c_str() << endl;
-#endif
+      numUnconnectedCurr++;
+      for (auto &var : variantRecord.altIndivs) {
+        buildout << currentRefPosition << "," << nodenum << "," << var.first << endl;
         nodenum++;
-        numalts++;
-
-        /** Add the individuals that have this particular variant **/
-        cout << '[';
-        for (uint32_t n = 0; n < inVar.size(); n++) {
-#if debug > 5
-          cerr << "Add Indiv(" << int32_t(nodes.back()->indivSize) << "): " << inVar[n] << endl;
-#endif
-          cout << inVar[n];
-          if (n != inVar.size() - 1) cout << ',';
+        numUnconnectedCurr++;
+        buildout << '[';
+        for (int i = 0; i < var.second.size(); ++i) {
+          buildout << var.second[i];
+          if (i < var.second.size() - 1) buildout << ',';
         }
-        cout << ']' << endl;
-
+        buildout << ']' << endl;
       }
     }
 
     /** Build edges **/
-    for (int p = 0; p < numprev; p++) {
-      for (int a = 0; a < numalts; a++) {
-        cout << -1 - numalts - p << "," << -1 - a << endl;
-#if debug > 4
-        cerr << "Edge: " << nodes.end()[-1 - numalts - p]->id << ", " << nodes.end()[-1 - a]->id << endl;
-#endif
+    for (int p = 0; p < numUnconnectedPrev; p++) {
+      for (int a = 0; a < numUnconnectedCurr; a++) {
+        buildout << -1 - numUnconnectedCurr - p << "," << -1 - a << endl;
       }
     }
+    numUnconnectedPrev = numUnconnectedCurr;
   }
 
   /** The remaining bases after the last variant **/
   nodestring = "";
-  while ((ref_position < maxpos) && reference.get(base)) {
+  while ((currentRefPosition < maxpos) && reference.get(base)) {
     if (!isspace(base)) {
       nodestring += base;
-      ref_position++;
+      currentRefPosition++;
     }
     if (nodestring.length() == params.maxNodeLen) {
-      cout << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
-#if debug > 4
-      cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring.c_str() << endl;
-#endif
-      for (int p = 0; p < numalts; p++) {
-        cout << -2 - p << "," << -1 << endl;
-#if debug > 4
-        cerr << "Edge: " << nodes.end()[-2 - p]->id << ", " << nodes.end()[-1]->id << endl;
-#endif
+      buildout << currentRefPosition << "," << nodenum << "," << nodestring.c_str() << endl;
+      for (int p = 0; p < numUnconnectedPrev; p++) {
+        buildout << -2 - p << "," << -1 << endl;
       }
       nodenum++;
-      numalts = 1;
+      numUnconnectedPrev = 1;
       nodestring = "";
-      nodelen = 0;
     }
   }
   if (nodestring != "") {
-    cout << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
-#if debug > 4
-    cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring.c_str() << endl;
-#endif
-    for (int p = 0; p < numalts; p++) {
-      cout << -2 - p << "," << -1 << endl;
-#if debug > 4
-      cerr << "Edge: " << nodes.end()[-2 - p]->id << ", " << nodes.end()[-1]->id << endl;
-#endif
+    buildout << currentRefPosition << "," << nodenum << "," << nodestring.c_str() << endl;
+    for (int p = 0; p < numUnconnectedPrev; p++) {
+      buildout << -2 - p << "," << -1 << endl;
     }
   }
-  return cout;
 }
 
 void vmatch::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max) {
