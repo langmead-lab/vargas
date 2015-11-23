@@ -52,6 +52,8 @@ class Graph {
 
   /** Create a graph with given parameters **/
   Graph(GraphParams p) {
+    if (p.nt_table == NULL) p.nt_table = gssw_create_nt_table();
+    if (p.mat == NULL) p.mat = gssw_create_score_matrix(p.match, p.mismatch);
     params = p;
   }
 
@@ -73,10 +75,10 @@ class Graph {
   }
 
   /** Export the graph as a DOT representation **/
-  void exportDOT(std::ostream &out);
+  void exportDOT(std::ostream &out) const;
 
   /** Export a quickbuild file to avoid processing the FASTA and VCF again **/
-  void exportBuildfile(std::ostream &out);
+  void exportBuildfile(std::ostream &out) const;
   std::iostream &buildGraph(std::istream &reference, std::istream &variants);
   void buildGraph(std::istream &buildfile);
 
@@ -87,6 +89,8 @@ class Graph {
     return params;
   }
   void setParams(GraphParams p) {
+    if (p.nt_table == NULL) p.nt_table = gssw_create_nt_table();
+    if (p.mat == NULL) p.mat = gssw_create_score_matrix(p.match, p.mismatch);
     params = p;
   }
   void setScores(int32_t m = 2, int32_t mm = 2, uint8_t go = 3, uint8_t ge = 1) {
@@ -95,7 +99,6 @@ class Graph {
     params.gap_extension = ge;
     params.gap_open = go;
   }
-
 
  protected:
   GraphParams params;

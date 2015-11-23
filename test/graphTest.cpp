@@ -51,6 +51,7 @@ class graphBuildTests: public ::testing::TestWithParam<int>, public vmatch::Grap
     cg.open("data/g" + std::to_string(testNo));
     ASSERT_TRUE(ref.good());
     ASSERT_TRUE(vcf.good());
+
   }
   virtual void TearDown() {
     ref.close();
@@ -74,10 +75,39 @@ class graphBuildTests: public ::testing::TestWithParam<int>, public vmatch::Grap
 
 //TODO exportDOT tests
 
+/********************* Max Node len tests *********************/
+TEST(GraphTestNodeLen, maxNodelen) {
+  struct vmatch::Graph::GraphParams p;
+  p.maxNodeLen = 1;
+  vmatch::Graph g(p);
+  std::ifstream ref, vcf, cb, cg;
+  std::stringstream buildout, correctbuild, out, correctout;
+
+  ref.open("data/r8");
+  vcf.open("data/v8");
+  cb.open("data/b8");
+  cg.open("data/g8");
+  ASSERT_TRUE(ref.good());
+  ASSERT_TRUE(vcf.good());
+
+  buildout << g.buildGraph(ref, vcf).rdbuf();
+  correctbuild << cb.rdbuf();
+  ASSERT_EQ(correctbuild.str(), buildout.str());
+
+  g.buildGraph(buildout);
+  g.exportDOT(out);
+  correctout << cg.rdbuf();
+  ASSERT_EQ(correctout.str(), out.str());
+
+}
+
+/********************* Graph Output tests *********************/
+
 TEST_P(fatalGraphBuildTests, FatalTests) {
   ASSERT_ANY_THROW(build());
 }
 INSTANTIATE_TEST_CASE_P(fatalGraphBuild, fatalGraphBuildTests, ::testing::Range(1, 2));
+
 
 TEST_P(graphBuildTests, graphs) {
   build();
@@ -86,7 +116,7 @@ TEST_P(graphBuildTests, graphs) {
   // Check graph output
   ASSERT_EQ(correctout.str(), out.str());
 }
-INSTANTIATE_TEST_CASE_P(graphBuild, graphBuildTests, ::testing::Range(2, 8));
+INSTANTIATE_TEST_CASE_P(graphBuild, graphBuildTests, ::testing::Range(2, 7));
 
 
 /********************* Region tests *********************/

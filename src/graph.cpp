@@ -5,7 +5,7 @@
 #include "../include/graph.h"
 
 
-void vmatch::Graph::exportDOT(std::ostream &out) {
+void vmatch::Graph::exportDOT(std::ostream &out) const {
 
   if (graph == NULL) {
     std::cerr << "Error: No graph has been built. Aborting export." << std::endl;
@@ -25,7 +25,7 @@ void vmatch::Graph::exportDOT(std::ostream &out) {
   out << "}";
 }
 
-void vmatch::Graph::exportBuildfile(std::ostream &out) {
+void vmatch::Graph::exportBuildfile(std::ostream &out) const {
 
 }
 
@@ -40,7 +40,7 @@ void vmatch::Graph::buildGraph(std::istream &graphDat) {
     gssw_graph_destroy(graph);
   }
 
-  string line;
+  string line, seq;
   vector<string> lineSplit(0);
   vector<gssw_node *> nodes(0);
   uint32_t curr = 0;
@@ -60,9 +60,10 @@ void vmatch::Graph::buildGraph(std::istream &graphDat) {
         switch (lineSplit.size()) {
           case 3: // New node
             curr = uint32_t(strtol(lineSplit[1].c_str(), NULL, 10));
+            seq = (lineSplit[2] == "-") ? "" : lineSplit[2].c_str();
             nodes.push_back(gssw_node_create(int32_t(strtol(lineSplit[0].c_str(), NULL, 10)),
                                              curr,
-                                             lineSplit[2].c_str(), params.nt_table, params.mat));
+                                             seq.c_str(), params.nt_table, params.mat));
             break;
 
           case 2: // New edge
@@ -360,7 +361,8 @@ std::iostream &vmatch::Graph::buildGraph(std::istream &reference, std::istream &
 
         if (altList_split[i].substr(0, 3) == "<CN") {
           cn = int32_t(strtol(altList_split[i].substr(3, altList_split[i].length() - 4).c_str(), NULL, 10));
-          altList_split[i] = "";
+
+          altList_split[i] = (cn == 0) ? "-" : "";
           for (int v = 0; v < cn; v++) {
             altList_split[i] += variantRef;
           }
@@ -404,18 +406,35 @@ std::iostream &vmatch::Graph::buildGraph(std::istream &reference, std::istream &
       nodestring += base;
       ref_position++;
     }
-  }
-  cout << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
+    if (nodestring.length() == params.maxNodeLen) {
+      cout << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
 #if debug > 4
-  cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring.c_str() << endl;
+      cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring.c_str() << endl;
 #endif
-  for (int p = 0; p < numalts; p++) {
-    cout << -2 - p << "," << -1 << endl;
+      for (int p = 0; p < numalts; p++) {
+        cout << -2 - p << "," << -1 << endl;
 #if debug > 4
-    cerr << "Edge: " << nodes.end()[-2 - p]->id << ", " << nodes.end()[-1]->id << endl;
+        cerr << "Edge: " << nodes.end()[-2 - p]->id << ", " << nodes.end()[-1]->id << endl;
 #endif
+      }
+      nodenum++;
+      numalts = 1;
+      nodestring = "";
+      nodelen = 0;
+    }
   }
-
+  if (nodestring != "") {
+    cout << ref_position << "," << nodenum << "," << nodestring.c_str() << endl;
+#if debug > 4
+    cerr << "Node: " << ref_position << ", ID: " << nodenum << ", " << nodestring.c_str() << endl;
+#endif
+    for (int p = 0; p < numalts; p++) {
+      cout << -2 - p << "," << -1 << endl;
+#if debug > 4
+      cerr << "Edge: " << nodes.end()[-2 - p]->id << ", " << nodes.end()[-1]->id << endl;
+#endif
+    }
+  }
   return cout;
 }
 

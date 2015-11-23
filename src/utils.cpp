@@ -108,29 +108,3 @@ std::vector<std::string> split(const std::string &s, char delim) {
   }
   return newElems;
 }
-
-/*
-void graphToDot(gssw_graph *graph) {
-  using namespace std;
-
-  cout << "digraph gssw {\n";
-  cout << "rankdir=\"LR\";\n";
-
-  for (uint32_t i = 0; i < graph->size; i++) {
-    cout << graph->nodes[i]->id << " [label=\"" << graph->nodes[i]->data << ":" << graph->nodes[i]->seq << "\"];\n";
-  }
-  for (uint32_t i = 0; i < graph->size; i++) {
-    for (int32_t n = 0; n < graph->nodes[i]->count_next; n++)
-      cout << graph->nodes[i]->id << " -> " << graph->nodes[i]->next[n]->id << ";\n";
-  }
-  cout << "}";
-}
-
-void printNode(gssw_node *node) {
-  using std::cout;
-  using std::endl;
-  cout << "Node sequence: " << node->seq << endl;
-  cout << "Score: " << node->alignment->score << " end: " << node->data + 1 - node->len + node->alignment->ref_end <<
-      endl;
-}
-*/

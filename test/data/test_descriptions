@@ -3,7 +3,13 @@ test descriptions:
 2) no vcf records, expect b2, g2
 3) single branch
 4) Multiple alts
+5) Alts right after one another
+6) <CN2>
+7) <CN0>
+8) maxNodeLen of 1
 
 TBD:
 
-Multiple variants next to each other
+exportDOT
+maxAF
+complement
