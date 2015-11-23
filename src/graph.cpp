@@ -51,12 +51,12 @@ void vmatch::Graph::buildGraph(std::istream &graphDat) {
     if (line.at(0) != '#') {
       if (line.at(0) == '[') {
         line = line.substr(1, line.length() - 2);
-        lineSplit = split(line, ',');
+        split(line, ',', lineSplit);
         for (uint32_t i = 0; i < lineSplit.size(); i++) {
           gssw_node_add_indiv(nodes.back(), strtol(lineSplit[i].c_str(), NULL, 10));
         }
       } else {
-        lineSplit = split(line, ',');
+        split(line, ',', lineSplit);
         switch (lineSplit.size()) {
           case 3: // New node
             curr = uint32_t(strtol(lineSplit[1].c_str(), NULL, 10));
@@ -86,6 +86,7 @@ void vmatch::Graph::buildGraph(std::istream &graphDat) {
   }
 
 }
+
 
 std::iostream &vmatch::Graph::buildGraph(std::istream &reference, std::istream &variants) {
   using std::vector;

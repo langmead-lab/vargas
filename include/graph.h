@@ -20,6 +20,7 @@
 #include <vector>
 #include <algorithm>
 #include "../include/utils.h"
+#include "../include/vcfStream.h"
 #include <stdexcept>
 
 namespace vmatch {

@@ -35,8 +35,8 @@ TEST(vcfGetTest, getRecordSingle) {
   v.getRecord(r);
   ASSERT_EQ(4, r.pos);
   ASSERT_EQ("A", r.ref);
-  // ASSERT_EQ("G", r.alts[0]);
-  ASSERT_EQ(1, r.alts.size());
+  // ASSERT_EQ("G", r.altIndivs[0]);
+  ASSERT_EQ(1, r.altIndivs.size());
 }
 
 TEST(vcfGetTest, getRecordNoRec) {
@@ -49,17 +49,14 @@ TEST(vcfGetTest, getRecordNoRec) {
 TEST(vcfGetTest, getRecordTwoAlts) {
   vmatch::vcfstream v("data/v4");
   vmatch::vcfrecord r;
-  v.getRecord(r);
-  for (auto &re : r.alts) {
-    std::cerr << re.first << ": ";
-    for (auto e : re.second) {
-      std::cerr << e << ", ";
-    }
-  }
+  v >> r >> r;
+
+  std::cerr << r;
+
   ASSERT_EQ(4, r.pos);
   ASSERT_EQ("A", r.ref);
-//  ASSERT_EQ("G", r.alts[0]);
-//  ASSERT_EQ("C", r.alts[1]);
-  ASSERT_EQ(2, r.alts.size());
+//  ASSERT_EQ("G", r.altIndivs[0]);
+//  ASSERT_EQ("C", r.altIndivs[1]);
+  ASSERT_EQ(2, r.altIndivs.size());
 
 }

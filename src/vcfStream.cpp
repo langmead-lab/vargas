@@ -36,14 +36,17 @@ void vmatch::vcfstream::initVCF() {
 
   initilized = true;
 
+  // Default ingroup is everyone
+  createIngroup(100);
+
 }
 
 void vmatch::vcfstream::splitCurrentRecord() {
-  splitTemp = split(currentRecord, '\t');
+  split(currentRecord, '\t', splitTemp);
   splitRecord.clear();
   for (int i = 0; i < splitTemp.size(); ++i) {
     if (i >= fields.indivOffset) {
-      splitHaplo = split(splitTemp[i], '|');
+      split(splitTemp[i], '|', splitHaplo);
       splitRecord.push_back(splitHaplo[0]);
       splitRecord.push_back(splitHaplo[1]);
     } else {
@@ -63,20 +66,104 @@ bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
   splitCurrentRecord();
   vrecord.pos = ulong(atol(splitRecord[fields.pos].c_str()));
   vrecord.ref = splitRecord[fields.ref].c_str();
-  vrecord.alts.clear();
-  splitTemp = split(splitRecord[fields.alt], ',');
-  std::vector<uint32_t> altIndivs;
+  vrecord.altIndivs.clear();
+  vrecord.altAF.clear();
+  split(splitRecord[fields.alt], ',', splitTemp);
+  afSplit.clear();
+
+  // Get the list of AF's
+  split(splitRecord[fields.info], ';', afSplit);
+  // Find and split the AF entry
+  for (auto e : afSplit) {
+    if (e.substr(0, 3) == "AF=") {
+      split(e.substr(3), ',', afSplit);
+      break;
+    }
+  }
+
+  // Get the reference frequency
+  double_t sumaltAF = 0;
+  for (auto a : afSplit) {
+    sumaltAF += atof(a.c_str());
+  }
+  vrecord.refFreq = 1 - sumaltAF;
+
+  if (afSplit.size() != splitTemp.size())
+    throw std::invalid_argument("Alternate and AF field lengths do not match at pos " + splitRecord[fields.pos]);
+
+  // For each alternate allele
   for (uint32_t i = 0; i < splitTemp.size(); i++) {
     altIndivs.clear();
+    // For each individual, check if it is in the ingroup
     for (int32_t d = fields.indivOffset; d < fields.numIndivs + fields.indivOffset; ++d) {
+      // a value of 0 indicates the reference is used, i+1 gives the alt number.
       if (atoi(splitRecord[d].c_str()) == i + 1) {
         // Check if its in the ingroup
-        if (std::find(ingroup.begin(), ingroup.end(), d) != ingroup.end() || ingroup.size() == 0)
-          altIndivs.push_back(d);
+        if (std::binary_search(ingroup.begin(), ingroup.end(), d)) altIndivs.push_back(d);
       }
     }
-    if (altIndivs.size() > 0)
-      vrecord.alts.emplace(splitTemp[i].c_str(), altIndivs);
+    if (altIndivs.size() > 0) {
+      vrecord.altIndivs.emplace(splitTemp[i].c_str(), altIndivs);
+      vrecord.altAF.emplace(splitTemp[i].c_str(), std::atof(afSplit[i].c_str()));
+    }
   }
   return true;
+}
+
+void vmatch::vcfstream::createIngroup(int32_t percent, long seed) {
+  if (!initilized) {
+    throw std::invalid_argument("VCF file not provided.");
+  }
+  if (seed != NULL) this->seed = seed;
+  ingroup.clear();
+
+  if (percent == 100) {
+    for (int32_t i = fields.indivOffset; i < fields.numIndivs + fields.indivOffset; ++i) {
+      ingroup.push_back(i);
+      std::sort(ingroup.begin(), ingroup.end());
+    }
+  }
+  else if (percent == 0) {
+    return;
+  } else {
+    for (int32_t i = fields.indivOffset; i < fields.numIndivs + fields.indivOffset; ++i) {
+      if (rand() % 10000 < percent * 100) ingroup.push_back(i);
+    }
+    std::sort(ingroup.begin(), ingroup.end());
+  }
+}
+
+void vmatch::vcfstream::createComplementIngroup(std::vector<uint32_t> vec) {
+  std::sort(vec.begin(), vec.end());
+  ingroup.clear();
+  for (int32_t i = fields.indivOffset; i < fields.numIndivs + fields.indivOffset; ++i) {
+    if (!std::binary_search(vec.begin(), vec.end(), i)) ingroup.push_back(i);
+  }
+  std::sort(ingroup.begin(), ingroup.end());
+}
+
+std::ostream &vmatch::operator<<(std::ostream &os, const vmatch::vcfrecord &vrec) {
+  os << "POS: " << vrec.pos << std::endl;
+  os << "REF: P(" << vrec.ref << ")=" << vrec.refFreq << std::endl;
+  os << "ALTS: " << std::endl;
+  for (auto &e : vrec.altIndivs) {
+    os << "\tP(" << e.first << ")=" << vrec.altAF.at(e.first);
+    for (auto i : e.second) {
+      os << ", " << i;
+    }
+    os << std::endl;
+  }
+  return os;
+}
+
+vmatch::vcfstream &vmatch::operator>>(vmatch::vcfstream &vstream, vcfrecord &vrec) {
+  vstream.getRecord(vrec);
+  return vstream;
+}
+
+void vmatch::vcfstream::printIngroup(std::ostream &os) {
+  for (auto &e : ingroup) {
+    os << e << ", ";
+  }
+  os << std::endl;
 }
