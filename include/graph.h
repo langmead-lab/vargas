@@ -113,7 +113,6 @@ class Graph {
 
   void parseRegion(std::string region, uint32_t *min, uint32_t *max);
   void generateIngroup(vcfstream &variants);
-
 };
 
 }

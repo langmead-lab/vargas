@@ -164,6 +164,9 @@ void vmatch::Graph::buildGraph(std::istream &reference, vcfstream &variants, std
   string nodestring = "";
   uint32_t nodenum = 0;
   int32_t numUnconnectedPrev = 0, numUnconnectedCurr = 0;
+  // For max AF graphs
+  string maxAFAllele;
+  double_t maxAF;
   while (variants.getRecord(variantRecord)) {
     if (variantRecord.pos <= currentRefPosition) continue;
     if (variantRecord.pos > maxpos) break;
@@ -217,21 +220,28 @@ void vmatch::Graph::buildGraph(std::istream &reference, vcfstream &variants, std
     /** Variants and ref **/
     numUnconnectedCurr = 0;
     if (params.maxAF) {
+      maxAFAllele = variantRecord.ref;
+      maxAF = variantRecord.freqs[variantRecord.ref];
+      for (auto &alt : variantRecord.freqs) {
+        if (alt.second > maxAF) {
+          maxAF = alt.second;
+          maxAFAllele = alt.first;
+        }
+      }
 
-    } else {
-      buildout << currentRefPosition << "," << nodenum << "," << variantRecord.ref << endl;
+      buildout << currentRefPosition << "," << nodenum << "," << maxAFAllele << endl;
       nodenum++;
       numUnconnectedCurr++;
-      for (auto &var : variantRecord.altIndivs) {
+      // Print individuals that have the maxAF allele
+      printVec<uint32_t>(buildout, variantRecord.indivs[maxAFAllele]);
+
+    } else {
+      for (auto &var : variantRecord.indivs) {
         buildout << currentRefPosition << "," << nodenum << "," << var.first << endl;
         nodenum++;
         numUnconnectedCurr++;
-        buildout << '[';
-        for (int i = 0; i < var.second.size(); ++i) {
-          buildout << var.second[i];
-          if (i < var.second.size() - 1) buildout << ',';
-        }
-        buildout << ']' << endl;
+        // Print individuals that have this variant
+        printVec<uint32_t>(buildout, var.second);
       }
     }
 

@@ -66,8 +66,8 @@ bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
   splitCurrentRecord();
   vrecord.pos = ulong(atol(splitRecord[fields.pos].c_str()));
   vrecord.ref = splitRecord[fields.ref].c_str();
-  vrecord.altIndivs.clear();
-  vrecord.altAF.clear();
+  vrecord.indivs.clear();
+  vrecord.freqs.clear();
   split(splitRecord[fields.alt], ',', splitTemp);
   afSplit.clear();
 
@@ -86,13 +86,26 @@ bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
   for (auto a : afSplit) {
     sumaltAF += atof(a.c_str());
   }
-  vrecord.refFreq = 1 - sumaltAF;
+
 
   bool validAF = true;
   if (afSplit.size() != splitTemp.size()) {
     std::cerr << "Alternate and AF field lengths do not match at pos " << splitRecord[fields.pos] << ".\n";
     validAF = false;
   }
+
+  // Add the reference node
+  altIndivs.clear();
+  for (int d = fields.indivOffset; d < fields.numIndivs + fields.indivOffset; ++d) {
+    // a value of 0 indicates the reference
+    if (atoi(splitRecord[d].c_str()) == 0) {
+      // Check if its in the ingroup
+      if (std::binary_search(ingroup.begin(), ingroup.end(), d)) altIndivs.push_back(d);
+    }
+  }
+  vrecord.indivs.emplace(vrecord.ref.c_str(), altIndivs);
+  if (validAF)
+    vrecord.freqs.emplace(vrecord.ref.c_str(), 1 - sumaltAF);
 
   // For each alternate allele
   for (int i = 0; i < splitTemp.size(); i++) {
@@ -106,9 +119,9 @@ bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
       }
     }
     if (altIndivs.size() > 0) {
-      vrecord.altIndivs.emplace(splitTemp[i].c_str(), altIndivs);
+      vrecord.indivs.emplace(splitTemp[i].c_str(), altIndivs);
       if (validAF)
-        vrecord.altAF.emplace(splitTemp[i].c_str(), std::atof(afSplit[i].c_str()));
+        vrecord.freqs.emplace(splitTemp[i].c_str(), std::atof(afSplit[i].c_str()));
     }
   }
   return true;
@@ -148,10 +161,10 @@ void vmatch::vcfstream::createComplementIngroup(std::vector<uint32_t> vec) {
 
 std::ostream &vmatch::operator<<(std::ostream &os, const vmatch::vcfrecord &vrec) {
   os << "POS: " << vrec.pos << std::endl;
-  os << "REF: P(" << vrec.ref << ")=" << vrec.refFreq << std::endl;
+  os << "REF: P(" << vrec.ref << ")=" << vrec.freqs.at(vrec.ref) << std::endl;
   os << "ALTS: " << std::endl;
-  for (auto &e : vrec.altIndivs) {
-    os << "\tP(" << e.first << ")=" << vrec.altAF.at(e.first);
+  for (auto &e : vrec.indivs) {
+    os << "\tP(" << e.first << ")=" << vrec.freqs.at(e.first);
     for (auto i : e.second) {
       os << ", " << i;
     }

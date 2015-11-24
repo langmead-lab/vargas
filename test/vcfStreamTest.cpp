@@ -35,8 +35,8 @@ TEST(vcfGetTest, getRecordSingle) {
   v.getRecord(r);
   ASSERT_EQ(4, r.pos);
   ASSERT_EQ("A", r.ref);
-  // ASSERT_EQ("G", r.altIndivs[0]);
-  ASSERT_EQ(1, r.altIndivs.size());
+  // ASSERT_EQ("G", r.indivs[0]);
+  ASSERT_EQ(1, r.indivs.size());
 }
 
 TEST(vcfGetTest, getRecordNoRec) {
@@ -55,8 +55,8 @@ TEST(vcfGetTest, getRecordTwoAlts) {
 
   ASSERT_EQ(4, r.pos);
   ASSERT_EQ("A", r.ref);
-//  ASSERT_EQ("G", r.altIndivs[0]);
-//  ASSERT_EQ("C", r.altIndivs[1]);
-  ASSERT_EQ(2, r.altIndivs.size());
+//  ASSERT_EQ("G", r.indivs[0]);
+//  ASSERT_EQ("C", r.indivs[1]);
+  ASSERT_EQ(2, r.indivs.size());
 
 }

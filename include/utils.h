@@ -13,16 +13,6 @@
 #include "../gssw/src/gssw.h"
 
 /// <summary>
-/// Builds a previously built graph without the reference or VCF file.
-/// </summary>
-/// <param name="buildfile">Buildfile generated from a previously built graph</param>
-/// <param name="nt_table">base table, construct using gssw_create_nt_table()</param>
-/// <param name="mat">Score matrix, use gssw_create_score_matrix()</param>
-/// <returns>Constructed gssw graph.</returns>
-gssw_graph *buildGraph(std::string buildfile, int8_t *nt_table, int8_t *mat);
-
-
-/// <summary>
 /// Splits the specified string, resets elems and returns with split string.
 /// </summary>
 /// <param name="s">The string</param>
@@ -40,21 +30,15 @@ std::vector<std::string> split(const std::string &s, char delim);
 /// <returns>Vector of split string.</returns>
 void split(const std::string &s, char delim, std::vector<std::string> &vec);
 
-
-/// <summary>
-/// Prints node information.
-/// </summary>
-/// <param name="node">gssw_node to print</param>
-void printNode(gssw_node *node);
-
-
-/// <summary>
-/// Prints graph to a DOT format.
-/// </summary>
-/// <param name="graph">gssw_graph to print</param>
-void graphToDot(gssw_graph *graph);
-
-int exportDOT(int argc, char *argv[]);
+template<typename T>
+void printVec(std::ostream &os, const std::vector<T> &vec) {
+  os << '[';
+  for (int i = 0; i < vec.size(); ++i) {
+    os << vec[i];
+    if (i < vec.size() - 1) os << ',';
+  }
+  os << ']' << std::endl;
+}
 
 
 #endif //VMATCH_UTILS_H

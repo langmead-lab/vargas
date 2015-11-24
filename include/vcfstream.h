@@ -23,10 +23,9 @@ namespace vmatch {
 struct vcfrecord {
   vcfrecord() { }
   ulong pos; // position of variant
-  std::string ref;
-  double_t refFreq; // Frequency of ref, 1-sum(altAF[alts])
-  std::map<std::string, std::vector<uint32_t>> altIndivs; // Maps each alt to a list of indivs w/ that alt
-  std::map<std::string, double_t> altAF; // Maps each alt to its allele frequency
+  std::string ref; // ref is also included in indivs and freqs
+  std::map<std::string, std::vector<uint32_t>> indivs; // Maps each alt to a list of indivs w/ that alt
+  std::map<std::string, double_t> freqs; // Maps each alt to its allele frequency
 };
 
 // For printing a record
