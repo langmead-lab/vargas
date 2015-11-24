@@ -1,4 +1,0 @@
-digraph gssw_graph {
-rankdir="LR";
-0 [label="8:GATCAGCA"];
-}
