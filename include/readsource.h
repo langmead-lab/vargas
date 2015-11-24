@@ -9,10 +9,13 @@
 
 namespace vmatch {
 
-class readsource {
+class ReadSource {
  public:
   virtual std::string get() {
-    updateRead();
+    if (!updateRead()) {
+      read = "";
+      meta = "";
+    }
     return getFull();
   }
   virtual std::string getFull() {

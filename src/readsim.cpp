@@ -4,7 +4,7 @@
 
 #include "../include/readsim.h"
 
-bool vmatch::readsim::updateRead() {
+bool vmatch::ReadSim::updateRead() {
   std::string full;
   if (!graph) throw std::invalid_argument("No graph assigned.");
   if (regexps.size() > 0) {
@@ -26,7 +26,7 @@ bool vmatch::readsim::updateRead() {
   return true;
 }
 
-void vmatch::readsim::generateRead() {
+void vmatch::ReadSim::generateRead() {
   //TODO segfault when read length is too short
   gssw_node *node, *nodeCandidate;
   int32_t base, RAND, ambig = 0, currIndiv = -1, numSubErr = 0, numVarNodes = 0, numVarBases = 0;

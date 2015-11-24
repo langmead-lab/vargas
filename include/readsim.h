@@ -13,16 +13,16 @@
 
 namespace vmatch {
 
-class readsim: public readsource {
+class ReadSim: public ReadSource {
  public:
-  readsim() {
+  ReadSim() {
     srand(seed);
   }
-  readsim(Graph &g) {
-    readsim();
+  ReadSim(Graph &g) {
+    ReadSim();
     setGraph(g);
   }
-  ~readsim() {
+  ~ReadSim() {
     for (auto e : logs) {
       (*(e.second)).close();
       delete (e.second);

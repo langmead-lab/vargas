@@ -14,12 +14,10 @@ set(MAIN_SOURCES
         include/utils.h
         src/alignMain.cpp   # Aligns a read to a graph
         include/alignMain.h
-        src/simMain.cpp     # Simulates reads from a graph
-        include/simMain.h
         src/graph.cpp
         include/graph.h
         src/vcfstream.cpp
-        include/vcfstream.h src/readsim.cpp include/readsim.h include/readsource.h)
+        include/vcfstream.h src/readsim.cpp include/readsim.h include/readsource.h src/readfile.cpp include/readfile.h)
 
 set(GSSW_SOURCES
         gssw/src/gssw.h
