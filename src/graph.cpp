@@ -1,9 +1,18 @@
-//
-// Created by gaddra on 11/12/15.
-//
+/**
+ * Ravi Gaddipati
+ * November 20, 2015
+ * rgaddip1@jhu.edu
+ *
+ * vmatch::Graph is a DAG representation of a reference and its variants.
+ * The class wraps a gssw_graph from gssw and provides a way to construct
+ * graphs from a FASTA and a VCF file with various options.
+ *
+ * GSSW was originally written by Erik Garrison and was moderately modified.
+ *
+ * graph.cpp
+ */
 
 #include "../include/graph.h"
-
 
 void vmatch::Graph::exportDOT(std::ostream &out) const {
 
@@ -148,7 +157,6 @@ void vmatch::Graph::buildGraph(std::istream &reference, vcfstream &variants, std
   buildout << endl;
 
 
-
   /** Go to minimum position **/
   uint32_t currentRefPosition = 0;
   char base;
@@ -167,6 +175,7 @@ void vmatch::Graph::buildGraph(std::istream &reference, vcfstream &variants, std
   // For max AF graphs
   string maxAFAllele;
   double_t maxAF;
+
   while (variants.getRecord(variantRecord)) {
     if (variantRecord.pos <= currentRefPosition) continue;
     if (variantRecord.pos > maxpos) break;
@@ -207,7 +216,7 @@ void vmatch::Graph::buildGraph(std::istream &reference, vcfstream &variants, std
     }
 
     /** progress reference position past the ref that's stored in the variant file **/
-    for (int i = 0; i < variantRecord.ref.length(); ++i) {
+    for (unsigned int i = 0; i < variantRecord.ref.length(); ++i) {
       reference.get(base);
       if (isspace(base)) {
         reference.get(base);

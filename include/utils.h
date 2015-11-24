@@ -1,6 +1,12 @@
-//
-// Created by gaddra on 9/12/15.
-//
+/**
+ * Ravi Gaddipati
+ * November 23, 2015
+ * rgaddip1@jhu.edu
+ *
+ *contains common functions.
+ *
+ * utils.h
+ */
 
 #ifndef VMATCH_UTILS_H
 #define VMATCH_UTILS_H

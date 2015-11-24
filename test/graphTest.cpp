@@ -8,7 +8,7 @@
 
 TEST(graphTest, test1) {
   vmatch::Graph g("data/r5", "data/v5", "out");
-  g.exportDot("out.dot");
+  g.exportDOT("out.dot");
 }
 
 // Empty class to test protected member

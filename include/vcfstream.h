@@ -1,6 +1,13 @@
-//
-// Created by gaddra on 11/22/15.
-//
+/**
+ * Ravi Gaddipati
+ * November 23, 2015
+ * rgaddip1@jhu.edu
+ *
+ * vmatch::vcfstream is a filtering wrapper for a VCF file.
+ * Variant records are parsed and filtered according to the ingroup.
+ *
+ * vcfstream.h
+ */
 
 #ifndef VMATCH_VCFSTREAM_H
 #define VMATCH_VCFSTREAM_H
@@ -17,11 +24,8 @@
 
 namespace vmatch {
 
-/**
- * record of data that contains the parsed and filtered VCF
- */
+/** record of data that contains the parsed and filtered VCF **/
 struct vcfrecord {
-  vcfrecord() { }
   ulong pos; // position of variant
   std::string ref; // ref is also included in indivs and freqs
   std::map<std::string, std::vector<uint32_t>> indivs; // Maps each alt to a list of indivs w/ that alt

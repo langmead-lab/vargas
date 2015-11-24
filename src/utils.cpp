@@ -1,7 +1,12 @@
-//
-// Created by Ravi Gaddipati on 9/12/15.
-// Contains common functions.
-//
+/**
+ * Ravi Gaddipati
+ * November 23, 2015
+ * rgaddip1@jhu.edu
+ *
+ *contains common functions.
+ *
+ * utils.cpp
+ */
 
 #include "../include/utils.h"
 /****

@@ -1,6 +1,13 @@
-//
-// Created by gaddra on 11/22/15.
-//
+/**
+ * Ravi Gaddipati
+ * November 23, 2015
+ * rgaddip1@jhu.edu
+ *
+ * vmatch::vcfstream is a filtering wrapper for a VCF file.
+ * Variant records are parsed and filtered according to the ingroup.
+ *
+ * vcfstream.cpp
+ */
 
 #include "../include/vcfstream.h"
 
@@ -165,7 +172,7 @@ std::ostream &vmatch::operator<<(std::ostream &os, const vmatch::vcfrecord &vrec
   os << "ALTS: " << std::endl;
   for (auto &e : vrec.indivs) {
     os << "\tP(" << e.first << ")=" << vrec.freqs.at(e.first);
-    for (auto i : e.second) {
+    for (auto &i : e.second) {
       os << ", " << i;
     }
     os << std::endl;

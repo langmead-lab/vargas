@@ -8,6 +8,8 @@
  * graphs from a FASTA and a VCF file with various options.
  *
  * GSSW was originally written by Erik Garrison and was moderately modified.
+ *
+ * graph.h
  */
 
 #ifndef VMATCH_GRAPH_H
@@ -25,7 +27,6 @@
 
 namespace vmatch {
 
-//TODO Treat each haploid as an individual
 
 class Graph {
 
@@ -55,6 +56,7 @@ class Graph {
     params = p;
   }
 
+  /** Exports a buildfile and builds a graph with given fasta and vcf **/
   Graph(std::string refFile, std::string vcfFile, std::string buildFile) {
     std::ifstream ref(refFile);
     std::ofstream buildOut(buildFile);
@@ -79,7 +81,7 @@ class Graph {
   }
 
   /** Export the graph as a DOT representation **/
-  void exportDot(std::string file) {
+  void exportDOT(std::string file) {
     std::ofstream out(file);
     exportDOT(out);
   }
@@ -111,7 +113,9 @@ class Graph {
   GraphParams params;
   gssw_graph *graph = NULL; // The graph
 
+  /** splits a region argument **/
   void parseRegion(std::string region, uint32_t *min, uint32_t *max);
+  /** generate an ingroup based on params **/
   void generateIngroup(vcfstream &variants);
 };
 
