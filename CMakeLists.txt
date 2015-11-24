@@ -19,7 +19,7 @@ set(MAIN_SOURCES
         src/graph.cpp
         include/graph.h
         src/vcfstream.cpp
-        include/vcfstream.h)
+        include/vcfstream.h src/readsim.cpp include/readsim.h include/readsource.h)
 
 set(GSSW_SOURCES
         gssw/src/gssw.h
@@ -40,7 +40,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++11")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -pedantic -Wall -Wextra -Wno-unused-function")
 
 # Tests
-set(TEST_SOURCES test/graphTest.cpp test/utilsTest.cpp test/vcfStreamTest.cpp)
+set(TEST_SOURCES test/graphTest.cpp test/utilsTest.cpp test/vcfStreamTest.cpp test/readsimTest.cpp)
 add_subdirectory(test/googletest/googletest)
 enable_testing()
 include_directories(${gtest_SOURCE_DIR}/include/ ${gtest_SOURCE_DIR}/)

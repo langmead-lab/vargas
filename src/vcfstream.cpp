@@ -88,12 +88,6 @@ bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
     }
   }
 
-  // Get the reference frequency
-  double_t sumaltAF = 0;
-  for (auto a : afSplit) {
-    sumaltAF += atof(a.c_str());
-  }
-
 
   bool validAF = true;
   if (afSplit.size() != splitTemp.size()) {
@@ -111,8 +105,14 @@ bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
     }
   }
   vrecord.indivs.emplace(vrecord.ref.c_str(), altIndivs);
-  if (validAF)
+  if (validAF) {
+    // Get the reference frequency
+    double_t sumaltAF = 0;
+    for (auto a : afSplit) {
+      sumaltAF += atof(a.c_str());
+    }
     vrecord.freqs.emplace(vrecord.ref.c_str(), 1 - sumaltAF);
+  }
 
   // For each alternate allele
   for (int i = 0; i < splitTemp.size(); i++) {

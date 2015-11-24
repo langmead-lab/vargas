@@ -124,7 +124,7 @@ void vmatch::Graph::generateIngroup(vcfstream &variants) {
   }
 }
 
-void vmatch::Graph::buildGraph(std::istream &reference, vcfstream &variants, std::ostream &buildout) {
+void vmatch::Graph::exportBuildfile(std::istream &reference, vcfstream &variants, std::ostream &buildout) {
   using std::vector;
   using std::endl;
   using std::string;

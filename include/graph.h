@@ -62,7 +62,7 @@ class Graph {
     std::ofstream buildOut(buildFile);
     if (!ref.good() || !buildOut.good()) throw std::invalid_argument("Error opening files.");
     vcfstream vcf(vcfFile);
-    buildGraph(ref, vcf, buildOut);
+    exportBuildfile(ref, vcf, buildOut);
     buildOut.close();
     std::ifstream buildIn(buildFile);
     buildGraph(buildIn);
@@ -88,7 +88,7 @@ class Graph {
   void exportDOT(std::ostream &out) const;
 
   /** Build a graph from a vcf and variant for a buildfile **/
-  void buildGraph(std::istream &reference, vcfstream &variants, std::ostream &buildout);
+  void exportBuildfile(std::istream &reference, vcfstream &variants, std::ostream &buildout);
   void buildGraph(std::istream &buildfile);
 
   gssw_graph *getGSSWGraph() const {
