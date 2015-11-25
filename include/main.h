@@ -9,9 +9,9 @@
 #include <stdlib.h>
 #include <iostream>
 #include "getopt_pp.h"
-#include "buildMain.h"
-#include "alignMain.h"
-#include "simMain.h"
+#include "graph.h"
+#include "readsim.h"
+#include "readfile.h"
 
 void printMainHelp();
 
