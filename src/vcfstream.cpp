@@ -138,7 +138,7 @@ void vmatch::vcfstream::createIngroup(int32_t percent, long seed) {
   if (!initilized) {
     throw std::invalid_argument("VCF file not provided.");
   }
-  if (seed != NULL) this->seed = seed;
+  if (seed != 0) this->seed = seed;
   ingroup.clear();
 
   if (percent == 100) {

@@ -1,6 +1,14 @@
-//
-// Created by gaddra on 11/23/15.
-//
+/**
+ * Ravi Gaddipati
+ * November 24, 2015
+ * rgaddip1@jhu.edu
+ *
+ * ReadSim simulates reads given a gssw_graph or a Graph object.
+ * Reads can either be from a single individual or a random walk
+ * with adjustable error rates.
+ *
+ * readsim.h
+ */
 
 #ifndef VMATCH_READSIM_H
 #define VMATCH_READSIM_H
@@ -37,13 +45,23 @@ class ReadSim: public ReadSource {
 
   Read &getRead() { return read; }
   bool updateRead();
+
+  // Set the mutation error
   void setMuterr(double err) { muterr = err; }
+
+  // Set the indel error
   void setIndelerr(double err) { indelerr = err; }
+
+  // Set the length of the read
   void setReadLen(int32_t len) { readLen = len; }
+
+  // Don't simulate from a specific individual
   void setRandWalk(bool randwalk) { randWalk = randwalk; }
+
+  // Number of reads to generate for each regex
   void setNumReads(uint32_t num) { maxreads = num; }
 
-
+  // Add a regex, generates maxreads of each
   void addRegex(std::string regex, std::string file) {
     regexps.push_back(regex);
     logs.emplace(regex.c_str(), new std::ofstream(file));

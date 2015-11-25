@@ -58,7 +58,7 @@ class vcfstream {
   // get the next line in the VCF file and parse it
   bool getRecord(vcfrecord &vrecord);
   // Create a random ingroup.
-  void createIngroup(int32_t percent = 100, long seed = NULL);
+  void createIngroup(int32_t percent = 100, long seed = 0);
   // Define an ingroup
   void createIngroup(std::vector<uint32_t> &vec) {
     ingroup = vec;

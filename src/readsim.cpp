@@ -1,6 +1,14 @@
-//
-// Created by gaddra on 11/23/15.
-//
+/**
+ * Ravi Gaddipati
+ * November 24, 2015
+ * rgaddip1@jhu.edu
+ *
+ * ReadSim simulates reads given a gssw_graph or a Graph object.
+ * Reads can either be from a single individual or a random walk
+ * with adjustable error rates.
+ *
+ * readsim.cpp
+ */
 
 #include "../include/readsim.h"
 

@@ -1,7 +1,13 @@
-//
-// Created by gaddra on 11/24/15.
-//
-
+/**
+ * Ravi Gaddipati
+ * November 24, 2015
+ * rgaddip1@jhu.edu
+ *
+ * Wrapper for a reads file that loads reads and meta information
+ * into a Read structure.
+ *
+ * readfile.cpp
+ */
 #include "../include/readfile.h"
 
 bool vmatch::ReadFile::updateRead() {

@@ -8,12 +8,8 @@ SET(LIBRARY_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 set(MAIN_SOURCES
         src/getopt_pp.cpp   # Parser for program arguments
         include/getopt_pp.h
-        src/buildMain.cpp   # Generate a build file from a ref and VCF
-        include/buildMain.h
         src/utils.cpp       # Export graph to DOT, split a string, generate a graph from a build file
         include/utils.h
-        src/alignMain.cpp   # Aligns a read to a graph
-        include/alignMain.h
         src/graph.cpp
         include/graph.h
         src/vcfstream.cpp

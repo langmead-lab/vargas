@@ -290,14 +290,14 @@ void vmatch::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
 }
 
 
-vmatch::Graph::Alignment *vmatch::Graph::align(ReadSource::Read &r) {
+vmatch::Alignment *vmatch::Graph::align(vmatch::Read &r) {
   Alignment *align = new Alignment;
   Alignment &a = *align;
   vmatch::Graph::align(r, a);
   return align;
 }
 
-void vmatch::Graph::align(ReadSource::Read &r, Alignment &a) {
+void vmatch::Graph::align(vmatch::Read &r, vmatch::Alignment &a) {
   int32_t tol = r.read.length();
   gssw_graph_fill(graph, r.read.c_str(), params.nt_table, params.mat,
                   params.gap_open, params.gap_extension, tol, 2, r.readEnd);
@@ -310,6 +310,12 @@ void vmatch::Graph::align(ReadSource::Read &r, Alignment &a) {
     else a.corflag = 2;
   }
   else a.corflag = 2;
+
+  a.optCount = graph->maxCount;
+  a.subOptCount = graph->submaxCount;
+  a.optScore = graph->max_node->alignment->score;
+  a.subOptScore = graph->submax_node->alignment->score;
+  a.read = r;
 }
 
 
