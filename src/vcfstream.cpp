@@ -97,8 +97,9 @@ bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
 
   // Add the reference node
   altIndivs.clear();
+  altIndivs.push_back(0);
   for (int d = fields.indivOffset; d < fields.numIndivs + fields.indivOffset; ++d) {
-    // a value of 0 indicates the reference
+    // a value of 0 indicates the reference, indiv 0 is the reference
     if (atoi(splitRecord[d].c_str()) == 0) {
       // Check if its in the ingroup
       if (std::binary_search(ingroup.begin(), ingroup.end(), d)) altIndivs.push_back(d);
@@ -126,6 +127,11 @@ bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
       }
     }
     if (altIndivs.size() > 0) {
+      if (splitTemp[i].substr(0, 3) == "<CN") {
+        int cn = std::stoi(splitTemp[i].substr(3, splitTemp[i].length() - 4));
+        splitTemp[i] = "";
+        for (int c = 0; c < cn; ++c) splitTemp[i] += vrecord.ref;
+      }
       vrecord.indivs.emplace(splitTemp[i].c_str(), altIndivs);
       if (validAF)
         vrecord.freqs.emplace(splitTemp[i].c_str(), std::atof(afSplit[i].c_str()));

@@ -13,6 +13,12 @@
 #include "readsim.h"
 #include "readfile.h"
 
+
+int build_main(int argc, char *argv[]);
+
 void printMainHelp();
+void printBuildHelp();
+void printSimHelp();
+void printAlignHelp();
 
 #endif //VMATCH_H

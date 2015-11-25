@@ -100,10 +100,10 @@ void vmatch::Graph::generateIngroup(vcfstream &variants) {
 
   if (params.genComplement) {
     /** Ingroup is the indivs not included in the specified file **/
-    if (params.buildfile.length() == 0) {
+    if (params.complementSource.length() == 0) {
       throw std::invalid_argument("Error: No buildfile specified, complement cannot be built.");
     }
-    std::ifstream complementSource(params.buildfile.c_str());
+    std::ifstream complementSource(params.complementSource.c_str());
     string inputGroupLine;
     getline(complementSource, inputGroupLine);
     inputGroupLine = inputGroupLine.substr(1); // Remove #
@@ -154,7 +154,7 @@ void vmatch::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
   if (params.region.length() > 0)
     buildout << ", Region: " << params.region;
   if (params.genComplement)
-    buildout << ", Complement source: " << params.buildfile;
+    buildout << ", Complement source: " << params.complementSource;
   buildout << endl;
 
 

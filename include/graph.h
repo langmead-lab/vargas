@@ -62,7 +62,7 @@ class Graph {
     uint32_t maxNodeLen = 50000; // Maximum length of a single node graph
     int32_t ingroup = 100; // percent of individuals to include
     std::string region = ""; // Specify a specific region to build, a:b
-    std::string buildfile = ""; // existing buildfile to build the complement
+    std::string complementSource = ""; // existing buildfile to build the complement
     bool genComplement = false; // Generate a graph with individuals not in buildfile
     bool maxAF = false; // Linear graph with only the variants/ref with maximum allele frequency
     int32_t match = 2, mismatch = 2; // default scores
@@ -113,7 +113,32 @@ class Graph {
   void exportDOT(std::ostream &out) const;
 
   /** Build a graph from a vcf and variant for a buildfile **/
+  void exportBuildfile(std::string ref, std::string vcf, std::string build = "") {
+    std::ifstream r(ref);
+    vcfstream v(vcf);
+    if (!r.good()) throw std::invalid_argument("Error opening files.");
+
+
+    if (build.length() > 0) {
+      std::ofstream b(build);
+      if (!b.good()) throw std::invalid_argument("Error opening files.");
+      exportBuildfile(r, v, b);
+      b.close();
+    } else {
+      exportBuildfile(r, v, std::cout);
+    }
+    r.close();
+  }
+  void exportBuildfile(std::istream &reference, vcfstream &variants) {
+    exportBuildfile(reference, variants, std::cout);
+  }
   void exportBuildfile(std::istream &reference, vcfstream &variants, std::ostream &buildout);
+  void buildGraph(std::string build) {
+    std::ifstream b(build);
+    if (!b.good()) throw std::invalid_argument("Error opening file.");
+    buildGraph(b);
+    b.close();
+  }
   void buildGraph(std::istream &buildfile);
 
   Alignment *align(Read &read);
@@ -130,6 +155,9 @@ class Graph {
     if (p.mat == NULL) p.mat = gssw_create_score_matrix(p.match, p.mismatch);
     params = p;
   }
+  void setIngroup(int32_t i) { params.ingroup = i; }
+  void setComplement(bool b) { params.genComplement = b; }
+  void setComplementSource(std::string s) { params.complementSource = s; }
   void setScores(int32_t m = 2, int32_t mm = 2, uint8_t go = 3, uint8_t ge = 1) {
     if (graph) std::cerr << "Graph must be rebuilt for new scores to take effect." << std::endl;
     params.match = m;
