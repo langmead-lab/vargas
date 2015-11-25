@@ -1,8 +1,29 @@
-# VMatch
- VMatch uses gssw to align reads to a partial order graph without traceback. Alignment information is given as the ending position of the best score, as well as a suboptimal alignment score. There are four main modes of operation.
+# Variant Genome Aligner/Simulator
+Vargas uses gssw to align reads to a partial order graph without traceback. Alignment information is given as the ending position of the best score, as well as a suboptimal alignment score. There are four main modes of operation.
 
+###Basic Structure
+All objects are in the vargas namespace with the exception of `utils.cpp`.
+
+`vcfstream.h` : vcfstream is a wrapper for a VCF file. It reads, parses, and filters the VCF file. Variants are provided
+in a VariantRecord struct. Individual variants not included in the ingroup are removed from the records. Associated allele
+frequency values are also provided.
+
+`readsource.h` : Abstract class defining functions for classes that provide reads for alignment.
+
+`readsim.h` : Inherits from `readsource.h`. Reads are simulated from a given `gssw_graph` or `Graph` object. Reads 
+can be provided indefinetly or may be written to a set of files as determined by regular expressions. Reads are provided
+in a Read struct.
+
+`readfile.h` : Inherits from `readsource.h`. Wrapper for a reads file (such as that produced from `readsim`). Provides reads in a Read struct.
+
+`graph.h` : Contains facilities for building and aligning to a graph. A buildfile is first exported from a `vcfstream` and
+a `readsource`. Graphs are built in memory from the buildfile. Graph parameters are defined in a GraphParams struct.
+Alignments to the graph are done with `Graph.align(Read)` and returns with an Alignment struct.
+
+
+###Modes of operation
  ```
-  ---------------------- VMatch, September 2015. rgaddip1@jhu.edu ----------------------
+  ---------------------- vargas, September 2015. rgaddip1@jhu.edu ----------------------
   Operating modes 'vargas MODE':
   build     Generate graph build file from reference and VCF files.
   sim       Simulate reads from a graph.
@@ -11,7 +32,7 @@
  ```
  
  ```
- ------------------- VMatch build, September 2015. rgaddip1@jhu.edu -------------------
+ ------------------- vargas build, September 2015. rgaddip1@jhu.edu -------------------
 -v     --vcf           (required) VCF file, uncompressed.
 -r     --ref           (required) reference single record FASTA
 -l     --maxlen        Maximum node length
@@ -23,7 +44,7 @@ Buildfile is printed on stdout.
  ```
  
  ```
-------------------- VMatch sim, September 2015. rgaddip1@jhu.edu -------------------
+------------------- vargas sim, September 2015. rgaddip1@jhu.edu -------------------
 -b     --buildfile     quick rebuild file, required if -v, -r are not defined.
 -n     --numreads      Number of reads to simulate
 -m     --muterr        Simulated read mutation error rate
@@ -39,7 +60,7 @@ READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES
  ```
  
  ```
- ------------------- VMatch align, September 2015. rgaddip1@jhu.edu -------------------
+ ------------------- vargas align, September 2015. rgaddip1@jhu.edu -------------------
 -b     --buildfile     quick rebuild file, required if -v, -r are not defined.
 -m     --match         Match score, default 2
 -n     --mismatch      Mismatch score, default 2
@@ -56,31 +77,37 @@ ALIGNMENT_MATCH: 0- optimal match, 1- suboptimal match, 2- no match
 ```
 
 ```
-------------------- VMatch export, September 2015. rgaddip1@jhu.edu -------------------
+------------------- vargas export, September 2015. rgaddip1@jhu.edu -------------------
 -b     --buildfile    Graph to export to DOT.
 
 DOT file printed to stdout.
 ```
-### Building VMatch
+### Building vargas
 
-VMatch is built with cmake.
+vargas is built with cmake.
 
 ```
 mkdir build && cd build
-cmake ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make
-export PATH=path_to_VMatch/build:$PATH
+cd ..
+export PATH=${PWD}/bin:$PATH
 ```
 
-### Generating a graph
+### Generating a buildfile
  
- A graph is built on every launch of the program. A graph can be built using the `-v` and `-r` arguments, specifying the VCF and reference FASTA resepectivly and is used to generate a build file. A region can be specified with `-R`. The percentage of individuals ot include in the graph is specified with `-g` For example to generate a graph from `REF` and `VAR` from position `a` to position `b` with 50% of individuals:
+ A graph is built from a buildfile. A graph buildfile can be made using `vmatch build`.
+  `-r` and `-v` specify the reference FASTA and VCF respectively. A region can be specified with `-R`.
+  The percentage of individuals to include in the graph is specified with `-s` and a comma seperated list of values.
+  `-c` will generate complements of each graph.
+   For example to generate a buildfile and its complement from `REF` and `VAR` from position `a` to position `b` with 50% of individuals:
  
- `vargas build -r REF.fa -v VAR.vcf -R a:b -g 50 > GRAPH.build`
+ `vargas build -r REF.fa -v VAR.vcf -R a:b -s 50 -c > GRAPH.build`
  
 ### Simulating reads
  
- Reads can be simulated with `vargas sim`. Mutation error and Indel errors can be introduced (default 1%). Reads take random paths through the graph. To generate 1000 reads of length 100 and a 1% error rate from a graph:
+ Reads can be simulated with `vargas sim`. Mutation error and Indel errors can be introduced (default 0%).
+ Reads can take random paths through the graph or from a random individual. To generate 1000 reads of length 100 and a 1% error rate from a graph:
  
  `vargas sim -b GRAPH -n 1000 -l 100 -m 0.01 -i 0.01 > SIMREADS`
  
