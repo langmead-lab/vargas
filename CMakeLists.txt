@@ -34,6 +34,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++11")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -pedantic -Wall -Wextra -Wno-unused-function")
 
 # Tests
+IF (EXISTS "test" AND IS_DIRECTORY "test")
 set(TEST_SOURCES test/graphTest.cpp test/utilsTest.cpp test/vcfStreamTest.cpp test/readsimTest.cpp)
 add_subdirectory(test/googletest/googletest)
 enable_testing()
@@ -41,4 +42,5 @@ include_directories(${gtest_SOURCE_DIR}/include/ ${gtest_SOURCE_DIR}/)
 add_executable(vmatchTests ${TEST_SOURCES})
 target_link_libraries(vmatchTests gtest gtest_main)
 target_link_libraries(vmatchTests vmatch_lib gssw_lib)
+ENDIF ()
 
