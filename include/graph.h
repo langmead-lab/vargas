@@ -24,6 +24,7 @@
 #include "../include/utils.h"
 #include "../include/vcfstream.h"
 #include <stdexcept>
+#include "readsource.h"
 
 namespace vmatch {
 
@@ -44,6 +45,24 @@ class Graph {
     uint8_t gap_open = 3, gap_extension = 1; // default gap scores
     int8_t *nt_table = gssw_create_nt_table(); // Table of nt mappings
     int8_t *mat = gssw_create_score_matrix(match, mismatch); // table of scores
+  };
+
+  struct Alignment {
+    std::string read;
+    std::string meta;
+
+    // Optimal alignment
+    uint16_t optScore;
+    int32_t optAlignEnd;
+    int32_t optCount;
+
+    // Suboptimal alignment
+    uint16_t subOptScore;
+    int32_t subOptAlignEnd;
+    int32_t subOptCount;
+
+    // alignment flag
+    int8_t corflag;
   };
 
   /** Empty graph uses default parameters **/
@@ -91,6 +110,9 @@ class Graph {
   void exportBuildfile(std::istream &reference, vcfstream &variants, std::ostream &buildout);
   void buildGraph(std::istream &buildfile);
 
+  Alignment *align(ReadSource::Read &read);
+  void align(ReadSource::Read &r, Alignment &a);
+
   gssw_graph *getGSSWGraph() const {
     return graph;
   }
@@ -103,6 +125,7 @@ class Graph {
     params = p;
   }
   void setScores(int32_t m = 2, int32_t mm = 2, uint8_t go = 3, uint8_t ge = 1) {
+    if (graph) std::cerr << "Graph must be rebuilt for new scores to take effect." << std::endl;
     params.match = m;
     params.mismatch = mm;
     params.gap_extension = ge;

@@ -35,8 +35,7 @@ class ReadSim: public ReadSource {
     graph = g;
   }
 
-  std::string getRead() { return read; }
-  std::string getMeta() { return meta; }
+  Read &getRead() { return read; }
   bool updateRead();
   void setMuterr(double err) { muterr = err; }
   void setIndelerr(double err) { indelerr = err; }

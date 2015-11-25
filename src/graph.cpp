@@ -43,6 +43,7 @@ void vmatch::Graph::buildGraph(std::istream &graphDat) {
 
   if (graph != NULL) {
     gssw_graph_destroy(graph);
+    graph = NULL;
   }
 
   string line, seq;
@@ -287,6 +288,30 @@ void vmatch::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
     }
   }
 }
+
+
+vmatch::Graph::Alignment *vmatch::Graph::align(ReadSource::Read &r) {
+  Alignment *align = new Alignment;
+  Alignment &a = *align;
+  vmatch::Graph::align(r, a);
+  return align;
+}
+
+void vmatch::Graph::align(ReadSource::Read &r, Alignment &a) {
+  int32_t tol = r.read.length();
+  gssw_graph_fill(graph, r.read.c_str(), params.nt_table, params.mat,
+                  params.gap_open, params.gap_extension, tol, 2, r.readEnd);
+  a.optAlignEnd = graph->max_node->data + 1 - graph->max_node->len + graph->max_node->alignment->ref_end;
+  a.subOptAlignEnd = graph->submax_node->data + 1 - graph->submax_node->len + graph->submax_node->alignment->ref_end;
+
+  if (r.readEnd > 0) {
+    if (r.readEnd > a.optAlignEnd - tol && r.readEnd < a.optAlignEnd + tol) a.corflag = 0;
+    else if (r.readEnd > a.subOptAlignEnd - tol && r.readEnd < a.subOptAlignEnd + tol) a.corflag = 1;
+    else a.corflag = 2;
+  }
+  else a.corflag = 2;
+}
+
 
 void vmatch::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max) {
   std::vector<std::string> region_split(0);

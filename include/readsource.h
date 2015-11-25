@@ -6,23 +6,40 @@
 #define VMATCH_READS_H
 
 #include <string>
+#include <sstream>
 
 namespace vmatch {
 
 class ReadSource {
  public:
+
+  struct Read {
+    std::string read;
+    uint32_t readEnd;
+    int32_t indiv;
+    int32_t numSubErr;
+    int32_t numVarNodes;
+    int32_t numVarBases;
+  };
+
+  ReadSource() { }
+  virtual ~ReadSource() { }
+
   virtual std::string get() {
     if (!updateRead()) {
-      read = "";
-      meta = "";
+      read.read = "";
     }
-    return getFull();
+    return str();
   }
-  virtual std::string getFull() {
-    return getRead() + "#" + getMeta();
+  virtual std::string str() {
+    std::stringstream ss;
+    Read r = getRead();
+    ss << r.read << '#' << r.readEnd << ',' << r.indiv
+        << ',' << r.numSubErr << ',' << r.numVarNodes
+        << ',' << r.numVarBases;
+    return ss.str();
   };
-  virtual std::string getRead() = 0;
-  virtual std::string getMeta() = 0;
+  virtual Read &getRead() = 0;
   virtual bool updateRead() = 0;
 
   std::ostream &operator<<(std::ostream &os) {
@@ -31,8 +48,7 @@ class ReadSource {
   }
 
  protected:
-  std::string read;
-  std::string meta;
+  Read read;
 
 };
 

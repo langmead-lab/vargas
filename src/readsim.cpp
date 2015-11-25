@@ -11,7 +11,7 @@ bool vmatch::ReadSim::updateRead() {
     generateRead();
     for (auto &regex : regexps) {
       if (counters.at(regex) < maxreads) {
-        full = getFull();
+        full = str();
         if (std::regex_match(full.begin(), full.end(), std::regex(regex))) {
           counters[regex]++;
           totalreads++;
@@ -118,10 +118,12 @@ void vmatch::ReadSim::generateRead() {
     }
   }
 
-  /** Append suffix recording read position **/
-  this->read = readmut.str();
+  /** populate read info **/
+  this->read.read = readmut.str();
   readmut.str(std::string());
-  readmut << node->data - node->len + base << ',' << currIndiv << ',' << numSubErr
-      << "," << numVarNodes << "," << numVarBases;
-  this->meta = readmut.str();
+  this->read.readEnd = uint32_t(node->data - node->len + base);
+  this->read.indiv = currIndiv;
+  this->read.numSubErr = numSubErr;
+  this->read.numVarNodes = numVarNodes;
+  this->read.numVarBases = numVarBases;
 }

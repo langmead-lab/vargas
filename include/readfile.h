@@ -9,6 +9,8 @@
 #include <fstream>
 #include <stdexcept>
 #include "readsource.h"
+#include <vector>
+#include "../include/utils.h"
 
 namespace vmatch {
 
@@ -22,14 +24,13 @@ class ReadFile: public ReadSource {
   ~ReadFile() {
     if (readfile) readfile.close();
   }
-
-  std::string getRead() { return read; }
-  std::string getMeta() { return meta; }
+  Read &getRead() { return read; }
   bool updateRead();
 
  protected:
   std::string line;
   std::ifstream readfile;
+  std::vector<std::string> splitMeta;
 
 };
 
