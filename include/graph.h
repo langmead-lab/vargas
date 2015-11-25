@@ -26,7 +26,7 @@
 #include <stdexcept>
 #include "readsource.h"
 
-namespace vmatch {
+namespace vargas {
 
 // Object to hold alignment results
 struct Alignment {
@@ -95,9 +95,7 @@ class Graph {
 
   /** Build a graph from a buildfile **/
   Graph(std::string buildfile) {
-    std::ifstream build(buildfile);
-    if (!build.good()) throw std::invalid_argument("Error opening buildfile.");
-    buildGraph(build);
+    buildGraph(buildfile);
   }
 
   /** Delete gssw graph on destruction **/
@@ -109,30 +107,18 @@ class Graph {
   void exportDOT(std::string file) {
     std::ofstream out(file);
     exportDOT(out);
+    out.close();
   }
   void exportDOT(std::ostream &out) const;
 
-  /** Build a graph from a vcf and variant for a buildfile **/
-  void exportBuildfile(std::string ref, std::string vcf, std::string build = "") {
-    std::ifstream r(ref);
-    vcfstream v(vcf);
-    if (!r.good()) throw std::invalid_argument("Error opening files.");
-
-
-    if (build.length() > 0) {
-      std::ofstream b(build);
-      if (!b.good()) throw std::invalid_argument("Error opening files.");
-      exportBuildfile(r, v, b);
-      b.close();
-    } else {
-      exportBuildfile(r, v, std::cout);
-    }
-    r.close();
-  }
+  /** Export a buildfile **/
+  void exportBuildfile(std::string ref, std::string vcf, std::string build = "");
   void exportBuildfile(std::istream &reference, vcfstream &variants) {
     exportBuildfile(reference, variants, std::cout);
   }
   void exportBuildfile(std::istream &reference, vcfstream &variants, std::ostream &buildout);
+
+  /** Build the graph in memory **/
   void buildGraph(std::string build) {
     std::ifstream b(build);
     if (!b.good()) throw std::invalid_argument("Error opening file.");
@@ -141,15 +127,13 @@ class Graph {
   }
   void buildGraph(std::istream &buildfile);
 
+  /** Align to the graph **/
   Alignment *align(Read &read);
   void align(Read &r, Alignment &a);
 
-  gssw_graph *getGSSWGraph() const {
-    return graph;
-  }
-  GraphParams getParamsCopy() const {
-    return params;
-  }
+  /** Setters and getters **/
+  gssw_graph *getGSSWGraph() const { return graph; }
+  GraphParams getParamsCopy() const { return params; }
   void setParams(GraphParams p) {
     if (p.nt_table == NULL) p.nt_table = gssw_create_nt_table();
     if (p.mat == NULL) p.mat = gssw_create_score_matrix(p.match, p.mismatch);
@@ -165,6 +149,7 @@ class Graph {
     params.gap_extension = ge;
     params.gap_open = go;
   }
+  void setMaxAF(bool b) { params.maxAF = b; }
 
  protected:
   GraphParams params;

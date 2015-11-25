@@ -10,7 +10,7 @@
  */
 #include "../include/readfile.h"
 
-bool vmatch::ReadFile::updateRead() {
+bool vargas::ReadFile::updateRead() {
   if (!readfile) throw std::invalid_argument("No readfile specified.");
   if (!std::getline(readfile, line)) return false;
   if (line.at(0) == '#') return updateRead();

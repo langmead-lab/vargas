@@ -19,7 +19,7 @@
 #include <vector>
 #include "../include/utils.h"
 
-namespace vmatch {
+namespace vargas {
 
 class ReadFile: public ReadSource {
  public:

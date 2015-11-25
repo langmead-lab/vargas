@@ -19,7 +19,7 @@
 #include <map>
 #include <random>
 
-namespace vmatch {
+namespace vargas {
 
 class ReadSim: public ReadSource {
  public:

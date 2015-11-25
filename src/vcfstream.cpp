@@ -11,7 +11,7 @@
 
 #include "../include/vcfstream.h"
 
-void vmatch::vcfstream::initVCF() {
+void vargas::vcfstream::initVCF() {
   // Skip the comments
   do { std::getline(vcfFile, currentRecord); } while (currentRecord.substr(0, 2) == "##");
   if (currentRecord.at(0) != '#') throw std::invalid_argument("Expected header beginning with #");
@@ -48,7 +48,7 @@ void vmatch::vcfstream::initVCF() {
 
 }
 
-void vmatch::vcfstream::splitCurrentRecord() {
+void vargas::vcfstream::splitCurrentRecord() {
   split(currentRecord, '\t', splitTemp);
   splitRecord.clear();
   for (int i = 0; i < splitTemp.size(); ++i) {
@@ -63,7 +63,7 @@ void vmatch::vcfstream::splitCurrentRecord() {
 }
 
 
-bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
+bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
   if (!initilized) {
     throw std::invalid_argument("VCF file not provided.");
   }
@@ -97,7 +97,6 @@ bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
 
   // Add the reference node
   altIndivs.clear();
-  altIndivs.push_back(0);
   for (int d = fields.indivOffset; d < fields.numIndivs + fields.indivOffset; ++d) {
     // a value of 0 indicates the reference, indiv 0 is the reference
     if (atoi(splitRecord[d].c_str()) == 0) {
@@ -129,7 +128,7 @@ bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
     if (altIndivs.size() > 0) {
       if (splitTemp[i].substr(0, 3) == "<CN") {
         int cn = std::stoi(splitTemp[i].substr(3, splitTemp[i].length() - 4));
-        splitTemp[i] = "";
+        splitTemp[i] = (cn == 0) ? "-" : "";
         for (int c = 0; c < cn; ++c) splitTemp[i] += vrecord.ref;
       }
       vrecord.indivs.emplace(splitTemp[i].c_str(), altIndivs);
@@ -140,7 +139,7 @@ bool vmatch::vcfstream::getRecord(vmatch::vcfrecord &vrecord) {
   return true;
 }
 
-void vmatch::vcfstream::createIngroup(int32_t percent, long seed) {
+void vargas::vcfstream::createIngroup(int32_t percent, long seed) {
   if (!initilized) {
     throw std::invalid_argument("VCF file not provided.");
   }
@@ -163,7 +162,7 @@ void vmatch::vcfstream::createIngroup(int32_t percent, long seed) {
   }
 }
 
-void vmatch::vcfstream::createComplementIngroup(std::vector<uint32_t> vec) {
+void vargas::vcfstream::createComplementIngroup(std::vector<uint32_t> vec) {
   std::sort(vec.begin(), vec.end());
   ingroup.clear();
   for (int i = fields.indivOffset; i < fields.numIndivs + fields.indivOffset; ++i) {
@@ -172,7 +171,7 @@ void vmatch::vcfstream::createComplementIngroup(std::vector<uint32_t> vec) {
   std::sort(ingroup.begin(), ingroup.end());
 }
 
-std::ostream &vmatch::operator<<(std::ostream &os, const vmatch::vcfrecord &vrec) {
+std::ostream &vargas::operator<<(std::ostream &os, const vargas::vcfrecord &vrec) {
   os << "POS: " << vrec.pos << std::endl;
   os << "REF: P(" << vrec.ref << ")=" << vrec.freqs.at(vrec.ref) << std::endl;
   os << "ALTS: " << std::endl;
@@ -186,12 +185,12 @@ std::ostream &vmatch::operator<<(std::ostream &os, const vmatch::vcfrecord &vrec
   return os;
 }
 
-vmatch::vcfstream &vmatch::operator>>(vmatch::vcfstream &vstream, vcfrecord &vrec) {
+vargas::vcfstream &vargas::operator>>(vargas::vcfstream &vstream, vcfrecord &vrec) {
   if (!vstream.getRecord(vrec)) throw std::out_of_range("No more records left.");
   return vstream;
 }
 
-void vmatch::vcfstream::printIngroup(std::ostream &os) {
+void vargas::vcfstream::printIngroup(std::ostream &os) {
   os << "#";
   for (auto &e : ingroup) {
     os << e << ",";

@@ -14,7 +14,7 @@
 
 #include "../include/graph.h"
 
-void vmatch::Graph::exportDOT(std::ostream &out) const {
+void vargas::Graph::exportDOT(std::ostream &out) const {
 
   if (graph == NULL) {
     std::cerr << "Error: No graph has been built. Aborting export." << std::endl;
@@ -34,7 +34,7 @@ void vmatch::Graph::exportDOT(std::ostream &out) const {
   out << "}";
 }
 
-void vmatch::Graph::buildGraph(std::istream &graphDat) {
+void vargas::Graph::buildGraph(std::istream &graphDat) {
 
   using std::string;
   using std::endl;
@@ -52,7 +52,6 @@ void vmatch::Graph::buildGraph(std::istream &graphDat) {
   uint32_t curr = 0;
 
   /** Build nodes and edges from buildfile **/
-  cerr << "Building graph..." << endl;
   while (getline(graphDat, line)) {
     if (line.at(0) != '#') {
       if (line.at(0) == '[') {
@@ -94,7 +93,7 @@ void vmatch::Graph::buildGraph(std::istream &graphDat) {
 
 }
 
-void vmatch::Graph::generateIngroup(vcfstream &variants) {
+void vargas::Graph::generateIngroup(vcfstream &variants) {
   using std::string;
   using std::vector;
 
@@ -125,7 +124,7 @@ void vmatch::Graph::generateIngroup(vcfstream &variants) {
   }
 }
 
-void vmatch::Graph::exportBuildfile(std::istream &reference, vcfstream &variants, std::ostream &buildout) {
+void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants, std::ostream &buildout) {
   using std::vector;
   using std::endl;
   using std::string;
@@ -146,15 +145,16 @@ void vmatch::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
   }
 
   // Buildfile comments
-  buildout << "##Reference: " << refLine.substr(1) << endl;
+  buildout << "##Reference sequence: " << refLine.substr(1) << endl;
   buildout << "##Graph params: "
       << "Max Node Len: " << params.maxNodeLen
-      << ", In-group Percent: " << params.ingroup
       << ", Use max AF? " << params.maxAF;
   if (params.region.length() > 0)
     buildout << ", Region: " << params.region;
   if (params.genComplement)
     buildout << ", Complement source: " << params.complementSource;
+  else
+    buildout << ", In-group Percent: " << params.ingroup;
   buildout << endl;
 
 
@@ -290,14 +290,14 @@ void vmatch::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
 }
 
 
-vmatch::Alignment *vmatch::Graph::align(vmatch::Read &r) {
+vargas::Alignment *vargas::Graph::align(vargas::Read &r) {
   Alignment *align = new Alignment;
   Alignment &a = *align;
-  vmatch::Graph::align(r, a);
+  vargas::Graph::align(r, a);
   return align;
 }
 
-void vmatch::Graph::align(vmatch::Read &r, vmatch::Alignment &a) {
+void vargas::Graph::align(vargas::Read &r, vargas::Alignment &a) {
   int32_t tol = r.read.length();
   gssw_graph_fill(graph, r.read.c_str(), params.nt_table, params.mat,
                   params.gap_open, params.gap_extension, tol, 2, r.readEnd);
@@ -318,8 +318,23 @@ void vmatch::Graph::align(vmatch::Read &r, vmatch::Alignment &a) {
   a.read = r;
 }
 
+void vargas::Graph::exportBuildfile(std::string ref, std::string vcf, std::string build) {
+  std::ifstream r(ref);
+  vcfstream v(vcf);
+  if (!r.good()) throw std::invalid_argument("Error opening files.");
 
-void vmatch::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max) {
+  if (build.length() > 0) {
+    std::ofstream b(build);
+    if (!b.good()) throw std::invalid_argument("Error opening files.");
+    exportBuildfile(r, v, b);
+    b.close();
+  } else {
+    exportBuildfile(r, v, std::cout);
+  }
+  r.close();
+}
+
+void vargas::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max) {
   std::vector<std::string> region_split(0);
   if (region.length() > 0) {
     region_split = split(region, ':');

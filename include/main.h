@@ -15,10 +15,14 @@
 
 
 int build_main(int argc, char *argv[]);
+int export_main(int argc, char *argv[]);
+int sim_main(int argc, char *argv[]);
+int align_main(int argc, char *argv[]);
 
 void printMainHelp();
 void printBuildHelp();
 void printSimHelp();
 void printAlignHelp();
+void printExportHelp();
 
 #endif //VMATCH_H

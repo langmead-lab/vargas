@@ -38,6 +38,7 @@ void split(const std::string &s, char delim, std::vector<std::string> &vec);
 
 template<typename T>
 inline void printVec(std::ostream &os, const std::vector<T> &vec) {
+  if (vec.size() == 0) return;
   os << '[';
   for (int i = 0; i < vec.size(); ++i) {
     os << vec[i];

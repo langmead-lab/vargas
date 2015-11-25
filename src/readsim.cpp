@@ -12,7 +12,7 @@
 
 #include "../include/readsim.h"
 
-bool vmatch::ReadSim::updateRead() {
+bool vargas::ReadSim::updateRead() {
   std::string full;
   if (!graph) throw std::invalid_argument("No graph assigned.");
   if (regexps.size() > 0) {
@@ -34,7 +34,7 @@ bool vmatch::ReadSim::updateRead() {
   return true;
 }
 
-void vmatch::ReadSim::generateRead() {
+void vargas::ReadSim::generateRead() {
   //TODO segfault when read length is too short
   gssw_node *node, *nodeCandidate;
   int32_t base, RAND, ambig = 0, currIndiv = -1, numSubErr = 0, numVarNodes = 0, numVarBases = 0;

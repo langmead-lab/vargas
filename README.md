@@ -1,8 +1,9 @@
 # VMatch
  VMatch uses gssw to align reads to a partial order graph without traceback. Alignment information is given as the ending position of the best score, as well as a suboptimal alignment score. There are four main modes of operation.
+
  ```
   ---------------------- VMatch, September 2015. rgaddip1@jhu.edu ----------------------
-  Operating modes 'vmatch MODE':
+  Operating modes 'vargas MODE':
   build     Generate graph build file from reference and VCF files.
   sim       Simulate reads from a graph.
   align     Align reads to a graph.
@@ -75,13 +76,13 @@ export PATH=path_to_VMatch/build:$PATH
  
  A graph is built on every launch of the program. A graph can be built using the `-v` and `-r` arguments, specifying the VCF and reference FASTA resepectivly and is used to generate a build file. A region can be specified with `-R`. The percentage of individuals ot include in the graph is specified with `-g` For example to generate a graph from `REF` and `VAR` from position `a` to position `b` with 50% of individuals:
  
- `vmatch build -r REF.fa -v VAR.vcf -R a:b -g 50 > GRAPH.build`
+ `vargas build -r REF.fa -v VAR.vcf -R a:b -g 50 > GRAPH.build`
  
 ### Simulating reads
  
- Reads can be simulated with `vmatch sim`. Mutation error and Indel errors can be introduced (default 1%). Reads take random paths through the graph. To generate 1000 reads of length 100 and a 1% error rate from a graph:
+ Reads can be simulated with `vargas sim`. Mutation error and Indel errors can be introduced (default 1%). Reads take random paths through the graph. To generate 1000 reads of length 100 and a 1% error rate from a graph:
  
- `vmatch sim -b GRAPH -n 1000 -l 100 -m 0.01 -i 0.01 > SIMREADS`
+ `vargas sim -b GRAPH -n 1000 -l 100 -m 0.01 -i 0.01 > SIMREADS`
  
  To target certain kinds of reads, a list of space delimited regular expressions can be provided with `-e`. `-n` reads will be genereated for each regular expression. Any reads that do not match the expression will be discarded.
 
@@ -89,6 +90,6 @@ export PATH=path_to_VMatch/build:$PATH
  
 To process a reads file and write the output to a file:
  
- `vmatch align -b GRAPH -d READS > ALIGNMENTS`
+ `vargas align -b GRAPH -d READS > ALIGNMENTS`
  
 If the read contains `#` (as in the simulated reads), everything after it is stripped for alignment but preserved in the output.

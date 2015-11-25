@@ -22,7 +22,7 @@
 #include <cstdlib>
 #include <string>
 
-namespace vmatch {
+namespace vargas {
 
 /** record of data that contains the parsed and filtered VCF **/
 struct vcfrecord {
@@ -71,7 +71,7 @@ class vcfstream {
   // Print a CSV of the ingroup individuals
   void printIngroup(std::ostream &os);
   // Update a record with the next filtered VCF line
-  friend vmatch::vcfstream &operator>>(vcfstream &vstream, vcfrecord &vrec);
+  friend vargas::vcfstream &operator>>(vcfstream &vstream, vcfrecord &vrec);
 
  protected:
   std::ifstream vcfFile; // source VCF file
@@ -112,7 +112,7 @@ class vcfstream {
   void splitCurrentRecord();
 };
 
-vmatch::vcfstream &operator>>(vcfstream &vstream, vcfrecord &vrec);
+vargas::vcfstream &operator>>(vcfstream &vstream, vcfrecord &vrec);
 
 }
 

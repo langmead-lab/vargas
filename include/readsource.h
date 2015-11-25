@@ -15,7 +15,7 @@
 #include <string>
 #include <sstream>
 
-namespace vmatch {
+namespace vargas {
 
 struct Read {
   std::string read;
