@@ -101,6 +101,8 @@ class Graph {
   /** Delete gssw graph on destruction **/
   ~Graph() {
     if (graph != NULL) gssw_graph_destroy(graph);
+    free(params.nt_table);
+    free(params.mat);
   }
 
   /** Export the graph as a DOT representation **/

@@ -34,11 +34,11 @@ bool vargas::ReadFile::updateRead() {
       read.numVarBases = -1;
       return false;
     }
-    read.readEnd = uint32_t(atoi(splitMeta[0].c_str()));
-    read.indiv = atoi(splitMeta[1].c_str());
-    read.numSubErr = atoi(splitMeta[2].c_str());
-    read.numVarNodes = atoi(splitMeta[3].c_str());
-    read.numVarBases = atoi(splitMeta[4].c_str());
+    read.readEnd = uint32_t(std::stoi(splitMeta[0]));
+    read.indiv = std::stoi(splitMeta[1]);
+    read.numSubErr = std::stoi(splitMeta[2]);
+    read.numVarNodes = std::stoi(splitMeta[3]);
+    read.numVarBases = std::stoi(splitMeta[4]);
   }
   return true;
 }

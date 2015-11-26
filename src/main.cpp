@@ -1,13 +1,18 @@
-//
-// Aligns reads using gssw, traceback is not possible.
-// Created by Ravi Gaddipati (rgaddip1@jhu.edu).
-//
+/**
+ * Ravi Gaddipati
+ * November 25, 2015
+ * rgaddip1@jhu.edu
+ *
+ * Interface for simulating and aligning reads from/to a DAG.
+ * Uses a modified gssw from Erik Garrison.
+ *
+ * main.cpp
+ */
 
-#include <string.h>
 #include "../include/main.h"
 
 
-int main(int argc, char *argv[]) {
+int main(const int argc, const char *argv[]) {
 
   if (argc > 1) {
     if (!strcmp(argv[1], "build")) {
@@ -33,7 +38,7 @@ int main(int argc, char *argv[]) {
 
 }
 
-int build_main(int argc, char *argv[]) {
+int build_main(const int argc, const char *argv[]) {
   std::string VCF = "", REF = "";
   std::string setString;
   bool makeComplements = false;
@@ -53,7 +58,7 @@ int build_main(int argc, char *argv[]) {
     return 1;
   }
 
-  vargas::Graph::GraphParams p = g.getParamsCopy();
+  vargas::Graph::GraphParams p;
 
   args >> GetOpt::Option('l', "maxlen", p.maxNodeLen)
       >> GetOpt::Option('R', "region", p.region)
@@ -94,7 +99,7 @@ int build_main(int argc, char *argv[]) {
   return 0;
 }
 
-int export_main(int argc, char *argv[]) {
+int export_main(const int argc, const char *argv[]) {
 
   GetOpt::GetOpt_pp args(argc, argv);
 
@@ -116,7 +121,7 @@ int export_main(int argc, char *argv[]) {
   return 0;
 }
 
-int align_main(int argc, char *argv[]) {
+int align_main(const int argc, const char *argv[]) {
   vargas::Graph g;
   GetOpt::GetOpt_pp args(argc, argv);
 
@@ -125,6 +130,7 @@ int align_main(int argc, char *argv[]) {
     return 0;
   }
 
+  // Load parameters
   vargas::Graph::GraphParams p;
   args >> GetOpt::Option('m', "match", p.match)
       >> GetOpt::Option('n', "mismatch", p.mismatch)
@@ -132,7 +138,7 @@ int align_main(int argc, char *argv[]) {
       >> GetOpt::Option('e', "gap_extend", p.gap_extension);
   g.setParams(p);
 
-
+  // Read file handler
   std::string readsfile;
   if (!(args >> GetOpt::Option('r', "reads", readsfile))) {
     std::cerr << "No buildfile defined!" << std::endl;
@@ -148,6 +154,7 @@ int align_main(int argc, char *argv[]) {
   }
   g.buildGraph(buildfile);
 
+  // Align until there are not more reads
   vargas::Alignment align;
   while (reads.updateRead()) {
     g.align(reads.getRead(), align);
@@ -157,7 +164,41 @@ int align_main(int argc, char *argv[]) {
   return 0;
 }
 
-int sim_main(int argc, char *argv[]) { }
+int sim_main(const int argc, const char *argv[]) {
+  GetOpt::GetOpt_pp args(argc, argv);
+
+  if (args >> GetOpt::OptionPresent('h', "help")) {
+    printSimHelp();
+    return 0;
+  }
+
+  vargas::SimParams p;
+  args >> GetOpt::Option('n', "numreads", p.maxreads)
+      >> GetOpt::Option('m', "muterr", p.muterr)
+      >> GetOpt::Option('i', "indelerr", p.indelerr)
+      >> GetOpt::Option('l', "readlen", p.readLen);
+
+  vargas::ReadSim sim(p);
+
+  std::string regexps;
+  if(args >> GetOpt::Option('e', "regex", regexps)) {
+    std::string prefix = "sim";
+    args >> GetOpt::Option('p', "prefix", prefix);
+    std::vector<std::string> splitRegexps = split(regexps, ' ');
+    for (int i = 0; i < splitRegexps.size(); ++i) {
+      sim.addRegex(splitRegexps[i], prefix + std::to_string(i) + ".reads");
+      while(sim.updateRead());
+    }
+
+
+  } else {
+    for (int i = 0; i < p.maxreads; ++i) {
+      std::cout << sim.updateAndGet() << std::endl;
+    }
+  }
+
+  return 0;
+}
 
 void printMainHelp() {
   using std::cout;
@@ -199,11 +240,9 @@ void printSimHelp() {
   cout << "-n\t--numreads      Number of reads to simulate" << endl;
   cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
   cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;
-  cout << "-r\t--rand          Use a random mutation error rate, up to the value specified by -m." << endl;
   cout << "-l\t--readlen       Nominal read length" << endl;
-  cout << "-e\t--regex         Match regex expressions. Produces -n of each, discard others." << endl;
-  cout << "-f\t--filesplit     Each regex put in seperate files, with prefix specified. Otherwise all to stdout"
-      << endl;
+  cout << "-e\t--regex         <r1,r2,..,r3> Match regex expressions. Produces -n of each." << endl;
+  cout << "-p\t--prefix        Prefix to use for read files generated with -e" << endl << endl;
   cout << "  \t                List of expressions is space delimited -e \"exp1 exp2\"." << endl << endl;
 
   cout << "NOTE: End of line anchor may not work in regex depending on C++ version. " << endl;

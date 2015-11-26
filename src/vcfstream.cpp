@@ -71,7 +71,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
     return false;
   }
   splitCurrentRecord();
-  vrecord.pos = ulong(atol(splitRecord[fields.pos].c_str()));
+  vrecord.pos = std::stoul(splitRecord[fields.pos]);
   vrecord.ref = splitRecord[fields.ref].c_str();
   vrecord.indivs.clear();
   vrecord.freqs.clear();
@@ -99,7 +99,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
   altIndivs.clear();
   for (int d = fields.indivOffset; d < fields.numIndivs + fields.indivOffset; ++d) {
     // a value of 0 indicates the reference, indiv 0 is the reference
-    if (atoi(splitRecord[d].c_str()) == 0) {
+    if (std::stoi(splitRecord[d]) == 0) {
       // Check if its in the ingroup
       if (std::binary_search(ingroup.begin(), ingroup.end(), d)) altIndivs.push_back(d);
     }
@@ -109,7 +109,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
     // Get the reference frequency
     double_t sumaltAF = 0;
     for (auto a : afSplit) {
-      sumaltAF += atof(a.c_str());
+      sumaltAF += std::stof(a);
     }
     vrecord.freqs.emplace(vrecord.ref.c_str(), 1 - sumaltAF);
   }
@@ -120,7 +120,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
     // For each individual, check if it is in the ingroup
     for (int d = fields.indivOffset; d < fields.numIndivs + fields.indivOffset; ++d) {
       // a value of 0 indicates the reference is used, i+1 gives the alt number.
-      if (atoi(splitRecord[d].c_str()) == i + 1) {
+      if (std::stoi(splitRecord[d]) == i + 1) {
         // Check if its in the ingroup
         if (std::binary_search(ingroup.begin(), ingroup.end(), d)) altIndivs.push_back(d);
       }
@@ -133,7 +133,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
       }
       vrecord.indivs.emplace(splitTemp[i].c_str(), altIndivs);
       if (validAF)
-        vrecord.freqs.emplace(splitTemp[i].c_str(), std::atof(afSplit[i].c_str()));
+        vrecord.freqs.emplace(splitTemp[i].c_str(), std::stof(afSplit[i]));
     }
   }
   return true;

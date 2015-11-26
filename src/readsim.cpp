@@ -18,7 +18,7 @@ bool vargas::ReadSim::updateRead() {
   if (regexps.size() > 0) {
     generateRead();
     for (auto &regex : regexps) {
-      if (counters.at(regex) < maxreads) {
+      if (counters.at(regex) < p.maxreads) {
         full = str();
         if (std::regex_match(full.begin(), full.end(), std::regex(regex))) {
           counters[regex]++;
@@ -27,7 +27,7 @@ bool vargas::ReadSim::updateRead() {
           break;
         }
       }
-      if (totalreads >= regexps.size() * maxreads) return false;
+      if (totalreads >= regexps.size() * p.maxreads) return false;
     }
   }
   else generateRead();
@@ -53,7 +53,7 @@ void vargas::ReadSim::generateRead() {
     numVarNodes++;
   }
 
-  for (int i = 0; i < readLen; i++) {
+  for (int i = 0; i < p.readLen; i++) {
     if (node->len != 0) read += node->seq[base];
     if (node->indivSize > 0) numVarBases++;
     if (node->seq[base] == 'N') ambig++;
@@ -72,7 +72,7 @@ void vargas::ReadSim::generateRead() {
           break;
         }
         for (int i = 0; i < nodeCandidate->indivSize; i++) {
-          if (randWalk || currIndiv == nodeCandidate->indiv[i]) {
+          if (p.randWalk || currIndiv == nodeCandidate->indiv[i]) {
             valid = true;
             break;
           }
@@ -84,7 +84,7 @@ void vargas::ReadSim::generateRead() {
     }
   }
 
-  if (ambig > readLen / 2 || read.length() < readLen / 2) {
+  if (ambig > p.readLen / 2 || read.length() < p.readLen / 2) {
     generateRead();
     return;
   }
@@ -94,33 +94,33 @@ void vargas::ReadSim::generateRead() {
     RAND = rand() % 100000;
     mut = read.at(i);
 
-    if (RAND < (100000 - (100000 * indelerr / 2))) { // represents del
+    if (RAND < (100000 - (100000 * p.indelerr / 2))) { // represents del
       /** Mutation **/
-      if (RAND < (100000 * muterr) / 4 && mut != 'A') {
+      if (RAND < (100000 * p.muterr) / 4 && mut != 'A') {
         mut = 'A';
         numSubErr++;
       }
-      else if (RAND < 2 * (100000 * muterr) / 4 && mut != 'G') {
+      else if (RAND < 2 * (100000 * p.muterr) / 4 && mut != 'G') {
         mut = 'G';
         numSubErr++;
       }
-      else if (RAND < 3 * (100000 * muterr) / 4 && mut != 'C') {
+      else if (RAND < 3 * (100000 * p.muterr) / 4 && mut != 'C') {
         mut = 'C';
         numSubErr++;
       }
-      else if (RAND < (100000 * muterr) && mut != 'T') {
+      else if (RAND < (100000 * p.muterr) && mut != 'T') {
         mut = 'T';
         numSubErr++;
       }
       readmut << mut;
 
       /* Insertion **/
-      if (RAND > (100000 - (100000 * indelerr))) {
-        RAND = rand() % int32_t(100000 * muterr);
-        if (RAND < (100000 * muterr) / 4) mut = 'A';
-        else if (RAND < 2 * (100000 * muterr) / 4) mut = 'G';
-        else if (RAND < 3 * (100000 * muterr) / 4) mut = 'C';
-        else if (RAND < (100000 * muterr)) mut = 'T';
+      if (RAND > (100000 - (100000 * p.indelerr))) {
+        RAND = rand() % int32_t(100000 * p.muterr);
+        if (RAND < (100000 * p.muterr) / 4) mut = 'A';
+        else if (RAND < 2 * (100000 * p.muterr) / 4) mut = 'G';
+        else if (RAND < 3 * (100000 * p.muterr) / 4) mut = 'C';
+        else if (RAND < (100000 * p.muterr)) mut = 'T';
         readmut << mut;
       }
     }

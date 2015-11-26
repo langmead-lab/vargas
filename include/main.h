@@ -1,6 +1,13 @@
-//
-// Created by gaddra on 8/6/15.
-//
+/**
+ * Ravi Gaddipati
+ * November 25, 2015
+ * rgaddip1@jhu.edu
+ *
+ * Interface for simulating and aligning reads from/to a DAG.
+ * Uses a modified gssw from Erik Garrison.
+ *
+ * main.h
+ */
 
 #ifndef VMATCH_H
 #define VMATCH_H
@@ -14,10 +21,10 @@
 #include "readfile.h"
 
 
-int build_main(int argc, char *argv[]);
-int export_main(int argc, char *argv[]);
-int sim_main(int argc, char *argv[]);
-int align_main(int argc, char *argv[]);
+int build_main(const int argc, const char *argv[]);
+int export_main(const int argc, const char *argv[]);
+int sim_main(const int argc, const char *argv[]);
+int align_main(const int argc, const char *argv[]);
 
 void printMainHelp();
 void printBuildHelp();

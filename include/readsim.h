@@ -21,14 +21,38 @@
 
 namespace vargas {
 
+struct SimParams {
+  time_t seed = time(NULL);
+  bool randWalk = false;
+  double muterr = 0;
+  double indelerr = 0;
+  int32_t readLen = 100;
+  int maxreads = 10000;
+};
+
+inline std::ostream &operator<<(std::ostream &os, const SimParams &p) {
+  std::stringstream ss;
+  ss << "Seed: " << p.seed
+      << ", Mut err: " << p.muterr
+      << ", Indel Err: " << p.indelerr
+      << ", read Len: " << p.readLen
+      << ", max reads: " << p.maxreads
+      << ", random walk? " << p.randWalk;
+  os << ss.str();
+  return os;
+}
+
 class ReadSim: public ReadSource {
  public:
   ReadSim() {
-    srand(seed);
+    srand(p.seed);
   }
   ReadSim(Graph &g) {
     ReadSim();
     setGraph(g);
+  }
+  ReadSim(SimParams param) {
+    setParams(param);
   }
   ~ReadSim() {
     for (auto e : logs) {
@@ -47,40 +71,39 @@ class ReadSim: public ReadSource {
   bool updateRead();
 
   // Set the mutation error
-  void setMuterr(double err) { muterr = err; }
+  void setMuterr(double err) { p.muterr = err; }
 
   // Set the indel error
-  void setIndelerr(double err) { indelerr = err; }
+  void setIndelerr(double err) { p.indelerr = err; }
 
   // Set the length of the read
-  void setReadLen(int32_t len) { readLen = len; }
+  void setReadLen(int32_t len) { p.readLen = len; }
 
   // Don't simulate from a specific individual
-  void setRandWalk(bool randwalk) { randWalk = randwalk; }
+  void setRandWalk(bool randwalk) { p.randWalk = randwalk; }
 
   // Number of reads to generate for each regex
-  void setNumReads(uint32_t num) { maxreads = num; }
+  void setNumReads(uint32_t num) { p.maxreads = num; }
+
+  void setParams(SimParams param) {p = param;}
 
   // Add a regex, generates maxreads of each
   void addRegex(std::string regex, std::string file) {
     regexps.push_back(regex);
     logs.emplace(regex.c_str(), new std::ofstream(file));
     counters.emplace(regex.c_str(), 0);
-    *(logs[regex]) << "#" << regex << std::endl;
+    if (!logs[regex]->good()) throw std::invalid_argument("Error opening file: " + file);
+    *(logs[regex]) << "#" << regex << std::endl
+        << '#' << p << std::endl;
   }
   void clearRegexps() { regexps.clear(); }
 
  protected:
-  time_t seed = time(NULL);
+  SimParams p;
   std::vector<std::string> regexps;
   std::map<std::string, int> counters;
   std::map<std::string, std::ofstream *> logs;
   gssw_graph *graph = NULL;
-  bool randWalk = false;
-  double muterr = 0;
-  double indelerr = 0;
-  int32_t readLen = 100;
-  int maxreads = 10000;
   int totalreads = 0;
 
   void generateRead();

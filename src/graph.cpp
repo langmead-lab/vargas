@@ -343,7 +343,7 @@ void vargas::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max
       *min = 0;
       *max = UINT32_MAX;
     } else {
-      *min = (uint32_t) std::atoi(region_split[0].c_str());
+      *min = (uint32_t) std::stoi(region_split[0].c_str());
       *max = (uint32_t) std::atoi(region_split[1].c_str());
     }
   } else {

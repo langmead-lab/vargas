@@ -44,7 +44,7 @@ class ReadSource {
   virtual ~ReadSource() { }
 
   // Updates the read and returns the string representation
-  virtual std::string get() {
+  virtual std::string updateAndGet() {
     if (!updateRead()) {
       read.read = "";
     }
@@ -68,7 +68,7 @@ class ReadSource {
   virtual bool updateRead() = 0;
 
   std::ostream &operator<<(std::ostream &os) {
-    os << get();
+    os << updateAndGet();
     return os;
   }
 
