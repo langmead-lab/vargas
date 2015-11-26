@@ -48,7 +48,9 @@ IF (EXISTS "test" AND IS_DIRECTORY "test")
             test/graphTest.cpp
             test/utilsTest.cpp
             test/vcfStreamTest.cpp
-            test/readsimTest.cpp test/equivilence.cpp test/equivilence.h)
+            test/readsimTest.cpp
+            test/equivilence.cpp
+            test/equivilence.h)
     add_subdirectory(test/googletest/googletest)
     enable_testing()
     include_directories(${gtest_SOURCE_DIR}/include/ ${gtest_SOURCE_DIR}/)

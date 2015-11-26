@@ -1,0 +1,11 @@
+digraph gssw_graph {
+rankdir="LR";
+0 [label="3:GAT"];
+2 [label="4:C"];
+1 [label="4:"];
+3 [label="8:AGCA"];
+0 -> 2;
+0 -> 1;
+1 -> 3;
+2 -> 3;
+}

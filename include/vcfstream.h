@@ -50,9 +50,14 @@ class vcfstream {
   }
 
   void open(std::string filename) {
+    close();
     vcfFile.open(filename);
     if (!vcfFile.good()) throw std::invalid_argument("Invalid VCF File");
     initVCF();
+  }
+
+  void close() {
+    if (vcfFile.is_open()) vcfFile.close();
   }
 
   // get the next line in the VCF file and parse it

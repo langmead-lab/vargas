@@ -59,7 +59,7 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
         line = line.substr(1, line.length() - 2);
         split(line, ',', lineSplit);
         for (uint32_t i = 0; i < lineSplit.size(); i++) {
-          gssw_node_add_indiv(nodes.back(), strtol(lineSplit[i].c_str(), NULL, 10));
+          gssw_node_add_indiv(nodes.back(), std::stoi(lineSplit[i].c_str(), NULL, 10));
         }
       } else {
         split(line, ',', lineSplit);
@@ -100,7 +100,7 @@ void vargas::Graph::generateIngroup(vcfstream &variants) {
   if (params.genComplement) {
     /** Ingroup is the indivs not included in the specified file **/
     if (params.complementSource.length() == 0) {
-      throw std::invalid_argument("Error: No buildfile specified, complement cannot be built.");
+      throw std::invalid_argument("No buildfile specified, complement cannot be built.");
     }
     std::ifstream complementSource(params.complementSource.c_str());
     string inputGroupLine;
@@ -321,11 +321,11 @@ void vargas::Graph::align(vargas::Read &r, vargas::Alignment &a) {
 void vargas::Graph::exportBuildfile(std::string ref, std::string vcf, std::string build) {
   std::ifstream r(ref);
   vcfstream v(vcf);
-  if (!r.good()) throw std::invalid_argument("Error opening files.");
+  if (!r.good()) throw std::invalid_argument("Error opening file: " + ref);
 
   if (build.length() > 0) {
     std::ofstream b(build);
-    if (!b.good()) throw std::invalid_argument("Error opening files.");
+    if (!b.good()) throw std::invalid_argument("Error opening file: " + build);
     exportBuildfile(r, v, b);
     b.close();
   } else {
