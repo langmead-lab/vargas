@@ -23,6 +23,7 @@ bool vargas::ReadFile::updateRead() {
     read.numVarNodes = -1;
     read.numVarBases = -1;
   } else {
+    read.read = line.substr(0, delim);
     split(line.substr(delim + 1), ',', splitMeta);
     if (splitMeta.size() != 5) {
       std::cerr << "Unexpected number of fields." << std::endl;

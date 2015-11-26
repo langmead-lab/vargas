@@ -116,7 +116,46 @@ int export_main(int argc, char *argv[]) {
   return 0;
 }
 
-int align_main(int argc, char *argv[]) { }
+int align_main(int argc, char *argv[]) {
+  vargas::Graph g;
+  GetOpt::GetOpt_pp args(argc, argv);
+
+  if (args >> GetOpt::OptionPresent('h', "help")) {
+    printAlignHelp();
+    return 0;
+  }
+
+  vargas::Graph::GraphParams p;
+  args >> GetOpt::Option('m', "match", p.match)
+      >> GetOpt::Option('n', "mismatch", p.mismatch)
+      >> GetOpt::Option('o', "gap_open", p.gap_open)
+      >> GetOpt::Option('e', "gap_extend", p.gap_extension);
+  g.setParams(p);
+
+
+  std::string readsfile;
+  if (!(args >> GetOpt::Option('r', "reads", readsfile))) {
+    std::cerr << "No buildfile defined!" << std::endl;
+    return 1;
+  }
+  vargas::ReadFile reads(readsfile);
+
+
+  std::string buildfile;
+  if (!(args >> GetOpt::Option('b', "build", buildfile))) {
+    std::cerr << "No buildfile defined!" << std::endl;
+    return 1;
+  }
+  g.buildGraph(buildfile);
+
+  vargas::Alignment align;
+  while (reads.updateRead()) {
+    g.align(reads.getRead(), align);
+    std::cout << align << std::endl;
+  }
+
+  return 0;
+}
 
 int sim_main(int argc, char *argv[]) { }
 
@@ -176,12 +215,12 @@ void printAlignHelp() {
   using std::cout;
   using std::endl;
   cout << endl << "------------------- VMatch align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
-  cout << "-b\t--buildfile     quick rebuild file, required if -v, -r are not defined." << endl;
+  cout << "-b\t--buildfile     Quick rebuild file." << endl;
   cout << "-m\t--match         Match score, default  " << 2 << endl;
   cout << "-n\t--mismatch      Mismatch score, default " << 2 << endl;
   cout << "-o\t--gap_open      Gap opening score, default " << 3 << endl;
   cout << "-e\t--gap_extend    Gap extend score, default " << 1 << endl;
-  cout << "-r\t--reads         Reads to align. If not specified, read from stdin" << endl;
+  cout << "-r\t--reads         Reads to align." << endl;
 
   cout << endl << "Alignments output to stdout. Reads read from stdin or -r, 1 per line." << endl;
   cout << "Lines beginning with \'#\' are ignored." << endl;

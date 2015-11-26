@@ -49,7 +49,7 @@ struct Alignment {
 inline std::ostream &operator<<(std::ostream &os, const Alignment &a) {
   os << a.read << ',' << a.optScore << ',' << a.optAlignEnd << ',' << a.optCount
       << ',' << a.subOptScore << ',' << a.subOptAlignEnd << ',' << a.subOptCount
-      << ',' << a.corflag;
+      << ',' << int32_t(a.corflag);
   return os;
 }
 
