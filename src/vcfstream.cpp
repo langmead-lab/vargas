@@ -86,6 +86,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
       split(e.substr(3), ',', afSplit);
       break;
     }
+    afSplit.clear();
   }
 
 
@@ -173,10 +174,20 @@ void vargas::vcfstream::createComplementIngroup(std::vector<uint32_t> vec) {
 
 std::ostream &vargas::operator<<(std::ostream &os, const vargas::vcfrecord &vrec) {
   os << "POS: " << vrec.pos << std::endl;
-  os << "REF: P(" << vrec.ref << ")=" << vrec.freqs.at(vrec.ref) << std::endl;
+  os << "REF: P(" << vrec.ref << ")=";
+  if (vrec.freqs.size() != 0) {
+    os << vrec.freqs.at(vrec.ref) << std::endl;
+  } else {
+    os << "-" << std::endl;
+  }
   os << "ALTS: " << std::endl;
   for (auto &e : vrec.indivs) {
-    os << "\tP(" << e.first << ")=" << vrec.freqs.at(e.first);
+    os << "\tP(" << e.first << ")=";
+    if (vrec.freqs.size() != 0) {
+      os << vrec.freqs.at(e.first);
+    } else {
+      os << "-";
+    }
     for (auto &i : e.second) {
       os << ", " << i;
     }

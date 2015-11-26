@@ -9,8 +9,8 @@
  * main.h
  */
 
-#ifndef VMATCH_H
-#define VMATCH_H
+#ifndef VARGAS_H
+#define VARGAS_H
 
 #include <string>
 #include <stdlib.h>
@@ -32,4 +32,4 @@ void printSimHelp();
 void printAlignHelp();
 void printExportHelp();
 
-#endif //VMATCH_H
+#endif //VARGAS_H

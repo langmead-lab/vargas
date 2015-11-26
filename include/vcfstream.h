@@ -9,8 +9,8 @@
  * vcfstream.h
  */
 
-#ifndef VMATCH_VCFSTREAM_H
-#define VMATCH_VCFSTREAM_H
+#ifndef VARGAS_VCFSTREAM_H
+#define VARGAS_VCFSTREAM_H
 
 #include <iostream>
 #include <fstream>
@@ -116,4 +116,4 @@ vargas::vcfstream &operator>>(vcfstream &vstream, vcfrecord &vrec);
 
 }
 
-#endif //VMATCH_VCFSTREAM_H
+#endif //VARGAS_VCFSTREAM_H

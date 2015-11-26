@@ -9,8 +9,8 @@
  * readsource.h
  */
 
-#ifndef VMATCH_READS_H
-#define VMATCH_READS_H
+#ifndef VARGAS_READS_H
+#define VARGAS_READS_H
 
 #include <string>
 #include <sstream>
@@ -79,4 +79,4 @@ class ReadSource {
 
 }
 
-#endif //VMATCH_READS_H
+#endif //VARGAS_READS_H

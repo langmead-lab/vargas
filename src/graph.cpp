@@ -3,7 +3,7 @@
  * November 20, 2015
  * rgaddip1@jhu.edu
  *
- * vmatch::Graph is a DAG representation of a reference and its variants.
+ * vargas::Graph is a DAG representation of a reference and its variants.
  * The class wraps a gssw_graph from gssw and provides a way to construct
  * graphs from a FASTA and a VCF file with various options.
  *

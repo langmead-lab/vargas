@@ -9,8 +9,8 @@
  * readfile.h
  */
 
-#ifndef VMATCH_READFILE_H
-#define VMATCH_READFILE_H
+#ifndef VARGAS_READFILE_H
+#define VARGAS_READFILE_H
 
 #include <string>
 #include <fstream>
@@ -43,4 +43,4 @@ class ReadFile: public ReadSource {
 
 }
 
-#endif //VMATCH_READFILE_H
+#endif //VARGAS_READFILE_H

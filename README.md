@@ -23,64 +23,70 @@ Alignments to the graph are done with `Graph.align(Read)` and returns with an Al
 
 ###Modes of operation
  ```
-  ---------------------- vargas, September 2015. rgaddip1@jhu.edu ----------------------
-  Operating modes 'vargas MODE':
-  build     Generate graph build file from reference and VCF files.
-  sim       Simulate reads from a graph.
-  align     Align reads to a graph.
-  export    Export graph in DOT format.
+---------------------- vargas, Nov 25 2015. rgaddip1@jhu.edu ----------------------
+Operating modes 'vargas MODE':
+	build     Generate graph build file from reference and VCF files.
+	sim       Simulate reads from a graph.
+	align     Align reads to a graph.
+	export    Export graph in DOT format.
  ```
  
  ```
- ------------------- vargas build, September 2015. rgaddip1@jhu.edu -------------------
--v     --vcf           (required) VCF file, uncompressed.
--r     --ref           (required) reference single record FASTA
--l     --maxlen        Maximum node length
--R     --region        [min:max] Ref region, inclusive. Default is entire graph.
--g     --ingroup       Percent of individuals to build graph from, default all.
--c     --complement    Generate a complement of a graph (outgroup becomes ingroup).
+------------------- vargas build, Nov 25 2015. rgaddip1@jhu.edu -------------------
+-v	--vcf           (required) VCF file, uncompressed.
+-r	--ref           (required) reference, single record FASTA
+-l	--maxlen        Maximum node length
+-R	--region        <min:max> Ref region, inclusive. Default is the entire graph.
+-m	--maxref        Generate a graph using alleles in the ingroup w/ the highest frequency.
+-s	--set           <#,#,..,#> Generate a buildfile for a list of ingroup %'s and their complements.
+-c	--complement    <graph.build> Generate a complement of all graphs in -s
 
-Buildfile is printed on stdout.
+Buildfile is output to [s][In/Out].build
+
  ```
  
  ```
-------------------- vargas sim, September 2015. rgaddip1@jhu.edu -------------------
--b     --buildfile     quick rebuild file, required if -v, -r are not defined.
--n     --numreads      Number of reads to simulate
--m     --muterr        Simulated read mutation error rate
--i     --indelerr      Simulated read Indel error rate
--r     --rand          Use a random mutation error rate, up to the value specified by -m.
--l     --readlen       Nominal read length
--e     --regex         Match regex expressions. Produces -n of each, discard others.
-                       List of expressions is space delimited -e "exp1 exp2"
-  
+------------------- vargas sim, Nov 25 2015. rgaddip1@jhu.edu -------------------
+-b	--buildfile     quick rebuild file, generate with vargas build
+-n	--numreads      Number of reads to simulate
+-m	--muterr        Simulated read mutation error rate
+-i	--indelerr      Simulated read Indel error rate
+-l	--readlen       Nominal read length
+-e	--regex         <r1 r2 .. r3> Match regex expressions, space delimited. Produces -n of each.
+-p	--prefix        Prefix to use for read files generated with -e
+-r	--randwalk      Random walk, read may change individuals at branches.
+
+NOTE: End of line anchor may not work in regex depending on C++ version. 
 Reads are printed on stdout.
 Read Format:
 READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES
+
  ```
  
  ```
- ------------------- vargas align, September 2015. rgaddip1@jhu.edu -------------------
--b     --buildfile     quick rebuild file, required if -v, -r are not defined.
--m     --match         Match score, default 2
--n     --mismatch      Mismatch score, default 2
--o     --gap_open      Gap opening score, default 3
--e     --gap_extend    Gap extend score, default 1
--r     --reads         Reads to align, one per line. Symbols after '#' are ignored.
+------------------- vargas align, Nov 25 2015. rgaddip1@jhu.edu -------------------
+-b	--buildfile     Quick rebuild file.
+-m	--match         Match score, default  2
+-n	--mismatch      Mismatch score, default 2
+-o	--gap_open      Gap opening score, default 3
+-e	--gap_extend    Gap extend score, default 1
+-r	--reads         Reads to align.
 
-Alignments output to stdout.
+Alignments output to stdout. Reads read from stdin or -r, 1 per line.
+Lines beginning with '#' are ignored.
 Output format:
 READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE,
 SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH
 
-ALIGNMENT_MATCH: 0- optimal match, 1- suboptimal match, 2- no match
+ALIGNMENT_MATCH: 0- optimal match, 1- suboptimal match, 2- no matc
 ```
 
 ```
-------------------- vargas export, September 2015. rgaddip1@jhu.edu -------------------
--b     --buildfile    Graph to export to DOT.
+------------------- vargas export, Nov 25 2015. rgaddip1@jhu.edu -------------------
+-b	--buildfile    (required) Graph to export to DOT.
 
 DOT file printed to stdout.
+
 ```
 ### Building vargas
 
@@ -96,7 +102,7 @@ export PATH=${PWD}/bin:$PATH
 
 ### Generating a buildfile
  
- A graph is built from a buildfile. A graph buildfile can be made using `vmatch build`.
+ A graph is built from a buildfile. A graph buildfile can be made using `vargas build`.
   `-r` and `-v` specify the reference FASTA and VCF respectively. A region can be specified with `-R`.
   The percentage of individuals to include in the graph is specified with `-s` and a comma seperated list of values.
   `-c` will generate complements of each graph.

@@ -174,22 +174,28 @@ int sim_main(const int argc, const char *argv[]) {
 
   vargas::SimParams p;
   args >> GetOpt::Option('n', "numreads", p.maxreads)
+      >> GetOpt::Option('r', "randwalk", p.randWalk)
       >> GetOpt::Option('m', "muterr", p.muterr)
       >> GetOpt::Option('i', "indelerr", p.indelerr)
       >> GetOpt::Option('l', "readlen", p.readLen);
 
+  std::string buildfile;
+  if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) throw std::invalid_argument("Buildfile required.");
+  vargas::Graph g(buildfile);
+
   vargas::ReadSim sim(p);
+  sim.setGraph(g);
 
   std::string regexps;
   if(args >> GetOpt::Option('e', "regex", regexps)) {
     std::string prefix = "sim";
     args >> GetOpt::Option('p', "prefix", prefix);
+
     std::vector<std::string> splitRegexps = split(regexps, ' ');
     for (int i = 0; i < splitRegexps.size(); ++i) {
       sim.addRegex(splitRegexps[i], prefix + std::to_string(i) + ".reads");
       while(sim.updateRead());
     }
-
 
   } else {
     for (int i = 0; i < p.maxreads; ++i) {
@@ -241,9 +247,9 @@ void printSimHelp() {
   cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
   cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;
   cout << "-l\t--readlen       Nominal read length" << endl;
-  cout << "-e\t--regex         <r1,r2,..,r3> Match regex expressions. Produces -n of each." << endl;
-  cout << "-p\t--prefix        Prefix to use for read files generated with -e" << endl << endl;
-  cout << "  \t                List of expressions is space delimited -e \"exp1 exp2\"." << endl << endl;
+  cout << "-e\t--regex         <r1 r2 .. r3> Match regex expressions, space delimited. Produces -n of each." << endl;
+  cout << "-p\t--prefix        Prefix to use for read files generated with -e" << endl;
+  cout << "-r\t--randwalk      Random walk, read may change individuals at branches." << endl << endl;
 
   cout << "NOTE: End of line anchor may not work in regex depending on C++ version. " << endl;
   cout << "Reads are printed on stdout." << endl;

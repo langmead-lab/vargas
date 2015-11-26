@@ -8,8 +8,8 @@
  * utils.h
  */
 
-#ifndef VMATCH_UTILS_H
-#define VMATCH_UTILS_H
+#ifndef VARGAS_UTILS_H
+#define VARGAS_UTILS_H
 
 #include <iostream>
 #include <vector>
@@ -48,4 +48,4 @@ inline void printVec(std::ostream &os, const std::vector<T> &vec) {
 }
 
 
-#endif //VMATCH_UTILS_H
+#endif //VARGAS_UTILS_H

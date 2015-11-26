@@ -10,8 +10,8 @@
  * readsim.h
  */
 
-#ifndef VMATCH_READSIM_H
-#define VMATCH_READSIM_H
+#ifndef VARGAS_READSIM_H
+#define VARGAS_READSIM_H
 
 #include "graph.h"
 #include "readsource.h"
@@ -113,4 +113,4 @@ class ReadSim: public ReadSource {
 }
 
 
-#endif //VMATCH_READSIM_H
+#endif //VARGAS_READSIM_H
