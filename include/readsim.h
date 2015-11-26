@@ -15,11 +15,47 @@
 
 #include "graph.h"
 #include "readsource.h"
-#include <regex>
 #include <map>
 #include <random>
 
 namespace vargas {
+
+struct ReadProfile {
+  //TODO add numIndelErr to prof and Read
+  int32_t indiv = -1;
+  int32_t numSubErr = -1;
+  int32_t numVarNodes = -1;
+  int32_t numVarBases = -1;
+
+  bool matches(Read r) {
+    if (indiv >= 0 && r.indiv != indiv) return false;
+    if (numSubErr >= 0 && r.numSubErr != numSubErr) return false;
+    if (numVarNodes >= 0 && r.numVarNodes != numVarNodes) return false;
+    if (numVarBases >= 0 && r.numVarBases != numVarBases) return false;
+    return true;
+  }
+
+};
+
+inline bool operator==(Read &r, ReadProfile &p) {
+  return p.matches(r);
+}
+inline bool operator!=(Read &r, ReadProfile &p) {
+  return !p.matches(r);
+}
+inline bool operator==(ReadProfile &p, Read &r) {
+  return p.matches(r);
+}
+inline bool operator!=(ReadProfile &p, Read &r) {
+  return !p.matches(r);
+}
+inline std::ostream &operator<<(std::ostream &os, const ReadProfile &p) {
+  os << "indiv=" << p.indiv
+      << ",numSubErr=" << p.numSubErr
+      << ",numVarNodes=" << p.numVarNodes
+      << ",numVarBases=" << p.numVarBases;
+  return os;
+}
 
 struct SimParams {
   time_t seed = time(NULL);
@@ -31,14 +67,12 @@ struct SimParams {
 };
 
 inline std::ostream &operator<<(std::ostream &os, const SimParams &p) {
-  std::stringstream ss;
-  ss << "Seed: " << p.seed
+  os << "Seed: " << p.seed
       << ", Mut err: " << p.muterr
       << ", Indel Err: " << p.indelerr
       << ", read Len: " << p.readLen
       << ", max reads: " << p.maxreads
       << ", random walk? " << p.randWalk;
-  os << ss.str();
   return os;
 }
 
@@ -52,6 +86,7 @@ class ReadSim: public ReadSource {
     setGraph(g);
   }
   ReadSim(SimParams param) {
+    ReadSim();
     setParams(param);
   }
   ~ReadSim() {
@@ -69,6 +104,7 @@ class ReadSim: public ReadSource {
 
   Read &getRead() { return read; }
   bool updateRead();
+  std::string getHeader() const { return header; }
 
   // Set the mutation error
   void setMuterr(double err) { p.muterr = err; }
@@ -88,21 +124,21 @@ class ReadSim: public ReadSource {
   void setParams(SimParams param) {p = param;}
 
   // Add a regex, generates maxreads of each
-  void addRegex(std::string regex, std::string file) {
-    regexps.push_back(regex);
-    logs.emplace(regex.c_str(), new std::ofstream(file));
-    counters.emplace(regex.c_str(), 0);
-    if (!logs[regex]->good()) throw std::invalid_argument("Error opening file: " + file);
-    *(logs[regex]) << "#" << regex << std::endl
+  void addProfile(ReadProfile &prof, std::string file) {
+    readProfiles.push_back(prof);
+    logs.emplace(&readProfiles.back(), new std::ofstream(file));
+    counters.emplace(&readProfiles.back(), 0);
+    if (!logs[&readProfiles.back()]->good()) throw std::invalid_argument("Error opening file: " + file);
+    *(logs[&readProfiles.back()]) << "#" << readProfiles.back() << std::endl
         << '#' << p << std::endl;
   }
-  void clearRegexps() { regexps.clear(); }
+  void clearRegexps() { readProfiles.clear(); }
 
  protected:
   SimParams p;
-  std::vector<std::string> regexps;
-  std::map<std::string, int> counters;
-  std::map<std::string, std::ofstream *> logs;
+  std::vector<ReadProfile> readProfiles;
+  std::map<ReadProfile *, int> counters;
+  std::map<ReadProfile *, std::ofstream *> logs;
   gssw_graph *graph = NULL;
   int totalreads = 0;
 

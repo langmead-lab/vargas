@@ -13,7 +13,10 @@
 bool vargas::ReadFile::updateRead() {
   if (!readfile) throw std::invalid_argument("No readfile specified.");
   if (!std::getline(readfile, line)) return false;
-  if (line.at(0) == '#') return updateRead();
+  if (line.at(0) == '#') {
+    header += "\n" + line;
+    return updateRead();
+  }
   unsigned long delim = line.find('#');
   if (delim == std::string::npos) {
     read.read = line;

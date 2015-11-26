@@ -13,21 +13,19 @@
 #include "../include/readsim.h"
 
 bool vargas::ReadSim::updateRead() {
-  std::string full;
   if (!graph) throw std::invalid_argument("No graph assigned.");
-  if (regexps.size() > 0) {
+  if (readProfiles.size() > 0) {
     generateRead();
-    for (auto &regex : regexps) {
-      if (counters.at(regex) < p.maxreads) {
-        full = str();
-        if (std::regex_match(full.begin(), full.end(), std::regex(regex))) {
-          counters[regex]++;
+    for (auto &prof : readProfiles) {
+      if (counters.at(&prof) < p.maxreads) {
+        if (prof == read) {
+          counters[&prof]++;
           totalreads++;
-          *(logs[regex]) << full << std::endl;
+          *(logs[&prof]) << str() << std::endl;
           break;
         }
       }
-      if (totalreads >= regexps.size() * p.maxreads) return false;
+      if (totalreads >= readProfiles.size() * p.maxreads) return false;
     }
   }
   else generateRead();
@@ -116,11 +114,11 @@ void vargas::ReadSim::generateRead() {
 
       /* Insertion **/
       if (RAND > (100000 - (100000 * p.indelerr))) {
-        RAND = rand() % int32_t(100000 * p.muterr);
-        if (RAND < (100000 * p.muterr) / 4) mut = 'A';
-        else if (RAND < 2 * (100000 * p.muterr) / 4) mut = 'G';
-        else if (RAND < 3 * (100000 * p.muterr) / 4) mut = 'C';
-        else if (RAND < (100000 * p.muterr)) mut = 'T';
+        RAND = rand() % 100;
+        if (RAND < 25) mut = 'A';
+        else if (RAND < 50) mut = 'G';
+        else if (RAND < 75) mut = 'C';
+        else mut = 'T';
         readmut << mut;
       }
     }

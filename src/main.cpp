@@ -160,6 +160,7 @@ int align_main(const int argc, const char *argv[]) {
     g.align(reads.getRead(), align);
     std::cout << align << std::endl;
   }
+  std::cout << reads.getHeader() << std::endl;
 
   return 0;
 }
@@ -186,14 +187,22 @@ int sim_main(const int argc, const char *argv[]) {
   vargas::ReadSim sim(p);
   sim.setGraph(g);
 
-  std::string regexps;
-  if(args >> GetOpt::Option('e', "regex", regexps)) {
+  std::string profiles;
+  if (args >> GetOpt::Option('e', "profile", profiles)) {
     std::string prefix = "sim";
     args >> GetOpt::Option('p', "prefix", prefix);
 
-    std::vector<std::string> splitRegexps = split(regexps, ' ');
-    for (int i = 0; i < splitRegexps.size(); ++i) {
-      sim.addRegex(splitRegexps[i], prefix + std::to_string(i) + ".reads");
+    std::vector<std::string> splitProfiles = split(profiles, ' ');
+    std::vector<std::string> splitProf;
+    vargas::ReadProfile prof;
+    for (int i = 0; i < splitProfiles.size(); ++i) {
+      split(splitProfiles[i], ',', splitProf);
+      if (splitProf.size() != 4) throw std::invalid_argument("Profile must have 4 fields (" + splitProfiles[i] + ").");
+      prof.indiv = (splitProf[0] == "*") ? -1 : std::stoi(splitProf[0]);
+      prof.numSubErr = (splitProf[1] == "*") ? -1 : std::stoi(splitProf[1]);
+      prof.numVarNodes = (splitProf[2] == "*") ? -1 : std::stoi(splitProf[2]);
+      prof.numVarBases = (splitProf[3] == "*") ? -1 : std::stoi(splitProf[3]);
+      sim.addProfile(prof, prefix + std::to_string(i) + ".reads");
       while(sim.updateRead());
     }
 
@@ -247,14 +256,14 @@ void printSimHelp() {
   cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
   cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;
   cout << "-l\t--readlen       Nominal read length" << endl;
-  cout << "-e\t--regex         <r1 r2 .. r3> Match regex expressions, space delimited. Produces -n of each." << endl;
+  cout << "-e\t--profile       <p1 p2 .. p3> Match read profiles, space delimited. Produces -n of each." << endl;
   cout << "-p\t--prefix        Prefix to use for read files generated with -e" << endl;
   cout << "-r\t--randwalk      Random walk, read may change individuals at branches." << endl << endl;
 
-  cout << "NOTE: End of line anchor may not work in regex depending on C++ version. " << endl;
-  cout << "Reads are printed on stdout." << endl;
+  cout << "Read Profile format (use \'*\' for any): " << endl;
+  cout << "\tindiv,numSubErr,numVarNodes,numVarBases" << endl;
   cout << "Read Format:" << endl;
-  cout << "READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES" << endl << endl;
+  cout << "\tREAD#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES" << endl << endl;
 }
 void printAlignHelp() {
   using std::cout;

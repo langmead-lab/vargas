@@ -34,6 +34,8 @@ class ReadFile: public ReadSource {
   Read &getRead() { return read; }
   bool updateRead();
 
+  std::string getHeader() const { return header; }
+
  protected:
   std::string line;
   std::ifstream readfile;

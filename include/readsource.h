@@ -64,6 +64,9 @@ class ReadSource {
   // Get the current read object
   virtual Read &getRead() = 0;
 
+  // Get read file header
+  virtual std::string getHeader() const = 0;
+
   // Update the current read, return false if none are available
   virtual bool updateRead() = 0;
 
@@ -74,6 +77,7 @@ class ReadSource {
 
  protected:
   Read read;
+  std::string header = "";
 
 };
 
