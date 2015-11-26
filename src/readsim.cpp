@@ -89,39 +89,42 @@ void vargas::ReadSim::generateRead() {
 
   /** Mutate string **/
   for (uint32_t i = 0; i < read.length(); i++) {
-    RAND = rand() % 100000;
+    RAND = rand() % 1000;
     mut = read.at(i);
 
-    if (RAND < (100000 - (100000 * p.indelerr / 2))) { // represents del
-      /** Mutation **/
-      if (RAND < (100000 * p.muterr) / 4 && mut != 'A') {
+    // If its below (500*error), there's a deletion
+    if (RAND > 1000 * p.indelerr) {
+      // Substitution errors
+      if (RAND < 250 * p.muterr && mut != 'A') {
         mut = 'A';
         numSubErr++;
       }
-      else if (RAND < 2 * (100000 * p.muterr) / 4 && mut != 'G') {
+      else if (RAND < 500 * p.muterr && mut != 'G') {
         mut = 'G';
         numSubErr++;
       }
-      else if (RAND < 3 * (100000 * p.muterr) / 4 && mut != 'C') {
+      else if (RAND < 750 * p.muterr && mut != 'C') {
         mut = 'C';
         numSubErr++;
       }
-      else if (RAND < (100000 * p.muterr) && mut != 'T') {
+      else if (RAND < 1000 * p.muterr && mut != 'T') {
         mut = 'T';
         numSubErr++;
       }
       readmut << mut;
-
-      /* Insertion **/
-      if (RAND > (100000 - (100000 * p.indelerr))) {
-        RAND = rand() % 100;
-        if (RAND < 25) mut = 'A';
-        else if (RAND < 50) mut = 'G';
-        else if (RAND < 75) mut = 'C';
-        else mut = 'T';
-        readmut << mut;
-      }
     }
+
+    // Insertion
+    RAND = rand() % 1000;
+    if (RAND < 1000 * p.indelerr) {
+      RAND = rand() % 1000;
+      if (RAND < 250) mut = 'A';
+      else if (RAND < 500) mut = 'G';
+      else if (RAND < 750) mut = 'C';
+      else mut = 'T';
+      readmut << mut;
+    }
+
   }
 
   /** populate read info **/
