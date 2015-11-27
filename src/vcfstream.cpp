@@ -134,7 +134,9 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
         for (int c = 0; c < cn; ++c) splitTemp[i] += vrecord.ref;
       }
       if (splitTemp[i].find_first_not_of("ACGTN-") != std::string::npos) {
-        std::cerr << "Invalid character found at pos " << vrecord.pos << ": " << splitTemp[i] << std::endl;
+        std::cerr << "Invalid character found at pos " << vrecord.pos << ": " << splitTemp[i] << ". Ignoring record."
+            << std::endl;
+        return getRecord(vrecord);
       }
       vrecord.indivs.emplace(splitTemp[i].c_str(), altIndivs);
       if (validAF)
