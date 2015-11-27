@@ -94,21 +94,21 @@ void vargas::ReadSim::generateRead() {
     mut = read.at(i);
 
     // If its below (1000*error), there's a deletion
-    if (RAND > 1000f * p.indelerr) {
+    if (RAND > 1000.0 * p.indelerr) {
       // Substitution errors
-      if (RAND < 250f * p.muterr && mut != 'A') {
+      if (RAND < 250.0 * p.muterr && mut != 'A') {
         mut = 'A';
         numSubErr++;
       }
-      else if (RAND < 500f * p.muterr && mut != 'G') {
+      else if (RAND < 500.0 * p.muterr && mut != 'G') {
         mut = 'G';
         numSubErr++;
       }
-      else if (RAND < 750f * p.muterr && mut != 'C') {
+      else if (RAND < 750.0 * p.muterr && mut != 'C') {
         mut = 'C';
         numSubErr++;
       }
-      else if (RAND < 1000f * p.muterr && mut != 'T') {
+      else if (RAND < 1000.0 * p.muterr && mut != 'T') {
         mut = 'T';
         numSubErr++;
       }
@@ -117,7 +117,7 @@ void vargas::ReadSim::generateRead() {
 
     // Insertion
     RAND = rand() % 1000;
-    if (RAND < 1000f * p.indelerr) {
+    if (RAND < 1000.0 * p.indelerr) {
       RAND = rand() % 1000;
       if (RAND < 250) mut = 'A';
       else if (RAND < 500) mut = 'G';

@@ -132,6 +132,9 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
         splitTemp[i] = (cn == 0) ? "-" : "";
         for (int c = 0; c < cn; ++c) splitTemp[i] += vrecord.ref;
       }
+      if (splitTemp[i].find_first_not_of("ACGTN") != std::string::npos) {
+        std::cerr << "Invalid character found at pos " << vrecord.pos << ": " << splitTemp[i] << std::endl;
+      }
       vrecord.indivs.emplace(splitTemp[i].c_str(), altIndivs);
       if (validAF)
         vrecord.freqs.emplace(splitTemp[i].c_str(), std::stof(afSplit[i]));
