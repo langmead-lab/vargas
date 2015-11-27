@@ -216,16 +216,20 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
       nodestring = "";
     }
 
+    std::string faref = "";
     /** progress reference position past the ref that's stored in the variant file **/
     for (unsigned int i = 0; i < variantRecord.ref.length(); ++i) {
       reference.get(base);
       if (isspace(base)) {
         reference.get(base);
       }
-      if (variantRecord.ref.at(i) != base)
-        throw std::invalid_argument("VCF reference does not match at " + std::to_string(variantRecord.pos));
+      faref += base;
       currentRefPosition++;
     }
+    if (variantRecord.ref != faref)
+      throw std::invalid_argument(
+          "VCF reference does not match at " + std::to_string(variantRecord.pos) + ". REF: " + faref + ", VCF: "
+              + variantRecord.ref);
 
     /** Variants and ref **/
     numUnconnectedCurr = 0;
