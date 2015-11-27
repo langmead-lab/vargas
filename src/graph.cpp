@@ -54,12 +54,14 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
   /** Build nodes and edges from buildfile **/
   while (getline(graphDat, line)) {
     if (line.at(0) != '#') {
-      if (line.at(0) == '[' && params.includeIndividuals) {
-        // Add individuals to the last node
-        line = line.substr(1, line.length() - 2);
-        split(line, ',', lineSplit);
-        for (uint32_t i = 0; i < lineSplit.size(); i++) {
-          gssw_node_add_indiv(nodes.back(), std::stoi(lineSplit[i].c_str(), NULL, 10));
+      if (line.at(0) == '[') {
+        if (params.includeIndividuals) {
+          // Add individuals to the last node
+          line = line.substr(1, line.length() - 2);
+          split(line, ',', lineSplit);
+          for (uint32_t i = 0; i < lineSplit.size(); i++) {
+            gssw_node_add_indiv(nodes.back(), std::stoi(lineSplit[i].c_str(), NULL, 10));
+          }
         }
       } else {
         split(line, ',', lineSplit);
