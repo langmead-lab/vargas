@@ -69,6 +69,8 @@ class Graph {
     uint8_t gap_open = 3, gap_extension = 1; // default gap scores
     int8_t *nt_table = gssw_create_nt_table(); // Table of nt mappings
     int8_t *mat = gssw_create_score_matrix(match, mismatch); // table of scores
+
+    bool includeIndividuals = false;
   };
 
   /** Empty graph uses default parameters **/
@@ -152,6 +154,7 @@ class Graph {
     params.gap_open = go;
   }
   void setMaxAF(bool b) { params.maxAF = b; }
+  void useIndividuals(bool b) { params.includeIndividuals = b; }
 
  protected:
   GraphParams params;

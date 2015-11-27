@@ -54,7 +54,7 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
   /** Build nodes and edges from buildfile **/
   while (getline(graphDat, line)) {
     if (line.at(0) != '#') {
-      if (line.at(0) == '[') {
+      if (line.at(0) == '[' && params.includeIndividuals) {
         // Add individuals to the last node
         line = line.substr(1, line.length() - 2);
         split(line, ',', lineSplit);
