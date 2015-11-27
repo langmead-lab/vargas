@@ -78,6 +78,8 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
   split(splitRecord[fields.alt], ',', splitTemp);
   afSplit.clear();
 
+
+  //TODO flag to check in case of no AF found
   // Get the list of AF's
   split(splitRecord[fields.info], ';', afSplit);
   // Find and split the AF entry
@@ -86,7 +88,6 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
       split(e.substr(3), ',', afSplit);
       break;
     }
-    afSplit.clear();
   }
 
 
@@ -132,7 +133,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
         splitTemp[i] = (cn == 0) ? "-" : "";
         for (int c = 0; c < cn; ++c) splitTemp[i] += vrecord.ref;
       }
-      if (splitTemp[i].find_first_not_of("ACGTN") != std::string::npos) {
+      if (splitTemp[i].find_first_not_of("ACGTN-") != std::string::npos) {
         std::cerr << "Invalid character found at pos " << vrecord.pos << ": " << splitTemp[i] << std::endl;
       }
       vrecord.indivs.emplace(splitTemp[i].c_str(), altIndivs);
