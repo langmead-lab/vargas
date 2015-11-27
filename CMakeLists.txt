@@ -5,6 +5,8 @@ project("vargas")
 SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+INCLUDE_DIRECTORIES(gssw libb64 MaskedVByte)
+
 set(MAIN_SOURCES
         src/getopt_pp.cpp       # Argument parsing
         include/getopt_pp.h
@@ -25,6 +27,22 @@ set(GSSW_SOURCES
         gssw/src/gssw.h
         gssw/src/gssw.c # Main SSW aligner
         )
+
+set(VBYTE_SOURCES
+        MaskedVByte/unit.c
+        MaskedVByte/src/varintdecode.c
+        MaskedVByte/include/varintdecode.h
+        MaskedVByte/src/varintencode.c
+        MaskedVByte/include/varintencode.h
+        )
+
+set(B64_SOURCES
+        libb64/src/cdecode.c
+        libb64/src/cencode.c
+        libb64/include/encode.h
+        libb64/include/decode.h
+        libb64/include/cdecode.h
+        libb64/include/cencode.h)
 
 add_library(vargaslib ${MAIN_SOURCES})
 add_library(gsswlib ${GSSW_SOURCES})

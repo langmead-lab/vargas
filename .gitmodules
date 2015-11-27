@@ -4,3 +4,6 @@
 [submodule "test/googletest"]
 	path = test/googletest
 	url = https://github.com/google/googletest
+[submodule "MaskedVByte"]
+	path = MaskedVByte
+	url = https://github.com/lemire/MaskedVByte
