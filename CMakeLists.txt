@@ -5,7 +5,7 @@ project("vargas")
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-include_directories(gssw/include libb64/include MaskedVByte/include)
+include_directories(gssw/include libb64/include VByte/include)
 
 set(MAIN_SOURCES
         src/getopt_pp.cpp       # Argument parsing
@@ -31,11 +31,11 @@ set(GSSW_SOURCES
         )
 
 set(VBYTE_SOURCES
-        MaskedVByte/src/unit.c
-        MaskedVByte/src/varintdecode.c
-        MaskedVByte/include/varintdecode.h
-        MaskedVByte/src/varintencode.c
-        MaskedVByte/include/varintencode.h
+        VByte/src/unit.c
+        VByte/src/varintdecode.c
+        VByte/include/varintdecode.h
+        VByte/src/varintencode.c
+        VByte/include/varintencode.h
         )
 
 set(B64_SOURCES

@@ -14,8 +14,8 @@
 #define VARGAS_XCODER_H
 
 extern "C" {
-#include "../MaskedVByte/include/varintdecode.h"
-#include "../MaskedVByte/include/varintencode.h"
+#include "../VByte/include/varintdecode.h"
+#include "../VByte/include/varintencode.h"
 }
 #include "../libb64/include/encode.h"
 #include "../libb64/include/decode.h"
