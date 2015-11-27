@@ -219,10 +219,10 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
     std::string faref = "";
     /** progress reference position past the ref that's stored in the variant file **/
     for (unsigned int i = 0; i < variantRecord.ref.length(); ++i) {
-      reference.get(base);
-      if (isspace(base)) {
+      do {
         reference.get(base);
-      }
+      } while (isspace(base));
+
       faref += base;
       currentRefPosition++;
     }
