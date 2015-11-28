@@ -156,17 +156,17 @@ void vargas::vcfstream::createIngroup(int32_t percent, long seed) {
   if (percent == 100) {
     for (int i = fields.indivOffset; i < fields.numIndivs + fields.indivOffset; ++i) {
       ingroup.push_back(i);
-      std::sort(ingroup.begin(), ingroup.end());
     }
   }
   else if (percent == 0) {
     return;
-  } else {
-    for (int i = fields.indivOffset; i < fields.numIndivs + fields.indivOffset; ++i) {
-      if (rand() % 10000 < percent * 100) ingroup.push_back(i);
-    }
-    std::sort(ingroup.begin(), ingroup.end());
   }
+  else {
+    for (int i = fields.indivOffset; i < fields.numIndivs + fields.indivOffset; ++i) {
+      if (rand() % 10000 < percent * 10000) ingroup.push_back(i);
+    }
+  }
+  //TODO make sure gaurenteed to be sorted
 }
 
 void vargas::vcfstream::createComplementIngroup(std::vector<uint32_t> &vec) {
