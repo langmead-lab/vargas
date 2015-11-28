@@ -41,9 +41,8 @@ void split(const std::string &s, char delim, std::vector<std::string> &vec);
 
 inline void printEncodedVec(std::ostream &os, const std::vector<uint32_t> &vec, vargas::Xcoder &x) {
   if (vec.size() == 0) return;
-  os << '[';
+  os << ':';
   os << x.compressAndEncode(vec);
-  os << ']' << std::endl;
 }
 
 

@@ -62,10 +62,10 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
   /** Build nodes and edges from buildfile **/
   while (getline(graphDat, line)) {
     if (line.at(0) == '#') continue; // Commment line
-      if (line.at(0) == '[') {
+    if (line.at(0) == ':') {
         if (params.includeIndividuals) {
           // Add individuals to the last node
-          line = line.substr(1, line.length() - 2); // Remove brackets
+          line = line.substr(1); // Remove first indiv line marker
           dataLen = coder.decode(line, &data);
           throw std::invalid_argument("Individual support not fully implemented.");
         }
