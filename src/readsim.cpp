@@ -62,8 +62,8 @@ void vargas::ReadSim::generateRead() {
       if (node->count_next == 0) break;
       do {
         nodeCandidate = node->next[rand() % node->count_next];
-        valid = false;
         if (nodeCandidate->indivSize == 0) break;
+        valid = false;
         if (currIndiv < 0) {
           RAND = rand() % nodeCandidate->indivSize;
           currIndiv = nodeCandidate->indiv[RAND];

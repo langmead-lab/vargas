@@ -185,7 +185,7 @@ int sim_main(const int argc, const char *argv[]) {
   std::string buildfile;
   if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) throw std::invalid_argument("Buildfile required.");
   vargas::Graph g;
-  g.useIndividuals(true);
+  g.useIndividuals(!p.randWalk); // Don't need individuals if we're doing a random walk
   g.buildGraph(buildfile);
 
   vargas::ReadSim sim(p);
