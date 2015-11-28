@@ -76,7 +76,6 @@ class vcfstream {
   // Print a CSV of the ingroup individuals
   void printIngroup(std::ostream &os);
   // Update a record with the next filtered VCF line
-  friend vargas::vcfstream &operator>>(vcfstream &vstream, vcfrecord &vrec);
 
  protected:
   std::ifstream vcfFile; // source VCF file
@@ -111,8 +110,8 @@ class vcfstream {
   void initVCF();
   /**
    * Splits the currect record into a vector, including each diploid into haplotypes.
-   * i.e. indivOffset = individual 0 haplotype 0
-   *      indivOffset = individual 0 haplotype 1
+   * i.e. indivOffset[0] = individual 0 haplotype 0
+   *      indivOffset[1] = individual 0 haplotype 1
   **/
   void splitCurrentRecord();
 };

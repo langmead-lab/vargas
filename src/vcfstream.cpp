@@ -39,7 +39,7 @@ void vargas::vcfstream::initVCF() {
   if (fields.ref < 0) throw std::invalid_argument("ALT field not found.");
   if (fields.alt < 0) throw std::invalid_argument("REF field not found.");
   if (fields.info < 0) throw std::invalid_argument("INFO field not found.");
-  if (fields.format < 0) throw std::invalid_argument("Currently only supports files with unphased genotype data.");
+  if (fields.format < 0) throw std::invalid_argument("FORMAT field not found.");
 
   initilized = true;
 
@@ -147,10 +147,13 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
 }
 
 void vargas::vcfstream::createIngroup(int32_t percent, long seed) {
-  if (!initilized) {
-    throw std::invalid_argument("VCF file not provided.");
+
+  if (!initilized) throw std::invalid_argument("VCF file not provided.");
+
+  if (seed != 0) {
+    this->seed = seed;
+    srand(seed);
   }
-  if (seed != 0) this->seed = seed;
   ingroup.clear();
 
   if (percent == 100) {
@@ -166,7 +169,7 @@ void vargas::vcfstream::createIngroup(int32_t percent, long seed) {
       if (rand() % 10000 < percent * 10000) ingroup.push_back(i);
     }
   }
-  //TODO make sure gaurenteed to be sorted
+  //TODO make sure guaranteed to be sorted
 }
 
 void vargas::vcfstream::createComplementIngroup(std::vector<uint32_t> &vec) {
@@ -200,11 +203,6 @@ std::ostream &vargas::operator<<(std::ostream &os, const vargas::vcfrecord &vrec
     os << std::endl;
   }
   return os;
-}
-
-vargas::vcfstream &vargas::operator>>(vargas::vcfstream &vstream, vcfrecord &vrec) {
-  if (!vstream.getRecord(vrec)) throw std::out_of_range("No more records left.");
-  return vstream;
 }
 
 void vargas::vcfstream::printIngroup(std::ostream &os) {

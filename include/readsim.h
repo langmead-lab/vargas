@@ -90,7 +90,7 @@ class ReadSim: public ReadSource {
     setParams(param);
   }
   ~ReadSim() {
-    for (auto e : logs) {
+    for (auto &e : logs) {
       (*(e.second)).close();
       delete (e.second);
     }

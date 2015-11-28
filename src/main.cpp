@@ -28,12 +28,14 @@ int main(const int argc, const char *argv[]) {
       exit(export_main(argc, argv));
     }
   }
+
   GetOpt::GetOpt_pp args(argc, argv);
   if (args >> GetOpt::OptionPresent('h', "help")) {
     printMainHelp();
     exit(0);
   }
-  std::cerr << "Error: Please define a valid mode of operation. See options with -h." << std::endl;
+  std::cerr << "Error: Please define a valid mode of operation." << std::endl;
+  printMainHelp();
   exit(1);
 
 }
@@ -82,7 +84,6 @@ int build_main(const int argc, const char *argv[]) {
       // Ingroup
       fileName.str(std::string());
       fileName << ingrp << "In.build";
-      g.setComplement(false);
       g.exportBuildfile(REF, VCF, fileName.str());
 
       // Outgroup
@@ -92,6 +93,7 @@ int build_main(const int argc, const char *argv[]) {
         fileName << ingrp << "Out.build";
         g.setComplement(true);
         g.exportBuildfile(REF, VCF, fileName.str());
+        g.setComplement(false);
       }
 
     }

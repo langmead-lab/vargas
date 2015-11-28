@@ -44,16 +44,3 @@ TEST(vcfGetTest, getRecordNoRec) {
   v.getRecord(r);
   ASSERT_FALSE(v.getRecord(r));
 }
-
-TEST(vcfGetTest, getRecordTwoAlts) {
-  vargas::vcfstream v("data/v5");
-  vargas::vcfrecord r;
-  v >> r;
-  v >> r;
-  ASSERT_EQ(5, r.pos);
-  ASSERT_EQ("T", r.ref);
-//  ASSERT_EQ("G", r.indivs[0]);
-//  ASSERT_EQ("C", r.indivs[1]);
-  ASSERT_EQ(3, r.indivs.size());
-
-}

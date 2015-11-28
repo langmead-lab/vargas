@@ -53,7 +53,7 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
 
   /** Build nodes and edges from buildfile **/
   while (getline(graphDat, line)) {
-    if (line.at(0) != '#') {
+    if (line.at(0) == '#') continue; // Commment line
       if (line.at(0) == '[') {
         if (params.includeIndividuals) {
           // Add individuals to the last node
@@ -67,7 +67,7 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
         split(line, ',', lineSplit);
         switch (lineSplit.size()) {
           case 3: // New node
-            curr = uint32_t(strtol(lineSplit[1].c_str(), NULL, 10));
+            curr = uint32_t(strtoul(lineSplit[1].c_str(), NULL, 10));
             seq = (lineSplit[2] == "-") ? "" : lineSplit[2].c_str();
             nodes.push_back(gssw_node_create(int32_t(strtol(lineSplit[0].c_str(), NULL, 10)),
                                              curr,
@@ -84,11 +84,10 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
             break;
         }
       }
-    }
   }
 
   /** Add nodes to graph **/
-  graph = gssw_graph_create(uint32_t(nodes.size()));
+  graph = gssw_graph_create(nodes.size());
   for (auto &n : nodes) {
     gssw_graph_add_node(graph, n);
   }
@@ -151,16 +150,14 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
   buildout << "##Graph params: "
       << "Max Node Len: " << params.maxNodeLen
       << ", Use max AF? " << params.maxAF;
-  if (params.region.length() > 0)
-    buildout << ", Region: " << params.region;
-  if (params.genComplement)
-    buildout << ", Complement source: " << params.complementSource;
-  else
-    buildout << ", In-group Percent: " << params.ingroup;
+  if (params.region.length() > 0) buildout << ", Region: " << params.region;
+  if (params.genComplement) buildout << ", Complement source: " << params.complementSource;
+  else buildout << ", In-group Percent: " << params.ingroup;
   buildout << endl;
 
 
   /** Go to minimum position **/
+  //TODO this can be made faster
   uint32_t currentRefPosition = 0;
   char base;
   if (minpos > 0) {
