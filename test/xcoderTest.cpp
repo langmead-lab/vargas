@@ -9,7 +9,7 @@ TEST(xcoder, basic) {
   srand(time(NULL));
 
   std::vector<uint32_t> dat, dat2;
-  uint32_t N = 100000;
+  uint32_t N = 1000;
 
   for (int i = 0; i < N; ++i) {
     dat.push_back(rand() & 100000);
@@ -18,6 +18,7 @@ TEST(xcoder, basic) {
   vargas::Xcoder x;
 
   std::string ec = x.compressAndEncode(dat);
+  std::cout << std::endl << ec << std::endl;
 
   uint8_t *out = NULL;
   size_t decodeLen = x.decode(ec, &out);
