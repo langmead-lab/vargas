@@ -77,7 +77,7 @@ int build_main(const int argc, const char *argv[]) {
 
     // Gen a set of ingroup build files
     std::stringstream fileName;
-    for (auto &ingrp : setSplit) {
+  for (auto ingrp : setSplit) {
       // Generates a buildfile for all % ingroup specified, as well as the outgroup buildfiles
       g.setIngroup(stoi(ingrp));
 

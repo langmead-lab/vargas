@@ -60,7 +60,7 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
           line = line.substr(1, line.length() - 2);
           split(line, ',', lineSplit);
           for (uint32_t i = 0; i < lineSplit.size(); i++) {
-            gssw_node_add_indiv(nodes.back(), std::stoi(lineSplit[i].c_str(), NULL, 10));
+            gssw_node_add_indiv(nodes.back(), std::stoi(lineSplit[i], NULL, 10));
           }
         }
       } else {
@@ -110,7 +110,7 @@ void vargas::Graph::generateIngroup(vcfstream &variants) {
     vector<string> inputGroup = split(inputGroupLine, ',');
     vector<uint32_t> inputGroupIndivs(0);
     for (uint32_t i = 0; i < inputGroup.size(); i++) {
-      inputGroupIndivs.push_back(uint32_t(atoi(inputGroup.at(i).c_str())));
+      inputGroupIndivs.push_back(std::stoul(inputGroup.at(i)));
     }
     variants.createComplementIngroup(inputGroupIndivs);
     complementSource.close();
@@ -205,7 +205,7 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
 
     /** If there is space between the variants, add a new node **/
     if (nodestring.length() > 0) {
-      buildout << currentRefPosition << "," << nodenum << "," << nodestring.c_str() << endl;
+      buildout << currentRefPosition << "," << nodenum << "," << nodestring << endl;
         /** Connect to all of the previous alt/ref nodes **/
       for (int i = 0; i < numUnconnectedPrev; ++i) {
         buildout << -2 - i << "," << -1 << endl;
@@ -346,8 +346,8 @@ void vargas::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max
       *min = 0;
       *max = UINT32_MAX;
     } else {
-      *min = (uint32_t) std::stoi(region_split[0].c_str());
-      *max = (uint32_t) std::atoi(region_split[1].c_str());
+      *min = (uint32_t) std::stoi(region_split[0]);
+      *max = (uint32_t) std::stoi(region_split[1]);
     }
   } else {
     *min = 0;

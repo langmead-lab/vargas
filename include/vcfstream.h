@@ -47,6 +47,7 @@ class vcfstream {
   }
   ~vcfstream() {
     vcfFile.close();
+    initilized = false;
   }
 
   void open(std::string filename) {

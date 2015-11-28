@@ -72,7 +72,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
   }
   splitCurrentRecord();
   vrecord.pos = std::stoul(splitRecord[fields.pos]);
-  vrecord.ref = splitRecord[fields.ref].c_str();
+  vrecord.ref = splitRecord[fields.ref];
   vrecord.indivs.clear();
   vrecord.freqs.clear();
   split(splitRecord[fields.alt], ',', splitTemp);
@@ -127,10 +127,12 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
         if (std::binary_search(ingroup.begin(), ingroup.end(), d)) altIndivs.push_back(d);
       }
     }
+    // Atleast one of the ingroup has the allele
     if (altIndivs.size() > 0) {
+      // Check for copy number
       if (splitTemp[i].substr(0, 3) == "<CN") {
         int cn = std::stoi(splitTemp[i].substr(3, splitTemp[i].length() - 4));
-        splitTemp[i] = (cn == 0) ? "-" : "";
+        splitTemp[i] = (cn == 0) ? "-" : ""; // A dash is an empty allele
         for (int c = 0; c < cn; ++c) splitTemp[i] += vrecord.ref;
       }
       if (splitTemp[i].find_first_not_of("ACGTN-") != std::string::npos) {
@@ -139,8 +141,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
         return getRecord(vrecord);
       }
       vrecord.indivs.emplace(splitTemp[i].c_str(), altIndivs);
-      if (validAF)
-        vrecord.freqs.emplace(splitTemp[i].c_str(), std::stof(afSplit[i]));
+      if (validAF) vrecord.freqs.emplace(splitTemp[i].c_str(), std::stof(afSplit[i]));
     }
   }
   return true;
@@ -166,7 +167,7 @@ void vargas::vcfstream::createIngroup(int32_t percent, long seed) {
   }
   else {
     for (int i = fields.indivOffset; i < fields.numIndivs + fields.indivOffset; ++i) {
-      if (rand() % 10000 < percent * 10000) ingroup.push_back(i);
+      if (rand() % 10000 < percent * 100) ingroup.push_back(i);
     }
   }
   //TODO make sure guaranteed to be sorted
