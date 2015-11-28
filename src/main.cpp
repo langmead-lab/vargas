@@ -34,7 +34,7 @@ int main(const int argc, const char *argv[]) {
     printMainHelp();
     exit(0);
   }
-  std::cerr << "Error: Please define a valid mode of operation." << std::endl;
+  std::cerr << "Define a valid mode of operation." << std::endl;
   printMainHelp();
   exit(1);
 
@@ -222,7 +222,8 @@ int sim_main(const int argc, const char *argv[]) {
 void printMainHelp() {
   using std::cout;
   using std::endl;
-  cout << endl << "---------------------- VMatch, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
+  cout << endl
+      << "---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
   cout << "Operating modes \'vargas MODE\':" << endl;
   cout << "\tbuild     Generate graph build file from reference and VCF files." << endl;
   cout << "\tsim       Simulate reads from a graph." << endl;
@@ -232,8 +233,8 @@ void printMainHelp() {
 void printBuildHelp() {
   using std::cout;
   using std::endl;
-  cout << endl << "------------------- VMatch build, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" <<
-      endl;
+  cout << endl
+      << "------------------- vargas build, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
   cout << "-v\t--vcf           (required) VCF file, uncompressed." << endl;
   cout << "-r\t--ref           (required) reference, single record FASTA" << endl;
   cout << "-l\t--maxlen        Maximum node length" << endl;
@@ -243,18 +244,23 @@ void printBuildHelp() {
       << endl;
   cout << "-c\t--complement    <graph.build> Generate a complement of all graphs in -s" << endl;
 
-  cout << endl << "Buildfile is output to [s][In/Out].build" << endl << endl;
+
+  cout << endl << "--maxref is applied after ingroup filter" << endl;
+  cout << "Buildfile is output to [s][In/Out].build" << endl << endl;
 }
 void printExportHelp() {
-  std::cout << std::endl << "------------------- VMatch export, " << __DATE__
-      << ". rgaddip1@jhu.edu -------------------" << std::endl;
-  std::cout << "-b\t--buildfile    (required) Graph to export to DOT." << std::endl;
-  std::cout << std::endl << "DOT file printed to stdout." << std::endl << std::endl;
+  using std::cout;
+  using std::endl;
+  cout << endl
+      << "------------------ vargas export, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
+  cout << "-b\t--buildfile    (required) Graph to export to DOT." << endl;
+  cout << endl << "DOT file printed to stdout." << endl << endl;
 }
 void printSimHelp() {
   using std::cout;
   using std::endl;
-  cout << endl << "------------------- VMatch sim, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
+  cout << endl
+      << "-------------------- vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------" << endl;
   cout << "-b\t--buildfile     quick rebuild file, generate with vargas build" << endl;
   cout << "-n\t--numreads      Number of reads to simulate" << endl;
   cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
@@ -272,7 +278,8 @@ void printSimHelp() {
 void printAlignHelp() {
   using std::cout;
   using std::endl;
-  cout << endl << "------------------- VMatch align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
+  cout << endl
+      << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
   cout << "-b\t--buildfile     Quick rebuild file." << endl;
   cout << "-m\t--match         Match score, default  " << 2 << endl;
   cout << "-n\t--mismatch      Mismatch score, default " << 2 << endl;
@@ -283,8 +290,8 @@ void printAlignHelp() {
   cout << endl << "Alignments output to stdout. Reads read from stdin or -r, 1 per line." << endl;
   cout << "Lines beginning with \'#\' are ignored." << endl;
   cout << "Output format:" << endl;
-  cout << "READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE," << endl;
-  cout << "SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH" << endl << endl;
-  cout << "ALIGNMENT_MATCH: 0- optimal match, 1- suboptimal match, 2- no match" << endl << endl;
+  cout << "\tREAD,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE," << endl;
+  cout << "\tSUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH" << endl << endl;
+  cout << "ALIGNMENT_MATCH:\n\t0- optimal match, 1- suboptimal match, 2- no match" << endl << endl;
 
 }
