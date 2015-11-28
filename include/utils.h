@@ -17,6 +17,7 @@
 #include <fstream>
 #include "getopt_pp.h"
 #include "../gssw/src/gssw.h"
+#include "xcoder.h"
 
 /// <summary>
 /// Splits the specified string, resets elems and returns with split string.
@@ -38,14 +39,10 @@ std::vector<std::string> split(const std::string &s, char delim);
 void split(const std::string &s, char delim, std::vector<std::string> &vec);
 
 
-template<typename T>
-inline void printVec(std::ostream &os, const std::vector<T> &vec) {
+inline void printEncodedVec(std::ostream &os, const std::vector<uint32_t> &vec, vargas::Xcoder &x) {
   if (vec.size() == 0) return;
   os << '[';
-  for (int i = 0; i < vec.size(); ++i) {
-    os << vec[i];
-    if (i < vec.size() - 1) os << ',';
-  }
+  os << x.compressAndEncode(vec);
   os << ']' << std::endl;
 }
 

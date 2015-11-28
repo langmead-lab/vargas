@@ -54,17 +54,20 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
   vector<gssw_node *> nodes(0);
   uint32_t curr = 0;
 
+  vargas::Xcoder coder; // Used to store individuals
+
+  uint8_t *data = NULL;
+  size_t dataLen;
+
   /** Build nodes and edges from buildfile **/
   while (getline(graphDat, line)) {
     if (line.at(0) == '#') continue; // Commment line
       if (line.at(0) == '[') {
         if (params.includeIndividuals) {
           // Add individuals to the last node
-          line = line.substr(1, line.length() - 2);
-          split(line, ',', lineSplit);
-          for (uint32_t i = 0; i < lineSplit.size(); i++) {
-            gssw_node_add_indiv(nodes.back(), std::stoi(lineSplit[i], NULL, 10));
-          }
+          line = line.substr(1, line.length() - 2); // Remove brackets
+          dataLen = coder.decode(line, &data);
+          throw std::invalid_argument("Individual support not fully implemented.");
         }
       } else {
         split(line, ',', lineSplit);
@@ -134,6 +137,8 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
   using std::vector;
   using std::endl;
   using std::string;
+
+  vargas::Xcoder encoder; // Used for compressing individual list
 
   // Get region
   uint32_t minpos, maxpos;
@@ -252,7 +257,7 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
       nodenum++;
       numUnconnectedCurr++;
       // Print individuals that have the maxAF allele
-      printVec<uint32_t>(buildout, variantRecord.indivs[maxAFAllele]);
+      printEncodedVec(buildout, variantRecord.indivs[maxAFAllele], encoder);
 
     } else {
       for (auto &var : variantRecord.indivs) {
@@ -260,7 +265,7 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
         nodenum++;
         numUnconnectedCurr++;
         // Print individuals that have this variant
-        printVec<uint32_t>(buildout, var.second);
+        printEncodedVec(buildout, var.second, encoder);
       }
     }
 

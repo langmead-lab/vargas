@@ -12,7 +12,7 @@
 #include "../include/xcoder.h"
 
 
-size_t vargas::Xcoder::compress(uint32_t *data, size_t length, uint8_t **out) {
+size_t vargas::Xcoder::compress(const uint32_t *data, size_t length, uint8_t **out) {
   if (length <= 0 || *out != NULL) return 0;
   uint8_t *tmp = (uint8_t *) malloc(length * sizeof(uint32_t));
   size_t len = vbyte_encode(data, length, tmp);
@@ -38,7 +38,7 @@ size_t vargas::Xcoder::inflate(const uint8_t *data, size_t length, uint32_t **ou
 }
 
 
-size_t vargas::Xcoder::compress(std::vector<uint32_t> &vec, uint8_t **out) {
+size_t vargas::Xcoder::compress(const std::vector<uint32_t> &vec, uint8_t **out) {
   return compress(vec.data(), vec.size(), out);
 }
 
@@ -57,7 +57,7 @@ size_t vargas::Xcoder::inflate(const uint8_t *data, size_t length, std::vector<u
 std::string vargas::Xcoder::encode(const uint8_t *data, size_t len) {
   std::stringstream s, o;
   for (int i = 0; i < len; ++i) {
-    s.put(char(data[i]));
+    s.put(data[i]);
   };
   s.seekg(0);
   encode(s, o);
@@ -82,6 +82,21 @@ size_t vargas::Xcoder::decode(std::string &in, uint8_t **out) {
 
   return N;
 }
+
+
+std::string vargas::Xcoder::compressAndEncode(const std::vector<uint32_t> &vec) {
+  if (vec.size() == 0) return "";
+
+  uint8_t *compressed = NULL;
+  size_t len = compress(vec, &compressed);
+  std::string s = encode(compressed, len);
+
+  free(compressed);
+
+  return s;
+}
+
+
 
 bool vargas::Xcoder::testCompression(std::vector<uint32_t> vec) {
   if (vec.size() == 0) return false;
