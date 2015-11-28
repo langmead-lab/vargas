@@ -132,8 +132,8 @@ class Graph {
   void buildGraph(std::istream &buildfile);
 
   /** Align to the graph **/
-  Alignment *align(Read &read);
-  void align(Read &r, Alignment &a);
+  Alignment *align(const Read &read);
+  void align(const Read &r, Alignment &a);
 
   /** Setters and getters **/
   gssw_graph *getGSSWGraph() const { return graph; }

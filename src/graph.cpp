@@ -296,14 +296,14 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
 }
 
 
-vargas::Alignment *vargas::Graph::align(vargas::Read &r) {
+vargas::Alignment *vargas::Graph::align(const vargas::Read &r) {
   Alignment *align = new Alignment;
   Alignment &a = *align;
   vargas::Graph::align(r, a);
   return align;
 }
 
-void vargas::Graph::align(vargas::Read &r, vargas::Alignment &a) {
+void vargas::Graph::align(const vargas::Read &r, vargas::Alignment &a) {
   int32_t tol = r.read.length();
   gssw_graph_fill(graph, r.read.c_str(), params.nt_table, params.mat,
                   params.gap_open, params.gap_extension, tol, 2, r.readEnd);

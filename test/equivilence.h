@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <set>
 #include <iostream>
+#include <stdexcept>
 
 bool fileEquiv(std::string afile, std::string bfile, bool orderImp = false);
 bool fileEquiv(std::istream &a, std::istream &b, bool orderImp = false);

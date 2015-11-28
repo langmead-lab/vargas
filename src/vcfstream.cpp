@@ -169,7 +169,7 @@ void vargas::vcfstream::createIngroup(int32_t percent, long seed) {
   }
 }
 
-void vargas::vcfstream::createComplementIngroup(std::vector<uint32_t> vec) {
+void vargas::vcfstream::createComplementIngroup(std::vector<uint32_t> &vec) {
   std::sort(vec.begin(), vec.end());
   ingroup.clear();
   for (int i = fields.indivOffset; i < fields.numIndivs + fields.indivOffset; ++i) {

@@ -65,12 +65,12 @@ class vcfstream {
   // Create a random ingroup.
   void createIngroup(int32_t percent = 100, long seed = 0);
   // Define an ingroup
-  void createIngroup(std::vector<uint32_t> &vec) {
+  void createIngroup(const std::vector<uint32_t> &vec) {
     ingroup = vec;
     std::sort(ingroup.begin(), ingroup.end());
   };
   // Create a complement ingroup
-  void createComplementIngroup(std::vector<uint32_t> vec);
+  void createComplementIngroup(std::vector<uint32_t> &vec);
   // Return a copy of the ingroup
   std::vector<uint32_t> getIngroup() const { return ingroup; };
   // Print a CSV of the ingroup individuals
