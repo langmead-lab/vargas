@@ -100,16 +100,16 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
     validAF = false;
   }
 
+  //TODO can be made a lot faster by going through indivs and adding to alt/ref rather than searching each one
   // Add the reference node
   altIndivs.clear();
-  for (int d = fields.indivOffset; d < fields.numIndivs + fields.indivOffset; ++d) {
-    // a value of 0 indicates the reference, indiv 0 is the reference
-    if (std::stoi(splitRecord[d]) == 0) {
-      // Check if its in the ingroup
-      if (std::binary_search(ingroup.begin(), ingroup.end(), d)) altIndivs.push_back(d);
-    }
+  for (auto col : ingroup) {
+    // 0 indicates it has the ref allele
+    if (std::stoi(splitRecord[col]) == 0) altIndivs.push_back(col);
   }
   vrecord.indivs.emplace(vrecord.ref.c_str(), altIndivs);
+
+  // Freq of the ref allele
   if (validAF) {
     // Get the reference frequency
     double_t sumaltAF = 0;
@@ -122,14 +122,11 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
   // For each alternate allele
   for (int i = 0; i < splitTemp.size(); i++) {
     altIndivs.clear();
-    // For each individual, check if it is in the ingroup
-    for (int d = fields.indivOffset; d < fields.numIndivs + fields.indivOffset; ++d) {
-      // a value of 0 indicates the reference is used, i+1 gives the alt number.
-      if (std::stoi(splitRecord[d]) == i + 1) {
-        // Check if its in the ingroup
-        if (std::binary_search(ingroup.begin(), ingroup.end(), d)) altIndivs.push_back(d);
-      }
+    // For each indiv individual, check if it has the alt
+    for (auto col : ingroup) {
+      if (std::stoi(splitRecord[col]) == i + 1) altIndivs.push_back(col);
     }
+
     // Atleast one of the ingroup has the allele
     if (altIndivs.size() > 0) {
       // Check for copy number
@@ -139,7 +136,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
         for (int c = 0; c < cn; ++c) splitTemp[i] += vrecord.ref;
       }
       if (splitTemp[i].find_first_not_of("ACGTN-") != std::string::npos) {
-        std::cerr << "Invalid character found at pos " << vrecord.pos << ": " << splitTemp[i] << ". Ignoring record."
+        std::cerr << "Invalid allele found at pos " << vrecord.pos << ": " << splitTemp[i] << ". Ignoring record."
             << std::endl;
         return getRecord(vrecord);
       }
