@@ -46,6 +46,7 @@ struct Alignment {
   int8_t corflag;
 };
 
+
 inline std::ostream &operator<<(std::ostream &os, const Alignment &a) {
   os << a.read << ',' << a.optScore << ',' << a.optAlignEnd << ',' << a.optCount
       << ',' << a.subOptScore << ',' << a.subOptAlignEnd << ',' << a.subOptCount
@@ -53,11 +54,13 @@ inline std::ostream &operator<<(std::ostream &os, const Alignment &a) {
   return os;
 }
 
+
 class Graph {
+
 
  public:
 
-  // Struct defining the main parameters and options used when building a graph
+  /** Struct defining the main parameters and options used when building a graph **/
   struct GraphParams {
     uint32_t maxNodeLen = 50000; // Maximum length of a single node graph
     int32_t ingroup = 100; // percent of individuals to include

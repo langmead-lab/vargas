@@ -8,7 +8,10 @@
  *
  * readfile.cpp
  */
+
+
 #include "../include/readfile.h"
+
 
 bool vargas::ReadFile::updateRead() {
   if (!readfile) throw std::invalid_argument("No readfile specified.");

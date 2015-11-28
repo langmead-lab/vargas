@@ -12,7 +12,9 @@
  * graph.cpp
  */
 
+
 #include "../include/graph.h"
+
 
 void vargas::Graph::exportDOT(std::ostream &out) const {
 
@@ -33,6 +35,7 @@ void vargas::Graph::exportDOT(std::ostream &out) const {
   }
   out << "}";
 }
+
 
 void vargas::Graph::buildGraph(std::istream &graphDat) {
 
@@ -94,6 +97,7 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
 
 }
 
+
 void vargas::Graph::generateIngroup(vcfstream &variants) {
   using std::string;
   using std::vector;
@@ -124,6 +128,7 @@ void vargas::Graph::generateIngroup(vcfstream &variants) {
     variants.createIngroup(100);
   }
 }
+
 
 void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants, std::ostream &buildout) {
   using std::vector;
@@ -217,7 +222,7 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
     }
 
     std::string faref = "";
-    /** progress reference position past the ref that's stored in the variant file **/
+    /** progress reference file position past the ref that's stored in the variant file **/
     for (unsigned int i = 0; i < variantRecord.ref.length(); ++i) {
       do {
         reference.get(base);
@@ -301,10 +306,13 @@ vargas::Alignment *vargas::Graph::align(const vargas::Read &r) {
   return align;
 }
 
+
 void vargas::Graph::align(const vargas::Read &r, vargas::Alignment &a) {
   int32_t tol = r.read.length();
   gssw_graph_fill(graph, r.read.c_str(), params.nt_table, params.mat,
                   params.gap_open, params.gap_extension, tol, 2, r.readEnd);
+
+  // Absolute alignment positions
   a.optAlignEnd = graph->max_node->data + 1 - graph->max_node->len + graph->max_node->alignment->ref_end;
   a.subOptAlignEnd = graph->submax_node->data + 1 - graph->submax_node->len + graph->submax_node->alignment->ref_end;
 
@@ -322,6 +330,7 @@ void vargas::Graph::align(const vargas::Read &r, vargas::Alignment &a) {
   a.read = r;
 }
 
+
 void vargas::Graph::exportBuildfile(std::string ref, std::string vcf, std::string build) {
   std::ifstream r(ref);
   vcfstream v(vcf);
@@ -337,6 +346,7 @@ void vargas::Graph::exportBuildfile(std::string ref, std::string vcf, std::strin
   }
   r.close();
 }
+
 
 void vargas::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max) {
   std::vector<std::string> region_split(0);

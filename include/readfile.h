@@ -22,6 +22,7 @@
 namespace vargas {
 
 class ReadFile: public ReadSource {
+
  public:
   ReadFile() { }
   ReadFile(std::string file) {
@@ -31,10 +32,11 @@ class ReadFile: public ReadSource {
   ~ReadFile() {
     if (readfile) readfile.close();
   }
+
   Read &getRead() { return read; }
   bool updateRead();
-
   std::string getHeader() const { return header; }
+
 
  protected:
   std::string line;

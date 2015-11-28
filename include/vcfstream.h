@@ -35,9 +35,8 @@ struct vcfrecord {
 // For printing a record
 std::ostream &operator<<(std::ostream &os, const vcfrecord &vrec);
 
-/**
- * Handles a VCF and parses the results. Filters variants based on the ingroup.
- */
+
+/* Handles a VCF and parses the results. Filters variants based on the ingroup. */
 class vcfstream {
 
  public:
@@ -49,6 +48,7 @@ class vcfstream {
     vcfFile.close();
     initilized = false;
   }
+
 
   void open(std::string filename) {
     close();

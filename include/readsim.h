@@ -57,6 +57,7 @@ inline std::ostream &operator<<(std::ostream &os, const ReadProfile &p) {
   return os;
 }
 
+
 struct SimParams {
   time_t seed = time(NULL);
   bool randWalk = false;
@@ -76,8 +77,11 @@ inline std::ostream &operator<<(std::ostream &os, const SimParams &p) {
   return os;
 }
 
+
 class ReadSim: public ReadSource {
+
  public:
+
   ReadSim() {
     srand(p.seed);
   }
@@ -95,6 +99,7 @@ class ReadSim: public ReadSource {
       delete (e.second);
     }
   }
+
   void setGraph(Graph &g) {
     graph = g.getGSSWGraph();
   }
@@ -134,7 +139,9 @@ class ReadSim: public ReadSource {
   }
   void clearRegexps() { readProfiles.clear(); }
 
+
  protected:
+
   SimParams p;
   std::vector<ReadProfile> readProfiles;
   std::map<ReadProfile *, int> counters;

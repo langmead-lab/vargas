@@ -9,7 +9,9 @@
  * vcfstream.cpp
  */
 
+
 #include "../include/vcfstream.h"
+
 
 void vargas::vcfstream::initVCF() {
   // Skip the comments
@@ -47,6 +49,7 @@ void vargas::vcfstream::initVCF() {
   createIngroup(100);
 
 }
+
 
 void vargas::vcfstream::splitCurrentRecord() {
   split(currentRecord, '\t', splitTemp);
@@ -147,6 +150,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
   return true;
 }
 
+
 void vargas::vcfstream::createIngroup(int32_t percent, long seed) {
 
   if (!initilized) throw std::invalid_argument("VCF file not provided.");
@@ -173,6 +177,7 @@ void vargas::vcfstream::createIngroup(int32_t percent, long seed) {
   //TODO make sure guaranteed to be sorted
 }
 
+
 void vargas::vcfstream::createComplementIngroup(std::vector<uint32_t> &vec) {
   std::sort(vec.begin(), vec.end());
   ingroup.clear();
@@ -181,6 +186,7 @@ void vargas::vcfstream::createComplementIngroup(std::vector<uint32_t> &vec) {
   }
   std::sort(ingroup.begin(), ingroup.end());
 }
+
 
 std::ostream &vargas::operator<<(std::ostream &os, const vargas::vcfrecord &vrec) {
   os << "POS: " << vrec.pos << std::endl;
@@ -205,6 +211,7 @@ std::ostream &vargas::operator<<(std::ostream &os, const vargas::vcfrecord &vrec
   }
   return os;
 }
+
 
 void vargas::vcfstream::printIngroup(std::ostream &os) {
   os << "#";

@@ -10,7 +10,9 @@
  * readsim.cpp
  */
 
+
 #include "../include/readsim.h"
+
 
 bool vargas::ReadSim::updateRead() {
   if (!graph) throw std::invalid_argument("No graph assigned.");
@@ -31,6 +33,7 @@ bool vargas::ReadSim::updateRead() {
   else generateRead();
   return true;
 }
+
 
 void vargas::ReadSim::generateRead() {
   //TODO segfault when read length is too short

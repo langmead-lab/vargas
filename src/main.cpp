@@ -14,6 +14,7 @@
 
 int main(const int argc, const char *argv[]) {
 
+  try {
   if (argc > 1) {
     if (!strcmp(argv[1], "build")) {
       exit(build_main(argc, argv));
@@ -28,6 +29,10 @@ int main(const int argc, const char *argv[]) {
       exit(export_main(argc, argv));
     }
   }
+  } catch (std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    exit(1);
+  }
 
   GetOpt::GetOpt_pp args(argc, argv);
   if (args >> GetOpt::OptionPresent('h', "help")) {
@@ -39,6 +44,7 @@ int main(const int argc, const char *argv[]) {
   exit(1);
 
 }
+
 
 int build_main(const int argc, const char *argv[]) {
   std::string VCF = "", REF = "";
@@ -101,6 +107,7 @@ int build_main(const int argc, const char *argv[]) {
   return 0;
 }
 
+
 int export_main(const int argc, const char *argv[]) {
 
   GetOpt::GetOpt_pp args(argc, argv);
@@ -122,6 +129,7 @@ int export_main(const int argc, const char *argv[]) {
   }
   return 0;
 }
+
 
 int align_main(const int argc, const char *argv[]) {
   vargas::Graph g;
@@ -166,6 +174,7 @@ int align_main(const int argc, const char *argv[]) {
 
   return 0;
 }
+
 
 int sim_main(const int argc, const char *argv[]) {
   GetOpt::GetOpt_pp args(argc, argv);
@@ -219,6 +228,7 @@ int sim_main(const int argc, const char *argv[]) {
   return 0;
 }
 
+
 void printMainHelp() {
   using std::cout;
   using std::endl;
@@ -230,6 +240,8 @@ void printMainHelp() {
   cout << "\talign     Align reads to a graph." << endl;
   cout << "\texport    Export graph in DOT format." << endl << endl;
 }
+
+
 void printBuildHelp() {
   using std::cout;
   using std::endl;
@@ -248,6 +260,8 @@ void printBuildHelp() {
   cout << endl << "--maxref is applied after ingroup filter" << endl;
   cout << "Buildfile is output to [s][In/Out].build" << endl << endl;
 }
+
+
 void printExportHelp() {
   using std::cout;
   using std::endl;
@@ -256,6 +270,8 @@ void printExportHelp() {
   cout << "-b\t--buildfile    (required) Graph to export to DOT." << endl;
   cout << endl << "DOT file printed to stdout." << endl << endl;
 }
+
+
 void printSimHelp() {
   using std::cout;
   using std::endl;
@@ -275,6 +291,8 @@ void printSimHelp() {
   cout << "Read Format:" << endl;
   cout << "\tREAD#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES" << endl << endl;
 }
+
+
 void printAlignHelp() {
   using std::cout;
   using std::endl;

@@ -36,6 +36,7 @@ inline std::ostream &operator<<(std::ostream &os, const Read &r) {
   return os;
 }
 
+
 class ReadSource {
 
  public:
@@ -70,10 +71,11 @@ class ReadSource {
   // Update the current read, return false if none are available
   virtual bool updateRead() = 0;
 
-  std::ostream &operator<<(std::ostream &os) {
+  inline std::ostream &operator<<(std::ostream &os) {
     os << updateAndGet();
     return os;
   }
+
 
  protected:
   Read read;

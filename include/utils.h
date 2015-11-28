@@ -27,6 +27,7 @@
 /// <returns>Vector of split string.</returns>
 std::vector<std::string> split(const std::string &s, char delim);
 
+
 /// <summary>
 /// Splits the specified string, resets vec and returns with split string.
 /// </summary>
@@ -35,6 +36,7 @@ std::vector<std::string> split(const std::string &s, char delim);
 /// <param name="vec">Vector to store results in. Vector is cleared!</param>
 /// <returns>Vector of split string.</returns>
 void split(const std::string &s, char delim, std::vector<std::string> &vec);
+
 
 template<typename T>
 inline void printVec(std::ostream &os, const std::vector<T> &vec) {
