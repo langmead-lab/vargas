@@ -2,7 +2,7 @@
 Vargas uses gssw to align reads to a partial order graph without traceback. Alignment information is given as the ending position of the best score, as well as a suboptimal alignment score. There are four main modes of operation.
 
 ###Basic Structure
-All objects are in the vargas namespace with the exception of `utils.cpp`.
+All objects are in the vargas namespace with the exception of `utils` functions.
 
 `vcfstream.h` : vcfstream is a wrapper for a VCF file. It reads, parses, and filters the VCF file. Variants are provided
 in a VariantRecord struct. Individual variants not included in the ingroup are removed from the records. Associated allele
@@ -19,6 +19,8 @@ in a Read struct.
 `graph.h` : Contains facilities for building and aligning to a graph. A buildfile is first exported from a `vcfstream` and
 a `readsource`. Graphs are built in memory from the buildfile. Graph parameters are defined in a GraphParams struct.
 Alignments to the graph are done with `Graph.align(Read)` and returns with an Alignment struct.
+
+`xcoder.h` : Uses masked VByte compression and base64 encoding to reduce the size of the list of individuals for each variant.
 
 
 ###Modes of operation
@@ -126,3 +128,42 @@ To process a reads file and write the output to a file:
  `vargas align -b GRAPH -d READS > ALIGNMENTS`
  
 If the read contains `#` (as in the simulated reads), everything after it is stripped for alignment but preserved in the output.
+
+### File formats
+
+#### Buildfile
+
+The first line of the buildfile lists the individuals included in the graph, where each number represents the column of the individual. Each haplotype is its own column.
+
+Following lines beginning with `##` are comment lines and include information on the configuration used to make the buildfile.
+
+Each line consisting of 3 comma separated values represents a new node, with the format `End of node position, node number, node sequence`.
+
+Each line consisting of 2 comma separated values represents an edge relative to the nodes above it. E.g. `-2,-1` means there is an edge from the second to last node listed thus far in the buildfile to the most recently listed node.
+
+Each line beginning with a `:` is a base64 encoded, masked Vbyte compressed, list of numbers representing the individuals that possess the allele directly before it.
+
+Example:
+The reference `A` allele is in individual `9` and the `G` allele belongs to individual `10`.
+```
+  G
+ / \
+A   GA
+ \ /
+  T
+```
+
+```
+#9,10,
+##<Comments>
+1,0,G
+2,1,A
+:9       <-- This would be encoded
+2,2,GA
+:10      <-- This would be encoded
+-3,-2
+-3,-1
+3,3,T
+-3,-1
+-2,-1
+```
