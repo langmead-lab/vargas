@@ -90,6 +90,15 @@ ALIGNMENT_MATCH: 0- optimal match, 1- suboptimal match, 2- no matc
 DOT file printed to stdout.
 
 ```
+
+### Cloning the vargas repo
+
+When cloning, use the `--recursive` option to automatically retrieve dependencies.  For example:
+
+```
+git clone --recursive git@github.com:gaddra/vargas.git
+```
+
 ### Building vargas
 
 vargas is built with cmake.
