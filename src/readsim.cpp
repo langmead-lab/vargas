@@ -48,9 +48,9 @@ void vargas::ReadSim::generateRead() {
 
   /** initial random node and base **/
   do {
-    node = (*graph).nodes[rand() % ((*graph).size - 1)];
+    node = graph->nodes[rand() % graph->size];
   } while (node->len < 1);
-  base = rand() % (node->len);
+  base = rand() % node->len;
   if (node->indivCompressedSize > 0) {
     coder.inflate(node->indivCompressed, node->indivCompressedSize, individuals);
     currIndiv = individuals[rand() % individuals.size()];

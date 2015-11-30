@@ -13,7 +13,7 @@
 
 
 size_t vargas::Xcoder::compress(const uint32_t *data, size_t length, uint8_t **out) {
-  if (length <= 0 || *out != NULL) return 0;
+  if (length <= 0) return 0;
   uint8_t *tmp = (uint8_t *) malloc(length * sizeof(uint32_t));
   size_t len = vbyte_encode(data, length, tmp);
 
@@ -26,7 +26,7 @@ size_t vargas::Xcoder::compress(const uint32_t *data, size_t length, uint8_t **o
 
 
 size_t vargas::Xcoder::inflate(const uint8_t *data, size_t length, uint32_t **out) {
-  if (length <= 0 || *out != NULL) return 0;
+  if (length <= 0) return 0;
   uint32_t *tmp = (uint32_t *) malloc(length * sizeof(uint32_t));
   size_t len = masked_vbyte_decode_fromcompressedsize(data, tmp, length);
 
@@ -65,7 +65,7 @@ std::string vargas::Xcoder::encode(const uint8_t *data, size_t len) {
 }
 
 size_t vargas::Xcoder::decode(std::string &in, uint8_t **out) {
-  if (out == NULL || *out != NULL) return 0;
+  if (out == NULL) return 0;
 
   std::stringstream i(in), o;
   decode(i, o);
