@@ -70,8 +70,8 @@ READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES
 -b	--buildfile     Quick rebuild file.
 -m	--match         Match score, default  2
 -n	--mismatch      Mismatch score, default 2
--o	--gap_open      Gap opening score, default 3
--e	--gap_extend    Gap extend score, default 1
+-o	--gap_open      Gap opening penalty, default 3
+-e	--gap_extend    Gap extend penalty, default 1
 -r	--reads         Reads to align.
 
 Alignments output to stdout. Reads read from stdin or -r, 1 per line.
@@ -144,7 +144,7 @@ Each line consisting of 2 comma separated values represents an edge relative to 
 Each line beginning with a `:` is a base64 encoded, masked Vbyte compressed, list of numbers representing the individuals that possess the allele directly before it.
 
 Example:
-The reference `A` allele is in individual `9` and the `G` allele belongs to individual `10`.
+The reference `A` allele is in individual `9` and the `GA` allele belongs to individual `10`.
 ```
   G
  / \

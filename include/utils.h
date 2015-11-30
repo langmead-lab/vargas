@@ -18,6 +18,7 @@
 #include "getopt_pp.h"
 #include "../gssw/src/gssw.h"
 #include "xcoder.h"
+#include <boost/algorithm/string/split.hpp>
 
 /// <summary>
 /// Splits the specified string, resets elems and returns with split string.

@@ -301,8 +301,8 @@ void printAlignHelp() {
   cout << "-b\t--buildfile     Quick rebuild file." << endl;
   cout << "-m\t--match         Match score, default  " << 2 << endl;
   cout << "-n\t--mismatch      Mismatch score, default " << 2 << endl;
-  cout << "-o\t--gap_open      Gap opening score, default " << 3 << endl;
-  cout << "-e\t--gap_extend    Gap extend score, default " << 1 << endl;
+  cout << "-o\t--gap_open      Gap opening penalty, default " << 3 << endl;
+  cout << "-e\t--gap_extend    Gap extend penalty, default " << 1 << endl;
   cout << "-r\t--reads         Reads to align." << endl;
 
   cout << endl << "Alignments output to stdout. Reads read from stdin or -r, 1 per line." << endl;

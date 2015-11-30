@@ -54,6 +54,7 @@ add_library(gsswlib ${GSSW_SOURCES})
 
 add_executable(vargas include/main.h src/main.cpp)
 target_link_libraries(vargas vargaslib gsswlib vbytelib b64lib)
+
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
 # Global Options

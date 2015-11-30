@@ -100,7 +100,6 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
     validAF = false;
   }
 
-  //TODO can be made a lot faster by going through indivs and adding to alt/ref rather than searching each one
   // Add the reference node
   altIndivs.clear();
   for (auto col : ingroup) {
@@ -130,15 +129,17 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
     // Atleast one of the ingroup has the allele
     if (altIndivs.size() > 0) {
       // Check for copy number
-      if (splitTemp[i].substr(0, 3) == "<CN") {
-        int cn = std::stoi(splitTemp[i].substr(3, splitTemp[i].length() - 4));
-        splitTemp[i] = (cn == 0) ? "-" : ""; // A dash is an empty allele
-        for (int c = 0; c < cn; ++c) splitTemp[i] += vrecord.ref;
-      }
-      if (splitTemp[i].find_first_not_of("ACGTN-") != std::string::npos) {
-        std::cerr << "Invalid allele found at pos " << vrecord.pos << ": " << splitTemp[i] << ". Ignoring record."
-            << std::endl;
-        return getRecord(vrecord);
+      if (splitTemp[i].at(0) == '<') {
+        if (splitTemp[i].substr(1, 3) == "CN") {
+          int cn = std::stoi(splitTemp[i].substr(3, splitTemp[i].length() - 4));
+          splitTemp[i] = (cn == 0) ? "-" : ""; // A dash is an empty allele
+          for (int c = 0; c < cn; ++c) splitTemp[i] += vrecord.ref;
+        }
+        else {
+          std::cerr << "Invalid allele found at pos " << vrecord.pos << ": " << splitTemp[i] << ". Ignoring record."
+              << std::endl;
+          return getRecord(vrecord);
+        }
       }
       vrecord.indivs.emplace(splitTemp[i].c_str(), altIndivs);
       if (validAF) vrecord.freqs.emplace(splitTemp[i].c_str(), std::stof(afSplit[i]));
