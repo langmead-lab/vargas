@@ -42,6 +42,8 @@ void vargas::ReadSim::generateRead() {
   char mut;
   std::stringstream readmut;
   std::string read = "";
+  std::vector<uint32_t> individuals;
+  vargas::Xcoder coder;
   bool valid;
 
   /** initial random node and base **/
@@ -49,14 +51,15 @@ void vargas::ReadSim::generateRead() {
     node = (*graph).nodes[rand() % ((*graph).size - 1)];
   } while (node->len < 1);
   base = rand() % (node->len);
-  if (node->indivSize > 0) {
-    currIndiv = node->indiv[rand() % node->indivSize];
+  if (node->indivCompressedSize > 0) {
+    coder.inflate(node->indivCompressed, node->indivCompressedSize, individuals);
+    currIndiv = individuals[rand() % individuals.size()];
     numVarNodes++;
   }
 
   for (int i = 0; i < p.readLen; i++) {
     if (node->len != 0) read += node->seq[base];
-    if (node->indivSize > 0) numVarBases++;
+    if (node->indivCompressedSize > 0) numVarBases++;
     if (node->seq[base] == 'N') ambig++;
     base++;
 
@@ -64,23 +67,32 @@ void vargas::ReadSim::generateRead() {
     if (base == node->len) {
       if (node->count_next == 0) break;
       do {
+
         nodeCandidate = node->next[rand() % node->count_next];
-        if (nodeCandidate->indivSize == 0) break;
+        // Get the list of individuals for the node candidate
+        coder.inflate(nodeCandidate->indivCompressed, nodeCandidate->indivCompressedSize, individuals);
+
+        if (nodeCandidate->indivCompressedSize == 0) break; // A node common to all individuals is valid
+
         valid = false;
         if (currIndiv < 0) {
-          RAND = rand() % nodeCandidate->indivSize;
-          currIndiv = nodeCandidate->indiv[RAND];
+          // If we haven't already picked an individual
+          currIndiv = individuals[rand() % individuals.size()];
+          valid = true;
           break;
         }
-        for (int i = 0; i < nodeCandidate->indivSize; i++) {
-          if (p.randWalk || currIndiv == nodeCandidate->indiv[i]) {
+
+        // Check if the individual has this variant
+        for (int i = 0; i < individuals.size(); i++) {
+          if (p.randWalk || currIndiv == individuals[i]) {
             valid = true;
             break;
           }
         }
-      } while (node->indivSize == 0 || !valid);
+
+      } while (!valid);
       node = nodeCandidate;
-      if (node->indivSize > 0) numVarNodes++;
+      if (node->indivCompressedSize > 0) numVarNodes++;
       base = 0;
     }
   }

@@ -61,13 +61,14 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
 
   /** Build nodes and edges from buildfile **/
   while (getline(graphDat, line)) {
-    if (line.at(0) == '#') continue; // Commment line
+    if (line.at(0) == '#') continue; // skip comment line
     if (line.at(0) == ':') {
+      // Compressed individual data
         if (params.includeIndividuals) {
           // Add individuals to the last node
-          line = line.substr(1); // Remove first indiv line marker
-          dataLen = coder.decode(line, &data);
-          throw std::invalid_argument("Individual support not fully implemented.");
+          line = line.substr(1); // Remove indiv line marker
+          dataLen = coder.decode(line, &data); // Allocates data
+          gssw_node_set_indivs(nodes.back(), data, dataLen); // stores data pointer
         }
       } else {
         split(line, ',', lineSplit);
