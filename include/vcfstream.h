@@ -16,11 +16,11 @@
 #include <fstream>
 #include <stdexcept>
 #include <algorithm>
-#include "../include/utils.h"
 #include <vector>
 #include <map>
 #include <cstdlib>
 #include <string>
+#include "utils.h"
 
 namespace vargas {
 

@@ -11,12 +11,8 @@
 #ifndef VARGAS_UTILS_H
 #define VARGAS_UTILS_H
 
-#include <iostream>
 #include <vector>
 #include <sstream>
-#include <fstream>
-#include "getopt_pp.h"
-#include "../gssw/src/gssw.h"
 #include "xcoder.h"
 
 /// <summary>

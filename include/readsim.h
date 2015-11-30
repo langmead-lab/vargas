@@ -13,10 +13,10 @@
 #ifndef VARGAS_READSIM_H
 #define VARGAS_READSIM_H
 
-#include "graph.h"
-#include "readsource.h"
 #include <map>
 #include <random>
+#include "graph.h"
+#include "readsource.h"
 
 namespace vargas {
 

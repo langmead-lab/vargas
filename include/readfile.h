@@ -15,9 +15,9 @@
 #include <string>
 #include <fstream>
 #include <stdexcept>
-#include "readsource.h"
 #include <vector>
-#include "../include/utils.h"
+#include "readsource.h"
+#include "utils.h"
 
 namespace vargas {
 
