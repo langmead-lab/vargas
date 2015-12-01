@@ -27,6 +27,15 @@ struct ReadProfile {
   int32_t numVarNodes = -1;
   int32_t numVarBases = -1;
 
+  ReadProfile() { }
+
+  ReadProfile(const ReadProfile &p) {
+    indiv = p.indiv;
+    numSubErr = p.numSubErr;
+    numVarNodes = p.numVarNodes;
+    numVarBases = p.numVarBases;
+  }
+
   bool matches(Read r) {
     if (indiv >= 0 && r.indiv != indiv) return false;
     if (numSubErr >= 0 && r.numSubErr != numSubErr) return false;
@@ -97,6 +106,7 @@ class ReadSim: public ReadSource {
     for (auto &e : logs) {
       (*(e.second)).close();
       delete (e.second);
+      delete (e.first);
     }
   }
 
@@ -130,12 +140,14 @@ class ReadSim: public ReadSource {
 
   // Add a regex, generates maxreads of each
   void addProfile(ReadProfile &prof, std::string file) {
-    readProfiles.push_back(prof);
-    logs.emplace(&readProfiles.back(), new std::ofstream(file));
-    counters.emplace(&readProfiles.back(), 0);
-    if (!logs[&readProfiles.back()]->good()) throw std::invalid_argument("Error opening file: " + file);
-    *(logs[&readProfiles.back()]) << "#" << readProfiles.back() << std::endl
-        << '#' << p << std::endl;
+    ReadProfile *p = new ReadProfile(prof);
+    std::ofstream *os = new std::ofstream(file);
+    readProfiles.push_back(p);
+    logs[p] = os;
+    counters[p] = 0;
+    if (!os->good()) throw std::invalid_argument("Error opening file: " + file);
+    *(logs[p]) << "#" << (*p) << std::endl
+        << '#' << this->p << std::endl;
   }
   void clearRegexps() { readProfiles.clear(); }
 
@@ -143,7 +155,7 @@ class ReadSim: public ReadSource {
  protected:
 
   SimParams p;
-  std::vector<ReadProfile> readProfiles;
+  std::vector<ReadProfile *> readProfiles;
   std::map<ReadProfile *, int> counters;
   std::map<ReadProfile *, std::ofstream *> logs;
   gssw_graph *graph = NULL;

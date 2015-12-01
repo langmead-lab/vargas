@@ -18,12 +18,12 @@ bool vargas::ReadSim::updateRead() {
   if (!graph) throw std::invalid_argument("No graph assigned.");
   if (readProfiles.size() > 0) {
     generateRead();
-    for (auto &prof : readProfiles) {
-      if (counters.at(&prof) < p.maxreads) {
-        if (prof == read) {
-          counters[&prof]++;
+    for (auto prof : readProfiles) {
+      if (counters[prof] < p.maxreads) {
+        if (*prof == read) {
+          counters[prof]++;
           totalreads++;
-          *(logs[&prof]) << str() << std::endl;
+          *(logs[prof]) << str() << std::endl;
           break;
         }
       }

@@ -80,10 +80,9 @@ class Graph {
   Graph() { }
 
   /** Create a graph with given parameters **/
-  Graph(GraphParams p) {
-    if (p.nt_table == NULL) p.nt_table = gssw_create_nt_table();
-    if (p.mat == NULL) p.mat = gssw_create_score_matrix(p.match, p.mismatch);
-    params = p;
+  Graph(GraphParams p) : params(p) {
+    if (!params.nt_table) params.nt_table = gssw_create_nt_table();
+    if (!params.mat) params.mat = gssw_create_score_matrix(p.match, p.mismatch);
   }
 
   /** Exports a buildfile and builds a graph with given fasta and vcf **/

@@ -86,7 +86,6 @@ class vcfstream {
       splitRecord, // The entire split currentRecord
       splitDiploid; // Used to split haplotypes
   std::vector<uint32_t> ingroup; // List of all individuals in the ingroup. Should always be sorted
-  bool initilized = false;
 
   // Holds the locations of all of the fields in the VCF. Found during init.
   struct {
@@ -107,6 +106,8 @@ class vcfstream {
   long seed = time(NULL); // ingroup generation seed
   std::vector<std::string> afSplit;
   std::vector<uint32_t> altIndivs;
+  bool validAF = true;
+  bool initilized = false;
 
   void initVCF();
   /**

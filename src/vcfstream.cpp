@@ -94,7 +94,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
   }
 
 
-  bool validAF = true;
+  validAF = true;
   if (afSplit.size() != splitTemp.size()) {
     std::cerr << "Alternate and AF field lengths do not match at pos " << splitRecord[fields.pos] << ".\n";
     validAF = false;

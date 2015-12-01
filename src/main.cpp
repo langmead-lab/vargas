@@ -216,8 +216,8 @@ int sim_main(const int argc, const char *argv[]) {
       prof.numVarNodes = (splitProf[2] == "*") ? -1 : std::stoi(splitProf[2]);
       prof.numVarBases = (splitProf[3] == "*") ? -1 : std::stoi(splitProf[3]);
       sim.addProfile(prof, prefix + std::to_string(i) + ".reads");
-      while(sim.updateRead());
     }
+    while (sim.updateRead());
 
   } else {
     for (int i = 0; i < p.maxreads; ++i) {
