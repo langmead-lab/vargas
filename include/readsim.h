@@ -86,11 +86,11 @@ class ReadSim: public ReadSource {
     srand(p.seed);
   }
   ReadSim(Graph &g) {
-    ReadSim();
+    srand(p.seed);
     setGraph(g);
   }
   ReadSim(SimParams param) {
-    ReadSim();
+    srand(p.seed);
     setParams(param);
   }
   ~ReadSim() {

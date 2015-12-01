@@ -97,7 +97,7 @@ void vargas::ReadSim::generateRead() {
     }
   }
 
-  //Replace read if it has less than non-ambiguous/ half bases
+  //Replace read if it has less than half non-ambiguous bases
   if (ambig > p.readLen / 2 || read.length() < p.readLen / 2) {
     generateRead();
     return;
