@@ -199,11 +199,12 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
           throw std::range_error("End of ref found while looking for pos " + std::to_string(variantRecord.pos));
         }
       } while (isspace(base));
+      nodestring += base;
         currentRefPosition++;
 
       /** Max node length reached, split node **/
       if (nodestring.length() == params.maxNodeLen) {
-        buildout << currentRefPosition << "," << nodenum << "," << nodestring.c_str() << endl;
+        buildout << currentRefPosition << "," << nodenum << "," << nodestring << endl;
           /** Connect to all of the previous alt/ref nodes **/
         for (int i = 0; i < numUnconnectedPrev; ++i) {
           buildout << -2 - i << "," << -1 << endl;
@@ -214,7 +215,7 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
       }
     }
 
-    /** If there is space between the variants, add a new node **/
+    /** Make a node for the rest of the common string **/
     if (nodestring.length() > 0) {
       buildout << currentRefPosition << "," << nodenum << "," << nodestring << endl;
         /** Connect to all of the previous alt/ref nodes **/
