@@ -130,7 +130,7 @@ bool vargas::vcfstream::getRecord(vargas::vcfrecord &vrecord) {
     if (altIndivs.size() > 0) {
       // Check for copy number
       if (splitTemp[i].at(0) == '<') {
-        if (splitTemp[i].substr(1, 3) == "CN") {
+        if (splitTemp[i].substr(1, 2) == "CN") {
           int cn = std::stoi(splitTemp[i].substr(3, splitTemp[i].length() - 4));
           splitTemp[i] = (cn == 0) ? "-" : ""; // A dash is an empty allele
           for (int c = 0; c < cn; ++c) splitTemp[i] += vrecord.ref;
