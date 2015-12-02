@@ -12,7 +12,12 @@
  * graph.cpp
  */
 
-
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include "../include/utils.h"
 #include "../include/graph.h"
 
 

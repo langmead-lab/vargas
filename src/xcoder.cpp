@@ -9,6 +9,10 @@
  * xcoder.cpp
  */
 
+#include <stdexcept>
+#include <string.h>
+#include <vector>
+#include <sstream>
 #include "../include/xcoder.h"
 
 

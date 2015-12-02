@@ -9,7 +9,9 @@
  * vcfstream.cpp
  */
 
-
+#include <stdexcept>
+#include <vector>
+#include "../include/utils.h"
 #include "../include/vcfstream.h"
 
 

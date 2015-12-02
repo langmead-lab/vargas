@@ -9,7 +9,11 @@
  * readfile.cpp
  */
 
-
+#include <string>
+#include <fstream>
+#include <stdexcept>
+#include <vector>
+#include "../include/utils.h"
 #include "../include/readfile.h"
 
 

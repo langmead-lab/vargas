@@ -12,8 +12,7 @@
 #define VARGAS_UTILS_H
 
 #include <vector>
-#include <sstream>
-#include "xcoder.h"
+#include "../include/xcoder.h"
 
 /// <summary>
 /// Splits the specified string, resets elems and returns with split string.

@@ -9,22 +9,15 @@
  * main.h
  */
 
-#ifndef VARGAS_H
-#define VARGAS_H
-
-#include <string>
-#include <stdlib.h>
-#include <iostream>
-#include "getopt_pp.h"
-#include "graph.h"
-#include "readsim.h"
-#include "readfile.h"
+#ifndef VARGAS_MAIN_H
+#define VARGAS_MAIN_H
 
 // Operational modes
 int build_main(const int argc, const char *argv[]);
 int export_main(const int argc, const char *argv[]);
 int sim_main(const int argc, const char *argv[]);
 int align_main(const int argc, const char *argv[]);
+int stat_main(const int argc, const char *argv[]);
 
 // Program menus
 void printMainHelp();
@@ -32,5 +25,6 @@ void printBuildHelp();
 void printSimHelp();
 void printAlignHelp();
 void printExportHelp();
+void printStatHelp();
 
-#endif //VARGAS_H
+#endif //VARGAS_MAIN_H

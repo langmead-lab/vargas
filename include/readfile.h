@@ -12,12 +12,7 @@
 #ifndef VARGAS_READFILE_H
 #define VARGAS_READFILE_H
 
-#include <string>
-#include <fstream>
-#include <stdexcept>
-#include <vector>
 #include "readsource.h"
-#include "utils.h"
 
 namespace vargas {
 

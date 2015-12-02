@@ -12,15 +12,12 @@
 #ifndef VARGAS_VCFSTREAM_H
 #define VARGAS_VCFSTREAM_H
 
-#include <iostream>
-#include <fstream>
-#include <stdexcept>
-#include <algorithm>
-#include <vector>
-#include <map>
 #include <cstdlib>
-#include <string>
-#include "utils.h"
+#include <fstream>
+#include <algorithm>
+#include <iostream>
+#include <map>
+
 
 namespace vargas {
 

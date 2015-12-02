@@ -10,8 +10,11 @@
  * readsim.cpp
  */
 
-
+#include <map>
+#include <random>
+#include "../include/graph.h"
 #include "../include/readsim.h"
+#include "../include/xcoder.h"
 
 
 bool vargas::ReadSim::updateRead() {

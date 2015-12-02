@@ -18,10 +18,6 @@ extern "C" {
 #include "../VByte/include/varintencode.h"
 }
 
-#include <stdexcept>
-#include <string.h>
-#include <vector>
-#include <sstream>
 #include "../libb64/include/encode.h"
 #include "../libb64/include/decode.h"
 

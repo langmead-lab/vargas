@@ -15,16 +15,9 @@
 #ifndef VARGAS_GRAPH_H
 #define VARGAS_GRAPH_H
 
-#include <string>
-#include <fstream>
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include <stdexcept>
 #include "../gssw/src/gssw.h"
-#include "utils.h"
-#include "vcfstream.h"
 #include "readsource.h"
+#include "vcfstream.h"
 
 namespace vargas {
 

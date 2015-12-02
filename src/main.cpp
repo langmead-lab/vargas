@@ -9,7 +9,12 @@
  * main.cpp
  */
 
+#include "../include/getopt_pp.h"
+#include "../include/graph.h"
+#include "../include/readsim.h"
+#include "../include/readfile.h"
 #include "../include/main.h"
+#include "../include/utils.h"
 
 
 int main(const int argc, const char *argv[]) {
@@ -28,6 +33,9 @@ int main(const int argc, const char *argv[]) {
     else if (!strcmp(argv[1], "export")) {
       exit(export_main(argc, argv));
     }
+    else if (!strcmp(argv[1], "stat")) {
+      exit(stat_main(argc, argv));
+    }
   }
   } catch (std::exception &e) {
     std::cerr << e.what() << std::endl;
@@ -43,6 +51,64 @@ int main(const int argc, const char *argv[]) {
   printMainHelp();
   exit(1);
 
+}
+
+
+int stat_main(const int argc, const char *argv[]) {
+  std::string buildfile;
+
+  GetOpt::GetOpt_pp args(argc, argv);
+
+  if (args >> GetOpt::OptionPresent('h', "help")) {
+    printStatHelp();
+    return 0;
+  }
+
+  if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
+    std::cerr << "No buildfile specified" << std::endl;
+    return 1;
+  }
+
+  std::ifstream bf(buildfile);
+  if (!bf.good()) {
+    std::cerr << "Error opening buildfile" << std::endl;
+    return 1;
+  }
+
+  uint32_t numTotalNodes = 0, numVarNodes = 0, numEdges = 0;
+  std::string line;
+  std::vector<std::string> splitLine;
+
+  while (getline(bf, line)) {
+    if (line.at(0) == '#') continue;
+    if (line.at(0) == ':') {
+      numVarNodes++;
+      continue;
+    }
+    split(line, ',', splitLine);
+
+    switch (splitLine.size()) {
+      case 2:
+        numEdges++;
+        break;
+      case 3:
+        numTotalNodes++;
+        break;
+      default:
+        std::cerr << "Line split length of " << splitLine.size() << " unexpected." << std::endl << line << std::endl;
+        break;
+    }
+
+  }
+
+  std::cout << std::endl;
+  std::cout << buildfile << " counts:" << std::endl;
+  std::cout << "\tTotal number of nodes: " << numTotalNodes << std::endl;
+  std::cout << "\tNumber of variant nodes: " << numVarNodes << std::endl;
+  std::cout << "\tTotal number of edges: " << numEdges << std::endl;
+  std::cout << std::endl;
+
+  return 0;
 }
 
 
@@ -241,6 +307,7 @@ void printMainHelp() {
   cout << "\tbuild     Generate graph build file from reference and VCF files." << endl;
   cout << "\tsim       Simulate reads from a graph." << endl;
   cout << "\talign     Align reads to a graph." << endl;
+  cout << "\tstat      Count nodes and edges of a given graph." << endl;
   cout << "\texport    Export graph in DOT format." << endl << endl;
 }
 
@@ -317,5 +384,16 @@ void printAlignHelp() {
   cout << "\tREAD,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE," << endl;
   cout << "\tSUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH" << endl << endl;
   cout << "ALIGNMENT_MATCH:\n\t0- optimal match, 1- suboptimal match, 2- no match" << endl << endl;
+
+}
+
+
+void printStatHelp() {
+  using std::cout;
+  using std::endl;
+
+  cout << endl
+      << "------------------- vargas stat, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
+  cout << "-b\t--buildfile     Quick rebuild file." << endl << endl;
 
 }
