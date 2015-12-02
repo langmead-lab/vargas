@@ -177,6 +177,9 @@ int align_main(const int argc, const char *argv[]) {
 
 
 int sim_main(const int argc, const char *argv[]) {
+
+  //TODO this can be made more efficient by creating all lists of ingroups first, rather than parsing the input every single time
+
   GetOpt::GetOpt_pp args(argc, argv);
 
   if (args >> GetOpt::OptionPresent('h', "help")) {
@@ -252,7 +255,7 @@ void printBuildHelp() {
   cout << "-l\t--maxlen        Maximum node length" << endl;
   cout << "-R\t--region        <min:max> Ref region, inclusive. Default is the entire graph." << endl;
   cout << "-m\t--maxref        Generate a graph using alleles in the ingroup w/ the highest frequency." << endl;
-  cout << "-s\t--set           <#,#,..,#> Generate a buildfile for a list of ingroup %'s and their complements."
+  cout << "-s\t--set           <#,#,..,#> Generate a buildfile for a list of ingroup percents."
       << endl;
   cout << "-c\t--complement    <graph.build> Generate a complement of all graphs in -s" << endl;
 
@@ -296,13 +299,16 @@ void printSimHelp() {
 void printAlignHelp() {
   using std::cout;
   using std::endl;
+
+  vargas::Graph::GraphParams p;
+
   cout << endl
       << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
   cout << "-b\t--buildfile     Quick rebuild file." << endl;
-  cout << "-m\t--match         Match score, default  " << 2 << endl;
-  cout << "-n\t--mismatch      Mismatch score, default " << 2 << endl;
-  cout << "-o\t--gap_open      Gap opening penalty, default " << 3 << endl;
-  cout << "-e\t--gap_extend    Gap extend penalty, default " << 1 << endl;
+  cout << "-m\t--match         Match score, default  " << p.match << endl;
+  cout << "-n\t--mismatch      Mismatch score, default " << p.mismatch << endl;
+  cout << "-o\t--gap_open      Gap opening penalty, default " << p.gap_open << endl;
+  cout << "-e\t--gap_extend    Gap extend penalty, default " << p.gap_extension << endl;
   cout << "-r\t--reads         Reads to align." << endl;
 
   cout << endl << "Alignments output to stdout. Reads read from stdin or -r, 1 per line." << endl;

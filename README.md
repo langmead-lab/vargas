@@ -121,6 +121,8 @@ export PATH=${PWD}/bin:$PATH
  
  `vargas build -r REF.fa -v VAR.vcf -R a:b -s 50 -c > GRAPH.build`
  
+ Generating buildfiles is somewhat slow right now (cause TBD, file IO maybe?).
+ 
 ### Simulating reads
  
  Reads can be simulated with `vargas sim`. Mutation error and Indel errors can be introduced (default 0%).
@@ -128,7 +130,9 @@ export PATH=${PWD}/bin:$PATH
  
  `vargas sim -b GRAPH -n 1000 -l 100 -m 0.01 -i 0.01 > SIMREADS`
  
- To target certain kinds of reads, a list of space delimited regular expressions can be provided with `-e`. `-n` reads will be genereated for each regular expression. Any reads that do not match the expression will be discarded.
+ To target certain kinds of reads, a list of space delimited regular expressions can be provided with `-e`. `-n` reads will be generated for each regular expression. Any reads that do not match the expression will be discarded.
+ 
+ Note simulating reads make consume a large amount of memory as it loads the (compressed) list of individuals into each variant node. `hs37d5 chr22 -R 22000000:52000000` was at ~10GB usage.
 
 ### Aligning to the graph
  

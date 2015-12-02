@@ -199,8 +199,9 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
           throw std::range_error("End of ref found while looking for pos " + std::to_string(variantRecord.pos));
         }
       } while (isspace(base));
+
       nodestring += base;
-        currentRefPosition++;
+      currentRefPosition++;
 
       /** Max node length reached, split node **/
       if (nodestring.length() == params.maxNodeLen) {
