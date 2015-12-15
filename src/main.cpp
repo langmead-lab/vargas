@@ -138,7 +138,8 @@ int build_main(const int argc, const char *argv[]) {
       >> GetOpt::Option('R', "region", p.region)
       >> GetOpt::OptionPresent('c', "complement", makeComplements)
       >> GetOpt::Option('c', "complement", p.complementSource)
-      >> GetOpt::OptionPresent('m', "maxref", p.maxAF);
+      >> GetOpt::OptionPresent('m', "maxref", p.maxAF)
+      >> GetOpt::Option('e', "exref", p.includeRefIndivs);
 
   g.setParams(p);
 
@@ -323,8 +324,8 @@ void printBuildHelp() {
   cout << "-l\t--maxlen        Maximum node length" << endl;
   cout << "-R\t--region        <min:max> Ref region, inclusive. Default is the entire graph." << endl;
   cout << "-m\t--maxref        Generate a graph using alleles in the ingroup w/ the highest frequency." << endl;
-  cout << "-s\t--set           <#,#,..,#> Generate a buildfile for a list of ingroup percents."
-      << endl;
+  cout << "-e\t--exref         Exclude the list of individuals from the reference alleles." << endl;
+  cout << "-s\t--set           <#,#,..,#> Generate a buildfile for a list of ingroup percents." << endl;
   cout << "-c\t--complement    <graph.build> Generate a complement of all graphs in -s" << endl;
 
 

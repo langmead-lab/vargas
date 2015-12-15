@@ -61,6 +61,7 @@ class Graph {
     std::string complementSource = ""; // existing buildfile to build the complement
     bool genComplement = false; // Generate a graph with individuals not in buildfile
     bool maxAF = false; // Linear graph with only the variants/ref with maximum allele frequency
+    bool includeRefIndivs = true; // Include individuals for reference nodes
     int32_t match = 2, mismatch = 2; // default scores
     uint8_t gap_open = 3, gap_extension = 1; // default gap scores
     int8_t *nt_table = gssw_create_nt_table(); // Table of nt mappings

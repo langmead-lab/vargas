@@ -264,7 +264,7 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
       nodenum++;
       numUnconnectedCurr++;
       // Print individuals that have the maxAF allele
-      printEncodedVec(buildout, variantRecord.indivs[maxAFAllele], encoder);
+      if (params.includeRefIndivs) printEncodedVec(buildout, variantRecord.indivs[maxAFAllele], encoder);
 
     } else {
       for (auto &var : variantRecord.indivs) {
@@ -272,7 +272,7 @@ void vargas::Graph::exportBuildfile(std::istream &reference, vcfstream &variants
         nodenum++;
         numUnconnectedCurr++;
         // Print individuals that have this variant
-        printEncodedVec(buildout, var.second, encoder);
+        if (params.includeRefIndivs || var.first != variantRecord.ref) printEncodedVec(buildout, var.second, encoder);
       }
     }
 
