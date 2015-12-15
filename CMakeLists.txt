@@ -5,7 +5,7 @@ project("vargas")
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-include_directories(gssw/include libb64/include VByte/include)
+include_directories(libb64/include VByte/include)
 
 set(MAIN_SOURCES
         src/getopt_pp.cpp       # Argument parsing

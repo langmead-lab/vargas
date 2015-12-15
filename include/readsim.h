@@ -71,6 +71,8 @@ struct SimParams {
   double indelerr = 0;
   int32_t readLen = 100;
   int maxreads = 10000;
+  int ambiguity = 0;
+
 };
 
 inline std::ostream &operator<<(std::ostream &os, const SimParams &p) {

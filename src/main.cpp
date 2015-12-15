@@ -258,7 +258,8 @@ int sim_main(const int argc, const char *argv[]) {
       >> GetOpt::Option('r', "randwalk", p.randWalk)
       >> GetOpt::Option('m', "muterr", p.muterr)
       >> GetOpt::Option('i', "indelerr", p.indelerr)
-      >> GetOpt::Option('l', "readlen", p.readLen);
+      >> GetOpt::Option('l', "readlen", p.readLen)
+      >> GetOpt::Option('a', "ambiguity", p.ambiguity);
 
   std::string buildfile;
   if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) throw std::invalid_argument("Buildfile required.");
@@ -351,13 +352,16 @@ void printSimHelp() {
   cout << "-n\t--numreads      Number of reads to simulate" << endl;
   cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
   cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;
-  cout << "-l\t--readlen       Nominal read length" << endl;
+  cout << "-l\t--readlen       Read length, strictly enforced." << endl;
   cout << "-e\t--profile       <p1 p2 .. p3> Match read profiles, space delimited. Produces -n of each." << endl;
   cout << "-p\t--prefix        Prefix to use for read files generated with -e" << endl;
-  cout << "-r\t--randwalk      Random walk, read may change individuals at branches." << endl << endl;
+  cout << "-r\t--randwalk      Random walk, read may change individuals at branches." << endl;
+  cout << "-a\t--ambiguity     Max number of ambiguous bases to allow in reads" << endl << endl;
 
   cout << "Read Profile format (use \'*\' for any): " << endl;
   cout << "\tindiv,numSubErr,numVarNodes,numVarBases" << endl;
+  cout << "\tExample: Any read with 1 sub error and 1 variant node." << endl;
+  cout << "\t\t*,1,1,*" << endl;
   cout << "Read Format:" << endl;
   cout << "\tREAD#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES" << endl << endl;
 }
