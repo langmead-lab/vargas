@@ -30,7 +30,7 @@ class GraphBuildTests: public ::testing::TestWithParam<int>, public vargas::Grap
     cg.close();
   }
   void buildAndTest() {
-    exportBuildfile(ref, vcf, buildout);
+    exportBuildfile(&ref, vcf, buildout);
 
     buildout.clear();
     buildout.seekg(0, buildout.beg);

@@ -18,6 +18,7 @@
 #include "../gssw/src/gssw.h"
 #include "readsource.h"
 #include "vcfstream.h"
+#include "loadfile.h"
 
 namespace vargas {
 
@@ -66,7 +67,7 @@ class Graph {
     uint8_t gap_open = 3, gap_extension = 1; // default gap scores
     int8_t *nt_table = gssw_create_nt_table(); // Table of nt mappings
     int8_t *mat = gssw_create_score_matrix(match, mismatch); // table of scores
-
+      bool inMemoryRef = false;
     bool includeIndividuals = false;
   };
 
@@ -81,14 +82,20 @@ class Graph {
 
   /** Exports a buildfile and builds a graph with given fasta and vcf **/
   Graph(std::string refFile, std::string vcfFile, std::string buildFile) {
-    std::ifstream ref(refFile);
+    std::istream *ref;
+    if (params.inMemoryRef) {
+      ref = loadFile(refFile);
+    } else {
+      ref = new std::ifstream(refFile);
+    }
     std::ofstream buildOut(buildFile);
-    if (!ref.good() || !buildOut.good()) throw std::invalid_argument("Error opening files.");
+    if (!ref || !buildOut.good()) throw std::invalid_argument("Error opening files.");
     vcfstream vcf(vcfFile);
     exportBuildfile(ref, vcf, buildOut);
     buildOut.close();
     std::ifstream buildIn(buildFile);
     buildGraph(buildIn);
+    delete ref;
   }
 
   /** Build a graph from a buildfile **/
@@ -113,10 +120,12 @@ class Graph {
 
   /** Export a buildfile **/
   void exportBuildfile(std::string ref, std::string vcf, std::string build = "");
-  void exportBuildfile(std::istream &reference, vcfstream &variants) {
+
+    void exportBuildfile(std::istream *reference, vcfstream &variants) {
     exportBuildfile(reference, variants, std::cout);
   }
-  void exportBuildfile(std::istream &reference, vcfstream &variants, std::ostream &buildout);
+
+    void exportBuildfile(std::istream *_reference, vcfstream &variants, std::ostream &buildout);
 
   /** Build the graph in memory **/
   void buildGraph(std::string build) {

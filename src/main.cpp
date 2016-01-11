@@ -135,11 +135,12 @@ int build_main(const int argc, const char *argv[]) {
   vargas::Graph::GraphParams p;
 
   args >> GetOpt::Option('l', "maxlen", p.maxNodeLen)
-      >> GetOpt::Option('R', "region", p.region)
-      >> GetOpt::OptionPresent('c', "complement", makeComplements)
-      >> GetOpt::Option('c', "complement", p.complementSource)
-      >> GetOpt::OptionPresent('m', "maxref", p.maxAF)
-      >> GetOpt::Option('e', "exref", p.includeRefIndivs);
+  >> GetOpt::Option('R', "region", p.region)
+  >> GetOpt::OptionPresent('c', "complement", makeComplements)
+  >> GetOpt::Option('c', "complement", p.complementSource)
+  >> GetOpt::OptionPresent('m', "maxref", p.maxAF)
+  >> GetOpt::Option('e', "exref", p.includeRefIndivs)
+  >> GetOpt::Option('m', "loadref", p.inMemoryRef);
 
   g.setParams(p);
 
@@ -327,6 +328,7 @@ void printBuildHelp() {
   cout << "-e\t--exref         Exclude the list of individuals from the reference alleles." << endl;
   cout << "-s\t--set           <#,#,..,#> Generate a buildfile for a list of ingroup percents." << endl;
   cout << "-c\t--complement    <graph.build> Generate a complement of all graphs in -s" << endl;
+  cout << "-m\t--loadref       Load entire reference into memory" << endl;
 
 
   cout << endl << "--maxref is applied after ingroup filter" << endl;
