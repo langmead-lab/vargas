@@ -210,10 +210,21 @@ int align_main(const int argc, const char *argv[]) {
 
   // Load parameters
   vargas::Graph::GraphParams p;
+  std::string alignOutFile = "";
   args >> GetOpt::Option('m', "match", p.match)
       >> GetOpt::Option('n', "mismatch", p.mismatch)
       >> GetOpt::Option('o', "gap_open", p.gap_open)
-      >> GetOpt::Option('e', "gap_extend", p.gap_extension);
+      >> GetOpt::Option('e', "gap_extend", p.gap_extension)
+      >> GetOpt::Option('f', "outfile", alignOutFile);
+
+  // Set output
+  bool useFile = false;
+  std::ofstream aOutStream;
+  if (alignOutFile.length() != 0) {
+    aOutStream.open(alignOutFile);
+    useFile = true;
+  }
+
   g.setParams(p);
 
   // Read file handler
@@ -232,13 +243,22 @@ int align_main(const int argc, const char *argv[]) {
   }
   g.buildGraph(buildfile);
 
-  // Align until there are not more reads
+  // Align until there are no more reads
   vargas::Alignment align;
   while (reads.updateRead()) {
     g.align(reads.getRead(), align);
-    std::cout << align << std::endl;
+    if (useFile) {
+      aOutStream << align << std::endl;
+    } else {
+      std::cout << align << std::endl;
+    }
   }
-  std::cout << reads.getHeader() << std::endl;
+
+  if (useFile) {
+    aOutStream << reads.getHeader() << std::endl;
+  } else {
+    std::cout << reads.getHeader() << std::endl;
+  }
 
   return 0;
 }
@@ -379,13 +399,13 @@ void printAlignHelp() {
   cout << endl
       << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
   cout << "-b\t--buildfile     Quick rebuild file." << endl;
-  cout << "-m\t--match         Match score, default  " << p.match << endl;
-  cout << "-n\t--mismatch      Mismatch score, default " << p.mismatch << endl;
-  cout << "-o\t--gap_open      Gap opening penalty, default " << p.gap_open << endl;
-  cout << "-e\t--gap_extend    Gap extend penalty, default " << p.gap_extension << endl;
-  cout << "-r\t--reads         Reads to align." << endl;
+  cout << "-m\t--match         Match score, default " << int(p.match) << endl;
+  cout << "-n\t--mismatch      Mismatch score, default " << int(p.mismatch) << endl;
+  cout << "-o\t--gap_open      Gap opening penalty, default " << int(p.gap_open) << endl;
+  cout << "-e\t--gap_extend    Gap extend penalty, default " << int(p.gap_extension) << endl;
+  cout << "-r\t--reads         Reads to align. Use stdin if not defined." << endl;
+  cout << "-f\t--outfile       Alignment output file. If not defined, use stdout." << endl;
 
-  cout << endl << "Alignments output to stdout. Reads read from stdin or -r, 1 per line." << endl;
   cout << "Lines beginning with \'#\' are ignored." << endl;
   cout << "Output format:" << endl;
   cout << "\tREAD,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE," << endl;

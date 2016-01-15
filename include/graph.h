@@ -67,7 +67,7 @@ class Graph {
     uint8_t gap_open = 3, gap_extension = 1; // default gap scores
     int8_t *nt_table = gssw_create_nt_table(); // Table of nt mappings
     int8_t *mat = gssw_create_score_matrix(match, mismatch); // table of scores
-      bool inMemoryRef = false;
+    bool inMemoryRef = false;
     bool includeIndividuals = false;
   };
 

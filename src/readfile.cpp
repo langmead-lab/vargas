@@ -16,7 +16,6 @@
 #include "../include/utils.h"
 #include "../include/readfile.h"
 
-
 bool vargas::ReadFile::updateRead() {
   if (!readfile) throw std::invalid_argument("No readfile specified.");
   if (!std::getline(readfile, line)) return false;
