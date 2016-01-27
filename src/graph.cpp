@@ -20,14 +20,14 @@
 #include "../include/utils.h"
 #include "../include/graph.h"
 
-void vargas::Graph::exportDOT(std::ostream &out) const {
+void vargas::Graph::exportDOT(std::ostream &out, std::string name) const {
 
   if (graph == NULL) {
     std::cerr << "Error: No graph has been built. Aborting export." << std::endl;
     return;
   }
 
-  out << "digraph gssw_graph {\n";
+  out << "digraph " << name << " {\n";
   out << "rankdir=\"LR\";\n";
 
   for (uint32_t i = 0; i < graph->size; i++) {
@@ -37,7 +37,7 @@ void vargas::Graph::exportDOT(std::ostream &out) const {
     for (int32_t n = 0; n < graph->nodes[i]->count_next; n++)
       out << graph->nodes[i]->id << " -> " << graph->nodes[i]->next[n]->id << ";\n";
   }
-  out << "}";
+  out << "}\n";
 }
 
 

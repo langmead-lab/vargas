@@ -362,6 +362,8 @@ void printExportHelp() {
   cout << endl
       << "------------------ vargas export, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
   cout << "-b\t--buildfile    (required) Graph to export to DOT." << endl;
+  cout << "-c\t--context      [OutputDir] Export the left context of alignments from stdin." << endl;
+
   cout << endl << "DOT file printed to stdout." << endl << endl;
 }
 

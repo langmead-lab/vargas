@@ -20,9 +20,10 @@
 #include "vcfstream.h"
 #include "loadfile.h"
 
+
 namespace vargas {
 
-// Object to hold alignment results
+// struct to hold alignment results
 struct Alignment {
   Read read;
 
@@ -38,6 +39,9 @@ struct Alignment {
 
   // alignment flag
   int8_t corflag;
+
+  // local context of the alignment
+  gssw_graph *context = NULL;
 };
 
 
@@ -73,6 +77,7 @@ class Graph {
 
   /** Empty graph uses default parameters **/
   Graph() { }
+  Graph(gssw_graph *g) : graph(g) { }
 
   /** Create a graph with given parameters **/
   Graph(GraphParams p) : params(p) {
@@ -116,7 +121,7 @@ class Graph {
     exportDOT(out);
     out.close();
   }
-  void exportDOT(std::ostream &out) const;
+  void exportDOT(std::ostream &out, std::string name = "graph") const;
 
   /** Export a buildfile **/
   void exportBuildfile(std::string ref, std::string vcf, std::string build = "");
