@@ -19,30 +19,10 @@
 #include "readsource.h"
 #include "vcfstream.h"
 #include "loadfile.h"
+#include "alignment.h"
 
 
 namespace vargas {
-
-// struct to hold alignment results
-struct Alignment {
-  Read read;
-
-  // Optimal alignment
-  uint16_t optScore;
-  int32_t optAlignEnd;
-  int32_t optCount;
-
-  // Suboptimal alignment
-  uint16_t subOptScore;
-  int32_t subOptAlignEnd;
-  int32_t subOptCount;
-
-  // alignment flag
-  int8_t corflag;
-
-  // local context of the alignment
-  gssw_graph *context = NULL;
-};
 
 
 inline std::ostream &operator<<(std::ostream &os, const Alignment &a) {
