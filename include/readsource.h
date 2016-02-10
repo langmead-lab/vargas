@@ -19,7 +19,7 @@ namespace vargas {
 
 struct Read {
   std::string read;
-  uint32_t readEnd;
+  int32_t readEnd;
   int32_t indiv;
   int32_t numSubErr;
   int32_t numVarNodes;

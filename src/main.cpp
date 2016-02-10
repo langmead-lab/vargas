@@ -14,7 +14,6 @@
 #include "../include/readsim.h"
 #include "../include/readfile.h"
 #include "../include/main.h"
-#include "../include/utils.h"
 
 
 int main(const int argc, const char *argv[]) {
@@ -187,14 +186,36 @@ int export_main(const int argc, const char *argv[]) {
 
   std::string buildfile;
 
+  vargas::Graph g;
   if (args >> GetOpt::Option('b', "build", buildfile)) {
-    vargas::Graph g(buildfile);
-    g.exportDOT(std::cout);
+    g.buildGraph(buildfile);
   }
   else {
     std::cerr << "Error: Buildfile required." << std::endl;
     return 1;
   }
+
+  std::string inputAligns = "";
+  if (args >> GetOpt::Option('c', "context", inputAligns)) {
+    std::string line;
+    std::ifstream input(inputAligns);
+    if (!input.good()) {
+      throw std::invalid_argument("Invalid file: " + inputAligns);
+    }
+
+    while (std::getline(input, line)) {
+      if (line.length() == 0) continue;
+      vargas::Alignment a(line);
+      vargas::Graph contextGraph(g, a);
+      contextGraph.exportDOT(std::cout, a.read.read);
+    }
+  }
+
+    // Export whole graph
+  else {
+    g.exportDOT(std::cout);
+  }
+
   return 0;
 }
 
@@ -362,7 +383,7 @@ void printExportHelp() {
   cout << endl
       << "------------------ vargas export, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
   cout << "-b\t--buildfile    (required) Graph to export to DOT." << endl;
-  cout << "-c\t--context      [OutputDir] Export the left context of alignments from stdin." << endl;
+  cout << "-c\t--context      [InputFile] Export the context of alignments." << endl;
 
   cout << endl << "DOT file printed to stdout." << endl << endl;
 }

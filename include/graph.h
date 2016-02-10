@@ -25,14 +25,6 @@
 namespace vargas {
 
 
-inline std::ostream &operator<<(std::ostream &os, const Alignment &a) {
-  os << a.read << ',' << a.optScore << ',' << a.optAlignEnd << ',' << a.optCount
-      << ',' << a.subOptScore << ',' << a.subOptAlignEnd << ',' << a.subOptCount
-      << ',' << int32_t(a.corflag);
-  return os;
-}
-
-
 class Graph {
 
 
@@ -58,6 +50,8 @@ class Graph {
   /** Empty graph uses default parameters **/
   Graph() { }
   Graph(gssw_graph *g) : graph(g) { }
+  /** Generate a context graph **/
+  Graph(const Graph &g, const Alignment &a);
 
   /** Create a graph with given parameters **/
   Graph(GraphParams p) : params(p) {
@@ -101,7 +95,7 @@ class Graph {
     exportDOT(out);
     out.close();
   }
-  void exportDOT(std::ostream &out, std::string name = "graph") const;
+  void exportDOT(std::ostream &out, std::string name = "vargraph") const;
 
   /** Export a buildfile **/
   void exportBuildfile(std::string ref, std::string vcf, std::string build = "");

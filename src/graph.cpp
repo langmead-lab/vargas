@@ -16,9 +16,89 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <map>
 #include <algorithm>
 #include "../include/utils.h"
 #include "../include/graph.h"
+
+
+vargas::Graph::Graph(const Graph &g, const Alignment &a) {
+  std::vector<gssw_node *> N;
+  std::vector<std::pair<gssw_node *, gssw_node *>> oldLinks;
+  std::map<gssw_node *, gssw_node *> oldToNewMap;
+
+  /*
+   * Get all the nodes that are in the locality of the alignment
+   * Since Graph should be topographically ordered, inserting as we crawl the graph
+   * means we remain topographically ordered
+   *
+   * EndCounter sets a limit to how far we can go after a first 'cap' node, to prevent crawling the entire graph.
+   */
+  //TODO can look for beginning node via binary search variant
+  gssw_node *n;
+  int id = 0, endCounter = 0, len = a.read.read.length();
+  len += len / 10;
+  for (uint32_t i = 0; i < g.graph->size; ++i) {
+    n = g.graph->nodes[i];
+    if (endCounter) ++endCounter;
+    if (endCounter > 10) break; // Don't look 10 nodes past the end
+
+    // If the node contains the start of the local region
+    if (n->data > a.optAlignEnd - len
+        && n->data - n->len <= a.optAlignEnd - len) {
+      uint32_t nSeqLen = n->data - (a.optAlignEnd - len); // The number of bases in this node we need
+      char *seq = (char *) malloc(nSeqLen + 1);
+      strncpy(seq, n->seq + n->len - nSeqLen, nSeqLen);
+      seq[nSeqLen] = 0;
+      N.push_back(gssw_node_create(n->data, id++, seq, this->params.nt_table, this->params.mat));
+      free(seq);
+
+      oldToNewMap[n] = N.back();
+      for (int i = 0; i < n->count_next; ++i) {
+        oldLinks.push_back(std::pair<gssw_node *, gssw_node *>(n, n->next[i]));
+      }
+    }
+
+      // If we need an entire node
+    else if (a.optAlignEnd > n->data
+        && n->data - n->len > a.optAlignEnd - len) {
+      N.push_back(gssw_node_create(n->data, id++, n->seq, this->params.nt_table, this->params.mat));
+
+      oldToNewMap[n] = N.back();
+      for (int i = 0; i < n->count_next; ++i) {
+        oldLinks.push_back(std::pair<gssw_node *, gssw_node *>(n, n->next[i]));
+      }
+    }
+
+      // The end node
+    else if (n->data >= a.optAlignEnd
+        && n->data - n->len < a.optAlignEnd) {
+      uint32_t nSeqLen = a.optAlignEnd - (n->data - n->len);
+      char *seq = (char *) malloc(nSeqLen + 1);
+      strncpy(seq, n->seq, nSeqLen);
+      seq[nSeqLen] = 0;
+      N.push_back(gssw_node_create(n->data - n->len + nSeqLen, id++, seq, this->params.nt_table, this->params.mat));
+      free(seq);
+      ++endCounter;
+      oldToNewMap[n] = N.back();
+    }
+
+  }
+
+  // Add links
+  for (auto &lnk : oldLinks) {
+    if (oldToNewMap.count(lnk.first) && oldToNewMap.count(lnk.second)) {
+      gssw_nodes_add_edge(oldToNewMap[lnk.first], oldToNewMap[lnk.second]);
+    }
+  }
+
+  this->graph = gssw_graph_create(N.size());
+  for (auto node : N) {
+    gssw_graph_add_node(this->graph, node);
+  }
+
+}
+
 
 void vargas::Graph::exportDOT(std::ostream &out, std::string name) const {
 
@@ -37,6 +117,8 @@ void vargas::Graph::exportDOT(std::ostream &out, std::string name) const {
     for (int32_t n = 0; n < graph->nodes[i]->count_next; n++)
       out << graph->nodes[i]->id << " -> " << graph->nodes[i]->next[n]->id << ";\n";
   }
+  out << "labelloc=\"t\";" << std::endl;
+  out << "label=\"" << name << "\";" << std::endl;
   out << "}\n";
 }
 

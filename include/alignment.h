@@ -36,7 +36,8 @@ struct Alignment {
 
   Alignment()
       : optScore(0), optAlignEnd(-1), optCount(-1), subOptScore(0), subOptAlignEnd(-1), subOptCount(-1),
-        corflag(-1) { };
+        corflag(-1) { }
+
   Alignment(std::string line) {
     Alignment();
     std::vector<std::string> splitLine = split(line, '#');
@@ -47,14 +48,14 @@ struct Alignment {
 
     // We have meta info
     if (splitLine.size() > 1) {
-      split(splitLine[1], ',', splitLine);
-      if (splitLine.size() != 11) {
+      splitLine = split(splitLine[1], ',');
+      if (splitLine.size() != 12) {
         // Unexpected format
         std::cerr << "Invalid alignment record." << std::endl;
         return;
       }
 
-      this->read.readEnd = (uint32_t) std::stoi(splitLine[0]);
+      this->read.readEnd = std::stoi(splitLine[0]);
       this->read.indiv = std::stoi(splitLine[1]);
       this->read.numSubErr = std::stoi(splitLine[2]);
       this->read.numVarNodes = std::stoi(splitLine[3]);
@@ -68,8 +69,16 @@ struct Alignment {
       this->subOptCount = std::stoi(splitLine[10]);
       this->corflag = (int8_t) std::stoi(splitLine[11]);
     }
-  };
+  }
+
 };
+
+inline std::ostream &operator<<(std::ostream &os, const Alignment &a) {
+  os << a.read << ',' << a.optScore << ',' << a.optAlignEnd << ',' << a.optCount
+      << ',' << a.subOptScore << ',' << a.subOptAlignEnd << ',' << a.subOptCount
+      << ',' << int32_t(a.corflag);
+  return os;
+}
 
 }
 
