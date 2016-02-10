@@ -207,7 +207,7 @@ int export_main(const int argc, const char *argv[]) {
       if (line.length() == 0) continue;
       vargas::Alignment a(line);
       vargas::Graph contextGraph(g, a);
-      contextGraph.exportDOT(std::cout, a.read.read);
+      contextGraph.exportDOT(std::cout, line);
     }
   }
 
