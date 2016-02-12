@@ -21,6 +21,7 @@ size_t vargas::Xcoder::compress(const uint32_t *data, size_t length, uint8_t **o
   uint8_t *tmp = (uint8_t *) malloc(length * sizeof(uint32_t));
   size_t len = vbyte_encode(data, length, tmp);
 
+  if (*out != NULL) free(*out);
   *out = (uint8_t *) malloc(len * sizeof(uint8_t));
   memcpy(*out, tmp, len);
 
@@ -34,6 +35,7 @@ size_t vargas::Xcoder::inflate(const uint8_t *data, size_t length, uint32_t **ou
   uint32_t *tmp = (uint32_t *) malloc(length * sizeof(uint32_t));
   size_t len = masked_vbyte_decode_fromcompressedsize(data, tmp, length);
 
+  if (*out != NULL) free(*out);
   *out = (uint32_t *) malloc(len * sizeof(uint32_t));
   memcpy(*out, tmp, len * sizeof(uint32_t));
 
