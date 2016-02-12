@@ -1,7 +1,6 @@
 /**
- * Ravi Gaddipati
- * November 20, 2015
- * rgaddip1@jhu.edu
+ * @author Ravi Gaddipati (rgaddip1@jhu.edu)
+ * @date November 20, 2015
  *
  * vargas::Graph is a DAG representation of a reference and its variants.
  * The class wraps a gssw_graph from gssw and provides a way to construct
@@ -21,6 +20,7 @@
 #include "../include/utils.h"
 #include "../include/graph.h"
 
+/*********************************** CONSTRUCTOR ***********************************/
 
 vargas::Graph::Graph(const Graph &g, const Alignment &a) {
   std::vector<gssw_node *> N;
@@ -99,30 +99,7 @@ vargas::Graph::Graph(const Graph &g, const Alignment &a) {
 
 }
 
-
-void vargas::Graph::exportDOT(std::ostream &out, std::string name) const {
-
-  if (graph == NULL) {
-    std::cerr << "Error: No graph has been built. Aborting export." << std::endl;
-    return;
-  }
-
-  out << "digraph \"" << name << "\" {\n";
-  out << "rankdir=\"LR\";\n";
-
-  for (uint32_t i = 0; i < graph->size; i++) {
-    out << graph->nodes[i]->id << " [label=\"" << graph->nodes[i]->data << ":" << graph->nodes[i]->seq
-        << "\" shape=plaintext];\n";
-  }
-  for (uint32_t i = 0; i < graph->size; i++) {
-    for (int32_t n = 0; n < graph->nodes[i]->count_next; n++)
-      out << graph->nodes[i]->id << " -> " << graph->nodes[i]->next[n]->id << ";\n";
-  }
-  out << "labelloc=\"t\";" << std::endl;
-  out << "label=\"" << name << "\";" << std::endl;
-  out << "}\n";
-}
-
+/*********************************** BUILD GRAPH ***********************************/
 
 void vargas::Graph::buildGraph(std::istream &graphDat) {
 
@@ -188,36 +165,29 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
 
 }
 
+/*********************************** EXPORTERS *************************************/
 
-void vargas::Graph::generateIngroup(vcfstream &variants) {
-  using std::string;
-  using std::vector;
+void vargas::Graph::exportDOT(std::ostream &out, std::string name) const {
 
-  if (params.genComplement) {
-    /** Ingroup is the indivs not included in the specified file **/
-    if (params.complementSource.length() == 0) {
-      throw std::invalid_argument("No buildfile specified, complement cannot be built.");
-    }
-    std::ifstream complementSource(params.complementSource.c_str());
-    string inputGroupLine;
-    getline(complementSource, inputGroupLine);
-    inputGroupLine = inputGroupLine.substr(1); // Remove #
-    vector<string> inputGroup = split(inputGroupLine, ',');
-    vector<uint32_t> inputGroupIndivs(0);
-    for (uint32_t i = 0; i < inputGroup.size(); i++) {
-      inputGroupIndivs.push_back(std::stoul(inputGroup.at(i)));
-    }
-    variants.createComplementIngroup(inputGroupIndivs);
-    complementSource.close();
+  if (graph == NULL) {
+    std::cerr << "Error: No graph has been built. Aborting export." << std::endl;
+    return;
   }
-  else if (params.ingroup >= 0) {
-    // Use a percentage of individuals
-    variants.createIngroup(params.ingroup);
+
+  out << "digraph \"" << name << "\" {\n";
+  out << "rankdir=\"LR\";\n";
+
+  for (uint32_t i = 0; i < graph->size; i++) {
+    out << graph->nodes[i]->id << " [label=\"" << graph->nodes[i]->data << ":" << graph->nodes[i]->seq
+        << "\" shape=plaintext];\n";
   }
-  else {
-    // use all individuals
-    variants.createIngroup(100);
+  for (uint32_t i = 0; i < graph->size; i++) {
+    for (int32_t n = 0; n < graph->nodes[i]->count_next; n++)
+      out << graph->nodes[i]->id << " -> " << graph->nodes[i]->next[n]->id << ";\n";
   }
+  out << "labelloc=\"t\";" << std::endl;
+  out << "label=\"" << name << "\";" << std::endl;
+  out << "}\n";
 }
 
 
@@ -396,38 +366,6 @@ void vargas::Graph::exportBuildfile(std::istream *_reference, vcfstream &variant
 }
 
 
-vargas::Alignment *vargas::Graph::align(const vargas::Read &r) {
-  Alignment *align = new Alignment;
-  Alignment &a = *align;
-  vargas::Graph::align(r, a);
-  return align;
-}
-
-
-void vargas::Graph::align(const vargas::Read &r, vargas::Alignment &a) {
-  int32_t tol = r.read.length();
-  gssw_graph_fill(graph, r.read.c_str(), params.nt_table, params.mat,
-                  params.gap_open, params.gap_extension, tol, 2, r.readEnd);
-
-  // Absolute alignment positions
-  a.optAlignEnd = graph->max_node->data + 1 - graph->max_node->len + graph->max_node->alignment->ref_end;
-  a.subOptAlignEnd = graph->submax_node->data + 1 - graph->submax_node->len + graph->submax_node->alignment->ref_end;
-
-  if (r.readEnd > 0) {
-    if (r.readEnd > a.optAlignEnd - tol && r.readEnd < a.optAlignEnd + tol) a.corflag = 0;
-    else if (r.readEnd > a.subOptAlignEnd - tol && r.readEnd < a.subOptAlignEnd + tol) a.corflag = 1;
-    else a.corflag = 2;
-  }
-  else a.corflag = 2;
-
-  a.optCount = graph->maxCount;
-  a.subOptCount = graph->submaxCount;
-  a.optScore = graph->max_node->alignment->score;
-  a.subOptScore = graph->submax_node->alignment->score;
-  a.read = r;
-}
-
-
 void vargas::Graph::exportBuildfile(std::string ref, std::string vcf, std::string build) {
   std::istream *r;
   if (params.inMemoryRef) {
@@ -452,6 +390,72 @@ void vargas::Graph::exportBuildfile(std::string ref, std::string vcf, std::strin
   delete r;
 }
 
+/*********************************** ALIGN *****************************************/
+
+vargas::Alignment *vargas::Graph::align(const vargas::Read &r) {
+  Alignment *align = new Alignment;
+  Alignment &a = *align;
+  vargas::Graph::align(r, a);
+  return align;
+}
+
+
+void vargas::Graph::align(const vargas::Read &r, vargas::Alignment &a) {
+
+  int32_t tol = r.read.length();
+  gssw_graph_fill(graph, r.read.c_str(), params.nt_table, params.mat,
+                  params.gap_open, params.gap_extension, tol, 2, r.readEnd);
+
+  // Absolute alignment positions
+  a.optAlignEnd = graph->max_node->data + 1 - graph->max_node->len + graph->max_node->alignment->ref_end;
+  a.subOptAlignEnd = graph->submax_node->data + 1 - graph->submax_node->len + graph->submax_node->alignment->ref_end;
+
+  if (r.readEnd > 0) {
+    if (r.readEnd > a.optAlignEnd - tol && r.readEnd < a.optAlignEnd + tol) a.corflag = 0;
+    else if (r.readEnd > a.subOptAlignEnd - tol && r.readEnd < a.subOptAlignEnd + tol) a.corflag = 1;
+    else a.corflag = 2;
+  }
+  else a.corflag = 2;
+
+  a.optCount = graph->maxCount;
+  a.subOptCount = graph->submaxCount;
+  a.optScore = graph->max_node->alignment->score;
+  a.subOptScore = graph->submax_node->alignment->score;
+  a.read = r;
+}
+
+/*********************************** TOOLS *****************************************/
+
+void vargas::Graph::generateIngroup(vcfstream &variants) {
+  using std::string;
+  using std::vector;
+
+  if (params.genComplement) {
+    /** Ingroup is the indivs not included in the specified file **/
+    if (params.complementSource.length() == 0) {
+      throw std::invalid_argument("No buildfile specified, complement cannot be built.");
+    }
+    std::ifstream complementSource(params.complementSource.c_str());
+    string inputGroupLine;
+    getline(complementSource, inputGroupLine);
+    inputGroupLine = inputGroupLine.substr(1); // Remove #
+    vector<string> inputGroup = split(inputGroupLine, ',');
+    vector<uint32_t> inputGroupIndivs(0);
+    for (uint32_t i = 0; i < inputGroup.size(); i++) {
+      inputGroupIndivs.push_back(std::stoul(inputGroup.at(i)));
+    }
+    variants.createComplementIngroup(inputGroupIndivs);
+    complementSource.close();
+  }
+  else if (params.ingroup >= 0) {
+    // Use a percentage of individuals
+    variants.createIngroup(params.ingroup);
+  }
+  else {
+    // use all individuals
+    variants.createIngroup(100);
+  }
+}
 
 void vargas::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max) {
   std::vector<std::string> region_split(0);
