@@ -20,7 +20,7 @@ in a Read struct.
 a `readsource`. Graphs are built in memory from the buildfile. Graph parameters are defined in a GraphParams struct.
 Alignments to the graph are done with `Graph.align(Read)` and returns with an Alignment struct.
 
-`xcoder.h` : Uses masked VByte compression and base64 encoding to reduce the size of the list of individuals for each variant.
+`xcoder.h` : Uses masked VByte compression and base64 encoding to reduce the size of the list of individuals for each variant in the buildfile. Lists of individuals are stored in nodes using VByte compression.
 
 
 ###Modes of operation
@@ -132,7 +132,7 @@ export PATH=${PWD}/bin:$PATH
  
  To target certain kinds of reads, a list of space delimited regular expressions can be provided with `-e`. `-n` reads will be generated for each regular expression. Any reads that do not match the expression will be discarded.
  
- Note simulating reads make consume a large amount of memory as it loads the (compressed) list of individuals into each variant node. `hs37d5 chr22 -R 22000000:52000000` was at ~10GB usage.
+ Note simulating reads may consume a large amount of memory as it loads the (compressed) list of individuals into each variant node. `hs37d5 chr22 -R 22000000:52000000` was at ~10GB usage.
 
 ### Aligning to the graph
  
@@ -142,7 +142,35 @@ To process a reads file and write the output to a file:
  
 If the read contains `#` (as in the simulated reads), everything after it is stripped for alignment but preserved in the output.
 
+If a tie for a best score is found, the alignment closer to the read origin is preserved.
+
 ### File formats
+
+#### Aligns
+
+The format of an alignment result is
+
+```
+READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE,
+SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH
+```
+
+where `READ` is in the format described below. `AlIGNMENT_MATCH` is a flag that determines the best alignment relative to the simulated position. `0` indicates a match with the simulated origin, `1` is a second-best alignment match with the simulated origin, `2` is other. 
+
+#### Reads
+
+The beginning of a simulated reads file will contain a comment indicating the profile used to generate reads, where `-1` means anything. The second line includes the random seed used to generate the reads, as well as parameters passed to the simulator.
+
+```
+#indiv=-1,numSubErr=0,numVarNodes=2,numVarBases=-1
+#Seed: 1451149022, Mut err: 0.02, Indel Err: 0, read Len: 64, max reads: 10000, random walk? 0
+```
+
+The format of a read is below, where `-1` in the `INDIVIDUAL` column indicates the entire read was from the reference.
+
+```
+READ_SEQUENCE#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES
+```
 
 #### Buildfile
 
@@ -180,3 +208,5 @@ A   GA
 -3,-1
 -2,-1
 ```
+
+Currently only `CN` tags are supported. If a VCF record specifies a reference of `[seq]` and a variant of `<CNn>` where `n` is an integer, the variant node will copy `[seq]` `n` times. VCF records containing other tags (such as mobile elements) are ignored.

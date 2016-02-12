@@ -107,11 +107,12 @@ void vargas::Graph::exportDOT(std::ostream &out, std::string name) const {
     return;
   }
 
-  out << "digraph " << name << " {\n";
+  out << "digraph \"" << name << "\" {\n";
   out << "rankdir=\"LR\";\n";
 
   for (uint32_t i = 0; i < graph->size; i++) {
-    out << graph->nodes[i]->id << " [label=\"" << graph->nodes[i]->data << ":" << graph->nodes[i]->seq << "\"];\n";
+    out << graph->nodes[i]->id << " [label=\"" << graph->nodes[i]->data << ":" << graph->nodes[i]->seq
+        << "\" shape=plaintext];\n";
   }
   for (uint32_t i = 0; i < graph->size; i++) {
     for (int32_t n = 0; n < graph->nodes[i]->count_next; n++)
