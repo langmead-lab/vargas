@@ -30,7 +30,6 @@ vargas::Graph::Graph(const Graph &g, const Alignment &a) {
   /*
    * Get all the nodes that are in the locality of the alignment
    * Since Graph should be topographically ordered, inserting as we crawl the graph
-   * means we remain topographically ordered
    *
    * EndCounter sets a limit to how far we can go after a first 'cap' node, to prevent crawling the entire graph.
    */

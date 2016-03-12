@@ -77,6 +77,7 @@ size_t vargas::Xcoder::decode(std::string &in, uint8_t **out) {
   decode(i, o);
   uint32_t N = o.str().size();
 
+  if (*out != NULL) free(*out);
   *out = (uint8_t *) malloc(N);
 
   o.seekg(0);
