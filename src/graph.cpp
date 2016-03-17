@@ -401,7 +401,7 @@ vargas::Alignment *vargas::Graph::align(const vargas::Read &r) {
 
 void vargas::Graph::align(const vargas::Read &r, vargas::Alignment &a) {
 
-  int32_t tol = r.read.length();
+  int32_t tol = r.read.length() / 2;
   gssw_graph_fill(graph, r.read.c_str(), params.nt_table, params.mat,
                   params.gap_open, params.gap_extension, tol, 2, r.readEnd);
 
