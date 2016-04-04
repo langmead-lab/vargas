@@ -1,9 +1,6 @@
 [submodule "gssw"]
 	path = gssw
 	url = https://github.com/gaddra/gssw.git
-[submodule "test/googletest"]
-	path = test/googletest
-	url = https://github.com/google/googletest
 [submodule "VByte"]
 	path = VByte
 	url = https://github.com/gaddra/VByte

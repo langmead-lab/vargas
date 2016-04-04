@@ -75,17 +75,17 @@ set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS} -O3")
 
 
 # Tests
-set(TEST_SOURCES
-        test/graphTest.cpp
-        test/utilsTest.cpp
-        test/vcfStreamTest.cpp
-        test/readsimTest.cpp
-        test/equivilence.cpp
-        test/equivilence.h
-        test/xcoderTest.cpp
-        )
-add_subdirectory(test/googletest/googletest)
-enable_testing()
-include_directories(${gtest_SOURCE_DIR}/include/ ${gtest_SOURCE_DIR}/) # gtest and gtest_main
-add_executable(vargasTests ${TEST_SOURCES})
-target_link_libraries(vargasTests gtest gtest_main varg gssw b64 vbyte)
+#set(TEST_SOURCES
+#        test/graphTest.cpp
+#        test/utilsTest.cpp
+#        test/vcfStreamTest.cpp
+#        test/readsimTest.cpp
+#        test/equivilence.cpp
+#        test/equivilence.h
+#        test/xcoderTest.cpp
+#        )
+#add_subdirectory(test/googletest/googletest)
+#enable_testing()
+#include_directories(${gtest_SOURCE_DIR}/include/ ${gtest_SOURCE_DIR}/) # gtest and gtest_main
+#add_executable(vargasTests ${TEST_SOURCES})
+#target_link_libraries(vargasTests gtest gtest_main varg gssw b64 vbyte)
