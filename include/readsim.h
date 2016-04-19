@@ -23,6 +23,7 @@ struct ReadProfile {
   int32_t numSubErr = -1;
   int32_t numVarNodes = -1;
   int32_t numVarBases = -1;
+    int32_t numIndelErr = -1;
 
   ReadProfile() { }
 
@@ -31,6 +32,7 @@ struct ReadProfile {
     numSubErr = p.numSubErr;
     numVarNodes = p.numVarNodes;
     numVarBases = p.numVarBases;
+    numIndelErr = p.numIndelErr;
   }
 
   bool matches(Read r) {
@@ -38,6 +40,7 @@ struct ReadProfile {
     if (numSubErr >= 0 && r.numSubErr != numSubErr) return false;
     if (numVarNodes >= 0 && r.numVarNodes != numVarNodes) return false;
     if (numVarBases >= 0 && r.numVarBases != numVarBases) return false;
+    if (numIndelErr >= 0 && r.numIndelErr != numIndelErr) return false;
     return true;
   }
 
@@ -59,7 +62,8 @@ inline std::ostream &operator<<(std::ostream &os, const ReadProfile &p) {
   os << "indiv=" << p.indiv
       << ",numSubErr=" << p.numSubErr
       << ",numVarNodes=" << p.numVarNodes
-      << ",numVarBases=" << p.numVarBases;
+      << ",numVarBases=" << p.numVarBases
+      << ",numIndelErr=" << p.numIndelErr;
   return os;
 }
 

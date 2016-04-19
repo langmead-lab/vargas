@@ -328,6 +328,7 @@ int sim_main(const int argc, const char *argv[]) {
       prof.numSubErr = (splitProf[1] == "*") ? -1 : std::stoi(splitProf[1]);
       prof.numVarNodes = (splitProf[2] == "*") ? -1 : std::stoi(splitProf[2]);
       prof.numVarBases = (splitProf[3] == "*") ? -1 : std::stoi(splitProf[3]);
+      prof.numIndelErr = 0; //TODO make this a possible arg too
       sim.addProfile(prof, prefix + std::to_string(i) + ".reads");
     }
     while (sim.updateRead());

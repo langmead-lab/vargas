@@ -24,6 +24,7 @@ struct Read {
   int32_t numSubErr;
   int32_t numVarNodes;
   int32_t numVarBases;
+    int32_t numIndelErr;
 
 };
 
