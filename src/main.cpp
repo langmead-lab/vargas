@@ -19,23 +19,23 @@
 int main(const int argc, const char *argv[]) {
 
   try {
-  if (argc > 1) {
-    if (!strcmp(argv[1], "build")) {
-      exit(build_main(argc, argv));
+    if (argc > 1) {
+      if (!strcmp(argv[1], "build")) {
+        exit(build_main(argc, argv));
+      }
+      else if (!strcmp(argv[1], "sim")) {
+        exit(sim_main(argc, argv));
+      }
+      else if (!strcmp(argv[1], "align")) {
+        exit(align_main(argc, argv));
+      }
+      else if (!strcmp(argv[1], "export")) {
+        exit(export_main(argc, argv));
+      }
+      else if (!strcmp(argv[1], "stat")) {
+        exit(stat_main(argc, argv));
+      }
     }
-    else if (!strcmp(argv[1], "sim")) {
-      exit(sim_main(argc, argv));
-    }
-    else if (!strcmp(argv[1], "align")) {
-      exit(align_main(argc, argv));
-    }
-    else if (!strcmp(argv[1], "export")) {
-      exit(export_main(argc, argv));
-    }
-    else if (!strcmp(argv[1], "stat")) {
-      exit(stat_main(argc, argv));
-    }
-  }
   } catch (std::exception &e) {
     std::cerr << e.what() << std::endl;
     exit(1);
@@ -134,12 +134,12 @@ int build_main(const int argc, const char *argv[]) {
   vargas::Graph::GraphParams p;
 
   args >> GetOpt::Option('l', "maxlen", p.maxNodeLen)
-  >> GetOpt::Option('R', "region", p.region)
-  >> GetOpt::OptionPresent('c', "complement", makeComplements)
-  >> GetOpt::Option('c', "complement", p.complementSource)
-  >> GetOpt::OptionPresent('m', "maxref", p.maxAF)
-  >> GetOpt::Option('e', "exref", p.includeRefIndivs)
-  >> GetOpt::Option('m', "loadref", p.inMemoryRef);
+      >> GetOpt::Option('R', "region", p.region)
+      >> GetOpt::OptionPresent('c', "complement", makeComplements)
+      >> GetOpt::Option('c', "complement", p.complementSource)
+      >> GetOpt::OptionPresent('m', "maxref", p.maxAF)
+      >> GetOpt::Option('e', "exref", p.includeRefIndivs)
+      >> GetOpt::Option('m', "loadref", p.inMemoryRef);
 
   g.setParams(p);
 
@@ -148,28 +148,28 @@ int build_main(const int argc, const char *argv[]) {
     split(setString, ',', setSplit);
   } else setSplit.push_back("100"); // Default includes everything
 
-    // Gen a set of ingroup build files
-    std::stringstream fileName;
+  // Gen a set of ingroup build files
+  std::stringstream fileName;
   for (auto ingrp : setSplit) {
-      // Generates a buildfile for all % ingroup specified, as well as the outgroup buildfiles
-      g.setIngroup(stoi(ingrp));
+    // Generates a buildfile for all % ingroup specified, as well as the outgroup buildfiles
+    g.setIngroup(stoi(ingrp));
 
-      // Ingroup
+    // Ingroup
+    fileName.str(std::string());
+    fileName << ingrp << "In.build";
+    g.exportBuildfile(REF, VCF, fileName.str());
+
+    // Outgroup
+    if (makeComplements) {
+      g.setComplementSource(fileName.str());
       fileName.str(std::string());
-      fileName << ingrp << "In.build";
+      fileName << ingrp << "Out.build";
+      g.setComplement(true);
       g.exportBuildfile(REF, VCF, fileName.str());
-
-      // Outgroup
-      if (makeComplements) {
-        g.setComplementSource(fileName.str());
-        fileName.str(std::string());
-        fileName << ingrp << "Out.build";
-        g.setComplement(true);
-        g.exportBuildfile(REF, VCF, fileName.str());
-        g.setComplement(false);
-      }
-
+      g.setComplement(false);
     }
+
+  }
 
   return 0;
 }

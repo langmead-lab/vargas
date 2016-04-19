@@ -23,7 +23,7 @@ struct ReadProfile {
   int32_t numSubErr = -1;
   int32_t numVarNodes = -1;
   int32_t numVarBases = -1;
-    int32_t numIndelErr = -1;
+  int32_t numIndelErr = -1;
 
   ReadProfile() { }
 
@@ -139,7 +139,7 @@ class ReadSim: public ReadSource {
   // Number of reads to generate for each regex
   void setNumReads(uint32_t num) { p.maxreads = num; }
 
-  void setParams(SimParams param) {p = param;}
+  void setParams(SimParams param) { p = param; }
 
   // Add a regex, generates maxreads of each
   void addProfile(ReadProfile &prof, std::string file) {

@@ -104,7 +104,6 @@ std::string vargas::Xcoder::compressAndEncode(const std::vector<uint32_t> &vec) 
 }
 
 
-
 bool vargas::Xcoder::testCompression(std::vector<uint32_t> vec) {
   if (vec.size() == 0) return false;
 
