@@ -23,6 +23,7 @@ bool vargas::ReadFile::updateRead() {
     header += "\n" + line;
     return updateRead();
   }
+
   unsigned long delim = line.find('#');
   if (delim == std::string::npos) {
     read.read = line;
@@ -45,6 +46,7 @@ bool vargas::ReadFile::updateRead() {
       read.numVarBases = -1;
       return false;
     }
+
     read.readEnd = uint32_t(std::stoi(splitMeta[0]));
     read.indiv = std::stoi(splitMeta[1]);
     read.numSubErr = std::stoi(splitMeta[2]);

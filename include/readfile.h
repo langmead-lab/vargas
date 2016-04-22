@@ -28,8 +28,22 @@ class ReadFile: public ReadSource {
     if (readfile) readfile.close();
   }
 
+  /*
+   * Gets the current read.
+   * @return Read that has already been generated.
+   */
   Read &getRead() { return read; }
+
+  /*
+   * Updates the stored read.
+   * @return True if it was successful.
+   */
   bool updateRead();
+
+  /*
+   * Comment lines.
+   * @return Line delimited comment lines.
+   */
   std::string getHeader() const { return header; }
 
 

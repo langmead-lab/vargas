@@ -399,10 +399,11 @@ void printSimHelp() {
   cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;
   cout << "-l\t--readlen       Read length, strictly enforced." << endl;
   cout << "-e\t--profile       <p1 p2 .. p3> Match read profiles, space delimited. Produces -n of each." << endl;
-  cout << "-p\t--prefix        Prefix to use for read files generated with -e" << endl;
+  cout << "-p\t--prefix        Prefix to use for read files, default \'sim\'" << endl;
   cout << "-r\t--randwalk      Random walk, read may change individuals at branches." << endl;
   cout << "-a\t--ambiguity     Max number of ambiguous bases to allow in reads" << endl << endl;
 
+  cout << "Output to [prefix].reads" << endl;
   cout << "Read Profile format (use \'*\' for any): " << endl;
   cout << "\tnumSubErr,numVarNodes,numVarBases,numIndelErr" << endl;
   cout << "\tExample: Any read with 1 sub error and 1 variant node." << endl;

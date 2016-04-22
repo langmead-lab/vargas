@@ -43,6 +43,10 @@ struct ReadProfile {
     readLen = p.readLen;
   }
 
+  /**
+   * Checks if a Read matches the profile.
+   * @return True if it matches.
+   */
   bool matches(Read r) {
     if (numSubErr >= 0 && r.numSubErr != numSubErr) return false;
     if (numVarNodes >= 0 && r.numVarNodes != numVarNodes) return false;
@@ -66,16 +70,25 @@ inline bool operator==(ReadProfile &p, Read &r) {
 inline bool operator!=(ReadProfile &p, Read &r) {
   return !p.matches(r);
 }
+
 inline std::ostream &operator<<(std::ostream &os, const ReadProfile &p) {
-  os << ",numSubErr=" << p.numSubErr
+  os << "numSubErr=" << p.numSubErr
+      << ",numIndelErr=" << p.numIndelErr
       << ",numVarNodes=" << p.numVarNodes
       << ",numVarBases=" << p.numVarBases
-      << ",numIndelErr=" << p.numIndelErr
       << ",readLen=" << p.readLen;
   return os;
 }
 
-
+/**
+ * Parameters for the read simulator.
+ * @param seed Use a predefined random seed
+ * @param randWalk Ignore individuals, choose a random path
+ * @param muterr Mutation error rate
+ * @param indelerr Insertion and Ddletion error rate.
+ * @param readLen Target read length. May be shorter if reach graph end.
+ * @param ambiguity Limit on how many ambigous bases we allow.
+ */
 struct SimParams {
   time_t seed = time(NULL);
   bool randWalk = false;
@@ -120,6 +133,10 @@ class ReadSim: public ReadSource {
     }
   }
 
+  /**
+   * Generates reads from the provided graph.
+   * @param g Graph to pull reads from.
+   */
   void setGraph(Graph &g) {
     graph = g.getGSSWGraph();
   }
@@ -127,6 +144,9 @@ class ReadSim: public ReadSource {
     graph = g;
   }
 
+  /**
+   * Runs the sim until all provided profiles are fufilled.
+   */
   void populateProfiles();
 
   Read &getRead() { return read; }
@@ -150,7 +170,11 @@ class ReadSim: public ReadSource {
 
   void setParams(SimParams param) { p = param; }
 
-  // Add a regex, generates maxreads of each
+  /**
+   * Add a profile of read types we want.
+   * @param prof Target read profile.
+   * @param file Output filename.
+   */
   void addProfile(ReadProfile &prof, std::string file) {
     ReadProfile *p = new ReadProfile(prof);
     std::ofstream *os = new std::ofstream(file);
@@ -161,7 +185,7 @@ class ReadSim: public ReadSource {
     *(logs[p]) << "#" << (*p) << std::endl
         << '#' << this->p << std::endl;
   }
-  void clearRegexps() { readProfiles.clear(); }
+  void clearProfiles() { readProfiles.clear(); }
 
 
  protected:
