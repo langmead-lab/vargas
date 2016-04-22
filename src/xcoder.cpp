@@ -71,13 +71,14 @@ std::string vargas::Xcoder::encode(const uint8_t *data, size_t len) {
 }
 
 size_t vargas::Xcoder::decode(std::string &in, uint8_t **out) {
-  if (out == NULL) return 0;
+  if (out == NULL) {
+    throw std::invalid_argument("Must provide valid address.");
+  }
 
   std::stringstream i(in), o;
   decode(i, o);
   uint32_t N = o.str().size();
 
-  if (*out != NULL) free(*out);
   *out = (uint8_t *) malloc(N);
 
   o.seekg(0);

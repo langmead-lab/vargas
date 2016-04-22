@@ -18,12 +18,12 @@
 namespace vargas {
 
 struct ReadProfile {
-  //TODO add numIndelErr to prof and Read
   int32_t indiv = -1;
   int32_t numSubErr = -1;
   int32_t numVarNodes = -1;
   int32_t numVarBases = -1;
   int32_t numIndelErr = -1;
+  int32_t readLen = -1;
 
   ReadProfile() { }
 
@@ -33,6 +33,7 @@ struct ReadProfile {
     numVarNodes = p.numVarNodes;
     numVarBases = p.numVarBases;
     numIndelErr = p.numIndelErr;
+    readLen = p.readLen;
   }
 
   bool matches(Read r) {
@@ -41,6 +42,7 @@ struct ReadProfile {
     if (numVarNodes >= 0 && r.numVarNodes != numVarNodes) return false;
     if (numVarBases >= 0 && r.numVarBases != numVarBases) return false;
     if (numIndelErr >= 0 && r.numIndelErr != numIndelErr) return false;
+    if (readLen >= 0 && r.read.length() != readLen) return false;
     return true;
   }
 
@@ -63,7 +65,8 @@ inline std::ostream &operator<<(std::ostream &os, const ReadProfile &p) {
       << ",numSubErr=" << p.numSubErr
       << ",numVarNodes=" << p.numVarNodes
       << ",numVarBases=" << p.numVarBases
-      << ",numIndelErr=" << p.numIndelErr;
+      << ",numIndelErr=" << p.numIndelErr
+      << ",readLen=" << p.readLen;
   return os;
 }
 
@@ -102,7 +105,6 @@ class ReadSim: public ReadSource {
     setGraph(g);
   }
   ReadSim(SimParams param) {
-    srand(p.seed);
     setParams(param);
   }
   ~ReadSim() {
@@ -119,6 +121,8 @@ class ReadSim: public ReadSource {
   void setGraph(gssw_graph *g) {
     graph = g;
   }
+
+  void populateProfiles();
 
   Read &getRead() { return read; }
   bool updateRead();
@@ -163,8 +167,6 @@ class ReadSim: public ReadSource {
   std::map<ReadProfile *, std::ofstream *> logs;
   gssw_graph *graph = NULL;
   int totalreads = 0;
-
-  void generateRead();
 
 };
 

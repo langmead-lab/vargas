@@ -17,7 +17,6 @@
 
 
 int main(const int argc, const char *argv[]) {
-
   try {
     if (argc > 1) {
       if (!strcmp(argv[1], "build")) {
@@ -331,7 +330,7 @@ int sim_main(const int argc, const char *argv[]) {
       prof.numIndelErr = 0; //TODO make this a possible arg too
       sim.addProfile(prof, prefix + std::to_string(i) + ".reads");
     }
-    while (sim.updateRead());
+    sim.populateProfiles();
 
   } else {
     for (int i = 0; i < p.maxreads; ++i) {

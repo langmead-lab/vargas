@@ -17,6 +17,13 @@
 
 namespace vargas {
 
+/**
+ * Struct to represent a Read.
+ * @param read base sequence.
+ * @param readEnd position of last base in seq.
+ * @param indiv Individual the read was taken from.
+ * @param numSubErr Number of substitiution errors introduced.
+ */
 struct Read {
   std::string read;
   int32_t readEnd;
@@ -50,11 +57,11 @@ class ReadSource {
     if (!updateRead()) {
       read.read = "";
     }
-    return str();
+    return toString();
   }
 
   // Returns a string representation
-  virtual std::string str() {
+  virtual std::string toString() {
     std::stringstream ss;
     Read r = getRead();
     ss << r.read << '#' << r.readEnd << ',' << r.indiv

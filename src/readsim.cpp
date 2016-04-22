@@ -16,29 +16,30 @@
 #include "../include/readsim.h"
 
 
-bool vargas::ReadSim::updateRead() {
+void vargas::ReadSim::populateProfiles() {
   if (!graph) throw std::invalid_argument("No graph assigned.");
-  if (readProfiles.size() > 0) {
-    generateRead();
-    for (auto prof : readProfiles) {
-      if (counters[prof] < p.maxreads) {
-        if (*prof == read) {
-          counters[prof]++;
-          totalreads++;
-          *(logs[prof]) << str() << std::endl;
-          break;
+  while (true) {
+    updateRead();
+    if (readProfiles.size() > 0) {
+      for (auto prof : readProfiles) {
+        if (counters[prof] < p.maxreads) {
+          if (*prof == read) {
+            counters[prof]++;
+            totalreads++;
+            *(logs[prof]) << this->toString() << std::endl;
+            break;
+          }
         }
       }
-      if (totalreads >= readProfiles.size() * p.maxreads) return false;
+      if (totalreads >= readProfiles.size() * p.maxreads) break;
     }
   }
-  else generateRead();
-  return true;
 }
 
 
-void vargas::ReadSim::generateRead() {
+bool vargas::ReadSim::updateRead() {
   //TODO segfault when read length is too short
+  if (!graph) return false;
   gssw_node *node, *nodeCandidate;
   int32_t base, RAND, ambig = 0, currIndiv = -1, numSubErr = 0, numVarNodes = 0, numVarBases = 0, numIndelErr = 0;
   char mut;
@@ -51,8 +52,10 @@ void vargas::ReadSim::generateRead() {
   /** initial random node and base **/
   do {
     node = graph->nodes[rand() % graph->size];
-  } while (node->len < 1);
+  } while (node->len < 1); // The graph allows empty nodes
+
   base = rand() % node->len;
+  // Pick an individual to follow
   if (node->indivCompressedSize > 0) {
     coder.inflate(node->indivCompressed, node->indivCompressedSize, individuals);
     currIndiv = individuals[rand() % individuals.size()];
@@ -60,12 +63,19 @@ void vargas::ReadSim::generateRead() {
   }
 
   for (int i = 0; i < p.readLen; i++) {
-    if (node->len != 0) read += node->seq[base];
-    if (node->indivCompressedSize > 0) numVarBases++;
-    if (node->seq[base] == 'N') ambig++;
+    if (node->len != 0) {
+      read += node->seq[base];
+    }
+    if (node->indivCompressedSize > 0) {
+      numVarBases++;
+    }
+    if (node->seq[base] != 'A' || node->seq[base] != 'T' || node->seq[base] != 'G' || node->seq[base] != 'C') {
+      ambig++;
+    }
+
     base++;
 
-    /** Go to next random node **/
+    // Go to next random node
     if (base == node->len) {
       if (node->count_next == 0) break;
       do {
@@ -101,8 +111,7 @@ void vargas::ReadSim::generateRead() {
 
   //Replace read if it has less than half non-ambiguous bases
   if (ambig > p.ambiguity || read.length() != p.readLen) {
-    generateRead();
-    return;
+    return updateRead();
   }
 
   /** Mutate string **/
@@ -158,4 +167,6 @@ void vargas::ReadSim::generateRead() {
   this->read.numVarNodes = numVarNodes;
   this->read.numVarBases = numVarBases;
   this->read.numIndelErr = numIndelErr;
+
+  return true;
 }
