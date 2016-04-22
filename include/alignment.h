@@ -17,7 +17,17 @@
 
 namespace vargas {
 
-// struct to hold alignment results
+/**
+ * Alignment storage struct.
+ * @param read Read that was aligned
+ * @param optScore Best alignment score
+ * @param optAlignEnd Best alignment position, of the end of the read
+ * @param optCount Number of alignments that had the best score
+ * @param subOptScore Second best alignment score
+ * @param subOptAlignEnd Second best alignment position
+ * @param subOptCount Number of second-best alignments
+ * @param corflag 0 if alignment matches read origin, 1 of second best, 2 otherwise
+ */
 struct Alignment {
   Read read;
 

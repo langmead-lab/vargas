@@ -21,15 +21,21 @@
 
 namespace vargas {
 
-/** record of data that contains the parsed and filtered VCF **/
+/**
+ * A parsed VCF record
+ * @param pos Position of the variant
+ * @param ref The reference seq
+ * @param indivs maps each individual to a vector if individuals that have that variant
+ * @param freqs maps each variant to its allele frequency
+ */
 struct vcfrecord {
-  ulong pos; // position of variant
-  std::string ref; // ref is also included in indivs and freqs
-  std::map<std::string, std::vector<uint32_t>> indivs; // Maps each alt to a list of indivs w/ that alt
-  std::map<std::string, double_t> freqs; // Maps each alt to its allele frequency
+  ulong pos;
+  std::string ref;
+  std::map<std::string, std::vector<uint32_t>> indivs;
+  std::map<std::string, double_t> freqs;
 };
 
-// For printing a record
+
 std::ostream &operator<<(std::ostream &os, const vcfrecord &vrec);
 
 

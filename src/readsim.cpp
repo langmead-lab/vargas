@@ -109,19 +109,19 @@ bool vargas::ReadSim::updateRead() {
     }
   }
 
-  //Replace read if it has less than half non-ambiguous bases
+  // Replace read if it has less than half non-ambiguous bases
   if (ambig > p.ambiguity || read.length() != p.readLen) {
     return updateRead();
   }
 
-  /** Mutate string **/
+  // Mutate string
   for (uint32_t i = 0; i < read.length(); i++) {
     RAND = rand() % 1000;
     mut = read.at(i);
 
 
     // If its below (1000*error), there's a deletion
-    if (RAND > 1000.0 * p.indelerr) {
+    if (RAND >= 1000.0 * p.indelerr) {
       // Substitution errors
       if (RAND < 250.0 * p.muterr && mut != 'A') {
         mut = 'A';
@@ -158,7 +158,7 @@ bool vargas::ReadSim::updateRead() {
 
   }
 
-  /** populate read info **/
+  // populate read info
   this->read.read = readmut.str();
   readmut.str(std::string());
   this->read.readEnd = uint32_t(node->data - node->len + base);

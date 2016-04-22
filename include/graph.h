@@ -71,7 +71,6 @@ class Graph {
 
   /**
    * Creates a Graph object with a given gssw_graph.
-   *
    * @param g gssw_graph pointer
    */
   Graph(gssw_graph *g) : graph(g) { }
@@ -79,7 +78,6 @@ class Graph {
   /**
    * Generate a left context graph of a given alignment and graph.
    * The locality of > read length base pairs is loaded.
-   *
    * @param g An existing Graph to pull a subgraph from
    * @param a An alignment to copy a graph around.
    */
@@ -87,7 +85,6 @@ class Graph {
 
   /**
    * Create a graph with the given parameters.
-   *
    * @param p GraphParams to use
    */
   Graph(GraphParams p) : params(p) {
@@ -98,7 +95,6 @@ class Graph {
   /**
    * Create a graph from a given reference and VCF file.
    * A buildfile is also exported.
-   *
    * @param refFile Reference FASTA filename.
    * @param vcfFile VCF filename.
    * @param buildFile buildfile output fileName.
@@ -122,7 +118,6 @@ class Graph {
 
   /**
    * Build a graph from a given buildfile.
-   *
    * @param buildfile Buildfile filename.
    */
   Graph(std::string buildfile) {
@@ -140,7 +135,6 @@ class Graph {
 
   /**
    * Exports the graph in the DOT format.
-   *
    * @param file Output filename.
    */
   void exportDOT(std::string file) {
@@ -151,7 +145,6 @@ class Graph {
 
   /**
    * Exports the graph in the DOT format.
-   *
    * @param out Output stream to export DOT graph on.
    * @param name Default "vargraph", the name of the digraph.
    */
@@ -159,7 +152,6 @@ class Graph {
 
   /**
    * Exports a buildfile using file names.
-   *
    * @param ref Reference FASTA filename
    * @param vcf VCF filename
    * @param build filename of output file, default std::cout
@@ -168,7 +160,6 @@ class Graph {
 
   /**
    * Export a buildfile to std::cout.
-   *
    * @param reference stream to intepret as the referense sequence
    * @param variants a vcfstream to obtain variant records from
    */
@@ -178,7 +169,6 @@ class Graph {
 
   /**
    * Export a buildfile to a output stream.
-   *
    * @param _reference input stream to use as input sequence.
    * @param variants input vcfstream to obtain variant records
    * @param buildout output stream for buildfile.
@@ -187,7 +177,6 @@ class Graph {
 
   /**
    * Build a graph using a buildfile.
-   *
    * @build filename of a graph buildfile.
    */
   void buildGraph(std::string build) {
@@ -199,14 +188,12 @@ class Graph {
 
   /**
    * Build a graph using a buildfile input stream.
-   *
    * @param buildfile buildfile input stream.
    */
   void buildGraph(std::istream &buildfile);
 
   /**
    * Align a read to the graph.
-   *
    * @param read Read object to align.
    * @return an Alignment object
    */
@@ -214,7 +201,6 @@ class Graph {
 
   /**
    * Align a read to an existing alignment object.
-   *
    * @param r Read to align
    * @param a Alignment to store the alignment result in.
    */
@@ -224,21 +210,18 @@ class Graph {
 
   /**
    * Get a pointer to the internal gssw_graph object.
-   *
    * @returns gssw_graph pointer
    */
   gssw_graph *getGSSWGraph() const { return graph; }
 
   /**
    * Get a copy of the graph parameters.
-   *
    * @returns GraphParams copy
    */
   GraphParams getParamsCopy() const { return params; }
 
   /**
    * Set the parameters of the graph.
-   *
    * @param p GraphParams to set.
    */
   void setParams(GraphParams p) {
@@ -254,28 +237,24 @@ class Graph {
 
   /**
    * Set the ingroup percentage.
-   *
    * @param i percent of individuals to include
    */
   void setIngroup(int32_t i) { params.ingroup = i; }
 
   /**
    * Select if a complement graph should be built.
-   *
    * @param b if true generate a complement graph.
    */
   void setComplement(bool b) { params.genComplement = b; }
 
   /**
    * Set the source of a complenment graph
-   *
    * @param s filename of the complement origin buildfile.
    */
   void setComplementSource(std::string s) { params.complementSource = s; }
 
   /**
    * Set the scores for alignment.
-   *
    * @param m match score
    * @param mm mismatch score
    * @param go gap_open score
@@ -296,14 +275,12 @@ class Graph {
 
   /**
    * Keep only the allele with the max allele frequency.
-   *
    * @param b True to only keep maximum allele frequency.
    */
   void setMaxAF(bool b) { params.maxAF = b; }
 
   /**
    * If true, load the individuals into memory.
-   *
    * @param b
    */
   void useIndividuals(bool b) { params.includeIndividuals = b; }
@@ -314,7 +291,6 @@ class Graph {
 
   /**
    * Parse a string into an upper and lower bound.
-   *
    * @param region String of format "a:b"
    * @param min parsed "a"
    * @param max parsed "b"
@@ -323,7 +299,6 @@ class Graph {
 
   /**
    * Create an ingroup as specified by local params.
-   *
    * @param variants vcfstream to set the ingroup for.
    */
   void generateIngroup(vcfstream &variants);

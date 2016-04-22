@@ -30,13 +30,20 @@ class Xcoder {
 
   /**
    * data is a list of ints, length is the number of ints, out is the compressed data
-   * Returns the length of out in bytes
+   * @param data data to compress
+   * @param length length of data
+   * @param out pointer to pointer of compressed output
+   * @return the length of out in bytes
+   *
    */
   size_t compress(const uint32_t *data, size_t length, uint8_t **out);
 
   /**
    * data is the compressed input, length is the length of data in bytes, and out is the list of ints
-   * Returns the number of ints recovered
+   * @param data compressed data
+   * @param length length of compressed data
+   * @param out pointer to pointer of decompressed data
+   * /return the number of ints recovered
    */
   size_t inflate(const uint8_t *data, size_t length, uint32_t **out);
 
