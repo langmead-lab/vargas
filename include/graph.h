@@ -65,6 +65,7 @@ class Graph {
     bool includeIndividuals = false;
   };
 
+
   /*********************************** CONSTRUCTORS ***********************************/
 
   Graph() { }
@@ -304,5 +305,17 @@ class Graph {
   void generateIngroup(vcfstream &variants);
 };
 
+inline std::ostream &operator<<(std::ostream &os, const Graph::GraphParams &gp) {
+  std::stringstream ss;
+  ss << "maxNodeLen:" << gp.maxNodeLen;
+  if (gp.region.length() > 0) ss << ", Region:" << gp.region;
+  ss << ",maxAF:" << gp.maxAF << ",refIndivs:" << gp.includeRefIndivs;
+  if (gp.genComplement) ss << ",ComplementSource:" << gp.complementSource;
+  else ss << ",ingroup:" << gp.ingroup;
+  os << ss.str();
+  return os;
 }
+
+}
+
 #endif //VARGAS_GRAPH_H

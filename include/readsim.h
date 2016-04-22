@@ -139,6 +139,7 @@ class ReadSim: public ReadSource {
    */
   void setGraph(Graph &g) {
     graph = g.getGSSWGraph();
+    gp = g.getParamsCopy();
   }
   void setGraph(gssw_graph *g) {
     graph = g;
@@ -189,7 +190,7 @@ class ReadSim: public ReadSource {
 
 
  protected:
-
+  Graph::GraphParams gp;
   SimParams p;
   std::vector<ReadProfile *> readProfiles;
   std::map<ReadProfile *, int> counters;

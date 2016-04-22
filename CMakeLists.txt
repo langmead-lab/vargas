@@ -24,7 +24,8 @@ set(MAIN_SOURCES
         src/xcoder.cpp          # Compressor and base64 encoder for lists of unsigned ints
         include/xcoder.h
         include/loadfile.h
-        src/loadfile.cpp include/alignment.h)
+        src/loadfile.cpp
+        include/alignment.h)
 
 set(GSSW_SOURCES
         gssw/src/gssw.h

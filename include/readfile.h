@@ -32,19 +32,19 @@ class ReadFile: public ReadSource {
    * Gets the current read.
    * @return Read that has already been generated.
    */
-  Read &getRead() { return read; }
+  Read &getRead() override { return read; }
 
   /*
    * Updates the stored read.
    * @return True if it was successful.
    */
-  bool updateRead();
+  bool updateRead() override;
 
   /*
    * Comment lines.
    * @return Line delimited comment lines.
    */
-  std::string getHeader() const { return header; }
+  std::string getHeader() const override { return header; }
 
 
  protected:
