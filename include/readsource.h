@@ -1,6 +1,6 @@
 /**
  * Ravi Gaddipati
- * November 24, 2015
+ * April 22, 2016
  * rgaddip1@jhu.edu
  *
  * Abstract class for objects that can be used as a
@@ -23,6 +23,9 @@ namespace vargas {
  * @param readEnd position of last base in seq.
  * @param indiv Individual the read was taken from.
  * @param numSubErr Number of substitiution errors introduced.
+ * @param numVarNodes Number of variant nodes the read traverses.
+ * @param numVarBases Number of bases that are in variant nodes.
+ * @param numIndelErr Number of insertions and deletions introduced.
  */
 struct Read {
   std::string read;
@@ -37,8 +40,12 @@ struct Read {
 
 inline std::ostream &operator<<(std::ostream &os, const Read &r) {
   std::stringstream ss;
-  ss << r.read << '#' << r.readEnd << ',' << r.indiv
-      << ',' << r.numSubErr << ',' << r.numVarNodes
+  ss << r.read
+      << '#' << r.readEnd
+      << ',' << r.indiv
+      << ',' << r.numSubErr
+      << ',' << r.numIndelErr
+      << ',' << r.numVarNodes
       << ',' << r.numVarBases;
   os << ss.str();
   return os;
@@ -64,8 +71,12 @@ class ReadSource {
   virtual std::string toString() {
     std::stringstream ss;
     Read r = getRead();
-    ss << r.read << '#' << r.readEnd << ',' << r.indiv
-        << ',' << r.numSubErr << ',' << r.numVarNodes
+    ss << r.read
+        << '#' << r.readEnd
+        << ',' << r.indiv
+        << ',' << r.numSubErr
+        << ',' << r.numIndelErr
+        << ',' << r.numVarNodes
         << ',' << r.numVarBases;
     return ss.str();
   };

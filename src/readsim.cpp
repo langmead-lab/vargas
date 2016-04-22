@@ -69,7 +69,7 @@ bool vargas::ReadSim::updateRead() {
     if (node->indivCompressedSize > 0) {
       numVarBases++;
     }
-    if (node->seq[base] != 'A' || node->seq[base] != 'T' || node->seq[base] != 'G' || node->seq[base] != 'C') {
+    if (node->seq[base] != 'A' && node->seq[base] != 'T' && node->seq[base] != 'G' && node->seq[base] != 'C') {
       ambig++;
     }
 

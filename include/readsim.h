@@ -17,8 +17,16 @@
 
 namespace vargas {
 
+/*
+ * Provides a 'target' read profile.
+ * @param indiv Individual the read was taken from.
+ * @param numSubErr Target number of substitiution errors introduced.
+ * @param numVarNodes Target number of variant nodes the read traverses.
+ * @param numVarBases Target number of bases that are in variant nodes.
+ * @param numIndelErr Target number of insertions and deletions introduced.
+ * @param readLen Target read length.
+ */
 struct ReadProfile {
-  int32_t indiv = -1;
   int32_t numSubErr = -1;
   int32_t numVarNodes = -1;
   int32_t numVarBases = -1;
@@ -28,7 +36,6 @@ struct ReadProfile {
   ReadProfile() { }
 
   ReadProfile(const ReadProfile &p) {
-    indiv = p.indiv;
     numSubErr = p.numSubErr;
     numVarNodes = p.numVarNodes;
     numVarBases = p.numVarBases;
@@ -37,7 +44,6 @@ struct ReadProfile {
   }
 
   bool matches(Read r) {
-    if (indiv >= 0 && r.indiv != indiv) return false;
     if (numSubErr >= 0 && r.numSubErr != numSubErr) return false;
     if (numVarNodes >= 0 && r.numVarNodes != numVarNodes) return false;
     if (numVarBases >= 0 && r.numVarBases != numVarBases) return false;
@@ -61,8 +67,7 @@ inline bool operator!=(ReadProfile &p, Read &r) {
   return !p.matches(r);
 }
 inline std::ostream &operator<<(std::ostream &os, const ReadProfile &p) {
-  os << "indiv=" << p.indiv
-      << ",numSubErr=" << p.numSubErr
+  os << ",numSubErr=" << p.numSubErr
       << ",numVarNodes=" << p.numVarNodes
       << ",numVarBases=" << p.numVarBases
       << ",numIndelErr=" << p.numIndelErr

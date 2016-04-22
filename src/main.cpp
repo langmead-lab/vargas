@@ -323,11 +323,10 @@ int sim_main(const int argc, const char *argv[]) {
     for (int i = 0; i < splitProfiles.size(); ++i) {
       split(splitProfiles[i], ',', splitProf);
       if (splitProf.size() != 4) throw std::invalid_argument("Profile must have 4 fields (" + splitProfiles[i] + ").");
-      prof.indiv = (splitProf[0] == "*") ? -1 : std::stoi(splitProf[0]);
-      prof.numSubErr = (splitProf[1] == "*") ? -1 : std::stoi(splitProf[1]);
-      prof.numVarNodes = (splitProf[2] == "*") ? -1 : std::stoi(splitProf[2]);
-      prof.numVarBases = (splitProf[3] == "*") ? -1 : std::stoi(splitProf[3]);
-      prof.numIndelErr = 0; //TODO make this a possible arg too
+      prof.numSubErr = (splitProf[0] == "*") ? -1 : std::stoi(splitProf[0]);
+      prof.numVarNodes = (splitProf[1] == "*") ? -1 : std::stoi(splitProf[1]);
+      prof.numVarBases = (splitProf[2] == "*") ? -1 : std::stoi(splitProf[2]);
+      prof.numIndelErr = (splitProf[3] == "*") ? -1 : std::stoi(splitProf[3]);
       sim.addProfile(prof, prefix + std::to_string(i) + ".reads");
     }
     sim.populateProfiles();
@@ -405,11 +404,11 @@ void printSimHelp() {
   cout << "-a\t--ambiguity     Max number of ambiguous bases to allow in reads" << endl << endl;
 
   cout << "Read Profile format (use \'*\' for any): " << endl;
-  cout << "\tindiv,numSubErr,numVarNodes,numVarBases" << endl;
+  cout << "\tnumSubErr,numVarNodes,numVarBases,numIndelErr" << endl;
   cout << "\tExample: Any read with 1 sub error and 1 variant node." << endl;
-  cout << "\t\t*,1,1,*" << endl;
+  cout << "\t\t1,1,*,*" << endl;
   cout << "Read Format:" << endl;
-  cout << "\tREAD#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES" << endl << endl;
+  cout << "\tREAD#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_INDEL_ERR,NUM_VAR_NODE,NUM_VAR_BASES" << endl << endl;
 }
 
 
