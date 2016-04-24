@@ -360,12 +360,7 @@ void vargas::Graph::exportBuildfile(std::istream *_reference, vcfstream &variant
 
 void vargas::Graph::exportBuildfile(std::string ref, std::string vcf, std::string build) {
   std::istream *r;
-  if (params.inMemoryRef) {
-    r = loadFile(ref);
-  }
-  else {
-    r = new std::ifstream(ref);
-  }
+  r = new std::ifstream(ref);
 
   vcfstream v(vcf);
   if (!r) throw std::invalid_argument("Error opening file: " + ref);

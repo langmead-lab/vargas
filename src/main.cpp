@@ -63,14 +63,13 @@ int stat_main(const int argc, const char *argv[]) {
   }
 
   if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
-    std::cerr << "No buildfile specified" << std::endl;
-    return 1;
+    printStatHelp();
+    throw std::invalid_argument("No buildfile specified!");
   }
 
   std::ifstream bf(buildfile);
   if (!bf.good()) {
-    std::cerr << "Error opening buildfile" << std::endl;
-    return 1;
+    throw std::invalid_argument("Error opening buildfile: " + buildfile);
   }
 
   uint32_t numTotalNodes = 0, numVarNodes = 0, numEdges = 0;
@@ -78,11 +77,12 @@ int stat_main(const int argc, const char *argv[]) {
   std::vector<std::string> splitLine;
 
   while (getline(bf, line)) {
-    if (line.at(0) == '#') continue;
+    if (line.at(0) == '#') std::cout << line << std::endl;
     if (line.at(0) == ':') {
       numVarNodes++;
       continue;
     }
+
     split(line, ',', splitLine);
 
     switch (splitLine.size()) {
@@ -126,8 +126,8 @@ int build_main(const int argc, const char *argv[]) {
 
   if (!(args >> GetOpt::Option('v', "vcf", VCF))
       || !(args >> GetOpt::Option('r', "ref", REF))) {
-    std::cerr << "No input files specified!" << std::endl;
-    return 1;
+    printBuildHelp();
+    throw std::invalid_argument("No input files specified!");
   }
 
   vargas::Graph::GraphParams p;
@@ -137,8 +137,7 @@ int build_main(const int argc, const char *argv[]) {
       >> GetOpt::OptionPresent('c', "complement", makeComplements)
       >> GetOpt::Option('c', "complement", p.complementSource)
       >> GetOpt::OptionPresent('m', "maxref", p.maxAF)
-      >> GetOpt::Option('e', "exref", p.includeRefIndivs)
-      >> GetOpt::Option('m', "loadref", p.inMemoryRef);
+      >> GetOpt::Option('e', "exref", p.includeRefIndivs);
 
   g.setParams(p);
 
@@ -190,8 +189,8 @@ int export_main(const int argc, const char *argv[]) {
     g.buildGraph(buildfile);
   }
   else {
-    std::cerr << "Error: Buildfile required." << std::endl;
-    return 1;
+    printExportHelp();
+    throw std::invalid_argument("No buildfile defined.");
   }
 
   std::string inputAligns = "";
@@ -250,16 +249,16 @@ int align_main(const int argc, const char *argv[]) {
   // Read file handler
   std::string readsfile;
   if (!(args >> GetOpt::Option('r', "reads", readsfile))) {
-    std::cerr << "No buildfile defined!" << std::endl;
-    return 1;
+    printAlignHelp();
+    throw std::invalid_argument("No reads file defined.");
   }
   vargas::ReadFile reads(readsfile);
 
 
   std::string buildfile;
   if (!(args >> GetOpt::Option('b', "build", buildfile))) {
-    std::cerr << "No buildfile defined!" << std::endl;
-    return 1;
+    printAlignHelp();
+    throw std::invalid_argument("No buildfile defined.");
   }
   g.buildGraph(buildfile);
 
@@ -307,7 +306,10 @@ int sim_main(const int argc, const char *argv[]) {
       >> GetOpt::Option('a', "ambiguity", p.ambiguity);
 
   std::string buildfile;
-  if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) throw std::invalid_argument("Buildfile required.");
+  if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
+    printBuildHelp();
+    throw std::invalid_argument("Buildfile required.");
+  }
   vargas::Graph g;
   g.useIndividuals(!p.randWalk); // Don't need individuals if we're doing a random walk
   g.buildGraph(buildfile);
@@ -321,6 +323,7 @@ int sim_main(const int argc, const char *argv[]) {
     args >> GetOpt::Option('p', "prefix", prefix);
 
     std::vector<std::string> splitProfiles = split(profiles, ' ');
+
     std::vector<std::string> splitProf;
     vargas::ReadProfile prof;
     for (int i = 0; i < splitProfiles.size(); ++i) {
@@ -350,7 +353,7 @@ void printMainHelp() {
   cout << endl
       << "---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
   cout << "Operating modes \'vargas MODE\':" << endl;
-  cout << "\tbuild     Generate graph build file from reference and VCF files." << endl;
+  cout << "\tbuild     Generate graph build file from reference FASTA and VCF files." << endl;
   cout << "\tsim       Simulate reads from a graph." << endl;
   cout << "\talign     Align reads to a graph." << endl;
   cout << "\tstat      Count nodes and edges of a given graph." << endl;
@@ -361,21 +364,22 @@ void printMainHelp() {
 void printBuildHelp() {
   using std::cout;
   using std::endl;
+  vargas::Graph g;
+  vargas::Graph::GraphParams p = g.getParams();
+
   cout << endl
       << "------------------- vargas build, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
-  cout << "-v\t--vcf           (required) VCF file, uncompressed." << endl;
-  cout << "-r\t--ref           (required) reference, single record FASTA" << endl;
-  cout << "-l\t--maxlen        Maximum node length" << endl;
-  cout << "-R\t--region        <min:max> Ref region, inclusive. Default is the entire graph." << endl;
-  cout << "-m\t--maxref        Generate a graph using alleles in the ingroup w/ the highest frequency." << endl;
+  cout << "-v\t--vcf           <string> VCF file, uncompressed." << endl;
+  cout << "-r\t--ref           <string> reference, single record FASTA" << endl;
+  cout << "-l\t--maxlen        <int> Maximum node length, default " << p.maxNodeLen << endl;
+  cout << "-R\t--region        <<int>:<int>> Ref region, inclusive. Default is the entire graph." << endl;
+  cout << "-m\t--maxref        Generate a linear graph using maximum allele frequency nodes." << endl;
   cout << "-e\t--exref         Exclude the list of individuals from the reference alleles." << endl;
-  cout << "-s\t--set           <#,#,..,#> Generate a buildfile for a list of ingroup percents." << endl;
-  cout << "-c\t--complement    <graph.build> Generate a complement of all graphs in -s" << endl;
-  cout << "-m\t--loadref       Load entire reference into memory" << endl;
+  cout << "-s\t--set           <<int>,<int>,..,<int>> Generate a buildfile for a list of ingroup percents." << endl;
+  cout << "-c\t--complement    <string> Generate a complement of all graphs in -s, or of provided graph." << endl;
 
-
-  cout << endl << "--maxref is applied after ingroup filter" << endl;
-  cout << "Buildfile is output to [s][In/Out].build" << endl << endl;
+  cout << endl << "--maxref is applied after ingroup filter." << endl;
+  cout << "Buildfile is output to [s][In Out].build" << endl << endl;
 }
 
 
@@ -384,8 +388,8 @@ void printExportHelp() {
   using std::endl;
   cout << endl
       << "------------------ vargas export, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
-  cout << "-b\t--buildfile    (required) Graph to export to DOT." << endl;
-  cout << "-c\t--context      [InputFile] Export the context of alignments." << endl;
+  cout << "-b\t--buildfile    <string> Graph to export to DOT." << endl;
+  cout << "-c\t--context      <string> Export the local context graph of these alignments." << endl;
 
   cout << endl << "DOT file printed to stdout." << endl << endl;
 }
@@ -394,23 +398,28 @@ void printExportHelp() {
 void printSimHelp() {
   using std::cout;
   using std::endl;
+  vargas::ReadSim s;
+  vargas::SimParams p = s.getParams();
+
+
   cout << endl
       << "-------------------- vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------" << endl;
-  cout << "-b\t--buildfile     quick rebuild file, generate with vargas build" << endl;
-  cout << "-n\t--numreads      Number of reads to simulate" << endl;
-  cout << "-m\t--muterr        Simulated read mutation error rate" << endl;
-  cout << "-i\t--indelerr      Simulated read Indel error rate" << endl;
-  cout << "-l\t--readlen       Read length, strictly enforced." << endl;
-  cout << "-e\t--profile       <p1 p2 .. p3> Match read profiles, space delimited. Produces -n of each." << endl;
+  cout << "-b\t--buildfile     <string> Graph build file, generate with \'vargas build\'" << endl;
+  cout << "-n\t--numreads      <int> Number of reads to simulate, default " << p.maxreads << endl;
+  cout << "-m\t--muterr        <float> Read mutation error rate, default " << p.muterr << endl;
+  cout << "-i\t--indelerr      <float> Read Indel error rate, default " << p.indelerr << endl;
+  cout << "-l\t--readlen       <int> Read length, default " << p.readLen << endl;
+  cout << "-e\t--profile       <p1 p2 .. p3> Space delimited read profiles. Produces -n of each" << endl;
   cout << "-p\t--prefix        Prefix to use for read files, default \'sim\'" << endl;
-  cout << "-r\t--randwalk      Random walk, read may change individuals at branches." << endl;
-  cout << "-a\t--ambiguity     Max number of ambiguous bases to allow in reads" << endl << endl;
+  cout << "-r\t--randwalk      Random walk, read may change individuals at branches" << endl;
+  cout << "-a\t--ambiguity     Max number of ambiguous bases to allow in reads, default " << p.ambiguity << endl;
+  cout << endl;
 
-  cout << "Output to [prefix].reads" << endl;
+  cout << "Outputs to \'[prefix][n].reads\' where [n] is the profile number." << endl;
   cout << "Read Profile format (use \'*\' for any): " << endl;
   cout << "\tnumSubErr,numIndelErr,numVarNodes,numVarBases" << endl;
-  cout << "\tExample: Any read with 1 sub error and 1 variant node." << endl;
-  cout << "\t\t1,*,1,*" << endl;
+  cout << "\tExample: Any read with 1 substitution error and 1 variant node." << endl;
+  cout << "\t\tvargas sim -b BUILD -e \"1,*,1,*\"" << endl;
   cout << "Read Format:" << endl;
   cout << "\tREAD#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_INDEL_ERR,NUM_VAR_NODE,NUM_VAR_BASES" << endl << endl;
 }
@@ -424,13 +433,13 @@ void printAlignHelp() {
 
   cout << endl
       << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
-  cout << "-b\t--buildfile     Quick rebuild file." << endl;
-  cout << "-m\t--match         Match score, default " << int(p.match) << endl;
-  cout << "-n\t--mismatch      Mismatch score, default " << int(p.mismatch) << endl;
-  cout << "-o\t--gap_open      Gap opening penalty, default " << int(p.gap_open) << endl;
-  cout << "-e\t--gap_extend    Gap extend penalty, default " << int(p.gap_extension) << endl;
-  cout << "-r\t--reads         Reads to align. Use stdin if not defined." << endl;
-  cout << "-f\t--outfile       Alignment output file. If not defined, use stdout." << endl;
+  cout << "-b\t--buildfile     <string> Graph build file" << endl;
+  cout << "-m\t--match         <int> Match score, default " << int(p.match) << endl;
+  cout << "-n\t--mismatch      <int> Mismatch score, default " << int(p.mismatch) << endl;
+  cout << "-o\t--gap_open      <int> Gap opening penalty, default " << int(p.gap_open) << endl;
+  cout << "-e\t--gap_extend    <int> Gap extend penalty, default " << int(p.gap_extension) << endl;
+  cout << "-r\t--reads         <string> Reads to align. Use stdin if not defined." << endl;
+  cout << "-f\t--outfile       <string> Alignment output file. If not defined, use stdout." << endl;
 
   cout << "Lines beginning with \'#\' are ignored." << endl;
   cout << "Output format:" << endl;
@@ -447,6 +456,6 @@ void printStatHelp() {
 
   cout << endl
       << "------------------- vargas stat, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
-  cout << "-b\t--buildfile     Quick rebuild file." << endl << endl;
+  cout << "-b\t--buildfile     <string> Graph build file." << endl << endl;
 
 }

@@ -139,7 +139,7 @@ class ReadSim: public ReadSource {
    */
   void setGraph(Graph &g) {
     graph = g.getGSSWGraph();
-    gp = g.getParamsCopy();
+    gp = g.getParams();
   }
   void setGraph(gssw_graph *g) {
     graph = g;
@@ -187,6 +187,7 @@ class ReadSim: public ReadSource {
         << '#' << this->p << std::endl;
   }
   void clearProfiles() { readProfiles.clear(); }
+  SimParams getParams() { return p; };
 
 
  protected:

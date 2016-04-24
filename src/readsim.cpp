@@ -21,12 +21,12 @@ void vargas::ReadSim::populateProfiles() {
   while (true) {
     updateRead();
     if (readProfiles.size() > 0) {
-      for (auto prof : readProfiles) {
-        if (counters[prof] < p.maxreads) {
-          if (*prof == read) {
-            counters[prof]++;
+      for (auto profile : readProfiles) {
+        if (counters[profile] < p.maxreads) {
+          if (*profile == read) {
+            counters[profile]++;
             totalreads++;
-            *(logs[prof]) << this->toString() << std::endl;
+            *(logs[profile]) << this->toString() << std::endl;
             break;
           }
         }
@@ -42,8 +42,8 @@ bool vargas::ReadSim::updateRead() {
   if (!graph) return false;
   gssw_node *node, *nodeCandidate;
   int32_t base, RAND, ambig = 0, currIndiv = -1, numSubErr = 0, numVarNodes = 0, numVarBases = 0, numIndelErr = 0;
-  char mut;
-  std::stringstream readmut;
+  char mutatedBase;
+  std::stringstream mutatedRead;
   std::string read = "";
   std::vector<uint32_t> individuals;
   vargas::Xcoder coder;
@@ -75,26 +75,32 @@ bool vargas::ReadSim::updateRead() {
 
     base++;
 
-    // Go to next random node
+    // Reached end of node, go to next random node
     if (base == node->len) {
       if (node->count_next == 0) break;
       do {
-
+        // Find a node that the individual possess
         nodeCandidate = node->next[rand() % node->count_next];
         // Get the list of individuals for the node candidate
         coder.inflate(nodeCandidate->indivCompressed, nodeCandidate->indivCompressedSize, individuals);
-
         if (nodeCandidate->indivCompressedSize == 0) break; // A node common to all individuals is valid
 
         valid = false;
+
+        // If we haven't already picked an individual, pick one
         if (currIndiv < 0) {
-          // If we haven't already picked an individual
           currIndiv = individuals[rand() % individuals.size()];
           valid = true;
           break;
         }
 
-        // Check if the individual has this variant
+//        Can probs replace lower block with this, need to confirm indiv. is always
+//        sorted. Can also get rid of valid flag.
+//
+//        if(p.randWalk || std::binary_search(individuals.begin(), individuals.end(), currIndiv)){
+//          valid = true;
+//        }
+
         for (int i = 0; i < individuals.size(); i++) {
           if (p.randWalk || currIndiv == individuals[i]) {
             valid = true;
@@ -117,50 +123,53 @@ bool vargas::ReadSim::updateRead() {
   // Mutate string
   for (uint32_t i = 0; i < read.length(); i++) {
     RAND = rand() % 1000;
-    mut = read.at(i);
+    mutatedBase = read.at(i);
 
 
     // If its below (1000*error), there's a deletion
     if (RAND >= 1000.0 * p.indelerr) {
       // Substitution errors
-      if (RAND < 250.0 * p.muterr && mut != 'A') {
-        mut = 'A';
+      if (RAND < 250.0 * p.muterr && mutatedBase != 'A') {
+        mutatedBase = 'A';
         numSubErr++;
       }
-      else if (RAND < 500.0 * p.muterr && mut != 'G') {
-        mut = 'G';
+      else if (RAND < 500.0 * p.muterr && mutatedBase != 'G') {
+        mutatedBase = 'G';
         numSubErr++;
       }
-      else if (RAND < 750.0 * p.muterr && mut != 'C') {
-        mut = 'C';
+      else if (RAND < 750.0 * p.muterr && mutatedBase != 'C') {
+        mutatedBase = 'C';
         numSubErr++;
       }
-      else if (RAND < 1000.0 * p.muterr && mut != 'T') {
-        mut = 'T';
+      else if (RAND < 1000.0 * p.muterr && mutatedBase != 'T') {
+        mutatedBase = 'T';
         numSubErr++;
       }
-      readmut << mut;
-    } else {
-      numIndelErr++;
-    }
+      mutatedRead << mutatedBase;
 
-    // Insertion
-    RAND = rand() % 1000;
-    if (RAND < 1000.0 * p.indelerr) {
+      /* Insertion
+       * The insertion block is in here to prevent a deletion + insertion (aka substitution)
+       */
       RAND = rand() % 1000;
-      if (RAND < 250) mut = 'A';
-      else if (RAND < 500) mut = 'G';
-      else if (RAND < 750) mut = 'C';
-      else mut = 'T';
-      readmut << mut;
+      if (RAND < 1000.0 * p.indelerr) {
+        RAND = rand() % 1000;
+        if (RAND < 250) mutatedBase = 'A';
+        else if (RAND < 500) mutatedBase = 'G';
+        else if (RAND < 750) mutatedBase = 'C';
+        else mutatedBase = 'T';
+        mutatedRead << mutatedBase;
+        numIndelErr++;
+      }
+    } else {
+      // Skipped the append, so deletion
       numIndelErr++;
     }
 
   }
 
   // populate read info
-  this->read.read = readmut.str();
-  readmut.str(std::string());
+  this->read.read = mutatedRead.str();
+  mutatedRead.str(std::string());
   this->read.readEnd = uint32_t(node->data - node->len + base);
   this->read.indiv = currIndiv;
   this->read.numSubErr = numSubErr;

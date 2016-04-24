@@ -17,7 +17,6 @@
 #include "../gssw/src/gssw.h"
 #include "readsource.h"
 #include "vcfstream.h"
-#include "loadfile.h"
 #include "alignment.h"
 
 
@@ -46,7 +45,6 @@ class Graph {
    * @param gap_extension Default gap extension penalty of 1
    * @param *nt_table Table that maps nucleotides to integers
    * @param *mat Scoring matrix, created with match and mismatch.
-   * @param inMemoryRef Load the entire reference into memory instead of streaming.
    * @param includeIndividuals Default false, loads compressed indivudual lists into memory
    */
   struct GraphParams {
@@ -61,7 +59,6 @@ class Graph {
     uint8_t gap_open = 3, gap_extension = 1;
     int8_t *nt_table = gssw_create_nt_table();
     int8_t *mat = gssw_create_score_matrix(match, mismatch);
-    bool inMemoryRef = false;
     bool includeIndividuals = false;
   };
 
@@ -102,11 +99,8 @@ class Graph {
    */
   Graph(std::string refFile, std::string vcfFile, std::string buildFile) {
     std::istream *ref;
-    if (params.inMemoryRef) {
-      ref = loadFile(refFile);
-    } else {
-      ref = new std::ifstream(refFile);
-    }
+    ref = new std::ifstream(refFile);
+
     std::ofstream buildOut(buildFile);
     if (!ref || !buildOut.good()) throw std::invalid_argument("Error opening files.");
     vcfstream vcf(vcfFile);
@@ -219,7 +213,7 @@ class Graph {
    * Get a copy of the graph parameters.
    * @returns GraphParams copy
    */
-  GraphParams getParamsCopy() const { return params; }
+  GraphParams getParams() const { return params; }
 
   /**
    * Set the parameters of the graph.

@@ -8,8 +8,6 @@ All objects are in the vargas namespace with the exception of `utils` functions.
 in a VariantRecord struct. Individual variants not included in the ingroup are removed from the records. Associated allele
 frequency values are also provided.
 
-`readsource.h` : Abstract class defining functions for classes that provide reads for alignment.
-
 `readsim.h` : Inherits from `readsource.h`. Reads are simulated from a given `gssw_graph` or `Graph` object. Reads 
 can be provided indefinetly or may be written to a set of files as determined by regular expressions. Reads are provided
 in a Read struct.
@@ -25,67 +23,75 @@ Alignments to the graph are done with `Graph.align(Read)` and returns with an Al
 
 ###Modes of operation
  ```
----------------------- vargas, Nov 25 2015. rgaddip1@jhu.edu ----------------------
+---------------------- vargas, Apr 23 2016. rgaddip1@jhu.edu ----------------------
 Operating modes 'vargas MODE':
-	build     Generate graph build file from reference and VCF files.
+	build     Generate graph build file from reference FASTA and VCF files.
 	sim       Simulate reads from a graph.
 	align     Align reads to a graph.
+	stat      Count nodes and edges of a given graph.
 	export    Export graph in DOT format.
- ```
- 
- ```
-------------------- vargas build, Nov 25 2015. rgaddip1@jhu.edu -------------------
--v	--vcf           (required) VCF file, uncompressed.
--r	--ref           (required) reference, single record FASTA
--l	--maxlen        Maximum node length
--R	--region        <min:max> Ref region, inclusive. Default is the entire graph.
--m	--maxref        Generate a graph using alleles in the ingroup w/ the highest frequency.
--s	--set           <#,#,..,#> Generate a buildfile for a list of ingroup %'s and their complements.
--c	--complement    <graph.build> Generate a complement of all graphs in -s
-
-Buildfile is output to [s][In/Out].build
 
  ```
  
  ```
-------------------- vargas sim, Nov 25 2015. rgaddip1@jhu.edu -------------------
--b	--buildfile     quick rebuild file, generate with vargas build
--n	--numreads      Number of reads to simulate
--m	--muterr        Simulated read mutation error rate
--i	--indelerr      Simulated read Indel error rate
--l	--readlen       Nominal read length
--e	--regex         <r1 r2 .. r3> Match regex expressions, space delimited. Produces -n of each.
--p	--prefix        Prefix to use for read files generated with -e
--r	--randwalk      Random walk, read may change individuals at branches.
+------------------- vargas build, Apr 23 2016. rgaddip1@jhu.edu -------------------
+-v	--vcf           <string> VCF file, uncompressed.
+-r	--ref           <string> reference, single record FASTA
+-l	--maxlen        <int> Maximum node length, default 50000
+-R	--region        <<int>:<int>> Ref region, inclusive. Default is the entire graph.
+-m	--maxref        Generate a linear graph using maximum allele frequency nodes.
+-e	--exref         Exclude the list of individuals from the reference alleles.
+-s	--set           <<int>,<int>,..,<int>> Generate a buildfile for a list of ingroup percents.
+-c	--complement    <string> Generate a complement of all graphs in -s, or of provided graph.
 
-NOTE: End of line anchor may not work in regex depending on C++ version. 
-Reads are printed on stdout.
+--maxref is applied after ingroup filter.
+Buildfile is output to [s][In Out].build
+
+ ```
+ 
+ ```
+-------------------- vargas sim, Apr 23 2016. rgaddip1@jhu.edu --------------------
+-b	--buildfile     <string> Graph build file, generate with 'vargas build'
+-n	--numreads      <int> Number of reads to simulate, default 10000
+-m	--muterr        <float> Read mutation error rate, default 0
+-i	--indelerr      <float> Read Indel error rate, default 0
+-l	--readlen       <int> Read length, default 100
+-e	--profile       <p1 p2 .. p3> Space delimited read profiles. Produces -n of each
+-p	--prefix        Prefix to use for read files, default 'sim'
+-r	--randwalk      Random walk, read may change individuals at branches
+-a	--ambiguity     Max number of ambiguous bases to allow in reads, default 0
+
+Outputs to '[prefix][n].reads' where [n] is the profile number.
+Read Profile format (use '*' for any): 
+	numSubErr,numIndelErr,numVarNodes,numVarBases
+	Example: Any read with 1 substitution error and 1 variant node.
+		vargas sim -b BUILD -e "1,*,1,*"
 Read Format:
-READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES
+	READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_INDEL_ERR,NUM_VAR_NODE,NUM_VAR_BASES
 
  ```
  
  ```
-------------------- vargas align, Nov 25 2015. rgaddip1@jhu.edu -------------------
--b	--buildfile     Quick rebuild file.
--m	--match         Match score, default  2
--n	--mismatch      Mismatch score, default 2
--o	--gap_open      Gap opening penalty, default 3
--e	--gap_extend    Gap extend penalty, default 1
--r	--reads         Reads to align.
-
-Alignments output to stdout. Reads read from stdin or -r, 1 per line.
+------------------- vargas align, Apr 23 2016. rgaddip1@jhu.edu -------------------
+-b	--buildfile     <string> Graph build file
+-m	--match         <int> Match score, default 2
+-n	--mismatch      <int> Mismatch score, default 2
+-o	--gap_open      <int> Gap opening penalty, default 3
+-e	--gap_extend    <int> Gap extend penalty, default 1
+-r	--reads         <string> Reads to align. Use stdin if not defined.
+-f	--outfile       <string> Alignment output file. If not defined, use stdout.
 Lines beginning with '#' are ignored.
 Output format:
-READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE,
-SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH
+	READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE,SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH
 
-ALIGNMENT_MATCH: 0- optimal match, 1- suboptimal match, 2- no matc
+ALIGNMENT_MATCH:
+	0- optimal match, 1- suboptimal match, 2- no match
+
 ```
 
-```
-------------------- vargas export, Nov 25 2015. rgaddip1@jhu.edu -------------------
--b	--buildfile    (required) Graph to export to DOT.
+------------------ vargas export, Apr 23 2016. rgaddip1@jhu.edu -------------------
+-b	--buildfile    <string> Graph to export to DOT.
+-c	--context      <string> Export the local context graph of these alignments.
 
 DOT file printed to stdout.
 
@@ -93,7 +99,7 @@ DOT file printed to stdout.
 
 ### Cloning the vargas repo
 
-When cloning, use the `--recursive` option to automatically retrieve dependencies.  For example:
+When cloning, use the `--recursive` option to automatically retrieve dependencies.
 
 ```
 git clone --recursive git@github.com:gaddra/vargas.git
@@ -105,8 +111,7 @@ vargas is built with cmake.
 
 ```
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make
+cmake -DCMAKE_BUILD_TYPE=Release .. && make
 cd ..
 export PATH=${PWD}/bin:$PATH
 ```
@@ -115,24 +120,22 @@ export PATH=${PWD}/bin:$PATH
  
  A graph is built from a buildfile. A graph buildfile can be made using `vargas build`.
   `-r` and `-v` specify the reference FASTA and VCF respectively. A region can be specified with `-R`.
-  The percentage of individuals to include in the graph is specified with `-s` and a comma seperated list of values.
+  The percentage of individuals to include in the graph is specified with `-s` and a comma separated list of values.
   `-c` will generate complements of each graph.
    For example to generate a buildfile and its complement from `REF` and `VAR` from position `a` to position `b` with 50% of individuals:
  
  `vargas build -r REF.fa -v VAR.vcf -R a:b -s 50 -c > GRAPH.build`
  
- Generating buildfiles is somewhat slow right now (cause TBD, file IO maybe?).
- 
 ### Simulating reads
  
- Reads can be simulated with `vargas sim`. Mutation error and Indel errors can be introduced (default 0%).
+ Reads can be simulated with `vargas sim`. Mutation error and Indel errors can be introduced.
  Reads can take random paths through the graph or from a random individual. To generate 1000 reads of length 100 and a 1% error rate from a graph:
  
- `vargas sim -b GRAPH -n 1000 -l 100 -m 0.01 -i 0.01 > SIMREADS`
+ `vargas sim -b GRAPH -n 1000 -l 100 -m 0.01 -i 0.01`
  
- To target certain kinds of reads, a list of space delimited regular expressions can be provided with `-e`. `-n` reads will be generated for each regular expression. Any reads that do not match the expression will be discarded.
+ To target certain kinds of reads, a list of space delimited profiles can be provided with `-e`. `-n` reads will be generated for each profile. Any reads that do not match the profile will be discarded.
  
- Note simulating reads may consume a large amount of memory as it loads the (compressed) list of individuals into each variant node. `hs37d5 chr22 -R 22000000:52000000` was at ~10GB usage.
+ Note: Simulating reads may consume a large amount of memory as it loads the (compressed) list of individuals into each variant node. `hs37d5 chr22 -R 22000000:52000000` was at ~10GB usage.
 
 ### Aligning to the graph
  
@@ -151,8 +154,7 @@ If a tie for a best score is found, the alignment closer to the read origin is p
 The format of an alignment result is
 
 ```
-READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE,
-SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH
+READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE,SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH
 ```
 
 where `READ` is in the format described below. `AlIGNMENT_MATCH` is a flag that determines the best alignment relative to the simulated position. `0` indicates a match with the simulated origin, `1` is a second-best alignment match with the simulated origin, `2` is other. 
@@ -169,7 +171,7 @@ The beginning of a simulated reads file will contain a comment indicating the pr
 The format of a read is below, where `-1` in the `INDIVIDUAL` column indicates the entire read was from the reference.
 
 ```
-READ_SEQUENCE#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_VAR_NODE,NUM_VAR_BASES
+READ_SEQUENCE#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_INDEL_ERR,NUM_VAR_NODE,NUM_VAR_BASES
 ```
 
 #### Buildfile
