@@ -50,13 +50,16 @@ set(B64_SOURCES # B64 encoder/decoder
         libb64/include/cencode.h
         )
 
+include_directories(${PROJECT_SOURCE_DIR}/htslib)
+link_directories(${PROJECT_SOURCE_DIR}/htslib)
+
 add_library(b64 ${B64_SOURCES})
 add_library(vbyte ${VBYTE_SOURCES})
 add_library(varg ${MAIN_SOURCES})
 add_library(gssw ${GSSW_SOURCES})
 
 add_executable(vargas include/main.h src/main.cpp)
-target_link_libraries(vargas varg gssw vbyte b64)
+target_link_libraries(vargas varg gssw vbyte b64 hts)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
