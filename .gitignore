@@ -2,3 +2,5 @@
 lib
 bin
 build
+test/data
+*.out

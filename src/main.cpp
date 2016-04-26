@@ -243,12 +243,12 @@ int align_main(const int argc, const char *argv[]) {
   if (alignOutFile.length() != 0) {
   	// Find the last alignment
     std::ifstream resume(alignOutFile);
-  	std::string lastLine = getLastLine(resume);
+    if (resume.good()) {
+      std::string lastLine = getLastLine(resume);
+      if (lastLine.length() > 0) rawRead = split(lastLine, '#')[0];
+    }
     resume.close();
-
-  	rawRead = split(lastLine, '#')[0];
-
-    aOutStream.open(alignOutFile);
+    aOutStream.open(alignOutFile, std::ios_base::app);
     useFile = true;
   }
 
