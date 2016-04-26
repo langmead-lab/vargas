@@ -4,3 +4,6 @@
 [submodule "VByte"]
 	path = VByte
 	url = https://github.com/gaddra/VByte
+[submodule "htslib"]
+	path = htslib
+	url = https://github.com/gaddra/htslib
