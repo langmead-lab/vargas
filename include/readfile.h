@@ -46,6 +46,12 @@ class ReadFile: public ReadSource {
    */
   std::string getHeader() const override { return header; }
 
+  /*
+   * fast forward reads until this line.
+   * @param read Raw sequence to resume from (does not return this read).
+   */
+   void resumeFromRead(std::string read);
+
 
  protected:
   std::string line;

@@ -12,6 +12,7 @@
 #define VARGAS_UTILS_H
 
 #include <vector>
+ #include <fstream>
 #include "../include/xcoder.h"
 
 /// <summary>
@@ -39,6 +40,8 @@ inline void printEncodedVec(std::ostream &os, const std::vector<uint32_t> &vec, 
   os << ':';
   os << x.compressAndEncode(vec);
 }
+
+std::string getLastLine(std::ifstream& in);
 
 
 #endif //VARGAS_UTILS_H

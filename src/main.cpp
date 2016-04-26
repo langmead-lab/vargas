@@ -239,7 +239,15 @@ int align_main(const int argc, const char *argv[]) {
   // Set output
   bool useFile = false;
   std::ofstream aOutStream;
+  std::string rawRead = "";
   if (alignOutFile.length() != 0) {
+  	// Find the last alignment
+    std::ifstream resume(alignOutFile);
+  	std::string lastLine = getLastLine(resume);
+    resume.close();
+
+  	rawRead = split(lastLine, '#')[0];
+
     aOutStream.open(alignOutFile);
     useFile = true;
   }
@@ -252,7 +260,12 @@ int align_main(const int argc, const char *argv[]) {
     printAlignHelp();
     throw std::invalid_argument("No reads file defined.");
   }
+
+  // Check if we need to resume this alignment job.
   vargas::ReadFile reads(readsfile);
+  if (rawRead.length() != 0) {
+  	reads.resumeFromRead(rawRead);
+  }
 
 
   std::string buildfile;
@@ -442,6 +455,7 @@ void printAlignHelp() {
   cout << "-f\t--outfile       <string> Alignment output file. If not defined, use stdout." << endl;
 
   cout << "Lines beginning with \'#\' are ignored." << endl;
+  cout << "With -f, alignments will begin after the last read in -f in -r, i.e. \'resume\'." << endl;
   cout << "Output format:" << endl;
   cout << "\tREAD,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE,";
   cout << "SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH" << endl << endl;

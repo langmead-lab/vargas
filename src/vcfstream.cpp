@@ -14,7 +14,6 @@
 #include "../include/utils.h"
 #include "../include/vcfstream.h"
 
-
 void vargas::vcfstream::initVCF() {
   // Skip the comments
   do { std::getline(vcfFile, currentRecord); } while (currentRecord.substr(0, 2) == "##");

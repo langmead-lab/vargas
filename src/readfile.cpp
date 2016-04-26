@@ -56,3 +56,14 @@ bool vargas::ReadFile::updateRead() {
   }
   return true;
 }
+
+void vargas::ReadFile::resumeFromRead(std::string read) {
+  do {
+    if(!updateRead()) {
+      std::cerr << "Warning: read not found in reads file. Starting from beginning." << std::endl;
+      readfile.clear();
+      readfile.seekg(0, std::ios::beg);
+      break;
+    }
+  } while (getRead().read != read);
+}

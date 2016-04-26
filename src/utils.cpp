@@ -41,3 +41,9 @@ inline void split(const std::string &s, char delim, std::vector<std::string> &ve
   }
 
 }
+
+std::string getLastLine(std::ifstream& in) {
+    std::string line;
+    while (in >> std::ws && std::getline(in, line));
+    return line;
+}
