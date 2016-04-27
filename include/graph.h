@@ -58,7 +58,7 @@ class Graph {
     int32_t match = 2, mismatch = 2;
     uint8_t gap_open = 3, gap_extension = 1;
     int8_t *nt_table = gssw_create_nt_table();
-    int8_t *mat = gssw_create_score_matrix(match, mismatch);
+    int8_t *scoreMat = gssw_create_score_matrix(match, mismatch);
     bool includeIndividuals = false;
   };
 
@@ -87,7 +87,7 @@ class Graph {
    */
   Graph(GraphParams p) : params(p) {
     if (!params.nt_table) params.nt_table = gssw_create_nt_table();
-    if (!params.mat) params.mat = gssw_create_score_matrix(p.match, p.mismatch);
+    if (!params.scoreMat) params.scoreMat = gssw_create_score_matrix(p.match, p.mismatch);
   }
 
   /**
@@ -121,9 +121,9 @@ class Graph {
 
   ~Graph() {
     // Delete gssw_graph on destruction
-    if (graph != NULL) gssw_graph_destroy(graph);
+    if (graph != nullptr) gssw_graph_destroy(graph);
     free(params.nt_table);
-    free(params.mat);
+    free(params.scoreMat);
   }
 
   /*********************************** FUNCTIONS ***********************************/
@@ -220,13 +220,13 @@ class Graph {
    * @param p GraphParams to set.
    */
   void setParams(GraphParams p) {
-    if (p.nt_table == NULL) {
+    if (p.nt_table == nullptr) {
       p.nt_table = gssw_create_nt_table();
     }
-    if (p.mat != NULL) {
-      free(p.mat);
+    if (p.scoreMat != nullptr) {
+      free(p.scoreMat);
     }
-    p.mat = gssw_create_score_matrix(p.match, p.mismatch);
+    p.scoreMat = gssw_create_score_matrix(p.match, p.mismatch);
     params = p;
   }
 
@@ -249,23 +249,22 @@ class Graph {
   void setComplementSource(std::string s) { params.complementSource = s; }
 
   /**
-   * Set the scores for alignment.
+   * Set the scores for alignment. If set after the graph is made, it must be rebuilt.
    * @param m match score
    * @param mm mismatch score
    * @param go gap_open score
    * @param ge gap_extend score
    */
   void setScores(int32_t m = 2, int32_t mm = 2, uint8_t go = 3, uint8_t ge = 1) {
-    if (graph) std::cerr << "Graph must be rebuilt for new scores to take effect." << std::endl;
     params.match = m;
     params.mismatch = mm;
     params.gap_extension = ge;
     params.gap_open = go;
 
-    if (params.mat != NULL) {
-      free(params.mat);
+    if (params.scoreMat != nullptr) {
+      free(params.scoreMat);
     }
-    params.mat = gssw_create_score_matrix(params.match, params.mismatch);
+    params.scoreMat = gssw_create_score_matrix(params.match, params.mismatch);
   }
 
   /**
@@ -282,7 +281,7 @@ class Graph {
 
  protected:
   GraphParams params; // Graph construction parameters
-  gssw_graph *graph = NULL; // The raw graph
+  gssw_graph *graph = nullptr; // The raw graph
 
   /**
    * Parse a string into an upper and lower bound.

@@ -196,7 +196,7 @@ class ReadSim: public ReadSource {
   std::vector<ReadProfile *> readProfiles;
   std::map<ReadProfile *, int> counters;
   std::map<ReadProfile *, std::ofstream *> logs;
-  gssw_graph *graph = NULL;
+  gssw_graph *graph = nullptr;
   int totalreads = 0;
 
 };

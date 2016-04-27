@@ -95,7 +95,7 @@ size_t vargas::Xcoder::decode(std::string &in, uint8_t **out) {
 std::string vargas::Xcoder::compressAndEncode(const std::vector<uint32_t> &vec) {
   if (vec.size() == 0) return "";
 
-  uint8_t *compressed = NULL;
+  uint8_t *compressed = nullptr;
   size_t len = compress(vec, &compressed);
   std::string s = encode(compressed, len);
 
@@ -111,7 +111,7 @@ bool vargas::Xcoder::testCompression(std::vector<uint32_t> vec) {
   std::vector<uint32_t> out;
   uint32_t N = vec.size();
 
-  uint8_t *compressed = NULL;
+  uint8_t *compressed = nullptr;
 
   size_t cl = compress(vec, &compressed);
   std::cout << std::endl << cl << " bytes to represent ";
@@ -122,7 +122,7 @@ bool vargas::Xcoder::testCompression(std::vector<uint32_t> vec) {
   std::cout << "Compression ratio: " << float(cl) / (l * sizeof(uint32_t)) << std::endl;
 
   if (l != N) {
-    std::cerr << "Number of ints doesn't match, vec size: " << N << ", Recoevered: " << l << std::endl;
+    std::cerr << "Number of ints doesn't match, vec size: " << N << ", Recovered: " << l << std::endl;
     free(compressed);
     return false;
   }

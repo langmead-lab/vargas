@@ -27,7 +27,7 @@ bool vargas::ReadFile::updateRead() {
   unsigned long delim = line.find('#');
   if (delim == std::string::npos) {
     read.read = line;
-    read.readEnd = 0;
+    read.readEndPos = 0;
     read.indiv = -1;
     read.numSubErr = -1;
     read.numIndelErr = -1;
@@ -38,7 +38,7 @@ bool vargas::ReadFile::updateRead() {
     split(line.substr(delim + 1), ',', splitMeta);
     if (splitMeta.size() != 6) {
       std::cerr << "Unexpected number of fields." << std::endl;
-      read.readEnd = 0;
+      read.readEndPos = 0;
       read.indiv = -1;
       read.numSubErr = -1;
       read.numIndelErr = -1;
@@ -47,7 +47,7 @@ bool vargas::ReadFile::updateRead() {
       return false;
     }
 
-    read.readEnd = uint32_t(std::stoi(splitMeta[0]));
+    read.readEndPos = uint32_t(std::stoi(splitMeta[0]));
     read.indiv = std::stoi(splitMeta[1]);
     read.numSubErr = std::stoi(splitMeta[2]);
     read.numIndelErr = std::stoi(splitMeta[3]);

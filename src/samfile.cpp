@@ -31,7 +31,7 @@ bool vargas::SAMFile::updateRead() {
   if (currAlignment.flags.reverseComplemented) currRead.read = reverseComplement(currAlignment.seq);
   else currRead.read = currAlignment.seq;
 
-  currRead.readEnd = currAlignment.pos;
+  currRead.readEndPos = currAlignment.pos;
   currRead.indiv = -1;
   currRead.numIndelErr = -1;
   currRead.numSubErr = -1;

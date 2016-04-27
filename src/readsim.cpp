@@ -170,7 +170,7 @@ bool vargas::ReadSim::updateRead() {
   // populate read info
   this->read.read = mutatedRead.str();
   mutatedRead.str(std::string());
-  this->read.readEnd = uint32_t(node->data - node->len + base);
+  this->read.readEndPos = uint32_t(node->data - node->len + base);
   this->read.indiv = currIndiv;
   this->read.numSubErr = numSubErr;
   this->read.numVarNodes = numVarNodes;

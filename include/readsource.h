@@ -20,7 +20,7 @@ namespace vargas {
 /**
  * Struct to represent a Read.
  * @param read base sequence.
- * @param readEnd position of last base in seq.
+ * @param readEndPos position of last base in seq.
  * @param indiv Individual the read was taken from.
  * @param numSubErr Number of substitiution errors introduced.
  * @param numVarNodes Number of variant nodes the read traverses.
@@ -29,7 +29,7 @@ namespace vargas {
  */
 struct Read {
   std::string read;
-  int32_t readEnd;
+  int32_t readEndPos;
   int32_t indiv;
   int32_t numSubErr;
   int32_t numVarNodes;
@@ -41,7 +41,7 @@ struct Read {
 inline std::ostream &operator<<(std::ostream &os, const Read &r) {
   std::stringstream ss;
   ss << r.read
-      << '#' << r.readEnd
+      << '#' << r.readEndPos
       << ',' << r.indiv
       << ',' << r.numSubErr
       << ',' << r.numIndelErr
@@ -72,7 +72,7 @@ class ReadSource {
     std::stringstream ss;
     Read r = getRead();
     ss << r.read
-        << '#' << r.readEnd
+        << '#' << r.readEndPos
         << ',' << r.indiv
         << ',' << r.numSubErr
         << ',' << r.numIndelErr

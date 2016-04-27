@@ -49,7 +49,7 @@ vargas::Graph::Graph(const Graph &g, const Alignment &a) {
       char *seq = (char *) malloc(nSeqLen + 1);
       strncpy(seq, n->seq + n->len - nSeqLen, nSeqLen);
       seq[nSeqLen] = 0;
-      N.push_back(gssw_node_create(n->data, id++, seq, this->params.nt_table, this->params.mat));
+      N.push_back(gssw_node_create(n->data, id++, seq, this->params.nt_table, this->params.scoreMat));
       free(seq);
 
       oldToNewMap[n] = N.back();
@@ -61,7 +61,7 @@ vargas::Graph::Graph(const Graph &g, const Alignment &a) {
       // If we need an entire node
     else if (a.optAlignEnd > n->data
         && n->data - n->len > a.optAlignEnd - len) {
-      N.push_back(gssw_node_create(n->data, id++, n->seq, this->params.nt_table, this->params.mat));
+      N.push_back(gssw_node_create(n->data, id++, n->seq, this->params.nt_table, this->params.scoreMat));
 
       oldToNewMap[n] = N.back();
       for (int i = 0; i < n->count_next; ++i) {
@@ -76,7 +76,7 @@ vargas::Graph::Graph(const Graph &g, const Alignment &a) {
       char *seq = (char *) malloc(nSeqLen + 1);
       strncpy(seq, n->seq, nSeqLen);
       seq[nSeqLen] = 0;
-      N.push_back(gssw_node_create(n->data - n->len + nSeqLen, id++, seq, this->params.nt_table, this->params.mat));
+      N.push_back(gssw_node_create(n->data - n->len + nSeqLen, id++, seq, this->params.nt_table, this->params.scoreMat));
       free(seq);
       ++endCounter;
       oldToNewMap[n] = N.back();
@@ -107,9 +107,9 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
   using std::vector;
   using std::cerr;
 
-  if (graph != NULL) {
+  if (graph != nullptr) {
     gssw_graph_destroy(graph);
-    graph = NULL;
+    graph = nullptr;
   }
 
   string line, seq;
@@ -119,7 +119,7 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
 
   vargas::Xcoder coder; // Used to store individuals
 
-  uint8_t *data = NULL;
+  uint8_t *data = nullptr;
   size_t dataLen;
 
   /** Build nodes and edges from buildfile **/
@@ -141,7 +141,7 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
           seq = (lineSplit[2] == "-") ? "" : lineSplit[2].c_str();
           nodes.push_back(gssw_node_create(int32_t(strtol(lineSplit[0].c_str(), NULL, 10)),
                                            curr,
-                                           seq.c_str(), params.nt_table, params.mat));
+                                           seq.c_str(), params.nt_table, params.scoreMat));
           break;
 
         case 2: // New edge
@@ -168,7 +168,7 @@ void vargas::Graph::buildGraph(std::istream &graphDat) {
 
 void vargas::Graph::exportDOT(std::ostream &out, std::string name) const {
 
-  if (graph == NULL) {
+  if (graph == nullptr) {
     std::cerr << "Error: No graph has been built. Aborting export." << std::endl;
     return;
   }
@@ -390,16 +390,16 @@ vargas::Alignment *vargas::Graph::align(const vargas::Read &r) {
 void vargas::Graph::align(const vargas::Read &r, vargas::Alignment &a) {
 
   int32_t tol = r.read.length() / 2;
-  gssw_graph_fill(graph, r.read.c_str(), params.nt_table, params.mat,
-                  params.gap_open, params.gap_extension, tol, 2, r.readEnd);
+  gssw_graph_fill(graph, r.read.c_str(), params.nt_table, params.scoreMat,
+                  params.gap_open, params.gap_extension, tol, 2, r.readEndPos);
 
   // Absolute alignment positions
   a.optAlignEnd = graph->max_node->data + 1 - graph->max_node->len + graph->max_node->alignment->ref_end;
   a.subOptAlignEnd = graph->submax_node->data + 1 - graph->submax_node->len + graph->submax_node->alignment->ref_end;
 
-  if (r.readEnd > 0) {
-    if (r.readEnd > a.optAlignEnd - tol && r.readEnd < a.optAlignEnd + tol) a.corflag = 0;
-    else if (r.readEnd > a.subOptAlignEnd - tol && r.readEnd < a.subOptAlignEnd + tol) a.corflag = 1;
+  if (r.readEndPos > 0) {
+    if (r.readEndPos > a.optAlignEnd - tol && r.readEndPos < a.optAlignEnd + tol) a.corflag = 0;
+    else if (r.readEndPos > a.subOptAlignEnd - tol && r.readEndPos < a.subOptAlignEnd + tol) a.corflag = 1;
     else a.corflag = 2;
   }
   else a.corflag = 2;

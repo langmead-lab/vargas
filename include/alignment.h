@@ -18,11 +18,12 @@
 namespace vargas {
 
 /**
- * Alignment storage struct.
+ * Stores a Read and associated alignment information. Positions are
+ * 1 indexed.
  * @param read Read that was aligned
  * @param optScore Best alignment score
- * @param optAlignEnd Best alignment position, of the end of the read
- * @param optCount Number of alignments that had the best score
+ * @param optAlignEnd Best alignment position, indexed w.r.t the last base of read
+ * @param optCount Number of alignments that tied for the best score
  * @param subOptScore Second best alignment score
  * @param subOptAlignEnd Second best alignment position
  * @param subOptCount Number of second-best alignments
@@ -48,6 +49,12 @@ struct Alignment {
       : optScore(0), optAlignEnd(-1), optCount(-1), subOptScore(0), subOptAlignEnd(-1), subOptCount(-1),
         corflag(-1) { }
 
+  /**
+   * Create an alignment with a read and associated meta information.
+   * If meta information does not match the expected format, return after
+   * populating the raw read.
+   * @param line Read
+   */
   Alignment(std::string line) {
     Alignment();
     std::vector<std::string> splitLine = split(line, '#');
@@ -61,11 +68,10 @@ struct Alignment {
       splitLine = split(splitLine[1], ',');
       if (splitLine.size() != 12) {
         // Unexpected format
-        std::cerr << "Invalid alignment record." << std::endl;
         return;
       }
 
-      this->read.readEnd = std::stoi(splitLine[0]);
+      this->read.readEndPos = std::stoi(splitLine[0]);
       this->read.indiv = std::stoi(splitLine[1]);
       this->read.numSubErr = std::stoi(splitLine[2]);
       this->read.numVarNodes = std::stoi(splitLine[3]);
@@ -83,6 +89,12 @@ struct Alignment {
 
 };
 
+/**
+ * Print the alignment to os. This ordering matches the way the alignment is parsed
+ * from a string.
+ * @param os Output stream
+ * @param an Alignment output
+ */
 inline std::ostream &operator<<(std::ostream &os, const Alignment &a) {
   os << a.read << ',' << a.optScore << ',' << a.optAlignEnd << ',' << a.optCount
       << ',' << a.subOptScore << ',' << a.subOptAlignEnd << ',' << a.subOptCount
