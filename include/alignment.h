@@ -32,18 +32,16 @@ namespace vargas {
 struct Alignment {
   Read read;
 
-  // Optimal alignment
   uint16_t optScore;
   int32_t optAlignEnd;
   int32_t optCount;
 
-  // Suboptimal alignment
   uint16_t subOptScore;
   int32_t subOptAlignEnd;
   int32_t subOptCount;
 
-  // alignment flag
   int8_t corflag;
+
 
   Alignment()
       : optScore(0), optAlignEnd(-1), optCount(-1), subOptScore(0), subOptAlignEnd(-1), subOptCount(-1),
