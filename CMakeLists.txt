@@ -50,8 +50,22 @@ set(B64_SOURCES # B64 encoder/decoder
         libb64/include/cencode.h
         )
 
-include_directories(${PROJECT_SOURCE_DIR}/htslib)
-link_directories(${PROJECT_SOURCE_DIR}/htslib)
+set(SSEPP_SOURCES # Source files using libsimdpp
+    ${GSSW_SOURCES}
+        )
+
+
+include(libsimdpp/cmake/SimdppMultiarch.cmake)
+simdpp_get_runnable_archs(RUNNABLE_ARCHS)
+
+
+# Dynamic dispatch
+# Creates a version of each file for each SSE instruction set.
+foreach(SSEPP_FILE ${SSEPP_SOURCES})
+    simdpp_multiarch(GEN_ARCH_FILES ${SSEPP_FILE} ${RUNNABLE_ARCHS})
+endforeach()
+add_library(simdpp ${GEN_ARCH_FILES})
+
 
 add_library(b64 ${B64_SOURCES})
 add_library(vbyte ${VBYTE_SOURCES})
@@ -59,7 +73,7 @@ add_library(varg ${MAIN_SOURCES})
 add_library(gssw ${GSSW_SOURCES})
 
 add_executable(vargas include/main.h src/main.cpp)
-target_link_libraries(vargas varg gssw vbyte b64 hts)
+target_link_libraries(vargas simdpp varg gssw vbyte b64)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
 
