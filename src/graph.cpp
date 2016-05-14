@@ -20,6 +20,8 @@
 #include "../include/utils.h"
 #include "../include/graph.h"
 
+long vargas::graph::Node::newID = 0;
+
 /*********************************** CONSTRUCTOR ***********************************/
 
 vargas::Graph::Graph(const Graph &g, const Alignment &a) {
@@ -461,3 +463,7 @@ void vargas::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max
     *max = UINT32_MAX;
   }
 }
+
+
+
+

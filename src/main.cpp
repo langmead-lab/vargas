@@ -17,6 +17,48 @@
 
 
 int main(const int argc, const char *argv[]) {
+
+  std::vector<bool> pop1 = {1, 1, 1, 0};
+  std::vector<bool> pop2 = {0, 1, 0, 0};
+  std::vector<bool> pop3 = {1, 0, 0, 0};
+  vargas::graph g;
+  {
+    vargas::graph::Node n;
+    n.setSeq("AC");
+    n.setPopulation(pop1);
+    g.addNode(n);
+  }
+  {
+    vargas::graph::Node n;
+    n.id();
+    n.setPopulation(pop2);
+    g.addNode(n);
+  }
+  {
+    vargas::graph::Node n;
+    n.id();
+    n.setPopulation(pop3);
+    g.addNode(n);
+  }
+  {
+    vargas::graph::Node n;
+    n.id();
+    n.setPopulation(pop1);
+    g.addNode(n);
+  }
+  g.addEdge(0, 1);
+  g.addEdge(0, 2);
+  g.addEdge(1, 3);
+  g.addEdge(2, 3);
+
+  auto g2 = vargas::graph(g, pop2);
+  auto nmap = g2.getNodeMap();
+  g.finalize();
+  std::cout << g.toDOT();
+
+  return 0;
+
+
   try {
     if (argc > 1) {
       if (!strcmp(argv[1], "build")) {

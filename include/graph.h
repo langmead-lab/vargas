@@ -14,13 +14,351 @@
 #ifndef VARGAS_GRAPH_H
 #define VARGAS_GRAPH_H
 
+
 #include "../gssw/src/gssw.h"
 #include "readsource.h"
 #include "vcfstream.h"
 #include "alignment.h"
-
+#include <memory>
+#include <set>
 
 namespace vargas {
+
+typedef unsigned int uint;
+typedef unsigned char uchar;
+typedef unsigned long ulong;
+
+/**
+ * Converts a character to a numeral representation.
+ * @param c character
+ * @return numeral repersentation
+ */
+inline uchar baseToNum(char c) {
+  switch (c) {
+    case 'A':
+    case 'a':
+      return 0;
+    case 'C':
+    case 'c':
+      return 1;
+    case 'G':
+    case 'g':
+      return 2;
+    case 'T':
+    case 't':
+      return 3;
+    default:
+      return 4;
+  }
+}
+
+
+/**
+ * Convert a numeric form to a char, upper case.
+ * All ambigious bases are represented as 'N'
+ * @param num numeric form
+ * @return char in [A,C,G,T,N]
+ */
+inline char numToBase(uchar num) {
+  switch (num) {
+    case 0:
+      return 'A';
+    case 1:
+      return 'C';
+    case 2:
+      return 'G';
+    case 3:
+      return 'T';
+    default:
+      return 'N';
+  }
+}
+
+
+/**
+ * Convert a character sequence in a numeric sequence
+ * @param seq Sequence string
+ * @return vector of numerals
+ */
+inline std::vector<uchar> seqToNum(const std::string &seq) {
+  std::vector<uchar> num(seq.length());
+  std::transform(seq.begin(), seq.end(), num.begin(), baseToNum);
+  return num;
+}
+
+
+/**
+ * Convert a numeric vector to a sequence of bases.
+ * @param num Numeric vector
+ * @return sequence string, Sigma={A,G,T,C,N}
+ */
+inline std::string numToSeq(const std::vector<uchar> &num) {
+  std::stringstream builder;
+  for (auto &n : num) {
+    builder << numToBase(n);
+  }
+  return builder.str();
+}
+
+
+/**
+ * Represents a graph of the genome. The graph is backed by a map of Graph::Nodes, and edges
+ * are backed by a map of node ID's.
+ */
+class graph {
+
+ public:
+
+  /**
+   * Represents a node in the directed graphs. Edges stored externally.
+   */
+  class Node {
+   public:
+    // Assign a unique ID to each node
+    Node() : _id(newID++) { }
+
+    // Access functions
+    ulong length() const { return _seq.size(); } // Length of sequence
+    ulong end() const { return _endPos; } // Sequence end position in genome
+    bool belongs(uint ind) const { return _individuals[ind]; } // Check if a certain individual has this node
+    const std::vector<uchar> &seq() const { return _seq; } // Sequence in numeric form
+    ulong popSize() const { return _individuals.size(); } // How many individuals are represented in the node
+    long id() const { return _id; } // Node ID
+    bool isRef() const { return _ref; } // True if part of the reference seq
+
+
+    // Setup functions
+    void setID(long id) { this->_id = id; }
+    void setEndPos(ulong pos) { this->_endPos = pos; }
+    void setPopulation(std::vector<bool> &pop) { _individuals = pop; }
+    void setSeq(std::string seq) { _seq = seqToNum(seq); }
+    void setSeq(std::vector<uchar> &seq) { this->_seq = seq; }
+    void setAsRef() { _ref = true; }
+    void setAsNotRef() { _ref = false; }
+
+   protected:
+    static long newID; // ID of the next instance to be created
+
+   private:
+    long _id;
+    ulong _endPos; // End position of the sequence
+    std::vector<bool> _individuals; // Each bit marks an individual, 1 if they have this node
+    std::vector<uchar> _seq;
+    bool _ref = false; // Part of the reference sequence
+  };
+
+  typedef std::shared_ptr<Node> nodeptr;
+
+  /**
+   * Default constructor inits a new graph, including a new node map.
+   */
+  graph() : _IDMap(std::make_shared<std::map<long, nodeptr>>(std::map<long, nodeptr>())) { }
+
+  /**
+   * Create a graph with another graph and a population filter. The new graph will only
+   * contain nodes if any of the individuals in filter possess the node. The actual nodes
+   * are shared_ptr's to the parent graph, as to prevent duplication of Nodes.
+   * @param g Graph to derive the new graph from
+   * @param filter population filter, only include nodes representative of this population
+   */
+  graph(const graph &g, const std::vector<bool> &filter) {
+    _popSize = g._popSize;
+    if (filter.size() != _popSize) {
+      throw std::invalid_argument("Filter size should match graph population size.");
+    }
+    _IDMap = g._IDMap;
+    std::vector<long> indexes; // indexes of the individuals that are included in the filter
+    for (long i = 0; i < filter.size(); ++i) {
+      if (filter[i]) {
+        indexes.push_back(i);
+      }
+    }
+
+    // Add all nodes
+    std::map<long, nodeptr> includedNodes;
+    for (auto &n : *(g._IDMap)) {
+      for (long i : indexes) {
+        if (n.second->belongs(i)) {
+          includedNodes[n.first] = n.second;
+          break;
+        }
+      }
+    }
+
+    // Add all edges for included nodes
+    for (auto &n : includedNodes) {
+      if (g._nextMap.find(n.second->id()) == g._nextMap.end()) continue;
+      for (auto e : g._nextMap.at(n.second->id())) {
+        if (includedNodes.find(e) != includedNodes.end()) {
+          addEdge(n.second->id(), e);
+        }
+      }
+    }
+
+    // Set the new root
+    if (includedNodes.find(g.root()) == includedNodes.end()) {
+      throw std::invalid_argument("Currently the root must be common to all graphs.");
+    }
+    _root = g.root();
+    finalize();
+  }
+
+  void finalize() {
+    _toposort.clear();
+    std::set<long> unmarked, tempmarked, permmarked;
+    for (auto &n : *_IDMap) {
+      unmarked.insert(n.first);
+    }
+    while (!unmarked.empty()) {
+      visit(*unmarked.begin(), unmarked, tempmarked, permmarked);
+    }
+    std::reverse(_toposort.begin(), _toposort.end());
+
+  }
+
+  void visit(long n, std::set<long> &unmarked, std::set<long> &temp, std::set<long> &perm) {
+    if (temp.count(n) != 0) throw std::out_of_range("Graph is not acyclic.");
+    if (unmarked.count(n)) {
+      unmarked.erase(n);
+      temp.insert(n);
+      for (auto m : _nextMap[n]) {
+        visit(m, unmarked, temp, perm);
+      }
+      temp.erase(n);
+      perm.insert(n);
+      _toposort.push_back(n);
+    }
+  }
+
+  /**
+   * Add a new node to the graph. A new node is created so the original can be destroyed.
+   * The first node added is set as the graph root.
+   */
+  long addNode(const Node &n) {
+    if (_popSize < 0) _popSize = n.popSize(); // first node dictates graph population size
+    else if (_popSize != n.popSize()) return 0; // graph should be for same population size
+    if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
+    if (_root < 0) _root = n.id(); // first node added is default root
+
+    _IDMap->emplace(n.id(), std::make_shared<Node>(n));
+    return n.id();
+  }
+
+  /**
+   * Create an edge linking two nodes. Previous and Next edges are added.
+   * @param n1 Node one ID
+   * @param n2 Node two ID
+   */
+  bool addEdge(long n1, long n2) {
+    // Check if the nodes exist
+    if (_IDMap->find(n1) == _IDMap->end() || _IDMap->find(n2) == _IDMap->end()) return false;
+
+    // init if first edge to be added
+    if (_nextMap.find(n1) == _nextMap.end()) {
+      _nextMap[n1] = std::vector<long>();
+    }
+    if (_prevMap.find(n2) == _prevMap.end()) {
+      _prevMap[n2] = std::vector<long>();
+    }
+    _nextMap[n1].push_back(n2);
+    _prevMap[n2].push_back(n1);
+    _toposort.clear(); // any ordering is invalidated
+    return true;
+  }
+
+  /**
+   * Sets the root of the graph.
+   * @param id ID of root node
+   */
+  void setRoot(long id) {
+    _root = id;
+    _toposort.clear(); // any ordering is invalidated
+  }
+
+  // Return root node ID
+  long root() const { return _root; }
+
+  // const reference to node map
+  const std::shared_ptr<std::map<long, nodeptr>> &getNodeMap() const { return _IDMap; }
+
+  const Node &getNode(long id) const { return *(*_IDMap)[id]; }
+
+  // Export the graph in DOT format.
+  std::string toDOT(std::string name = "graph") const {
+    std::stringstream dot;
+    dot << "digraph " << name << " {\n";
+    for (auto &n : _nextMap) {
+      for (auto e : n.second) {
+        dot << n.first << " -> " << e << ";\n";
+      }
+    }
+    dot << "}\n";
+    return dot.str();
+  }
+
+
+  class graphIter {
+
+   public:
+    graphIter(const graph &g) : _graph(g), _idx(0) { }
+    graphIter(const graph &g, long index) : _graph(g), _idx(index) { }
+    ~graphIter() { }
+
+    graphIter &operator=(const graphIter &other) {
+      _idx = other._idx;
+      return *this;
+    }
+
+    bool operator==(const graphIter &other) const {
+      if (other._graph._toposort != _graph._toposort) return false;
+      return _idx == other._idx;
+    }
+
+    bool operator!=(const graphIter &other) const {
+      return _idx != other._idx;
+    }
+
+    graphIter &operator++() {
+      if (_idx < _graph._toposort.size()) {
+        _idx++;
+      }
+      return *this;
+    }
+
+    const graph::Node &operator*() const { return _graph.getNode(_graph._toposort[_idx]); }
+
+   private:
+    const graph &_graph;
+    long _idx;
+  };
+
+  graphIter begin() const {
+    if (_toposort.size() == 0 && _IDMap->size() > 0) {
+      throw std::logic_error("Graph must be finalized before iteration.");
+    }
+    return graphIter(*this);
+  }
+
+  graphIter end() const {
+    return graphIter(*this, _toposort.size());
+  }
+
+
+ private:
+  long _root = -1; // Root of the graph
+  // maps a node ID to a nodeptr. Any derived graphs use the same base node ID map.
+  std::shared_ptr<std::map<long, nodeptr>> _IDMap;
+  // maps a node ID to the vector of nodes it points to
+  std::map<long, std::vector<long>> _nextMap;
+  // maps a node ID to a vector of node ID's that point to it
+  std::map<long, std::vector<long>> _prevMap;
+  long _popSize = -1; // Used to make sure we have the same population size for all nodes in the graph
+  std::vector<long> _toposort;
+
+};
+
+
+
 
 
 class Graph {
