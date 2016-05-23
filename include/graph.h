@@ -127,6 +127,10 @@ class graph {
     bool isRef() const { return _ref; } // True if part of the reference seq
 
 
+
+   protected:
+    static long newID; // ID of the next instance to be created
+
     // Setup functions
     void setID(long id) { this->_id = id; }
     void setEndPos(ulong pos) { this->_endPos = pos; }
@@ -136,15 +140,14 @@ class graph {
     void setAsRef() { _ref = true; }
     void setAsNotRef() { _ref = false; }
 
-   protected:
-    static long newID; // ID of the next instance to be created
-
    private:
     long _id;
     ulong _endPos; // End position of the sequence
     std::vector<bool> _individuals; // Each bit marks an individual, 1 if they have this node
     std::vector<uchar> _seq;
     bool _ref = false; // Part of the reference sequence
+    friend class graph;
+    friend class GraphBuilder;
   };
 
   typedef std::shared_ptr<Node> nodeptr;
@@ -203,6 +206,9 @@ class graph {
     finalize();
   }
 
+  /**
+   * Builds the topographical sort of the graph, used for graph iteration.
+   */
   void finalize() {
     _toposort.clear();
     std::set<long> unmarked, tempmarked, permmarked;
@@ -210,25 +216,12 @@ class graph {
       unmarked.insert(n.first);
     }
     while (!unmarked.empty()) {
-      visit(*unmarked.begin(), unmarked, tempmarked, permmarked);
+      _visit(*unmarked.begin(), unmarked, tempmarked, permmarked);
     }
     std::reverse(_toposort.begin(), _toposort.end());
 
   }
 
-  void visit(long n, std::set<long> &unmarked, std::set<long> &temp, std::set<long> &perm) {
-    if (temp.count(n) != 0) throw std::out_of_range("Graph is not acyclic.");
-    if (unmarked.count(n)) {
-      unmarked.erase(n);
-      temp.insert(n);
-      for (auto m : _nextMap[n]) {
-        visit(m, unmarked, temp, perm);
-      }
-      temp.erase(n);
-      perm.insert(n);
-      _toposort.push_back(n);
-    }
-  }
 
   /**
    * Add a new node to the graph. A new node is created so the original can be destroyed.
@@ -272,7 +265,6 @@ class graph {
    */
   void setRoot(long id) {
     _root = id;
-    _toposort.clear(); // any ordering is invalidated
   }
 
   // Return root node ID
@@ -297,6 +289,9 @@ class graph {
   }
 
 
+  /**
+   * const forward iterator to traverse the graph topologically.
+   */
   class graphIter {
 
    public:
@@ -310,6 +305,7 @@ class graph {
     }
 
     bool operator==(const graphIter &other) const {
+      // Check if comparing like-graphs (weak check)
       if (other._graph._toposort != _graph._toposort) return false;
       return _idx == other._idx;
     }
@@ -332,6 +328,9 @@ class graph {
     long _idx;
   };
 
+  /**
+   * Provides an iterator to a topological sorting of the graph.
+   */
   graphIter begin() const {
     if (_toposort.size() == 0 && _IDMap->size() > 0) {
       throw std::logic_error("Graph must be finalized before iteration.");
@@ -339,6 +338,9 @@ class graph {
     return graphIter(*this);
   }
 
+  /**
+   * Iterator to end of topological sorting.
+   */
   graphIter end() const {
     return graphIter(*this, _toposort.size());
   }
@@ -353,11 +355,48 @@ class graph {
   // maps a node ID to a vector of node ID's that point to it
   std::map<long, std::vector<long>> _prevMap;
   long _popSize = -1; // Used to make sure we have the same population size for all nodes in the graph
-  std::vector<long> _toposort;
+  std::vector<long> _toposort; // Sorted graph
+
+  /**
+   * Recursive depth first search to find dependencies. Used to topological sort.
+   * @param n current node ID
+   * @param unmarked set of unvisited nodes
+   * @param temp set of visited but unadded nodes
+   * @param perm set of completed nodes
+   */
+  void _visit(long n, std::set<long> &unmarked, std::set<long> &temp, std::set<long> &perm) {
+    if (temp.count(n) != 0) throw std::domain_error("Graph contains a cycle.");
+    if (unmarked.count(n)) {
+      unmarked.erase(n);
+      temp.insert(n);
+      for (auto m : _nextMap[n]) {
+        _visit(m, unmarked, temp, perm);
+      }
+      temp.erase(n);
+      perm.insert(n);
+      _toposort.push_back(n);
+    }
+  }
 
 };
 
+class GraphBuilder {
+ public:
+  GraphBuilder(std::string buildfile) : buildfile(buildfile) { }
+  GraphBuilder(std::string reffile, std::string vcffile) : refFile(reffile), vcfFile(vcffile) { }
 
+  void exportBuildfile(std::string outfile);
+  void region(unsigned int min, unsigned int max) {
+    minpos = min;
+    maxpos = max;
+  }
+  void generateIngroup();
+  graph &build();
+
+ private:
+  std::string refFile, vcfFile, buildfile;
+  unsigned int minpos, maxpos;
+};
 
 
 

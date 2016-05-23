@@ -49,7 +49,6 @@ class vcfstream {
   }
   ~vcfstream() {
     vcfFile.close();
-    initilized = false;
   }
 
 
@@ -59,6 +58,7 @@ class vcfstream {
     if (!vcfFile.good()) throw std::invalid_argument("Invalid VCF File");
     initVCF();
   }
+
 
   void close() {
     if (vcfFile.is_open()) vcfFile.close();
@@ -80,6 +80,7 @@ class vcfstream {
   // Print a CSV of the ingroup individuals
   void printIngroup(std::ostream &os);
   // Update a record with the next filtered VCF line
+  bool good() const { return vcfFile.good(); }
 
  protected:
   std::ifstream vcfFile; // source VCF file

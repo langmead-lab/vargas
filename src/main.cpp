@@ -17,11 +17,19 @@
 
 
 int main(const int argc, const char *argv[]) {
-
+/**
+ * Used for testing new graph impl
+ *
   std::vector<bool> pop1 = {1, 1, 1, 0};
   std::vector<bool> pop2 = {0, 1, 0, 0};
   std::vector<bool> pop3 = {1, 0, 0, 0};
   vargas::graph g;
+  {
+    vargas::graph::Node n;
+    n.id();
+    n.setPopulation(pop1);
+    g.addNode(n);
+  }
   {
     vargas::graph::Node n;
     n.setSeq("AC");
@@ -40,12 +48,6 @@ int main(const int argc, const char *argv[]) {
     n.setPopulation(pop3);
     g.addNode(n);
   }
-  {
-    vargas::graph::Node n;
-    n.id();
-    n.setPopulation(pop1);
-    g.addNode(n);
-  }
   g.addEdge(0, 1);
   g.addEdge(0, 2);
   g.addEdge(1, 3);
@@ -54,9 +56,12 @@ int main(const int argc, const char *argv[]) {
   auto g2 = vargas::graph(g, pop2);
   auto nmap = g2.getNodeMap();
   g.finalize();
-  std::cout << g.toDOT();
+  for (auto &n : g) {
+    std::cout << n.id();
+  }
 
   return 0;
+  */
 
 
   try {
