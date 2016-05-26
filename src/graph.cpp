@@ -20,7 +20,7 @@
 #include "../include/utils.h"
 #include "../include/graph.h"
 
-long vargas::graph::Node::newID = 0;
+long vargas::graph::Node::_newID = 0;
 
 /*********************************** CONSTRUCTOR ***********************************/
 
@@ -203,7 +203,7 @@ void vargas::Graph::exportBuildfile(std::istream *_reference, vcfstream &variant
 
   // Get region
   uint32_t minpos, maxpos;
-  parseRegion(params.region, &minpos, &maxpos);
+  //parseRegion(params.region, &minpos, &maxpos);
 
   // Create the ingroup
   generateIngroup(variants);
@@ -446,23 +446,26 @@ void vargas::Graph::generateIngroup(vcfstream &variants) {
   }
 }
 
-void vargas::Graph::parseRegion(std::string region, uint32_t *min, uint32_t *max) {
-  std::vector<std::string> region_split(0);
-  if (region.length() > 0) {
-    region_split = split(region, ':');
-    if (region_split.size() < 2) {
-      std::cerr << "Malformed region, must be in the form a:b" << std::endl;
-      *min = 0;
-      *max = UINT32_MAX;
-    } else {
-      *min = (uint32_t) std::stoi(region_split[0]);
-      *max = (uint32_t) std::stoi(region_split[1]);
-    }
-  } else {
-    *min = 0;
-    *max = UINT32_MAX;
-  }
+std::shared_ptr<vargas::graph> vargas::GraphBuilder::build() {
+  if (!_fa.good()) throw std::invalid_argument("Invalid FASTA file: " + _fa.file());
+  if (!_vf.good()) throw std::invalid_argument("Invalid B/VCF file: " + _vf.file());
+  if (g != nullptr) return g;
+  g = std::make_shared<graph>();
+
+
+  return g;
 }
+
+
+std::shared_ptr<vargas::graph> vargas::GraphBuilder::rebuild() {
+  if (g == nullptr) g.reset();
+  return build();
+}
+void vargas::GraphBuilder::ingroup(int percent) {
+  if (percent < 0 || percent > 100) return;
+  _ingroup = percent;
+}
+
 
 
 

@@ -74,7 +74,7 @@ add_library(vbyte ${VBYTE_SOURCES})
 add_library(varg ${MAIN_SOURCES})
 add_library(gssw ${GSSW_SOURCES})
 
-add_executable(vargas include/main.h src/main.cpp)
+add_executable(vargas include/main.h src/main.cpp doctest/doctest/doctest.h)
 target_link_libraries(vargas simdpp varg gssw vbyte b64 hts)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
@@ -93,20 +93,3 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -pedantic -Wall -Wextra -Wno-unused-function -
 # Rel w/ Deb options
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -O3")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS} -O3")
-
-
-# Tests
-#set(TEST_SOURCES
-#        test/graphTest.cpp
-#        test/utilsTest.cpp
-#        test/vcfStreamTest.cpp
-#        test/readsimTest.cpp
-#        test/equivilence.cpp
-#        test/equivilence.h
-#        test/xcoderTest.cpp
-#        )
-#add_subdirectory(test/googletest/googletest)
-#enable_testing()
-#include_directories(${gtest_SOURCE_DIR}/include/ ${gtest_SOURCE_DIR}/) # gtest and gtest_main
-#add_executable(vargasTests ${TEST_SOURCES})
-#target_link_libraries(vargasTests gtest gtest_main varg gssw b64 vbyte)

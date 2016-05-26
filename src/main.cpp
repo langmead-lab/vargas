@@ -8,7 +8,8 @@
  *
  * main.cpp
  */
-
+#define DOCTEST_CONFIG_IMPLEMENT
+#include "../doctest/doctest/doctest.h"
 #include "../include/getopt_pp.h"
 #include "../include/graph.h"
 #include "../include/readsim.h"
@@ -46,15 +47,15 @@ int main(const int argc, const char *argv[]) {
     vargas::graph::Node n;
     n.id();
     n.setPopulation(pop3);
-    g.addNode(n);
+    g.add_node(n);
   }
   g.addEdge(0, 1);
   g.addEdge(0, 2);
   g.addEdge(1, 3);
-  g.addEdge(2, 3);
+  g.add_edge(2, 3);
 
   auto g2 = vargas::graph(g, pop2);
-  auto nmap = g2.getNodeMap();
+  auto nmap = g2.node_map();
   g.finalize();
   for (auto &n : g) {
     std::cout << n.id();
@@ -63,6 +64,18 @@ int main(const int argc, const char *argv[]) {
   return 0;
   */
 
+  GetOpt::GetOpt_pp args(argc, argv);
+
+  // Run test cases
+  if (args >> GetOpt::OptionPresent("runtests")) {
+    doctest::Context doc(argc, argv);
+    doc.setOption("no-breaks", true);
+    doc.setOption("abort-after", 5);
+    doc.setOption("sort", "name");
+    int res = doc.run();
+    if (doc.shouldExit()) return res;
+    std::cerr << std::endl;
+  }
 
   try {
     if (argc > 1) {
@@ -87,7 +100,6 @@ int main(const int argc, const char *argv[]) {
     exit(1);
   }
 
-  GetOpt::GetOpt_pp args(argc, argv);
   if (args >> GetOpt::OptionPresent('h', "help")) {
     printMainHelp();
     exit(0);
