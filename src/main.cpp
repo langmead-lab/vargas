@@ -12,9 +12,7 @@
 #include "../doctest/doctest/doctest.h"
 #include "../include/getopt_pp.h"
 #include "../include/graph.h"
-#include "../include/readsim.h"
-#include "../include/readfile.h"
-#include "../include/main.h"
+//#include "../include/readsim.h"
 
 
 int main(const int argc, const char *argv[]) {
@@ -80,19 +78,19 @@ int main(const int argc, const char *argv[]) {
   try {
     if (argc > 1) {
       if (!strcmp(argv[1], "build")) {
-        exit(build_main(argc, argv));
+//        exit(build_main(argc, argv));
       }
       else if (!strcmp(argv[1], "sim")) {
-        exit(sim_main(argc, argv));
+//        exit(sim_main(argc, argv));
       }
       else if (!strcmp(argv[1], "align")) {
-        exit(align_main(argc, argv));
+//        exit(align_main(argc, argv));
       }
       else if (!strcmp(argv[1], "export")) {
-        exit(export_main(argc, argv));
+        //       exit(export_main(argc, argv));
       }
       else if (!strcmp(argv[1], "stat")) {
-        exit(stat_main(argc, argv));
+        //       exit(stat_main(argc, argv));
       }
     }
   } catch (std::exception &e) {
@@ -101,16 +99,16 @@ int main(const int argc, const char *argv[]) {
   }
 
   if (args >> GetOpt::OptionPresent('h', "help")) {
-    printMainHelp();
+//    printMainHelp();
     exit(0);
   }
   std::cerr << "Define a valid mode of operation." << std::endl;
-  printMainHelp();
+//  printMainHelp();
   exit(1);
 
 }
 
-
+/**
 int stat_main(const int argc, const char *argv[]) {
   std::string buildfile;
 
@@ -357,10 +355,6 @@ int align_main(const int argc, const char *argv[]) {
 
 int sim_main(const int argc, const char *argv[]) {
 
-  /*
-   * TODO this can be made more efficient by creating all lists of ingroups first,
-   * rather than parsing the input every single time.
-   */
 
   GetOpt::GetOpt_pp args(argc, argv);
 
@@ -532,3 +526,5 @@ void printStatHelp() {
   cout << "-b\t--buildfile     <string> Graph build file." << endl << endl;
 
 }
+
+*/

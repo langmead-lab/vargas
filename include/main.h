@@ -15,7 +15,7 @@
 // Operational modes
 int build_main(const int argc, const char *argv[]);
 int export_main(const int argc, const char *argv[]);
-int sim_main(const int argc, const char *argv[]);
+//int sim_main(const int argc, const char *argv[]);
 int align_main(const int argc, const char *argv[]);
 int stat_main(const int argc, const char *argv[]);
 

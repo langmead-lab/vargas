@@ -16,9 +16,9 @@ set(MAIN_SOURCES
         include/graph.h
         src/vcfstream.cpp       # VCF file wrapper
         include/vcfstream.h
-        src/readsim.cpp         # Graph read simulator
-        include/readsim.h
-        include/readsource.h    # Abstract read source class
+        # src/readsim.cpp         # Graph read simulator
+        # include/readsim.h
+        # include/readsource.h    # Abstract read source class
         src/readfile.cpp        # Readfile wrapper
         include/readfile.h
         src/xcoder.cpp          # Compressor and base64 encoder for lists of unsigned ints
@@ -26,7 +26,8 @@ set(MAIN_SOURCES
         include/alignment.h
         src/samfile.cpp
         include/samfile.h
-        )
+        include/fasta.h
+        include/varfile.h)
 
 set(GSSW_SOURCES
         gssw/src/gssw.h
@@ -47,8 +48,7 @@ set(B64_SOURCES # B64 encoder/decoder
         libb64/include/encode.h
         libb64/include/decode.h
         libb64/include/cdecode.h
-        libb64/include/cencode.h
-        )
+        libb64/include/cencode.h)
 
 set(SSEPP_SOURCES # Source files using libsimdpp
     ${GSSW_SOURCES}
