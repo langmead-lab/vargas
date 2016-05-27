@@ -1,6 +1,13 @@
-//
-// Created by gaddra on 5/26/16.
-//
+/**
+ * @author Ravi Gaddipati (rgaddip1@jhu.edu)
+ * @date May 26, 2016
+ *
+ * Provides a C++ wrapper for htslib. FASTAFile provides an interface
+ * to a FASTA formatted file. An index is created for the opened
+ * file.
+ *
+ * @file fasta.h
+ */
 
 #ifndef VARGAS_FASTA_H
 #define VARGAS_FASTA_H
@@ -65,6 +72,12 @@ class FASTAFile {
     free(ss);
     return ret;
   }
+
+  /**
+   * @param sequence name
+   * @return sequence length
+   */
+  int seq_len(std::string seq) { return faidx_seq_len(_index, seq.c_str()); }
 
   /**
    * Sequence name given a sequence ID.

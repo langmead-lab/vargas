@@ -150,11 +150,11 @@ class graph {
       }
     }
     void setEndPos(ulong pos) { this->_endPos = pos; }
-    void setPopulation(std::vector<bool> &pop) { _individuals = pop; }
-    void setSeq(std::string seq) { _seq = seq_to_num(seq); }
+    void setPopulation(const std::vector<bool> &pop) { _individuals = pop; }
+    void set_seq(std::string seq) { _seq = seq_to_num(seq); }
     void setSeq(std::vector<uchar> &seq) { this->_seq = seq; }
-    void setAsRef() { _ref = true; }
-    void setAsNotRef() { _ref = false; }
+    void set_as_ref() { _ref = true; }
+    void set_not_ref() { _ref = false; }
 
    private:
     long _id;
@@ -435,10 +435,10 @@ TEST_CASE ("Node tests") {
   }
 
       SUBCASE("Set Node params") {
-    n1.setSeq("ACGTN");
+    n1.set_seq("ACGTN");
     std::vector<bool> a = {0, 0, 1};
     n1.setPopulation(a);
-    n1.setAsRef();
+    n1.set_as_ref();
     n1.setEndPos(100);
 
         REQUIRE(n1.seq().size() == 5);
@@ -471,40 +471,40 @@ TEST_CASE ("graph class") {
   {
     vargas::graph::Node n;
     n.setEndPos(3);
-    n.setAsRef();
+    n.set_as_ref();
     std::vector<bool> a = {0, 1, 1};
     n.setPopulation(a);
-    n.setSeq("AAA");
+    n.set_seq("AAA");
     g.add_node(n);
   }
 
   {
     vargas::graph::Node n;
     n.setEndPos(6);
-    n.setAsRef();
+    n.set_as_ref();
     std::vector<bool> a = {0, 0, 1};
     n.setPopulation(a);
-    n.setSeq("CCC");
+    n.set_seq("CCC");
     g.add_node(n);
   }
 
   {
     vargas::graph::Node n;
     n.setEndPos(6);
-    n.setAsNotRef();
+    n.set_not_ref();
     std::vector<bool> a = {0, 1, 0};
     n.setPopulation(a);
-    n.setSeq("GGG");
+    n.set_seq("GGG");
     g.add_node(n);
   }
 
   {
     vargas::graph::Node n;
     n.setEndPos(9);
-    n.setAsRef();
+    n.set_as_ref();
     std::vector<bool> a = {0, 1, 1};
     n.setPopulation(a);
-    n.setSeq("TTT");
+    n.set_seq("TTT");
     g.add_node(n);
   }
 
@@ -605,10 +605,16 @@ class GraphBuilder {
 
   void region(std::string region) {
     _vf.set_region(region);
+    _min_pos = _vf.region_lower();
+    _max_pos = _vf.region_upper();
+    _chr = _vf.region_chr();
   }
 
   void region(std::string chr, int min, int max) {
     _vf.set_region(chr, min, max);
+    _min_pos = min;
+    _max_pos = max;
+    _chr = chr;
   }
 
   /**
@@ -646,6 +652,10 @@ class GraphBuilder {
    */
   std::shared_ptr<graph> rebuild();
 
+ protected:
+  void _build_edges(graph &g, std::vector<int> &prev, std::vector<int> &curr);
+  int _build_linear(graph &g, std::vector<int> &prev, std::vector<int> &curr, int pos, int target);
+
  private:
   std::string _fa_file, _vf_file;
   VarFile _vf;
@@ -656,6 +666,8 @@ class GraphBuilder {
   int _ingroup = 100; // percent of individuals to use. Ref nodes always included
   float _min_af = 0; // Minimum AF
   int _max_node_len = 100000;
+  int _min_pos = 0, _max_pos = 0;
+  std::string _chr;
 };
 
 }

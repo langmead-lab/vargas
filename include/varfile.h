@@ -1,6 +1,15 @@
-//
-// Created by gaddra on 5/26/16.
-//
+/**
+ * @author Ravi Gaddipati (rgaddip1@jhu.edu)
+ * @date May 26, 2016
+ *
+ * Provides a C++ wrapper for htslib handling of VCF and BCF files.
+ * Both file types are handled transparently by htslib. The records
+ * are parsed to substitute in copy number variations, and skip
+ * records outside of a defined range. A subset of individuals can be
+ * defined using create_ingroup.
+ *
+ * @file varfile.h
+ */
 
 #ifndef VARGAS_VARFILE_H
 #define VARGAS_VARFILE_H
@@ -18,6 +27,7 @@
 #include "../doctest/doctest/doctest.h"
 
 namespace vargas {
+
 class VarFile {
  public:
 
@@ -124,8 +134,7 @@ class VarFile {
   }
 
   /**
-   * Open the specified VCF or BCF file.
-   * Do not use this to load a new file after another one, rather create a new VarFile object.
+   * Open the specified VCF or BCF file and load the header.
    * @param file filename
    * @return -1 on file open error, -2 on header load error, 0 otherwise
    */
@@ -148,9 +157,10 @@ class VarFile {
   }
 
   /**
- * Set the minimum and maximum position
- * @param min Minimum position, 0 indexed
- * @param max Max position, inclusive, 0 indexed
+    * Set the minimum and maximum position, inclusive.
+    * If max is <= 0, go until end.
+    * @param min Minimum position, 0 indexed
+    * @param max Max position, inclusive, 0 indexed
  */
   void set_region(std::string chr, int min, int max) {
     _min_pos = min;
@@ -162,6 +172,7 @@ class VarFile {
    * Parse a region string in the format
    * CHR:XX,XXX-YY,YYY
    * commas are stripped, range is inclusive. 0 indexed.
+   * If max is <= 0, go until end.
    * @param region region string
    */
   void set_region(std::string region) {
@@ -181,6 +192,24 @@ class VarFile {
     _max_pos = std::stoi(regionSplit[1]);
 
   }
+
+  /**
+   * Get the minimum position.
+   * @return 0 indexed minimum pos
+   */
+  int region_lower() const { return _min_pos; }
+
+  /**
+   * Get the maximum position.
+   * @return 0 indexed maximum position
+   */
+  int region_upper() const { return _max_pos; }
+
+  /**
+   * Current contig filter.
+   * @return ID of current CHROM filter
+   */
+  std::string region_chr() const { return _chr; }
 
   /**
    * Get a list of sequences in the VCF file.
@@ -214,7 +243,8 @@ class VarFile {
   }
 
   /**
-   * Load the next VCF record. Only shared info is unpacked.
+   * Load the next VCF record. All information is unpacked,
+   * subject to sample set restrictions.
    * @return false on read error or if outside restriction range.
    */
   bool next() {
@@ -251,13 +281,14 @@ class VarFile {
 
   /**
    * Reference allele of the current record.
-   * @param reference allele
+   * @return reference allele
    */
   std::string ref() const { return _alleles[0]; }
 
   /**
    * List of all the alleles in the current record. The first
-   * is the reference.
+   * is the reference. Allele copy number variant tags are converted,
+   * whereas other tags are substituted for the reference.
    * @return vector of alleles
    */
   const std::vector<std::string> &alleles() const { return _alleles; }
@@ -283,8 +314,27 @@ class VarFile {
     for (int o : gt.values) {
       _genotypes.push_back(_alleles[bcf_gt_allele(o)]);
     }
+
+    // Map of which indivs have each allele
+    _genotype_indivs.clear();
+    for (auto allele : alleles()) {
+      _genotype_indivs[allele] = std::vector<bool>(_genotypes.size(), false);
+    }
+    for (int s = 0; s < _genotypes.size(); ++s) {
+      _genotype_indivs[_genotypes[s]][s] = true;
+    }
+
     return _genotypes;
   }
+
+  /**
+   * Return the population set that has the allele.
+   * The returned vector has the same size as number of genotypes (samples * 2).
+   * When true, that individual/phase possed that allele.
+   * @param allele allele to get the population of
+   * @return vector<bool> of indviduals that have the allele
+   */
+  const std::vector<bool> &allele_pop(std::string allele) const { return _genotype_indivs.at(allele); }
 
   /**
    * Check if the file is properly loaded.
@@ -344,6 +394,11 @@ class VarFile {
   const std::vector<std::string> &ingroup() const { return _ingroup; }
 
  protected:
+
+  /**
+   * Open the provided file and load the header.
+   * @return -1 on file open error, -2 on header read error.
+   */
   int _init() {
     srand(_seed);
 
@@ -360,6 +415,9 @@ class VarFile {
     return 0;
   }
 
+  /**
+   * Loads the list of alleles for the current record.
+   */
   void _load_shared() {
     _alleles.clear();
     for (int i = 0; i < _curr_rec->n_allele; ++i) {
@@ -381,6 +439,10 @@ class VarFile {
     }
   }
 
+  /**
+   * Applies the contents of _ingroup to the header. The filter
+   * impacts all following unpacks.
+   */
   void _apply_ingroup_filter() {
     if (!_header) {
       throw std::logic_error("Ingroup filter should only be applied after loading header!");
@@ -412,18 +474,19 @@ class VarFile {
 
  private:
   time_t _seed = time(NULL);
-  std::string _file_name, // VCF file name
-      _chr; // Sequence restriction
+  std::string _file_name, // VCF/BCF file name
+      _chr; // Sequence restriction (CHROM)
   int _min_pos = -1, _max_pos = -1; // Region of _chr restriction
 
   htsFile *_bcf = NULL;
   bcf_hdr_t *_header = NULL;
   bcf1_t *_curr_rec = bcf_init();
 
-  std::vector<std::string> _genotypes;
+  std::vector<std::string> _genotypes; // restricted to _ingroup
+  std::unordered_map<std::string, std::vector<bool>> _genotype_indivs;
   std::vector<std::string> _alleles;
   std::vector<std::string> _samples;
-  std::vector<std::string> _ingroup;
+  std::vector<std::string> _ingroup; // subset of _samples
   char *_ingroup_cstr = NULL;
 
 };
@@ -555,6 +618,62 @@ TEST_CASE ("VCF File handler") {
     // Allele set should be complete, ingroup should reflect minimized set
         CHECK(vcf.alleles().size() == 3);
         CHECK(vcf.ingroup().size() == 1);
+  }
+
+      SUBCASE("Allele populations") {
+    VarFile vcf;
+    vcf.open(tmpvcf);
+    vcf.next();
+    vcf.genotypes();
+
+        REQUIRE(vcf.allele_pop("GG").size() == 4);
+        CHECK(vcf.allele_pop("GG")[0]);
+        CHECK(!vcf.allele_pop("GG")[1]);
+        CHECK(!vcf.allele_pop("GG")[2]);
+        CHECK(!vcf.allele_pop("GG")[3]);
+
+        REQUIRE(vcf.allele_pop("A").size() == 4);
+        CHECK(!vcf.allele_pop("A")[0]);
+        CHECK(vcf.allele_pop("A")[1]);
+        CHECK(!vcf.allele_pop("A")[2]);
+        CHECK(!vcf.allele_pop("A")[3]);
+
+        REQUIRE(vcf.allele_pop("C").size() == 4);
+        CHECK(!vcf.allele_pop("C")[0]);
+        CHECK(!vcf.allele_pop("C")[1]);
+        CHECK(vcf.allele_pop("C")[2]);
+        CHECK(!vcf.allele_pop("C")[3]);
+
+        REQUIRE(vcf.allele_pop("T").size() == 4);
+        CHECK(!vcf.allele_pop("T")[0]);
+        CHECK(!vcf.allele_pop("T")[1]);
+        CHECK(!vcf.allele_pop("T")[2]);
+        CHECK(vcf.allele_pop("T")[3]);
+
+  }
+
+      SUBCASE("Filtered allele populations") {
+    VarFile vcf;
+    vcf.open(tmpvcf);
+    vcf.create_ingroup({"s1"});
+    vcf.next();
+    vcf.genotypes();
+
+        REQUIRE(vcf.allele_pop("GG").size() == 2);
+        CHECK(vcf.allele_pop("GG")[0]);
+        CHECK(!vcf.allele_pop("GG")[1]);
+
+        REQUIRE(vcf.allele_pop("A").size() == 2);
+        CHECK(!vcf.allele_pop("A")[0]);
+        CHECK(vcf.allele_pop("A")[1]);
+
+        REQUIRE(vcf.allele_pop("C").size() == 2);
+        CHECK(!vcf.allele_pop("C")[0]);
+        CHECK(!vcf.allele_pop("C")[1]);
+
+        REQUIRE(vcf.allele_pop("T").size() == 2);
+        CHECK(!vcf.allele_pop("T")[0]);
+        CHECK(!vcf.allele_pop("T")[1]);
   }
 
   remove(tmpvcf.c_str());

@@ -31,7 +31,7 @@ int main(const int argc, const char *argv[]) {
   }
   {
     vargas::graph::Node n;
-    n.setSeq("AC");
+    n.set_seq("AC");
     n.setPopulation(pop1);
     g.addNode(n);
   }
