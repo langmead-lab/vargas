@@ -135,6 +135,7 @@ class graph {
     ulong end() const { return _endPos; } // Sequence end position in genome
     bool belongs(uint ind) const { return _individuals[ind]; } // Check if a certain individual has this node
     const std::vector<uchar> &seq() const { return _seq; } // Sequence in numeric form
+    std::string seq_str() const { return num_to_seq(_seq); }
     ulong popSize() const { return _individuals.size(); } // How many individuals are represented in the node
     long id() const { return _id; } // Node ID
     bool isRef() const { return _ref; } // True if part of the reference seq
@@ -149,8 +150,8 @@ class graph {
         _newID = ++id;
       }
     }
-    void setEndPos(ulong pos) { this->_endPos = pos; }
-    void setPopulation(const std::vector<bool> &pop) { _individuals = pop; }
+    void set_endpos(ulong pos) { this->_endPos = pos; }
+    void set_population(const std::vector<bool> &pop) { _individuals = pop; }
     void set_seq(std::string seq) { _seq = seq_to_num(seq); }
     void setSeq(std::vector<uchar> &seq) { this->_seq = seq; }
     void set_as_ref() { _ref = true; }
@@ -178,107 +179,25 @@ class graph {
    * @param g Graph to derive the new graph from
    * @param filter population filter, only include nodes representative of this population
    */
-  graph(const graph &g, const std::vector<bool> &filter) {
-    _popSize = g._popSize;
-    if (filter.size() != _popSize) {
-      throw std::invalid_argument("Filter size should match graph population size.");
-    }
-    _IDMap = g._IDMap;
-    std::vector<long> indexes; // indexes of the individuals that are included in the filter
-    for (long i = 0; i < filter.size(); ++i) {
-      if (filter[i]) {
-        indexes.push_back(i);
-      }
-    }
-
-    // Add all nodes
-    std::unordered_map<long, nodeptr> includedNodes;
-    for (auto &n : *(g._IDMap)) {
-      for (long i : indexes) {
-        if (n.second->belongs(i)) {
-          includedNodes[n.first] = n.second;
-          break;
-        }
-      }
-    }
-
-    // Add all edges for included nodes
-    for (auto &n : includedNodes) {
-      if (g._next_map.find(n.second->id()) == g._next_map.end()) continue;
-      for (auto e : g._next_map.at(n.second->id())) {
-        if (includedNodes.find(e) != includedNodes.end()) {
-          add_edge(n.second->id(), e);
-        }
-      }
-    }
-
-    // Set the new root
-    if (includedNodes.find(g.root()) == includedNodes.end()) {
-      throw std::invalid_argument("Currently the root must be common to all graphs.");
-    }
-    _root = g.root();
-    finalize();
-
-    // Use the same description but add the filter we used
-    _desc = g.desc() + "\nfilter: ";
-    for (auto b : filter) {
-      _desc += b == true ? "1" : "0";
-      _desc += ",";
-    }
-
-  }
+  graph(const graph &g, const std::vector<bool> &filter);
 
   /**
    * Builds the topographical sort of the graph, used for graph iteration.
    */
-  void finalize() {
-    _toposort.clear();
-    std::set<long> unmarked, tempmarked, permmarked;
-    for (auto &n : *_IDMap) {
-      unmarked.insert(n.first);
-    }
-    while (!unmarked.empty()) {
-      _visit(*unmarked.begin(), unmarked, tempmarked, permmarked);
-    }
-    std::reverse(_toposort.begin(), _toposort.end());
-
-  }
+  void finalize();
 
   /**
    * Add a new node to the graph. A new node is created so the original can be destroyed.
    * The first node added is set as the graph root.
    */
-  long add_node(const Node &n) {
-    if (_popSize < 0) _popSize = n.popSize(); // first node dictates graph population size
-    else if (_popSize != n.popSize()) return 0; // graph should be for same population size
-    if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
-    if (_root < 0) _root = n.id(); // first node added is default root
-
-    _IDMap->emplace(n.id(), std::make_shared<Node>(n));
-    return n.id();
-  }
+  long add_node(Node &n);
 
   /**
    * Create an edge linking two nodes. Previous and Next edges are added.
    * @param n1 Node one ID
    * @param n2 Node two ID
    */
-  bool add_edge(long n1, long n2) {
-    // Check if the nodes exist
-    if (_IDMap->find(n1) == _IDMap->end() || _IDMap->find(n2) == _IDMap->end()) return false;
-
-    // init if first edge to be added
-    if (_next_map.find(n1) == _next_map.end()) {
-      _next_map[n1] = std::vector<long>();
-    }
-    if (_prev_map.find(n2) == _prev_map.end()) {
-      _prev_map[n2] = std::vector<long>();
-    }
-    _next_map[n1].push_back(n2);
-    _prev_map[n2].push_back(n1);
-    _toposort.clear(); // any ordering is invalidated
-    return true;
-  }
+  bool add_edge(long n1, long n2);
 
   /**
    * Sets the root of the graph.
@@ -307,9 +226,12 @@ class graph {
   std::string desc() const { return _desc; }
 
   // Export the graph in DOT format.
-  std::string to_DOT(std::string name = "graph") const {
+  std::string to_DOT(std::string name = "g") const {
     std::stringstream dot;
     dot << "digraph " << name << " {\n";
+    for (auto n : *_IDMap) {
+      dot << n.second->id() << "[label=\"" << n.second->seq_str() << ":" << n.second->end() << "\"];\n";
+    }
     for (auto &n : _next_map) {
       for (auto e : n.second) {
         dot << n.first << " -> " << e << ";\n";
@@ -437,9 +359,9 @@ TEST_CASE ("Node tests") {
       SUBCASE("Set Node params") {
     n1.set_seq("ACGTN");
     std::vector<bool> a = {0, 0, 1};
-    n1.setPopulation(a);
+    n1.set_population(a);
     n1.set_as_ref();
-    n1.setEndPos(100);
+    n1.set_endpos(100);
 
         REQUIRE(n1.seq().size() == 5);
 
@@ -470,40 +392,40 @@ TEST_CASE ("graph class") {
 
   {
     vargas::graph::Node n;
-    n.setEndPos(3);
+    n.set_endpos(3);
     n.set_as_ref();
     std::vector<bool> a = {0, 1, 1};
-    n.setPopulation(a);
+    n.set_population(a);
     n.set_seq("AAA");
     g.add_node(n);
   }
 
   {
     vargas::graph::Node n;
-    n.setEndPos(6);
+    n.set_endpos(6);
     n.set_as_ref();
     std::vector<bool> a = {0, 0, 1};
-    n.setPopulation(a);
+    n.set_population(a);
     n.set_seq("CCC");
     g.add_node(n);
   }
 
   {
     vargas::graph::Node n;
-    n.setEndPos(6);
+    n.set_endpos(6);
     n.set_not_ref();
     std::vector<bool> a = {0, 1, 0};
-    n.setPopulation(a);
+    n.set_population(a);
     n.set_seq("GGG");
     g.add_node(n);
   }
 
   {
     vargas::graph::Node n;
-    n.setEndPos(9);
+    n.set_endpos(9);
     n.set_as_ref();
     std::vector<bool> a = {0, 1, 1};
-    n.setPopulation(a);
+    n.set_population(a);
     n.set_seq("TTT");
     g.add_node(n);
   }
@@ -643,14 +565,7 @@ class GraphBuilder {
    * Apply the various parameters and build the graph.
    * @return pointer to graph.
    */
-  std::shared_ptr<graph> build();
-
-  /**
-   * After initial build, if parameters are changed, use this
-   * to recreate a graph. Otherwise old graph will be returned.
-   * @return graph reflecting any construction changes
-   */
-  std::shared_ptr<graph> rebuild();
+  void build(graph &g);
 
  protected:
   void _build_edges(graph &g, std::vector<int> &prev, std::vector<int> &curr);
@@ -660,7 +575,7 @@ class GraphBuilder {
   std::string _fa_file, _vf_file;
   VarFile _vf;
   FASTAFile _fa;
-  std::shared_ptr<graph> g = nullptr;
+  graph g;
 
   // Graph construction parameters
   int _ingroup = 100; // percent of individuals to use. Ref nodes always included
@@ -670,6 +585,88 @@ class GraphBuilder {
   std::string _chr;
 };
 
+}
+
+TEST_CASE ("Graph Builder") {
+  using std::endl;
+  std::string tmpfa = "tmp_tc.fa";
+  {
+    std::ofstream fao(tmpfa);
+    fao
+        << ">x" << endl
+        << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
+        << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
+        << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
+        << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
+        << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
+        << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
+        << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
+        << ">y" << endl
+        << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+  }
+  std::string tmpvcf = "tmp_tc.vcf";
+
+  // Write temp VCF file
+  {
+    std::ofstream vcfo(tmpvcf);
+    vcfo
+        << "##fileformat=VCFv4.1" << endl
+        << "##phasing=true" << endl
+        << "##contig=<ID=x>" << endl
+        << "##contig=<ID=y>" << endl
+        << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+        << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+        << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternete Allele count\">" << endl
+        << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+        << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+        << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+        << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+        << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+        << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+        << "x\t10\t.\tC\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+        << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
+        << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+        << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+  }
+
+      SUBCASE("Basic graph") {
+    vargas::GraphBuilder gb(tmpfa, tmpvcf);
+    gb.node_len(5);
+    gb.ingroup(100);
+    gb.region("x:0-15");
+
+    vargas::graph g;
+    gb.build(g);
+
+    std::ofstream tmp("tmp.dot");
+    tmp << g.to_DOT();
+
+    auto giter = g.begin();
+
+        CHECK((*giter).seq_str() == "CAAAT");
+    ++giter;
+        CHECK((*giter).seq_str() == "AAG");
+
+    ++giter;
+    std::string a = (*giter).seq_str();
+        CHECK(a == "T");
+    ++giter;
+    a = (*giter).seq_str();
+        CHECK(a == "C");
+    ++giter;
+    a = (*giter).seq_str();
+        CHECK(a == "A");
+    ++giter;
+    a = (*giter).seq_str();
+        CHECK(a == "G");
+
+    ++giter;
+  }
+
+
+  remove(tmpfa.c_str());
+  remove(tmpvcf.c_str());
+  remove((tmpfa + ".fai").c_str());
 }
 
 #endif //VARGAS_GRAPH_H

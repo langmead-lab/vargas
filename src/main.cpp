@@ -44,7 +44,7 @@ int main(const int argc, const char *argv[]) {
   {
     vargas::graph::Node n;
     n.id();
-    n.setPopulation(pop3);
+    n.set_population(pop3);
     g.add_node(n);
   }
   g.addEdge(0, 1);

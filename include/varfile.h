@@ -21,6 +21,7 @@
 #include <htslib/vcf.h>
 #include <stdlib.h>
 #include <time.h>
+#include <htslib/hts.h>
 
 #include "utils.h"
 #include "../htslib/htslib/vcfutils.h"
@@ -144,16 +145,14 @@ class VarFile {
   }
 
   void close() {
-    if (_bcf) hts_close(_bcf);
+    if (_bcf) bcf_close(_bcf);
     if (_header) bcf_hdr_destroy(_header);
-    bcf_destroy(_curr_rec);
-    _curr_rec = bcf_init();
-    _alleles.clear();
-    _file_name = "";
-    _chr = "";
-    _min_pos = _max_pos = -1;
-    _genotypes.clear();
+    if (_curr_rec) bcf_destroy(_curr_rec);
     if (_ingroup_cstr) free(_ingroup_cstr);
+    _bcf = NULL;
+    _header = NULL;
+    _curr_rec = NULL;
+    _ingroup_cstr = NULL;
   }
 
   /**
@@ -340,7 +339,7 @@ class VarFile {
    * Check if the file is properly loaded.
    * @return true if file is open and has a valid header.
    */
-  bool good() const { return !_header && !_bcf; }
+  bool good() const { return _header && _bcf; }
 
   /**
    * File name of VCF/BCF file.
@@ -403,7 +402,7 @@ class VarFile {
     srand(_seed);
 
     _bcf = bcf_open(_file_name.c_str(), "r");
-    if (_bcf == NULL) return -1;
+    if (!_bcf) return -1;
     _header = bcf_hdr_read(_bcf);
     if (!_header) return -2;
 
@@ -510,7 +509,7 @@ TEST_CASE ("VCF File handler") {
         << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
         << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
         << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
-        << "x\t9\t.\tGG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+        << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
         << "x\t10\t.\tC\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
         << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
         << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
@@ -530,16 +529,16 @@ TEST_CASE ("VCF File handler") {
 
     // On load, first record is already loaded
         REQUIRE(vcf.genotypes().size() == 4);
-        CHECK(vcf.genotypes()[0] == "GG");
+        CHECK(vcf.genotypes()[0] == "G");
         CHECK(vcf.genotypes()[1] == "A");
         CHECK(vcf.genotypes()[2] == "C");
         CHECK(vcf.genotypes()[3] == "T");
         REQUIRE(vcf.alleles().size() == 4);
-        CHECK(vcf.alleles()[0] == "GG");
+        CHECK(vcf.alleles()[0] == "G");
         CHECK(vcf.alleles()[1] == "A");
         CHECK(vcf.alleles()[2] == "C");
         CHECK(vcf.alleles()[3] == "T");
-        CHECK(vcf.ref() == "GG");
+        CHECK(vcf.ref() == "G");
         CHECK(vcf.pos() == 8);
 
     // Copy number alleles
@@ -588,7 +587,7 @@ TEST_CASE ("VCF File handler") {
     vcf.open(tmpvcf);
 
     vcf.next();
-        CHECK(vcf.ref() == "GG");
+        CHECK(vcf.ref() == "G");
     vcf.next();
         CHECK(vcf.ref() == "C");
     vcf.next();
@@ -626,11 +625,11 @@ TEST_CASE ("VCF File handler") {
     vcf.next();
     vcf.genotypes();
 
-        REQUIRE(vcf.allele_pop("GG").size() == 4);
-        CHECK(vcf.allele_pop("GG")[0]);
-        CHECK(!vcf.allele_pop("GG")[1]);
-        CHECK(!vcf.allele_pop("GG")[2]);
-        CHECK(!vcf.allele_pop("GG")[3]);
+        REQUIRE(vcf.allele_pop("G").size() == 4);
+        CHECK(vcf.allele_pop("G")[0]);
+        CHECK(!vcf.allele_pop("G")[1]);
+        CHECK(!vcf.allele_pop("G")[2]);
+        CHECK(!vcf.allele_pop("G")[3]);
 
         REQUIRE(vcf.allele_pop("A").size() == 4);
         CHECK(!vcf.allele_pop("A")[0]);
@@ -659,9 +658,9 @@ TEST_CASE ("VCF File handler") {
     vcf.next();
     vcf.genotypes();
 
-        REQUIRE(vcf.allele_pop("GG").size() == 2);
-        CHECK(vcf.allele_pop("GG")[0]);
-        CHECK(!vcf.allele_pop("GG")[1]);
+        REQUIRE(vcf.allele_pop("G").size() == 2);
+        CHECK(vcf.allele_pop("G")[0]);
+        CHECK(!vcf.allele_pop("G")[1]);
 
         REQUIRE(vcf.allele_pop("A").size() == 2);
         CHECK(!vcf.allele_pop("A")[0]);

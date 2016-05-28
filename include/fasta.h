@@ -40,6 +40,7 @@ class FASTAFile {
 
   void close() {
     if (_index) fai_destroy(_index);
+    _index = NULL;
     _file_name = "";
   }
   /**
