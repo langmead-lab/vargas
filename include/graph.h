@@ -129,16 +129,21 @@ class graph {
    public:
     // Assign a unique ID to each node
     Node() : _id(_newID++) { }
+    Node(int pos, const std::string &seq, const std::vector<bool> &pop, bool ref) :
+        _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _id(_newID++) { }
 
     // Access functions
     ulong length() const { return _seq.size(); } // Length of sequence
-    ulong end() const { return _endPos; } // Sequence end position in genome
-    bool belongs(uint ind) const { return _individuals[ind]; } // Check if a certain individual has this node
+    int end() const { return _endPos; } // Sequence end position in genome
+    int belongs(uint ind) const {
+      if (_ref) return -1;
+      return _individuals[ind];
+    } // Check if a certain individual has this node
     const std::vector<uchar> &seq() const { return _seq; } // Sequence in numeric form
     std::string seq_str() const { return num_to_seq(_seq); }
-    ulong popSize() const { return _individuals.size(); } // How many individuals are represented in the node
+    ulong pop_size() const { return _individuals.size(); } // How many individuals are represented in the node
     long id() const { return _id; } // Node ID
-    bool isRef() const { return _ref; } // True if part of the reference seq
+    bool is_ref() const { return _ref; } // True if part of the reference seq
 
 
     static long _newID; // ID of the next instance to be created
@@ -150,19 +155,20 @@ class graph {
         _newID = ++id;
       }
     }
-    void set_endpos(ulong pos) { this->_endPos = pos; }
+    void set_endpos(int pos) { this->_endPos = pos; }
     void set_population(const std::vector<bool> &pop) { _individuals = pop; }
     void set_seq(std::string seq) { _seq = seq_to_num(seq); }
-    void setSeq(std::vector<uchar> &seq) { this->_seq = seq; }
+    void set_seq(std::vector<uchar> &seq) { this->_seq = seq; }
     void set_as_ref() { _ref = true; }
     void set_not_ref() { _ref = false; }
 
    private:
-    long _id;
-    ulong _endPos; // End position of the sequence
+    int _endPos; // End position of the sequence
     std::vector<bool> _individuals; // Each bit marks an individual, 1 if they have this node
     std::vector<uchar> _seq;
+    long _id;
     bool _ref = false; // Part of the reference sequence
+
   };
 
   typedef std::shared_ptr<Node> nodeptr;
@@ -217,11 +223,6 @@ class graph {
   const std::unordered_map<long, std::vector<long>> &next_map() const { return _next_map; }
   const std::unordered_map<long, std::vector<long>> &prev_map() const { return _prev_map; }
   const Node &node(long id) const { return *(*_IDMap)[id]; }
-
-  ulong pop_size() const {
-    if (_root >= 0) return _IDMap->at(0)->popSize();
-    return 0;
-  }
 
   std::string desc() const { return _desc; }
 
@@ -312,7 +313,6 @@ class graph {
   std::unordered_map<long, std::vector<long>> _next_map;
   // maps a node ID to a vector of node ID's that point to it
   std::unordered_map<long, std::vector<long>> _prev_map;
-  long _popSize = -1; // Used to make sure we have the same population size for all nodes in the graph
   std::vector<long> _toposort; // Sorted graph
   // Description, used by the builder to store construction params
   std::string _desc;
@@ -360,7 +360,6 @@ TEST_CASE ("Node tests") {
     n1.set_seq("ACGTN");
     std::vector<bool> a = {0, 0, 1};
     n1.set_population(a);
-    n1.set_as_ref();
     n1.set_endpos(100);
 
         REQUIRE(n1.seq().size() == 5);
@@ -370,11 +369,18 @@ TEST_CASE ("Node tests") {
         CHECK(n1.seq()[2] == 2);
         CHECK(n1.seq()[3] == 3);
         CHECK(n1.seq()[4] == 4);
-        CHECK(n1.isRef());
         CHECK(n1.end() == 100);
+        CHECK(!n1.is_ref());
         CHECK(!n1.belongs(0));
         CHECK(!n1.belongs(1));
         CHECK(n1.belongs(2));
+
+    // When ref node, belongs returns -1
+    n1.set_as_ref();
+        CHECK(n1.is_ref());
+        CHECK(n1.belongs(0) == -1);
+        CHECK(n1.belongs(1) == -1);
+        CHECK(n1.belongs(2) == -1);
   }
 
 }
@@ -500,7 +506,8 @@ TEST_CASE ("graph class") {
     std::vector<bool> filter = {0, 0, 1};
     vargas::graph g2(g, filter);
 
-        CHECK(g2.node_map()->size() == 4); // Underlying node map unchanged
+        CHECK(g2.node_map()->size() == 4);
+        CHECK(&(*g.node_map()) == &(*g2.node_map())); // Underlying node map unchanged
         CHECK(g2.next_map().size() == 2);
         CHECK(g2.prev_map().size() == 2);
 
@@ -638,29 +645,53 @@ TEST_CASE ("Graph Builder") {
     vargas::graph g;
     gb.build(g);
 
-    std::ofstream tmp("tmp.dot");
-    tmp << g.to_DOT();
-
     auto giter = g.begin();
 
         CHECK((*giter).seq_str() == "CAAAT");
+        CHECK((*giter).belongs(0) == -1); // its a ref
+        CHECK((*giter).is_ref());
+
     ++giter;
         CHECK((*giter).seq_str() == "AAG");
+        CHECK((*giter).belongs(0) == -1); // its a ref
+        CHECK((*giter).is_ref());
 
     ++giter;
-    std::string a = (*giter).seq_str();
-        CHECK(a == "T");
+        CHECK((*giter).seq_str() == "T");
+        CHECK(!(*giter).is_ref());
+        CHECK(!(*giter).belongs(0));
+        CHECK(!(*giter).belongs(1));
+        CHECK(!(*giter).belongs(2));
+        CHECK((*giter).belongs(3));
     ++giter;
-    a = (*giter).seq_str();
-        CHECK(a == "C");
+        CHECK((*giter).seq_str() == "C");
     ++giter;
-    a = (*giter).seq_str();
-        CHECK(a == "A");
+        CHECK((*giter).seq_str() == "A");
     ++giter;
-    a = (*giter).seq_str();
-        CHECK(a == "G");
+        CHECK((*giter).seq_str() == "G");
 
     ++giter;
+  }
+
+      SUBCASE("Deriving a graph") {
+    vargas::GraphBuilder gb(tmpfa, tmpvcf);
+    gb.node_len(5);
+    gb.ingroup(100);
+    gb.region("x:0-15");
+
+    vargas::graph g;
+    gb.build(g);
+
+    std::vector<bool> filter = {0, 0, 0, 1};
+    vargas::graph g2(g, filter);
+
+    {
+      std::ofstream tmp1("tmp1.dot");
+      std::ofstream tmp2("tmp2.dot");
+      tmp1 << g.to_DOT();
+      tmp2 << g2.to_DOT();
+    }
+
   }
 
 

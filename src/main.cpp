@@ -16,51 +16,6 @@
 
 
 int main(const int argc, const char *argv[]) {
-/**
- * Used for testing new graph impl
- *
-  std::vector<bool> pop1 = {1, 1, 1, 0};
-  std::vector<bool> pop2 = {0, 1, 0, 0};
-  std::vector<bool> pop3 = {1, 0, 0, 0};
-  vargas::graph g;
-  {
-    vargas::graph::Node n;
-    n.id();
-    n.setPopulation(pop1);
-    g.addNode(n);
-  }
-  {
-    vargas::graph::Node n;
-    n.set_seq("AC");
-    n.setPopulation(pop1);
-    g.addNode(n);
-  }
-  {
-    vargas::graph::Node n;
-    n.id();
-    n.setPopulation(pop2);
-    g.addNode(n);
-  }
-  {
-    vargas::graph::Node n;
-    n.id();
-    n.set_population(pop3);
-    g.add_node(n);
-  }
-  g.addEdge(0, 1);
-  g.addEdge(0, 2);
-  g.addEdge(1, 3);
-  g.add_edge(2, 3);
-
-  auto g2 = vargas::graph(g, pop2);
-  auto nmap = g2.node_map();
-  g.finalize();
-  for (auto &n : g) {
-    std::cout << n.id();
-  }
-
-  return 0;
-  */
 
   GetOpt::GetOpt_pp args(argc, argv);
 

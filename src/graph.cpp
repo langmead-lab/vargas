@@ -21,10 +21,6 @@ long vargas::graph::Node::_newID = 0;
 
 vargas::graph::graph(const vargas::graph &g,
                      const std::vector<bool> &filter) {
-  _popSize = g._popSize;
-  if (filter.size() != _popSize) {
-    throw std::invalid_argument("Filter size should match graph population size.");
-  }
   _IDMap = g._IDMap;
   std::vector<long> indexes; // indexes of the individuals that are included in the filter
   for (long i = 0; i < filter.size(); ++i) {
@@ -83,7 +79,6 @@ void vargas::graph::finalize() {
 }
 
 long vargas::graph::add_node(Node &n) {
-  if (_popSize < 0) _popSize = n.popSize(); // first node dictates graph population size
   if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
   if (_root < 0) _root = n.id(); // first node added is default root
 
@@ -129,6 +124,7 @@ void vargas::GraphBuilder::build(vargas::graph &g) {
   std::vector<int> curr_unconnected; // ID's of nodes added that are unconnected
 
   while (_vf.next()) {
+    _vf.genotypes();
 
     curr = _build_linear(g, prev_unconnected, curr_unconnected, curr, _vf.pos());
 
@@ -151,7 +147,6 @@ void vargas::GraphBuilder::build(vargas::graph &g) {
       n.set_not_ref();
       const std::string &allele = _vf.alleles()[i];
       n.set_seq(allele);
-      _vf.genotypes();
       n.set_population(_vf.allele_pop(allele));
       curr_unconnected.push_back(g.add_node(n));
     }
