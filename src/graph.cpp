@@ -40,23 +40,6 @@ vargas::Graph::Graph(const vargas::Graph &g,
     }
   }
 
-  // Add all edges for included nodes
-  for (auto &n : includedNodes) {
-    if (g._next_map.find(n.second->id()) == g._next_map.end()) continue;
-    for (auto e : g._next_map.at(n.second->id())) {
-      if (includedNodes.find(e) != includedNodes.end()) {
-        add_edge(n.second->id(), e);
-      }
-    }
-  }
-
-  // Set the new root
-  if (includedNodes.find(g.root()) == includedNodes.end()) {
-    throw std::invalid_argument("Currently the root must be common to all graphs.");
-  }
-  _root = g.root();
-  finalize();
-
   // Use the same description but add the filter we used
   _desc = g.desc() + "\nfilter: ";
   for (auto b : filter) {
@@ -64,6 +47,7 @@ vargas::Graph::Graph(const vargas::Graph &g,
     _desc += ",";
   }
 
+  _build_derived_edges(g, includedNodes);
 }
 
 vargas::Graph::Graph(const Graph &g, Type type) {
@@ -78,8 +62,30 @@ vargas::Graph::Graph(const Graph &g, Type type) {
         includedNodes[n.first] = n.second;
       }
     }
+
+    _desc = g.desc() + "\nfilter: REF";
   }
 
+  else if (type == MAXAF) {
+    long curr = g.root();
+    while (true) {
+      includedNodes[curr] = (*g._IDMap).at(curr);
+      if (g._next_map.count(curr) == 0) break;
+      long maxid = g._next_map.at(curr).at(0);
+      for (long id : g._next_map.at(curr)) {
+        if ((*g._IDMap).at(id)->freq() > (*g._IDMap).at(maxid)->freq())
+          maxid = id;
+      }
+      curr = maxid;
+    }
+    _desc = g.desc() + "\nfilter: MAXAF";
+  }
+
+  _build_derived_edges(g, includedNodes);
+}
+
+void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
+                                         const std::unordered_map<long, nodeptr> &includedNodes) {
   // Add all edges for included nodes
   for (auto &n : includedNodes) {
     if (g._next_map.find(n.second->id()) == g._next_map.end()) continue;
@@ -96,10 +102,6 @@ vargas::Graph::Graph(const Graph &g, Type type) {
   }
   _root = g.root();
   finalize();
-
-  // Use the same description but add the filter we used
-  _desc = g.desc() + "\nfilter: REF";
-
 }
 
 void vargas::Graph::finalize() {

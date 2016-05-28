@@ -347,6 +347,13 @@ class Graph {
     }
   }
 
+  /**
+   * Given a subset of nodes from Graph g, rebuild all applicable edges in the new graph.
+   * @param g underlying parent graph
+   * @param includedNodes subset of g's nodes to include
+   */
+  void _build_derived_edges(const Graph &g, const std::unordered_map<long, nodeptr> &includedNodes);
+
 };
 
 TEST_CASE ("Node class") {
@@ -419,6 +426,7 @@ TEST_CASE ("Graph class") {
     n.set_as_ref();
     std::vector<bool> a = {0, 0, 1};
     n.set_population(a);
+    n.set_af(0.4);
     n.set_seq("CCC");
     g.add_node(n);
   }
@@ -429,6 +437,7 @@ TEST_CASE ("Graph class") {
     n.set_not_ref();
     std::vector<bool> a = {0, 1, 0};
     n.set_population(a);
+    n.set_af(0.6);
     n.set_seq("GGG");
     g.add_node(n);
   }
@@ -529,8 +538,8 @@ TEST_CASE ("Graph class") {
 
       SUBCASE("REF graph") {
     vargas::Graph g2(g, vargas::Graph::REF);
-
     vargas::Graph::GraphIter iter(g2);
+
         CHECK((*iter).seq_str() == "AAA");
     ++iter;
         CHECK((*iter).seq_str() == "CCC");
@@ -538,6 +547,20 @@ TEST_CASE ("Graph class") {
         CHECK((*iter).seq_str() == "TTT");
     ++iter;
         CHECK(iter == g2.end());
+  }
+
+      SUBCASE("MAXAF graph") {
+    vargas::Graph g2(g, vargas::Graph::MAXAF);
+    vargas::Graph::GraphIter iter(g2);
+
+        CHECK((*iter).seq_str() == "AAA");
+    ++iter;
+        CHECK((*iter).seq_str() == "GGG");
+    ++iter;
+        CHECK((*iter).seq_str() == "TTT");
+    ++iter;
+        CHECK(iter == g2.end());
+
   }
 
 }
