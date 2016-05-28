@@ -1,5 +1,5 @@
 # Variant Genome Aligner/Simulator
-Vargas uses gssw to align reads to a partial order graph without traceback. Alignment information is given as the ending position of the best score, as well as a suboptimal alignment score. There are four main modes of operation.
+Vargas uses gssw to align reads to a partial order Graph without traceback. Alignment information is given as the ending position of the best score, as well as a suboptimal alignment score. There are four main modes of operation.
 
 ###Basic Structure
 All objects are in the vargas namespace with the exception of `utils` functions.
@@ -14,9 +14,9 @@ in a Read struct.
 
 `readfile.h` : Inherits from `readsource.h`. Wrapper for a reads file (such as that produced from `readsim`). Provides reads in a Read struct.
 
-`graph.h` : Contains facilities for building and aligning to a graph. A buildfile is first exported from a `vcfstream` and
+`Graph.h` : Contains facilities for building and aligning to a Graph. A buildfile is first exported from a `vcfstream` and
 a `readsource`. Graphs are built in memory from the buildfile. Graph parameters are defined in a GraphParams struct.
-Alignments to the graph are done with `Graph.align(Read)` and returns with an Alignment struct.
+Alignments to the Graph are done with `Graph.align(Read)` and returns with an Alignment struct.
 
 `xcoder.h` : Uses masked VByte compression and base64 encoding to reduce the size of the list of individuals for each variant in the buildfile. Lists of individuals are stored in nodes using VByte compression.
 
@@ -25,11 +25,11 @@ Alignments to the graph are done with `Graph.align(Read)` and returns with an Al
  ```
 ---------------------- vargas, Apr 23 2016. rgaddip1@jhu.edu ----------------------
 Operating modes 'vargas MODE':
-	build     Generate graph build file from reference FASTA and VCF files.
-	sim       Simulate reads from a graph.
-	align     Align reads to a graph.
-	stat      Count nodes and edges of a given graph.
-	export    Export graph in DOT format.
+	build     Generate Graph build file from reference FASTA and VCF files.
+	sim       Simulate reads from a Graph.
+	align     Align reads to a Graph.
+	stat      Count nodes and edges of a given Graph.
+	export    Export Graph in DOT format.
 
  ```
  
@@ -38,11 +38,11 @@ Operating modes 'vargas MODE':
 -v	--vcf           <string> VCF file, uncompressed.
 -r	--ref           <string> reference, single record FASTA
 -l	--maxlen        <int> Maximum node length, default 50000
--R	--region        <<int>:<int>> Ref region, inclusive. Default is the entire graph.
--m	--maxref        Generate a linear graph using maximum allele frequency nodes.
+-R	--region        <<int>:<int>> Ref region, inclusive. Default is the entire Graph.
+-m	--maxref        Generate a linear Graph using maximum allele frequency nodes.
 -e	--exref         Exclude the list of individuals from the reference alleles.
 -s	--set           <<int>,<int>,..,<int>> Generate a buildfile for a list of ingroup percents.
--c	--complement    <string> Generate a complement of all graphs in -s, or of provided graph.
+-c	--complement    <string> Generate a complement of all graphs in -s, or of provided Graph.
 
 --maxref is applied after ingroup filter.
 Buildfile is output to [s][In Out].build
@@ -91,7 +91,7 @@ ALIGNMENT_MATCH:
 
 ------------------ vargas export, Apr 23 2016. rgaddip1@jhu.edu -------------------
 -b	--buildfile    <string> Graph to export to DOT.
--c	--context      <string> Export the local context graph of these alignments.
+-c	--context      <string> Export the local context Graph of these alignments.
 
 DOT file printed to stdout.
 
@@ -118,10 +118,10 @@ export PATH=${PWD}/bin:$PATH
 
 ### Generating a buildfile
  
- A graph is built from a buildfile. A graph buildfile can be made using `vargas build`.
+ A Graph is built from a buildfile. A Graph buildfile can be made using `vargas build`.
   `-r` and `-v` specify the reference FASTA and VCF respectively. A region can be specified with `-R`.
-  The percentage of individuals to include in the graph is specified with `-s` and a comma separated list of values.
-  `-c` will generate complements of each graph.
+  The percentage of individuals to include in the Graph is specified with `-s` and a comma separated list of values.
+  `-c` will generate complements of each Graph.
    For example to generate a buildfile and its complement from `REF` and `VAR` from position `a` to position `b` with 50% of individuals:
  
  `vargas build -r REF.fa -v VAR.vcf -R a:b -s 50 -c > GRAPH.build`
@@ -129,7 +129,7 @@ export PATH=${PWD}/bin:$PATH
 ### Simulating reads
  
  Reads can be simulated with `vargas sim`. Mutation error and Indel errors can be introduced.
- Reads can take random paths through the graph or from a random individual. To generate 1000 reads of length 100 and a 1% error rate from a graph:
+ Reads can take random paths through the Graph or from a random individual. To generate 1000 reads of length 100 and a 1% error rate from a Graph:
  
  `vargas sim -b GRAPH -n 1000 -l 100 -m 0.01 -i 0.01`
  
@@ -137,7 +137,7 @@ export PATH=${PWD}/bin:$PATH
  
  Note: Simulating reads may consume a large amount of memory as it loads the (compressed) list of individuals into each variant node. `hs37d5 chr22 -R 22000000:52000000` was at ~10GB usage.
 
-### Aligning to the graph
+### Aligning to the Graph
  
 To process a reads file and write the output to a file:
  
@@ -176,7 +176,7 @@ READ_SEQUENCE#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_INDEL_ERR,NUM_VAR_NOD
 
 #### Buildfile
 
-The first line of the buildfile lists the individuals included in the graph, where each number represents the column of the individual. Each haplotype is its own column.
+The first line of the buildfile lists the individuals included in the Graph, where each number represents the column of the individual. Each haplotype is its own column.
 
 Following lines beginning with `##` are comment lines and include information on the configuration used to make the buildfile.
 

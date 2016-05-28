@@ -305,6 +305,7 @@ class VarFile {
    * all even indexes are the other. Call will unpack the full record.
    * Explicit copy number variations are replaced, other ambigous types are replaced
    * ambiguous.
+   * A map is also built, mapping each allele to the subpopulation that has it.
    * @return Vector of alleles, ordered by sample.
    */
   const std::vector<std::string> &genotypes() {
@@ -324,6 +325,47 @@ class VarFile {
     }
 
     return _genotypes;
+  }
+
+  /**
+   * Get the allele frequencies of the ref and alt alleles.
+   * The ref freq is computed with 1-sum(alt_frequencies).
+   * @return const ref to vector of frequencies
+   */
+  const std::vector<float> &frequencies() {
+    InfoField<float> af(_header, _curr_rec, "AF");
+    const auto &val = af.values;
+    _allele_freqs.resize(val.size() + 1); // make room for the ref
+    float sum = 0;
+
+    // Get the ref frequency and add to result vector +1, so we can put ref at index 0
+    for (int i = 0; i < val.size(); ++i) {
+      sum += val[i];
+      _allele_freqs[i + 1] = val[i];
+    }
+    _allele_freqs[0] = 1 - sum;
+
+    return _allele_freqs;
+  }
+
+  /**
+   * Get values of an arbitrary INFO tag.
+   * @param T Field format
+   * @return vector of values.
+   */
+  template<typename T>
+  std::vector<T> info_tag(std::string tag) {
+    return InfoField<T>(_header, _curr_rec, tag).values;
+  }
+
+  /**
+  * Get values of an arbitrary FORMAT tag.
+   * @param T Field format
+  * @return vector of values.
+  */
+  template<typename T>
+  std::vector<T> fmt_tag(std::string tag) {
+    return FormatField<T>(_header, _curr_rec, tag).values;
   }
 
   /**
@@ -382,7 +424,7 @@ class VarFile {
   }
 
   /**
-   * Include only the provided sample names in the graph.
+   * Include only the provided sample names in the Graph.
    * @param vector of sample names
    */
   void create_ingroup(const std::vector<std::string> &samples) {
@@ -482,6 +524,7 @@ class VarFile {
   bcf1_t *_curr_rec = bcf_init();
 
   std::vector<std::string> _genotypes; // restricted to _ingroup
+  std::vector<float> _allele_freqs;
   std::unordered_map<std::string, std::vector<bool>> _genotype_indivs;
   std::vector<std::string> _alleles;
   std::vector<std::string> _samples;
@@ -673,6 +716,20 @@ TEST_CASE ("VCF File handler") {
         REQUIRE(vcf.allele_pop("T").size() == 2);
         CHECK(!vcf.allele_pop("T")[0]);
         CHECK(!vcf.allele_pop("T")[1]);
+  }
+
+      SUBCASE("Allele frequencies") {
+    VarFile vcf;
+    vcf.open(tmpvcf);
+    vcf.next();
+
+    auto af = vcf.frequencies();
+        REQUIRE(af.size() == 4);
+        CHECK(af[0] > 0.289f); // af[0] should be 0.29
+        CHECK(af[0] < 0.291f);
+        CHECK(af[1] == 0.01f);
+        CHECK(af[2] == 0.6f);
+        CHECK(af[3] == 0.1f);
   }
 
   remove(tmpvcf.c_str());

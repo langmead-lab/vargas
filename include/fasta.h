@@ -4,7 +4,7 @@
  *
  * Provides a C++ wrapper for htslib. FASTAFile provides an interface
  * to a FASTA formatted file. An index is created for the opened
- * file.
+ * file if it does not exist.
  *
  * @file fasta.h
  */

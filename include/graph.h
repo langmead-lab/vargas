@@ -1,12 +1,10 @@
 /**
  * @author Ravi Gaddipati (rgaddip1@jhu.edu)
- * @date November 20, 2015
+ * @date May 28, 2016
  *
- * vargas::Graph is a DAG representation of a reference and its variants.
- * The class wraps a gssw_graph from gssw and provides a way to construct
- * graphs from a FASTA and a VCF file with various options.
- *
- * GSSW was originally written by Erik Garrison and was moderately modified.
+ * Implementation of a directed graph. Each node stores a sequence and relelvant
+ * information. Graphs can be derived from other graphs with a filter, allowing
+ * the extraction of population subsets.
  *
  * @file graph.h
  */
@@ -115,10 +113,10 @@ TEST_CASE ("Numeric to Sequence") {
 }
 
 /**
- * Represents a graph of the genome. The graph is backed by a map of Graph::Nodes, and edges
+ * Represents a Graph of the genome. The Graph is backed by a map of Graph::Nodes, and edges
  * are backed by a map of node ID's.
  */
-class graph {
+class Graph {
 
  public:
 
@@ -129,8 +127,8 @@ class graph {
    public:
     // Assign a unique ID to each node
     Node() : _id(_newID++) { }
-    Node(int pos, const std::string &seq, const std::vector<bool> &pop, bool ref) :
-        _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _id(_newID++) { }
+    Node(int pos, const std::string &seq, const std::vector<bool> &pop, bool ref, float af) :
+        _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) { }
 
     // Access functions
     ulong length() const { return _seq.size(); } // Length of sequence
@@ -144,6 +142,7 @@ class graph {
     ulong pop_size() const { return _individuals.size(); } // How many individuals are represented in the node
     long id() const { return _id; } // Node ID
     bool is_ref() const { return _ref; } // True if part of the reference seq
+    float freq() const { return _af; } // allele frequency. <0 if ref
 
 
     static long _newID; // ID of the next instance to be created
@@ -161,40 +160,42 @@ class graph {
     void set_seq(std::vector<uchar> &seq) { this->_seq = seq; }
     void set_as_ref() { _ref = true; }
     void set_not_ref() { _ref = false; }
+    void set_af(float af) { _af = af; }
 
    private:
     int _endPos; // End position of the sequence
-    std::vector<bool> _individuals; // Each bit marks an individual, 1 if they have this node
     std::vector<uchar> _seq;
-    long _id;
+    std::vector<bool> _individuals; // Each bit marks an individual, 1 if they have this node
     bool _ref = false; // Part of the reference sequence
+    float _af = 1;
+    long _id;
 
   };
 
   typedef std::shared_ptr<Node> nodeptr;
 
   /**
-   * Default constructor inits a new graph, including a new node map.
+   * Default constructor inits a new Graph, including a new node map.
    */
-  graph() : _IDMap(std::make_shared<std::unordered_map<long, nodeptr>>(std::unordered_map<long, nodeptr>())) { }
+  Graph() : _IDMap(std::make_shared<std::unordered_map<long, nodeptr>>(std::unordered_map<long, nodeptr>())) { }
 
   /**
-   * Create a graph with another graph and a population filter. The new graph will only
+   * Create a Graph with another Graph and a population filter. The new Graph will only
    * contain nodes if any of the individuals in filter possess the node. The actual nodes
-   * are shared_ptr's to the parent graph, as to prevent duplication of Nodes.
-   * @param g Graph to derive the new graph from
+   * are shared_ptr's to the parent Graph, as to prevent duplication of Nodes.
+   * @param g Graph to derive the new Graph from
    * @param filter population filter, only include nodes representative of this population
    */
-  graph(const graph &g, const std::vector<bool> &filter);
+  Graph(const Graph &g, const std::vector<bool> &filter);
 
   /**
-   * Builds the topographical sort of the graph, used for graph iteration.
+   * Builds the topographical sort of the Graph, used for Graph iteration.
    */
   void finalize();
 
   /**
-   * Add a new node to the graph. A new node is created so the original can be destroyed.
-   * The first node added is set as the graph root.
+   * Add a new node to the Graph. A new node is created so the original can be destroyed.
+   * The first node added is set as the Graph root.
    */
   long add_node(Node &n);
 
@@ -206,7 +207,7 @@ class graph {
   bool add_edge(long n1, long n2);
 
   /**
-   * Sets the root of the graph.
+   * Sets the root of the Graph.
    * @param id ID of root node
    */
   void set_root(long id) {
@@ -226,12 +227,13 @@ class graph {
 
   std::string desc() const { return _desc; }
 
-  // Export the graph in DOT format.
+  // Export the Graph in DOT format.
   std::string to_DOT(std::string name = "g") const {
     std::stringstream dot;
     dot << "digraph " << name << " {\n";
     for (auto n : *_IDMap) {
-      dot << n.second->id() << "[label=\"" << n.second->seq_str() << ":" << n.second->end() << "\"];\n";
+      dot << n.second->id() << "[label=\"" << n.second->seq_str() << ":" << n.second->end() << "," << n.second->freq()
+          << "\"];\n";
     }
     for (auto &n : _next_map) {
       for (auto e : n.second) {
@@ -243,13 +245,13 @@ class graph {
   }
 
   /**
-   * const forward iterator to traverse the graph topologically.
+   * const forward iterator to traverse the Graph topologically.
    */
   class GraphIter {
 
    public:
-    GraphIter(const graph &g) : _graph(g), _idx(0) { }
-    GraphIter(const graph &g, long index) : _graph(g), _idx(index) { }
+    GraphIter(const Graph &g) : _graph(g), _idx(0) { }
+    GraphIter(const Graph &g, long index) : _graph(g), _idx(index) { }
     ~GraphIter() { }
 
     GraphIter &operator=(const GraphIter &other) {
@@ -281,15 +283,15 @@ class graph {
       return *this;
     }
 
-    const graph::Node &operator*() const { return _graph.node(_graph._toposort[_idx]); }
+    const Graph::Node &operator*() const { return _graph.node(_graph._toposort[_idx]); }
 
    private:
-    const graph &_graph;
+    const Graph &_graph;
     long _idx;
   };
 
   /**
-   * Provides an iterator to a topological sorting of the graph.
+   * Provides an iterator to a topological sorting of the Graph.
    */
   GraphIter begin() const {
     if (_toposort.size() == 0 && _IDMap->size() > 0) {
@@ -306,14 +308,14 @@ class graph {
   }
 
  private:
-  long _root = -1; // Root of the graph
+  long _root = -1; // Root of the Graph
   // maps a node ID to a nodeptr. Any derived graphs use the same base node ID map.
   std::shared_ptr<std::unordered_map<long, nodeptr>> _IDMap;
   // maps a node ID to the vector of nodes it points to
   std::unordered_map<long, std::vector<long>> _next_map;
   // maps a node ID to a vector of node ID's that point to it
   std::unordered_map<long, std::vector<long>> _prev_map;
-  std::vector<long> _toposort; // Sorted graph
+  std::vector<long> _toposort; // Sorted Graph
   // Description, used by the builder to store construction params
   std::string _desc;
 
@@ -343,9 +345,9 @@ class graph {
 };
 
 TEST_CASE ("Node tests") {
-  vargas::graph::Node::_newID = 0;
-  vargas::graph::Node n1;
-  vargas::graph::Node n2;
+  vargas::Graph::Node::_newID = 0;
+  vargas::Graph::Node n1;
+  vargas::Graph::Node n2;
       CHECK(n1.id() == 0);
       CHECK(n2.id() == 1);
 
@@ -385,9 +387,9 @@ TEST_CASE ("Node tests") {
 
 }
 
-TEST_CASE ("graph class") {
-  vargas::graph::Node::_newID = 0;
-  vargas::graph g;
+TEST_CASE ("Graph class") {
+  vargas::Graph::Node::_newID = 0;
+  vargas::Graph g;
 
   /**   GGG
   *    /   \
@@ -397,7 +399,7 @@ TEST_CASE ("graph class") {
   */
 
   {
-    vargas::graph::Node n;
+    vargas::Graph::Node n;
     n.set_endpos(3);
     n.set_as_ref();
     std::vector<bool> a = {0, 1, 1};
@@ -407,7 +409,7 @@ TEST_CASE ("graph class") {
   }
 
   {
-    vargas::graph::Node n;
+    vargas::Graph::Node n;
     n.set_endpos(6);
     n.set_as_ref();
     std::vector<bool> a = {0, 0, 1};
@@ -417,7 +419,7 @@ TEST_CASE ("graph class") {
   }
 
   {
-    vargas::graph::Node n;
+    vargas::Graph::Node n;
     n.set_endpos(6);
     n.set_not_ref();
     std::vector<bool> a = {0, 1, 0};
@@ -427,7 +429,7 @@ TEST_CASE ("graph class") {
   }
 
   {
-    vargas::graph::Node n;
+    vargas::Graph::Node n;
     n.set_endpos(9);
     n.set_as_ref();
     std::vector<bool> a = {0, 1, 1};
@@ -461,7 +463,7 @@ TEST_CASE ("graph class") {
       REQUIRE(g.prev_map().at(2).size() == 1);
       REQUIRE(g.prev_map().at(3).size() == 2);
 
-      SUBCASE("Proper graph setup") {
+      SUBCASE("Proper Graph setup") {
         CHECK(num_to_seq(g.node(0).seq()) == "AAA");
         CHECK(num_to_seq(g.node(1).seq()) == "CCC");
         CHECK(num_to_seq(g.node(2).seq()) == "GGG");
@@ -475,14 +477,14 @@ TEST_CASE ("graph class") {
         CHECK_NOTHROW(g.begin());
   }
 
-      SUBCASE("Cyclic graph") {
+      SUBCASE("Cyclic Graph") {
     g.add_edge(3, 1);
         CHECK_THROWS(g.finalize());
   }
 
-      SUBCASE("graph iterator") {
+      SUBCASE("Graph iterator") {
     // Node visit order should be topological
-    vargas::graph::GraphIter i = g.begin();
+    vargas::Graph::GraphIter i = g.begin();
 
         CHECK(num_to_seq((*i).seq()) == "AAA");
     ++i;
@@ -502,9 +504,9 @@ TEST_CASE ("graph class") {
         CHECK(i == g.end());
   }
 
-      SUBCASE("Derived graph") {
+      SUBCASE("Derived Graph") {
     std::vector<bool> filter = {0, 0, 1};
-    vargas::graph g2(g, filter);
+    vargas::Graph g2(g, filter);
 
         CHECK(g2.node_map()->size() == 4);
         CHECK(&(*g.node_map()) == &(*g2.node_map())); // Underlying node map unchanged
@@ -569,20 +571,20 @@ class GraphBuilder {
   void node_len(int max) { _max_node_len = max; }
 
   /**
-   * Apply the various parameters and build the graph.
-   * @return pointer to graph.
+   * Apply the various parameters and build the Graph.
+   * @return pointer to Graph.
    */
-  void build(graph &g);
+  void build(Graph &g);
 
  protected:
-  void _build_edges(graph &g, std::vector<int> &prev, std::vector<int> &curr);
-  int _build_linear(graph &g, std::vector<int> &prev, std::vector<int> &curr, int pos, int target);
+  void _build_edges(Graph &g, std::vector<int> &prev, std::vector<int> &curr);
+  int _build_linear(Graph &g, std::vector<int> &prev, std::vector<int> &curr, int pos, int target);
 
  private:
   std::string _fa_file, _vf_file;
   VarFile _vf;
   FASTAFile _fa;
-  graph g;
+  Graph g;
 
   // Graph construction parameters
   int _ingroup = 100; // percent of individuals to use. Ref nodes always included
@@ -636,13 +638,13 @@ TEST_CASE ("Graph Builder") {
         << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
   }
 
-      SUBCASE("Basic graph") {
+      SUBCASE("Basic Graph") {
     vargas::GraphBuilder gb(tmpfa, tmpvcf);
     gb.node_len(5);
     gb.ingroup(100);
     gb.region("x:0-15");
 
-    vargas::graph g;
+    vargas::Graph g;
     gb.build(g);
 
     auto giter = g.begin();
@@ -673,25 +675,17 @@ TEST_CASE ("Graph Builder") {
     ++giter;
   }
 
-      SUBCASE("Deriving a graph") {
+      SUBCASE("Deriving a Graph") {
     vargas::GraphBuilder gb(tmpfa, tmpvcf);
     gb.node_len(5);
     gb.ingroup(100);
     gb.region("x:0-15");
 
-    vargas::graph g;
+    vargas::Graph g;
     gb.build(g);
 
     std::vector<bool> filter = {0, 0, 0, 1};
-    vargas::graph g2(g, filter);
-
-    {
-      std::ofstream tmp1("tmp1.dot");
-      std::ofstream tmp2("tmp2.dot");
-      tmp1 << g.to_DOT();
-      tmp2 << g2.to_DOT();
-    }
-
+    vargas::Graph g2(g, filter);
   }
 
 

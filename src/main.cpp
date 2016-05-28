@@ -221,7 +221,7 @@ int export_main(const int argc, const char *argv[]) {
     }
   }
 
-    // Export whole graph
+    // Export whole Graph
   else {
     g.exportDOT(std::cout);
   }
@@ -374,11 +374,11 @@ void printMainHelp() {
   cout << endl
       << "---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
   cout << "Operating modes \'vargas MODE\':" << endl;
-  cout << "\tbuild     Generate graph build file from reference FASTA and VCF files." << endl;
-  cout << "\tsim       Simulate reads from a graph." << endl;
-  cout << "\talign     Align reads to a graph." << endl;
-  cout << "\tstat      Count nodes and edges of a given graph." << endl;
-  cout << "\texport    Export graph in DOT format." << endl << endl;
+  cout << "\tbuild     Generate Graph build file from reference FASTA and VCF files." << endl;
+  cout << "\tsim       Simulate reads from a Graph." << endl;
+  cout << "\talign     Align reads to a Graph." << endl;
+  cout << "\tstat      Count nodes and edges of a given Graph." << endl;
+  cout << "\texport    Export Graph in DOT format." << endl << endl;
 }
 
 
@@ -393,11 +393,11 @@ void printBuildHelp() {
   cout << "-v\t--vcf           <string> VCF file, uncompressed." << endl;
   cout << "-r\t--ref           <string> reference, single record FASTA" << endl;
   cout << "-l\t--maxlen        <int> Maximum node length, default " << p.maxNodeLen << endl;
-  cout << "-R\t--region        <<int>:<int>> Ref region, inclusive. Default is the entire graph." << endl;
-  cout << "-m\t--maxref        Generate a linear graph using maximum allele frequency nodes." << endl;
+  cout << "-R\t--region        <<int>:<int>> Ref region, inclusive. Default is the entire Graph." << endl;
+  cout << "-m\t--maxref        Generate a linear Graph using maximum allele frequency nodes." << endl;
   cout << "-e\t--exref         Exclude the list of individuals from the reference alleles." << endl;
   cout << "-s\t--set           <<int>,<int>,..,<int>> Generate a buildfile for a list of ingroup percents." << endl;
-  cout << "-c\t--complement    <string> Generate a complement of all graphs in -s, or of provided graph." << endl;
+  cout << "-c\t--complement    <string> Generate a complement of all graphs in -s, or of provided Graph." << endl;
 
   cout << endl << "--maxref is applied after ingroup filter." << endl;
   cout << "Buildfile is output to [s][In Out].build" << endl << endl;
@@ -410,7 +410,7 @@ void printExportHelp() {
   cout << endl
       << "------------------ vargas export, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
   cout << "-b\t--buildfile    <string> Graph to export to DOT." << endl;
-  cout << "-c\t--context      <string> Export the local context graph of these alignments." << endl;
+  cout << "-c\t--context      <string> Export the local context Graph of these alignments." << endl;
 
   cout << endl << "DOT file printed to stdout." << endl << endl;
 }

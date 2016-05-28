@@ -16,10 +16,10 @@
 #include "../include/graph.h"
 
 
-long vargas::graph::Node::_newID = 0;
+long vargas::Graph::Node::_newID = 0;
 
 
-vargas::graph::graph(const vargas::graph &g,
+vargas::Graph::Graph(const vargas::Graph &g,
                      const std::vector<bool> &filter) {
   _IDMap = g._IDMap;
   std::vector<long> indexes; // indexes of the individuals that are included in the filter
@@ -66,7 +66,7 @@ vargas::graph::graph(const vargas::graph &g,
 
 }
 
-void vargas::graph::finalize() {
+void vargas::Graph::finalize() {
   _toposort.clear();
   std::set<long> unmarked, tempmarked, permmarked;
   for (auto &n : *_IDMap) {
@@ -78,7 +78,7 @@ void vargas::graph::finalize() {
   std::reverse(_toposort.begin(), _toposort.end());
 }
 
-long vargas::graph::add_node(Node &n) {
+long vargas::Graph::add_node(Node &n) {
   if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
   if (_root < 0) _root = n.id(); // first node added is default root
 
@@ -86,7 +86,7 @@ long vargas::graph::add_node(Node &n) {
   return n.id();
 }
 
-bool vargas::graph::add_edge(long n1, long n2) {
+bool vargas::Graph::add_edge(long n1, long n2) {
   // Check if the nodes exist
   if (_IDMap->find(n1) == _IDMap->end() || _IDMap->find(n2) == _IDMap->end()) return false;
 
@@ -103,8 +103,8 @@ bool vargas::graph::add_edge(long n1, long n2) {
   return true;
 }
 
-void vargas::GraphBuilder::build(vargas::graph &g) {
-  g = vargas::graph();
+void vargas::GraphBuilder::build(vargas::Graph &g) {
+  g = vargas::Graph();
   _fa.open(_fa_file);
   _vf.open(_vf_file);
   if (!_fa.good()) throw std::invalid_argument("Invalid FASTA file: " + _fa.file());
@@ -118,13 +118,14 @@ void vargas::GraphBuilder::build(vargas::graph &g) {
     _vf.set_region(_chr, 0, 0);
   }
 
-  int curr = _vf.region_lower(); // The graph has been built up to this position, exclusive
+  int curr = _vf.region_lower(); // The Graph has been built up to this position, exclusive
   std::vector<bool> pop(_vf.num_samples() * 2); // Population subset that has the node. *2 for genotypes
-  std::vector<int> prev_unconnected; // ID's of nodes at the end of the graph left unconnected
+  std::vector<int> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
   std::vector<int> curr_unconnected; // ID's of nodes added that are unconnected
 
   while (_vf.next()) {
     _vf.genotypes();
+    auto &af = _vf.frequencies();
 
     curr = _build_linear(g, prev_unconnected, curr_unconnected, curr, _vf.pos());
 
@@ -134,19 +135,22 @@ void vargas::GraphBuilder::build(vargas::graph &g) {
 
     // ref pos
     {
-      graph::Node n;
+      Graph::Node n;
       n.set_endpos(curr - 1);
       n.set_seq(_vf.ref());
       n.set_as_ref();
+      n.set_af(af[0]);
       curr_unconnected.push_back(g.add_node(n));
     }
 
     //alt nodes
+
     for (int i = 1; i < _vf.alleles().size(); ++i) {
-      graph::Node n;
+      Graph::Node n;
       n.set_not_ref();
       const std::string &allele = _vf.alleles()[i];
       n.set_seq(allele);
+      n.set_af(af[i]);
       n.set_population(_vf.allele_pop(allele));
       curr_unconnected.push_back(g.add_node(n));
     }
@@ -165,7 +169,7 @@ void vargas::GraphBuilder::build(vargas::graph &g) {
 }
 
 
-void vargas::GraphBuilder::_build_edges(vargas::graph &g,
+void vargas::GraphBuilder::_build_edges(vargas::Graph &g,
                                         std::vector<int> &prev,
                                         std::vector<int> &curr) {
   for (int pID : prev) {
@@ -177,7 +181,7 @@ void vargas::GraphBuilder::_build_edges(vargas::graph &g,
   curr.clear();
 }
 
-int vargas::GraphBuilder::_build_linear(graph &g,
+int vargas::GraphBuilder::_build_linear(Graph &g,
                                         std::vector<int> &prev,
                                         std::vector<int> &curr,
                                         int pos,
@@ -185,7 +189,7 @@ int vargas::GraphBuilder::_build_linear(graph &g,
 
   if (target <= 0) target = _fa.seq_len(_chr);
   while (pos < target) {
-    graph::Node n;
+    Graph::Node n;
     n.set_as_ref();
 
     if (pos + _max_node_len >= target) {
