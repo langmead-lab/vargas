@@ -120,6 +120,8 @@ class Graph {
 
  public:
 
+  enum Type { REF, MAXAF };
+
   /**
    * Represents a node in the directed graphs. Edges stored externally.
    */
@@ -188,6 +190,8 @@ class Graph {
    */
   Graph(const Graph &g, const std::vector<bool> &filter);
 
+  Graph(const Graph &g, Type t);
+
   /**
    * Builds the topographical sort of the Graph, used for Graph iteration.
    */
@@ -230,9 +234,10 @@ class Graph {
   // Export the Graph in DOT format.
   std::string to_DOT(std::string name = "g") const {
     std::stringstream dot;
+    dot << "// Each node has the sequence, followed by end_pos,allele_freq\n";
     dot << "digraph " << name << " {\n";
     for (auto n : *_IDMap) {
-      dot << n.second->id() << "[label=\"" << n.second->seq_str() << ":" << n.second->end() << "," << n.second->freq()
+      dot << n.second->id() << "[label=\"" << n.second->seq_str() << "\n" << n.second->end() << "," << n.second->freq()
           << "\"];\n";
     }
     for (auto &n : _next_map) {
@@ -344,7 +349,7 @@ class Graph {
 
 };
 
-TEST_CASE ("Node tests") {
+TEST_CASE ("Node class") {
   vargas::Graph::Node::_newID = 0;
   vargas::Graph::Node n1;
   vargas::Graph::Node n2;
@@ -522,6 +527,19 @@ TEST_CASE ("Graph class") {
         CHECK(g2.prev_map().at(3).size() == 1);
   }
 
+      SUBCASE("REF graph") {
+    vargas::Graph g2(g, vargas::Graph::REF);
+
+    vargas::Graph::GraphIter iter(g2);
+        CHECK((*iter).seq_str() == "AAA");
+    ++iter;
+        CHECK((*iter).seq_str() == "CCC");
+    ++iter;
+        CHECK((*iter).seq_str() == "TTT");
+    ++iter;
+        CHECK(iter == g2.end());
+  }
+
 }
 
 class GraphBuilder {
@@ -671,8 +689,6 @@ TEST_CASE ("Graph Builder") {
         CHECK((*giter).seq_str() == "A");
     ++giter;
         CHECK((*giter).seq_str() == "G");
-
-    ++giter;
   }
 
       SUBCASE("Deriving a Graph") {
@@ -686,6 +702,19 @@ TEST_CASE ("Graph Builder") {
 
     std::vector<bool> filter = {0, 0, 0, 1};
     vargas::Graph g2(g, filter);
+    vargas::Graph::GraphIter iter(g2);
+
+        CHECK((*iter).seq_str() == "CAAAT");
+    ++iter;
+        CHECK((*iter).seq_str() == "AAG");
+    ++iter;
+        CHECK((*iter).seq_str() == "T");
+    ++iter;
+        CHECK((*iter).seq_str() == "G");
+    ++iter;
+        CHECK((*iter).seq_str() == "CC");
+    ++iter;
+        CHECK((*iter).seq_str() == "C");
   }
 
 

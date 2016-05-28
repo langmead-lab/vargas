@@ -66,11 +66,48 @@ vargas::Graph::Graph(const vargas::Graph &g,
 
 }
 
+vargas::Graph::Graph(const Graph &g, Type type) {
+  _IDMap = g._IDMap;
+
+  std::unordered_map<long, nodeptr> includedNodes;
+
+  if (type == REF) {
+    // Add all nodes
+    for (auto &n : *(g._IDMap)) {
+      if (n.second->is_ref()) {
+        includedNodes[n.first] = n.second;
+      }
+    }
+  }
+
+  // Add all edges for included nodes
+  for (auto &n : includedNodes) {
+    if (g._next_map.find(n.second->id()) == g._next_map.end()) continue;
+    for (auto e : g._next_map.at(n.second->id())) {
+      if (includedNodes.find(e) != includedNodes.end()) {
+        add_edge(n.second->id(), e);
+      }
+    }
+  }
+
+  // Set the new root
+  if (includedNodes.find(g.root()) == includedNodes.end()) {
+    throw std::invalid_argument("Currently the root must be common to all graphs.");
+  }
+  _root = g.root();
+  finalize();
+
+  // Use the same description but add the filter we used
+  _desc = g.desc() + "\nfilter: REF";
+
+}
+
 void vargas::Graph::finalize() {
   _toposort.clear();
   std::set<long> unmarked, tempmarked, permmarked;
   for (auto &n : *_IDMap) {
-    unmarked.insert(n.first);
+    // Leave out the lone nodes
+    if (_next_map.count(n.first) != 0 || _prev_map.count(n.first) != 0) unmarked.insert(n.first);
   }
   while (!unmarked.empty()) {
     _visit(*unmarked.begin(), unmarked, tempmarked, permmarked);
@@ -102,6 +139,7 @@ bool vargas::Graph::add_edge(long n1, long n2) {
   _toposort.clear(); // any ordering is invalidated
   return true;
 }
+
 
 void vargas::GraphBuilder::build(vargas::Graph &g) {
   g = vargas::Graph();
