@@ -48,6 +48,12 @@ vargas::Graph::Graph(const vargas::Graph &g,
   }
 
   _build_derived_edges(g, includedNodes);
+
+  _add_order = g._add_order;
+  for (int i = _add_order.size() - 1; i >= 0; --i) {
+    if (includedNodes.count(_add_order[i]) == 0) _add_order.erase(_add_order.begin() + i);
+  }
+  finalize();
 }
 
 vargas::Graph::Graph(const Graph &g, Type type) {
@@ -82,6 +88,12 @@ vargas::Graph::Graph(const Graph &g, Type type) {
   }
 
   _build_derived_edges(g, includedNodes);
+
+  _add_order = g._add_order;
+  for (int i = _add_order.size() - 1; i >= 0; --i) {
+    if (includedNodes.count(_add_order[i]) == 0) _add_order.erase(_add_order.begin() + i);
+  }
+  finalize();
 }
 
 void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
@@ -104,7 +116,16 @@ void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
   finalize();
 }
 
+//TODO Asusmes insertion was in order
 void vargas::Graph::finalize() {
+  _toposort = _add_order;
+  return;
+
+  /**
+   * For now the user must insert nodes in topographical order. Below method
+   * is not suitable for long graphs.
+   */
+
   _toposort.clear();
   std::set<long> unmarked, tempmarked, permmarked;
   for (auto &n : *_IDMap) {
@@ -122,6 +143,7 @@ long vargas::Graph::add_node(Node &n) {
   if (_root < 0) _root = n.id(); // first node added is default root
 
   _IDMap->emplace(n.id(), std::make_shared<Node>(n));
+  _add_order.push_back(n.id());
   return n.id();
 }
 
@@ -200,8 +222,7 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
 
   }
   // Nodes after last variant
-  _build_linear(g, prev_unconnected, curr_unconnected, curr, _max_pos);
-
+  _build_linear(g, prev_unconnected, curr_unconnected, curr, _vf.region_upper());
 
   _fa.close();
   _vf.close();

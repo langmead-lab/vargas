@@ -2,7 +2,7 @@
  * @author Ravi Gaddipati (rgaddip1@jhu.edu)
  * @date May 28, 2016
  *
- * Implementation of a directed graph. Each node stores a sequence and relelvant
+ * Implementation of a directed graph. Each node stores a sequence and relevant
  * information. Graphs can be derived from other graphs with a filter, allowing
  * the extraction of population subsets.
  *
@@ -28,7 +28,7 @@ typedef unsigned char uchar;
 /**
  * Converts a character to a numeral representation.
  * @param c character
- * @return numeral repersentation
+ * @return numeral representation
  */
 inline uchar base_to_num(char c) {
   switch (c) {
@@ -51,7 +51,7 @@ inline uchar base_to_num(char c) {
 
 /**
  * Convert a numeric form to a char, upper case.
- * All ambigious bases are represented as 'N'
+ * All ambiguous bases are represented as 'N'
  * @param num numeric form
  * @return char in [A,C,G,T,N]
  */
@@ -199,7 +199,7 @@ class Graph {
 
   /**
    * Add a new node to the Graph. A new node is created so the original can be destroyed.
-   * The first node added is set as the Graph root.
+   * The first node added is set as the Graph root. Nodes must be added in topographical order.
    */
   long add_node(Node &n);
 
@@ -321,6 +321,7 @@ class Graph {
   // maps a node ID to a vector of node ID's that point to it
   std::unordered_map<long, std::vector<long>> _prev_map;
   std::vector<long> _toposort; // Sorted Graph
+  std::vector<long> _add_order; // Order nodes were added
   // Description, used by the builder to store construction params
   std::string _desc;
 
@@ -577,16 +578,10 @@ class GraphBuilder {
 
   void region(std::string region) {
     _vf.set_region(region);
-    _min_pos = _vf.region_lower();
-    _max_pos = _vf.region_upper();
-    _chr = _vf.region_chr();
   }
 
   void region(std::string chr, int min, int max) {
     _vf.set_region(chr, min, max);
-    _min_pos = min;
-    _max_pos = max;
-    _chr = chr;
   }
 
   /**
@@ -594,16 +589,6 @@ class GraphBuilder {
    * @param percent, 0 - 100
    */
   void ingroup(int percent);
-
-  /**
-   * Only include nodes above this frequency. If >=1, only use
-   * the node with the highest AF.
-   * @param af minimum allele frequency
-   */
-  void min_af(float af) {
-    if (af < 0) return;
-    _min_af = af;
-  }
 
   /**
    * Set maximum node length. If <= 0, length is unbounded.
@@ -629,9 +614,7 @@ class GraphBuilder {
 
   // Graph construction parameters
   int _ingroup = 100; // percent of individuals to use. Ref nodes always included
-  float _min_af = 0; // Minimum AF
-  int _max_node_len = 100000;
-  int _min_pos = 0, _max_pos = 0;
+  int _max_node_len = 1000000;
   std::string _chr;
 };
 
@@ -666,7 +649,7 @@ TEST_CASE ("Graph Builder") {
         << "##contig=<ID=y>" << endl
         << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
         << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
-        << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternete Allele count\">" << endl
+        << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
         << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
         << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
         << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
@@ -700,18 +683,22 @@ TEST_CASE ("Graph Builder") {
         CHECK((*giter).is_ref());
 
     ++giter;
+        CHECK((*giter).seq_str() == "G");
+
+    ++giter;
+        CHECK((*giter).seq_str() == "A");
+
+    ++giter;
+        CHECK((*giter).seq_str() == "C");
+
+    ++giter;
         CHECK((*giter).seq_str() == "T");
         CHECK(!(*giter).is_ref());
         CHECK(!(*giter).belongs(0));
         CHECK(!(*giter).belongs(1));
         CHECK(!(*giter).belongs(2));
         CHECK((*giter).belongs(3));
-    ++giter;
-        CHECK((*giter).seq_str() == "C");
-    ++giter;
-        CHECK((*giter).seq_str() == "A");
-    ++giter;
-        CHECK((*giter).seq_str() == "G");
+
   }
 
       SUBCASE("Deriving a Graph") {
@@ -731,13 +718,13 @@ TEST_CASE ("Graph Builder") {
     ++iter;
         CHECK((*iter).seq_str() == "AAG");
     ++iter;
-        CHECK((*iter).seq_str() == "T");
-    ++iter;
         CHECK((*iter).seq_str() == "G");
     ++iter;
-        CHECK((*iter).seq_str() == "CC");
+        CHECK((*iter).seq_str() == "T");
     ++iter;
         CHECK((*iter).seq_str() == "C");
+    ++iter;
+        CHECK((*iter).seq_str() == "CC");
   }
 
 

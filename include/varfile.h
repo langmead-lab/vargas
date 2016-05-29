@@ -248,17 +248,16 @@ class VarFile {
    */
   bool next() {
     if (!_header || !_bcf) return false;
-    int status = bcf_read(_bcf, _header, _curr_rec);
+    if (bcf_read(_bcf, _header, _curr_rec) < 0) return false;
     unpack_all();
 
     // Check if its within the filter range
     if (_max_pos > 0 && _curr_rec->pos > _max_pos) return false;
     if (_curr_rec->pos < _min_pos ||
         (_chr.length() != 0 && strcmp(_chr.c_str(), bcf_hdr_id2name(_header, _curr_rec->rid)))) {
-      next();
+      return next();
     }
-
-    return status >= 0;
+    return true;
   }
 
   /**
@@ -496,7 +495,7 @@ class VarFile {
 
     else if (_ingroup.size() == _samples.size()) {
       if (_ingroup_cstr) free(_ingroup_cstr);
-      _ingroup_cstr = (char *) malloc(1);
+      _ingroup_cstr = (char *) malloc(2);
       strcpy(_ingroup_cstr, "-");
     }
 

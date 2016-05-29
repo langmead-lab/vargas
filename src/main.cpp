@@ -17,6 +17,33 @@
 
 int main(const int argc, const char *argv[]) {
 
+  std::clock_t start;
+  std::cout << "Initial Build: ";
+  start = std::clock();
+
+  vargas::GraphBuilder gb("hs37d5_22.fa", "chr22.bcf");
+  gb.region("22:0-0");
+  gb.ingroup(100);
+  vargas::Graph g;
+  gb.build(g);
+
+  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+  std::cout << g.root();
+
+  std::cout << "REF: ";
+  start = std::clock();
+  vargas::Graph g2(g, vargas::Graph::REF);
+  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+  std::cout << g2.root();
+
+  std::cout << "MAXAF: ";
+  start = std::clock();
+  vargas::Graph g3(g, vargas::Graph::MAXAF);
+  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+  std::cout << g3.root();
+
+  return 0;
+
   GetOpt::GetOpt_pp args(argc, argv);
 
   // Run test cases
