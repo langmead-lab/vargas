@@ -13,6 +13,7 @@
 
 #include <string>
 #include <vector>
+#include <thread>
 #include "../include/graph.h"
 
 
@@ -20,14 +21,22 @@ long vargas::Graph::Node::_newID = 0;
 
 
 vargas::Graph::Graph(const vargas::Graph &g,
-                     const std::vector<bool> &filter) {
+                     const std::vector<bool> &filter,
+                     int num_threads) {
+
+  std::clock_t start = std::clock();
+
   _IDMap = g._IDMap;
+  _pop_size = g.pop_size();
   std::vector<long> indexes; // indexes of the individuals that are included in the filter
   for (long i = 0; i < filter.size(); ++i) {
     if (filter[i]) {
       indexes.push_back(i);
     }
   }
+
+  std::cout << "Indexes: " << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+  start = std::clock();
 
   // Add all nodes
   std::unordered_map<long, nodeptr> includedNodes;
@@ -40,6 +49,23 @@ vargas::Graph::Graph(const vargas::Graph &g,
     }
   }
 
+  std::cout << "Add nodes: " << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+  start = std::clock();
+
+  _build_derived_edges(g, includedNodes);
+
+  std::cout << "Edges: " << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+  start = std::clock();
+
+
+  _add_order = g._add_order;
+  for (int i = _add_order.size() - 1; i >= 0; --i) {
+    if (includedNodes.count(_add_order[i]) == 0) _add_order.erase(_add_order.begin() + i);
+  }
+
+  std::cout << "Prune: " << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+  start = std::clock();
+
   // Use the same description but add the filter we used
   _desc = g.desc() + "\nfilter: ";
   for (auto b : filter) {
@@ -47,18 +73,12 @@ vargas::Graph::Graph(const vargas::Graph &g,
     _desc += ",";
   }
 
-  _build_derived_edges(g, includedNodes);
-
-  _add_order = g._add_order;
-  for (int i = _add_order.size() - 1; i >= 0; --i) {
-    if (includedNodes.count(_add_order[i]) == 0) _add_order.erase(_add_order.begin() + i);
-  }
   finalize();
 }
 
-vargas::Graph::Graph(const Graph &g, Type type) {
+vargas::Graph::Graph(const Graph &g, Type type, int num_threads) {
   _IDMap = g._IDMap;
-
+  _pop_size = g.pop_size();
   std::unordered_map<long, nodeptr> includedNodes;
 
   if (type == REF) {
@@ -68,7 +88,6 @@ vargas::Graph::Graph(const Graph &g, Type type) {
         includedNodes[n.first] = n.second;
       }
     }
-
     _desc = g.desc() + "\nfilter: REF";
   }
 
@@ -175,18 +194,17 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
   _vf.create_ingroup(_ingroup);
 
   // If no region is specified, the default is the first sequence in the FASTA file
-  if (_chr.length() == 0) {
-    _chr = _fa.sequences()[0];
-    _vf.set_region(_chr, 0, 0);
+  if (_vf.region_chr().length() == 0) {
+    _vf.set_region(_fa.sequences()[0] + ":0-0");
   }
 
   int curr = _vf.region_lower(); // The Graph has been built up to this position, exclusive
-  std::vector<bool> pop(_vf.num_samples() * 2); // Population subset that has the node. *2 for genotypes
   std::vector<int> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
   std::vector<int> curr_unconnected; // ID's of nodes added that are unconnected
 
   while (_vf.next()) {
     _vf.genotypes();
+    if (g.pop_size() <= 0) g.set_popsize(_vf.allele_pop(_vf.alleles()[0]).size());
     auto &af = _vf.frequencies();
 
     curr = _build_linear(g, prev_unconnected, curr_unconnected, curr, _vf.pos());
@@ -206,7 +224,6 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
     }
 
     //alt nodes
-
     for (int i = 1; i < _vf.alleles().size(); ++i) {
       Graph::Node n;
       n.set_not_ref();
@@ -216,7 +233,6 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
       n.set_population(_vf.allele_pop(allele));
       curr_unconnected.push_back(g.add_node(n));
     }
-
 
     _build_edges(g, prev_unconnected, curr_unconnected);
 
@@ -248,18 +264,18 @@ int vargas::GraphBuilder::_build_linear(Graph &g,
                                         int pos,
                                         int target) {
 
-  if (target <= 0) target = _fa.seq_len(_chr);
+  if (target <= 0) target = _fa.seq_len(_vf.region_chr());
   while (pos < target) {
     Graph::Node n;
     n.set_as_ref();
 
     if (pos + _max_node_len >= target) {
-      n.set_seq(_fa.subseq(_chr, pos, target - 1));
+      n.set_seq(_fa.subseq(_vf.region_chr(), pos, target - 1));
       pos = target;
     }
 
     else {
-      n.set_seq(_fa.subseq(_chr, pos, pos + _max_node_len - 1));
+      n.set_seq(_fa.subseq(_vf.region_chr(), pos, pos + _max_node_len - 1));
       pos += _max_node_len;
     }
 

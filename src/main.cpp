@@ -22,25 +22,31 @@ int main(const int argc, const char *argv[]) {
   start = std::clock();
 
   vargas::GraphBuilder gb("hs37d5_22.fa", "chr22.bcf");
-  gb.region("22:0-0");
+  gb.region("22:22,000,000-24,000,000");
   gb.ingroup(100);
   vargas::Graph g;
   gb.build(g);
-
   std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  std::cout << g.root();
+  std::cout << g.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
+
+  std::vector<bool> filter(g.pop_size(), true);
+  std::cout << "FILTER: ";
+  start = std::clock();
+  vargas::Graph g1(g, filter);
+  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+  std::cout << g1.next_map().size() << std::endl;
 
   std::cout << "REF: ";
   start = std::clock();
   vargas::Graph g2(g, vargas::Graph::REF);
   std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  std::cout << g2.root();
+  std::cout << g2.next_map().size() << std::endl;
 
   std::cout << "MAXAF: ";
   start = std::clock();
   vargas::Graph g3(g, vargas::Graph::MAXAF);
   std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  std::cout << g3.root();
+  std::cout << g3.next_map().size() << std::endl;
 
   return 0;
 

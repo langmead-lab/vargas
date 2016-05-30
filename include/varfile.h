@@ -182,7 +182,7 @@ class VarFile {
     _chr = regionSplit[0];
 
     // Strip commas
-    regionSplit.erase(std::remove(regionSplit.begin(), regionSplit.end(), ","), regionSplit.end());
+    regionSplit[1].erase(std::remove(regionSplit[1].begin(), regionSplit[1].end(), ','), regionSplit[1].end());
 
     // Range
     regionSplit = split(regionSplit[1], '-');
@@ -249,14 +249,14 @@ class VarFile {
   bool next() {
     if (!_header || !_bcf) return false;
     if (bcf_read(_bcf, _header, _curr_rec) < 0) return false;
-    unpack_all();
-
+    unpack_shr();
     // Check if its within the filter range
     if (_max_pos > 0 && _curr_rec->pos > _max_pos) return false;
     if (_curr_rec->pos < _min_pos ||
         (_chr.length() != 0 && strcmp(_chr.c_str(), bcf_hdr_id2name(_header, _curr_rec->rid)))) {
       return next();
     }
+    unpack_all();
     return true;
   }
 

@@ -17,6 +17,7 @@
 #include <set>
 #include <sstream>
 #include <unordered_map>
+#include <thread>
 #include "fasta.h"
 #include "varfile.h"
 #include "../doctest/doctest/doctest.h"
@@ -136,7 +137,7 @@ class Graph {
     ulong length() const { return _seq.size(); } // Length of sequence
     int end() const { return _endPos; } // Sequence end position in genome
     int belongs(uint ind) const {
-      if (_ref) return -1;
+      if (_ref) return -1; // True if a ref node
       return _individuals[ind];
     } // Check if a certain individual has this node
     const std::vector<uchar> &seq() const { return _seq; } // Sequence in numeric form
@@ -188,9 +189,9 @@ class Graph {
    * @param g Graph to derive the new Graph from
    * @param filter population filter, only include nodes representative of this population
    */
-  Graph(const Graph &g, const std::vector<bool> &filter);
+  Graph(const Graph &g, const std::vector<bool> &filter, int num_threads = 1);
 
-  Graph(const Graph &g, Type t);
+  Graph(const Graph &g, Type t, int num_threads = 1);
 
   /**
    * Builds the topographical sort of the Graph, used for Graph iteration.
@@ -248,6 +249,9 @@ class Graph {
     dot << "}\n";
     return dot.str();
   }
+
+  void set_popsize(int popsize) { _pop_size = popsize; }
+  int pop_size() const { return _pop_size; }
 
   /**
    * const forward iterator to traverse the Graph topologically.
@@ -324,6 +328,7 @@ class Graph {
   std::vector<long> _add_order; // Order nodes were added
   // Description, used by the builder to store construction params
   std::string _desc;
+  int _pop_size = 0;
 
   /**
    * Recursive depth first search to find dependencies. Used to topological sort.
@@ -353,7 +358,8 @@ class Graph {
    * @param g underlying parent graph
    * @param includedNodes subset of g's nodes to include
    */
-  void _build_derived_edges(const Graph &g, const std::unordered_map<long, nodeptr> &includedNodes);
+  void _build_derived_edges(const Graph &g,
+                            const std::unordered_map<long, nodeptr> &includedNodes);
 
 };
 
@@ -615,7 +621,6 @@ class GraphBuilder {
   // Graph construction parameters
   int _ingroup = 100; // percent of individuals to use. Ref nodes always included
   int _max_node_len = 1000000;
-  std::string _chr;
 };
 
 }
