@@ -14,39 +14,41 @@
 
 #include <string>
 #include <sstream>
+#include "utils.h"
 
 namespace vargas {
 
 /**
  * Struct to represent a Read.
  * @param read base sequence.
- * @param readEndPos position of last base in seq.
+ * @param end_pos position of last base in seq.
  * @param indiv Individual the read was taken from.
- * @param numSubErr Number of substitiution errors introduced.
- * @param numVarNodes Number of variant nodes the read traverses.
- * @param numVarBases Number of bases that are in variant nodes.
- * @param numIndelErr Number of insertions and deletions introduced.
+ * @param sub_err Number of substitiution errors introduced.
+ * @param var_nodes Number of variant nodes the read traverses.
+ * @param var_bases Number of bases that are in variant nodes.
+ * @param indel_err Number of insertions and deletions introduced.
  */
 struct Read {
   std::string read;
-  int32_t readEndPos;
+  std::vector<uchar> read_num;
+  int32_t end_pos;
   int32_t indiv;
-  int32_t numSubErr;
-  int32_t numVarNodes;
-  int32_t numVarBases;
-  int32_t numIndelErr;
+  int32_t sub_err;
+  int32_t var_nodes;
+  int32_t var_bases;
+  int32_t indel_err;
 
 };
 
 inline std::ostream &operator<<(std::ostream &os, const Read &r) {
   std::stringstream ss;
   ss << r.read
-      << '#' << r.readEndPos
+      << '#' << r.end_pos
       << ',' << r.indiv
-      << ',' << r.numSubErr
-      << ',' << r.numIndelErr
-      << ',' << r.numVarNodes
-      << ',' << r.numVarBases;
+      << ',' << r.sub_err
+      << ',' << r.indel_err
+      << ',' << r.var_nodes
+      << ',' << r.var_bases;
   os << ss.str();
   return os;
 }
@@ -59,39 +61,51 @@ class ReadSource {
   ReadSource() { }
   virtual ~ReadSource() { }
 
-  // Updates the read and returns the string representation
-  virtual std::string updateAndGet() {
-    if (!updateRead()) {
+  /**
+   * Updates the stored and and returns the read.
+   */
+  virtual std::string update_and_get() {
+    if (!update_read()) {
       read.read = "";
     }
-    return toString();
+    return to_string();
   }
 
   // Returns a string representation
-  virtual std::string toString() {
+  virtual std::string to_string() {
     std::stringstream ss;
-    Read r = getRead();
+    Read r = get_read();
     ss << r.read
-        << '#' << r.readEndPos
+        << '#' << r.end_pos
         << ',' << r.indiv
-        << ',' << r.numSubErr
-        << ',' << r.numIndelErr
-        << ',' << r.numVarNodes
-        << ',' << r.numVarBases;
+        << ',' << r.sub_err
+        << ',' << r.indel_err
+        << ',' << r.var_nodes
+        << ',' << r.var_bases;
     return ss.str();
   };
 
   // Get the current read object
-  virtual Read &getRead() = 0;
+  virtual Read &get_read() = 0;
 
   // Get read file header
-  virtual std::string getHeader() const = 0;
+  virtual std::string get_header() const = 0;
 
   // Update the current read, return false if none are available
-  virtual bool updateRead() = 0;
+  virtual bool update_read() = 0;
+
+  const std::vector<Read> &get_batch(int size) {
+    if (size <= 0) size = 1;
+    if (_batch.size() != size) _batch.resize(size);
+    for (int i = 0; i < size; ++i) {
+      if (!update_read()) read = Read();
+      _batch[i] = read;
+    }
+    return _batch;
+  }
 
   inline std::ostream &operator<<(std::ostream &os) {
-    os << updateAndGet();
+    os << update_and_get();
     return os;
   }
 
@@ -99,6 +113,7 @@ class ReadSource {
  protected:
   Read read;
   std::string header = "";
+  std::vector<Read> _batch;
 
 };
 

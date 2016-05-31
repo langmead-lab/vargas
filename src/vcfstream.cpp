@@ -15,7 +15,7 @@
 #include "../include/vcfstream.h"
 
 void vargas::vcfstream::initVCF() {
-  // Skip the comments
+  // Skip the _comments
   do { std::getline(vcfFile, currentRecord); } while (currentRecord.substr(0, 2) == "##");
   if (currentRecord.at(0) != '#') throw std::invalid_argument("Expected header beginning with #");
 

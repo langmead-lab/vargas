@@ -13,7 +13,6 @@
 
 #include <string>
 #include <vector>
-#include <thread>
 #include "../include/graph.h"
 
 
@@ -21,10 +20,7 @@ long vargas::Graph::Node::_newID = 0;
 
 
 vargas::Graph::Graph(const vargas::Graph &g,
-                     const std::vector<bool> &filter,
-                     int num_threads) {
-
-  std::clock_t start = std::clock();
+                     const std::vector<bool> &filter) {
 
   _IDMap = g._IDMap;
   _pop_size = g.pop_size();
@@ -34,9 +30,6 @@ vargas::Graph::Graph(const vargas::Graph &g,
       indexes.push_back(i);
     }
   }
-
-  std::cout << "Indexes: " << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  start = std::clock();
 
   // Add all nodes
   std::unordered_map<long, nodeptr> includedNodes;
@@ -49,22 +42,12 @@ vargas::Graph::Graph(const vargas::Graph &g,
     }
   }
 
-  std::cout << "Add nodes: " << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  start = std::clock();
-
   _build_derived_edges(g, includedNodes);
-
-  std::cout << "Edges: " << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  start = std::clock();
-
 
   _add_order = g._add_order;
   for (int i = _add_order.size() - 1; i >= 0; --i) {
     if (includedNodes.count(_add_order[i]) == 0) _add_order.erase(_add_order.begin() + i);
   }
-
-  std::cout << "Prune: " << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  start = std::clock();
 
   // Use the same description but add the filter we used
   _desc = g.desc() + "\nfilter: ";
@@ -76,7 +59,9 @@ vargas::Graph::Graph(const vargas::Graph &g,
   finalize();
 }
 
-vargas::Graph::Graph(const Graph &g, Type type, int num_threads) {
+
+vargas::Graph::Graph(const Graph &g,
+                     Type type) {
   _IDMap = g._IDMap;
   _pop_size = g.pop_size();
   std::unordered_map<long, nodeptr> includedNodes;
@@ -93,11 +78,14 @@ vargas::Graph::Graph(const Graph &g, Type type, int num_threads) {
 
   else if (type == MAXAF) {
     long curr = g.root();
+    long maxid, size;
     while (true) {
       includedNodes[curr] = (*g._IDMap).at(curr);
-      if (g._next_map.count(curr) == 0) break;
-      long maxid = g._next_map.at(curr).at(0);
-      for (long id : g._next_map.at(curr)) {
+      if (g._next_map.count(curr) == 0) break; // end of graph
+      maxid = g._next_map.at(curr).at(0);
+      size = g._next_map.at(curr).size();
+      for (long i = 1; i < size; ++i) {
+        const long &id = g._next_map.at(curr).at(i);
         if ((*g._IDMap).at(id)->freq() > (*g._IDMap).at(maxid)->freq())
           maxid = id;
       }
@@ -114,6 +102,7 @@ vargas::Graph::Graph(const Graph &g, Type type, int num_threads) {
   }
   finalize();
 }
+
 
 void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
                                          const std::unordered_map<long, nodeptr> &includedNodes) {
@@ -132,10 +121,9 @@ void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
     throw std::invalid_argument("Currently the root must be common to all graphs.");
   }
   _root = g.root();
-  finalize();
 }
 
-//TODO Asusmes insertion was in order
+//TODO Assumes insertion was in order
 void vargas::Graph::finalize() {
   _toposort = _add_order;
   return;
@@ -157,6 +145,7 @@ void vargas::Graph::finalize() {
   std::reverse(_toposort.begin(), _toposort.end());
 }
 
+
 long vargas::Graph::add_node(Node &n) {
   if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
   if (_root < 0) _root = n.id(); // first node added is default root
@@ -166,7 +155,9 @@ long vargas::Graph::add_node(Node &n) {
   return n.id();
 }
 
-bool vargas::Graph::add_edge(long n1, long n2) {
+
+bool vargas::Graph::add_edge(long n1,
+                             long n2) {
   // Check if the nodes exist
   if (_IDMap->find(n1) == _IDMap->end() || _IDMap->find(n2) == _IDMap->end()) return false;
 
@@ -181,6 +172,26 @@ bool vargas::Graph::add_edge(long n1, long n2) {
   _prev_map[n2].push_back(n1);
   _toposort.clear(); // any ordering is invalidated
   return true;
+}
+
+
+void vargas::Graph::_visit(long n,
+                           std::set<long> &unmarked,
+                           std::set<long> &temp,
+                           std::set<long> &perm) {
+  if (temp.count(n) != 0) throw std::domain_error("Graph contains a cycle.");
+  if (unmarked.count(n)) {
+    unmarked.erase(n);
+    temp.insert(n);
+    if (_next_map.find(n) != _next_map.end()) {
+      for (auto m : _next_map[n]) {
+        _visit(m, unmarked, temp, perm);
+      }
+    }
+    temp.erase(n);
+    perm.insert(n);
+    _toposort.push_back(n);
+  }
 }
 
 
@@ -243,6 +254,12 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
   _fa.close();
   _vf.close();
   g.finalize();
+
+  std::string desc = "REF: " + _fa.file();
+  desc += "\nB/VCF: " + _vf.file();
+  desc += "\nRegion: " + _vf.region_chr() + ":" + std::to_string(_vf.region_lower()) + "-"
+      + std::to_string(_vf.region_upper());
+  desc += "\nIngroup: " + _vf.ingroup_str();
 }
 
 
@@ -257,6 +274,7 @@ void vargas::GraphBuilder::_build_edges(vargas::Graph &g,
   prev = curr;
   curr.clear();
 }
+
 
 int vargas::GraphBuilder::_build_linear(Graph &g,
                                         std::vector<int> &prev,
@@ -287,9 +305,8 @@ int vargas::GraphBuilder::_build_linear(Graph &g,
   return pos;
 }
 
+
 void vargas::GraphBuilder::ingroup(int percent) {
   if (percent < 0 || percent > 100) return;
   _ingroup = percent;
 }
-
-

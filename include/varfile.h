@@ -18,17 +18,19 @@
 #include <cstdio>
 #include <vector>
 #include <algorithm>
-#include <htslib/vcf.h>
 #include <stdlib.h>
 #include <time.h>
-#include <htslib/hts.h>
-
 #include "utils.h"
-#include "../htslib/htslib/vcfutils.h"
-#include "../doctest/doctest/doctest.h"
+#include "htslib/vcfutils.h"
+#include "htslib/hts.h"
+#include "doctest/doctest.h"
 
 namespace vargas {
 
+/**
+ * Provides an interface to a VCF/BCF file. Core processing
+ * provided by htslib.
+ */
 class VarFile {
  public:
 
@@ -40,7 +42,7 @@ class VarFile {
   class FormatField {
    public:
     /**
-     * Get the specified field.
+     * Get the specified field tag.
      * @param hdr VCF Header
      * @param rec current record
      * @param tag Field to get, e.g. "GT"
@@ -203,6 +205,15 @@ class VarFile {
    * @return 0 indexed maximum position
    */
   int region_upper() const { return _max_pos; }
+
+  /**
+   * Ingroup parameter on BCF reading. Empty string indicates none, "-" indicates all.
+   * @return string of ingroup samples
+   */
+  std::string ingroup_str() const {
+    if (!_ingroup_cstr) return "-";
+    return std::string(_ingroup_cstr);
+  }
 
   /**
    * Current contig filter.

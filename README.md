@@ -1,4 +1,4 @@
-# Variant Genome Aligner/Simulator
+# Variant Genome BatchAligner/Simulator
 Vargas uses gssw to align reads to a partial order Graph without traceback. Alignment information is given as the ending position of the best score, as well as a suboptimal alignment score. There are four main modes of operation.
 
 ###Basic Structure
@@ -12,7 +12,7 @@ frequency values are also provided.
 can be provided indefinetly or may be written to a set of files as determined by regular expressions. Reads are provided
 in a Read struct.
 
-`readfile.h` : Inherits from `readsource.h`. Wrapper for a reads file (such as that produced from `readsim`). Provides reads in a Read struct.
+`_read_file.h` : Inherits from `readsource.h`. Wrapper for a reads file (such as that produced from `readsim`). Provides reads in a Read struct.
 
 `Graph.h` : Contains facilities for building and aligning to a Graph. A buildfile is first exported from a `vcfstream` and
 a `readsource`. Graphs are built in memory from the buildfile. Graph parameters are defined in a GraphParams struct.
@@ -63,7 +63,7 @@ Buildfile is output to [s][In Out].build
 
 Outputs to '[prefix][n].reads' where [n] is the profile number.
 Read Profile format (use '*' for any): 
-	numSubErr,numIndelErr,numVarNodes,numVarBases
+	sub_err,indel_err,var_nodes,var_bases
 	Example: Any read with 1 substitution error and 1 variant node.
 		vargas sim -b BUILD -e "1,*,1,*"
 Read Format:
@@ -164,7 +164,7 @@ where `READ` is in the format described below. `AlIGNMENT_MATCH` is a flag that 
 The beginning of a simulated reads file will contain a comment indicating the profile used to generate reads, where `-1` means anything. The second line includes the random seed used to generate the reads, as well as parameters passed to the simulator.
 
 ```
-#indiv=-1,numSubErr=0,numVarNodes=2,numVarBases=-1
+#indiv=-1,sub_err=0,var_nodes=2,var_bases=-1
 #Seed: 1451149022, Mut err: 0.02, Indel Err: 0, read Len: 64, max reads: 10000, random walk? 0
 ```
 

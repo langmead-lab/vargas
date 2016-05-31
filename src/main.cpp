@@ -9,9 +9,10 @@
  * main.cpp
  */
 #define DOCTEST_CONFIG_IMPLEMENT
-#include "../doctest/doctest/doctest.h"
-#include "../include/getopt_pp.h"
-#include "../include/graph.h"
+#include "doctest/doctest.h"
+#include "getopt_pp.h"
+#include "graph.h"
+#include "alignment.h"
 //#include "../include/readsim.h"
 
 
@@ -22,31 +23,33 @@ int main(const int argc, const char *argv[]) {
   start = std::clock();
 
   vargas::GraphBuilder gb("hs37d5_22.fa", "chr22.bcf");
-  gb.region("22:22,000,000-24,000,000");
+  gb.region("22:22,000,000-30,000,000");
   gb.ingroup(100);
   vargas::Graph g;
   gb.build(g);
   std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
   std::cout << g.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
 
-  std::vector<bool> filter(g.pop_size(), true);
+  srand(time(NULL));
+  std::vector<bool> filter;
+  for (int i = 0; i < g.pop_size(); ++i) filter.push_back(rand() % 100 > 50);
   std::cout << "FILTER: ";
   start = std::clock();
   vargas::Graph g1(g, filter);
   std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  std::cout << g1.next_map().size() << std::endl;
+  std::cout << g1.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
 
   std::cout << "REF: ";
   start = std::clock();
   vargas::Graph g2(g, vargas::Graph::REF);
   std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  std::cout << g2.next_map().size() << std::endl;
+  std::cout << g2.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
 
   std::cout << "MAXAF: ";
   start = std::clock();
   vargas::Graph g3(g, vargas::Graph::MAXAF);
   std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  std::cout << g3.next_map().size() << std::endl;
+  std::cout << g3.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
 
   return 0;
 
@@ -117,14 +120,14 @@ int stat_main(const int argc, const char *argv[]) {
     throw std::invalid_argument("Error opening buildfile: " + buildfile);
   }
 
-  uint32_t numTotalNodes = 0, numVarNodes = 0, numEdges = 0;
+  uint32_t numTotalNodes = 0, var_nodes = 0, numEdges = 0;
   std::string line;
   std::vector<std::string> splitLine;
 
   while (getline(bf, line)) {
     if (line.at(0) == '#') std::cout << line << std::endl;
     if (line.at(0) == ':') {
-      numVarNodes++;
+      var_nodes++;
       continue;
     }
 
@@ -147,7 +150,7 @@ int stat_main(const int argc, const char *argv[]) {
   std::cout << std::endl;
   std::cout << buildfile << " counts:" << std::endl;
   std::cout << "\tTotal number of nodes: " << numTotalNodes << std::endl;
-  std::cout << "\tNumber of variant nodes: " << numVarNodes << std::endl;
+  std::cout << "\tNumber of variant nodes: " << var_nodes << std::endl;
   std::cout << "\tTotal number of edges: " << numEdges << std::endl;
   std::cout << std::endl;
 
@@ -309,7 +312,7 @@ int align_main(const int argc, const char *argv[]) {
   // Check if we need to resume this alignment job.
   vargas::ReadFile reads(readsfile);
   if (rawRead.length() != 0) {
-  	reads.resumeFromRead(rawRead);
+  	reads.resume_from(rawRead);
   }
 
 
@@ -322,8 +325,8 @@ int align_main(const int argc, const char *argv[]) {
 
   // Align until there are no more reads
   vargas::Alignment align;
-  while (reads.updateRead()) {
-    g.align(reads.getRead(), align);
+  while (reads.update_read()) {
+    g.align(reads.get_read(), align);
     if (useFile) {
       aOutStream << align << std::endl;
     } else {
@@ -332,9 +335,9 @@ int align_main(const int argc, const char *argv[]) {
   }
 
   if (useFile) {
-    aOutStream << reads.getHeader() << std::endl;
+    aOutStream << reads.get_header() << std::endl;
   } else {
-    std::cout << reads.getHeader() << std::endl;
+    std::cout << reads.get_header() << std::endl;
   }
 
   return 0;
@@ -383,17 +386,17 @@ int sim_main(const int argc, const char *argv[]) {
     for (int i = 0; i < splitProfiles.size(); ++i) {
       split(splitProfiles[i], ',', splitProf);
       if (splitProf.size() != 4) throw std::invalid_argument("Profile must have 4 fields (" + splitProfiles[i] + ").");
-      prof.numSubErr = (splitProf[0] == "*") ? -1 : std::stoi(splitProf[0]);
-      prof.numIndelErr = (splitProf[1] == "*") ? -1 : std::stoi(splitProf[1]);
-      prof.numVarNodes = (splitProf[2] == "*") ? -1 : std::stoi(splitProf[2]);
-      prof.numVarBases = (splitProf[3] == "*") ? -1 : std::stoi(splitProf[3]);
+      prof.sub_err = (splitProf[0] == "*") ? -1 : std::stoi(splitProf[0]);
+      prof.indel_err = (splitProf[1] == "*") ? -1 : std::stoi(splitProf[1]);
+      prof.var_nodes = (splitProf[2] == "*") ? -1 : std::stoi(splitProf[2]);
+      prof.var_bases = (splitProf[3] == "*") ? -1 : std::stoi(splitProf[3]);
       sim.addProfile(prof, prefix + std::to_string(i) + ".reads");
     }
     sim.populateProfiles();
 
   } else {
     for (int i = 0; i < p.maxreads; ++i) {
-      std::cout << sim.updateAndGet() << std::endl;
+      std::cout << sim.update_and_get() << std::endl;
     }
   }
 
@@ -471,7 +474,7 @@ void printSimHelp() {
 
   cout << "Outputs to \'[prefix][n].reads\' where [n] is the profile number." << endl;
   cout << "Read Profile format (use \'*\' for any): " << endl;
-  cout << "\tnumSubErr,numIndelErr,numVarNodes,numVarBases" << endl;
+  cout << "\tsub_err,indel_err,var_nodes,var_bases" << endl;
   cout << "\tExample: Any read with 1 substitution error and 1 variant node." << endl;
   cout << "\t\tvargas sim -b BUILD -e \"1,*,1,*\"" << endl;
   cout << "Read Format:" << endl;

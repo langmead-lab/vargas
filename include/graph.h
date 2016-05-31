@@ -20,98 +20,10 @@
 #include <thread>
 #include "fasta.h"
 #include "varfile.h"
-#include "../doctest/doctest/doctest.h"
+#include "doctest/doctest.h"
+#include "utils.h"
 
 namespace vargas {
-
-typedef unsigned char uchar;
-
-/**
- * Converts a character to a numeral representation.
- * @param c character
- * @return numeral representation
- */
-inline uchar base_to_num(char c) {
-  switch (c) {
-    case 'A':
-    case 'a':
-      return 0;
-    case 'C':
-    case 'c':
-      return 1;
-    case 'G':
-    case 'g':
-      return 2;
-    case 'T':
-    case 't':
-      return 3;
-    default:
-      return 4;
-  }
-}
-
-/**
- * Convert a numeric form to a char, upper case.
- * All ambiguous bases are represented as 'N'
- * @param num numeric form
- * @return char in [A,C,G,T,N]
- */
-inline char num_to_base(uchar num) {
-  switch (num) {
-    case 0:
-      return 'A';
-    case 1:
-      return 'C';
-    case 2:
-      return 'G';
-    case 3:
-      return 'T';
-    default:
-      return 'N';
-  }
-}
-
-/**
- * Convert a character sequence in a numeric sequence
- * @param seq Sequence string
- * @return vector of numerals
- */
-inline std::vector<uchar> seq_to_num(const std::string &seq) {
-  std::vector<uchar> num(seq.length());
-  std::transform(seq.begin(), seq.end(), num.begin(), base_to_num);
-  return num;
-}
-TEST_CASE ("Sequence to Numeric") {
-  std::vector<uchar> a = seq_to_num("ACGTN");
-      REQUIRE(a.size() == 5);
-      CHECK(a[0] == 0);
-      CHECK(a[1] == 1);
-      CHECK(a[2] == 2);
-      CHECK(a[3] == 3);
-      CHECK(a[4] == 4);
-}
-
-/**
- * Convert a numeric vector to a sequence of bases.
- * @param num Numeric vector
- * @return sequence string, Sigma={A,G,T,C,N}
- */
-inline std::string num_to_seq(const std::vector<uchar> &num) {
-  std::stringstream builder;
-  for (auto &n : num) {
-    builder << num_to_base(n);
-  }
-  return builder.str();
-}
-TEST_CASE ("Numeric to Sequence") {
-  std::string a = num_to_seq({0, 1, 2, 3, 4});
-      REQUIRE(a.length() == 5);
-      CHECK(a[0] == 'A');
-      CHECK(a[1] == 'C');
-      CHECK(a[2] == 'G');
-      CHECK(a[3] == 'T');
-      CHECK(a[4] == 'N');
-}
 
 /**
  * Represents a Graph of the genome. The Graph is backed by a map of Graph::Nodes, and edges
@@ -130,7 +42,11 @@ class Graph {
    public:
     // Assign a unique ID to each node
     Node() : _id(_newID++) { }
-    Node(int pos, const std::string &seq, const std::vector<bool> &pop, bool ref, float af) :
+    Node(int pos,
+         const std::string &seq,
+         const std::vector<bool> &pop,
+         bool ref,
+         float af) :
         _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) { }
 
     // Access functions
@@ -189,9 +105,11 @@ class Graph {
    * @param g Graph to derive the new Graph from
    * @param filter population filter, only include nodes representative of this population
    */
-  Graph(const Graph &g, const std::vector<bool> &filter, int num_threads = 1);
+  Graph(const Graph &g,
+        const std::vector<bool> &filter);
 
-  Graph(const Graph &g, Type t, int num_threads = 1);
+  Graph(const Graph &g,
+        Type t);
 
   /**
    * Builds the topographical sort of the Graph, used for Graph iteration.
@@ -209,7 +127,8 @@ class Graph {
    * @param n1 Node one ID
    * @param n2 Node two ID
    */
-  bool add_edge(long n1, long n2);
+  bool add_edge(long n1,
+                long n2);
 
   /**
    * Sets the root of the Graph.
@@ -337,21 +256,10 @@ class Graph {
    * @param temp set of visited but unadded nodes
    * @param perm set of completed nodes
    */
-  void _visit(long n, std::set<long> &unmarked, std::set<long> &temp, std::set<long> &perm) {
-    if (temp.count(n) != 0) throw std::domain_error("Graph contains a cycle.");
-    if (unmarked.count(n)) {
-      unmarked.erase(n);
-      temp.insert(n);
-      if (_next_map.find(n) != _next_map.end()) {
-        for (auto m : _next_map[n]) {
-          _visit(m, unmarked, temp, perm);
-        }
-      }
-      temp.erase(n);
-      perm.insert(n);
-      _toposort.push_back(n);
-    }
-  }
+  void _visit(long n,
+              std::set<long> &unmarked,
+              std::set<long> &temp,
+              std::set<long> &perm);
 
   /**
    * Given a subset of nodes from Graph g, rebuild all applicable edges in the new graph.
@@ -575,9 +483,12 @@ TEST_CASE ("Graph class") {
 class GraphBuilder {
 
  public:
-  GraphBuilder(std::string reffile, std::string vcffile) : _fa_file(reffile), _vf_file(vcffile) { }
+  GraphBuilder(std::string reffile,
+               std::string vcffile) :
+      _fa_file(reffile), _vf_file(vcffile) { }
 
-  void open(std::string ref, std::string vcf) {
+  void open(std::string ref,
+            std::string vcf) {
     _fa_file = ref;
     _vf_file = vcf;
   }
@@ -586,7 +497,9 @@ class GraphBuilder {
     _vf.set_region(region);
   }
 
-  void region(std::string chr, int min, int max) {
+  void region(std::string chr,
+              int min,
+              int max) {
     _vf.set_region(chr, min, max);
   }
 
@@ -609,8 +522,13 @@ class GraphBuilder {
   void build(Graph &g);
 
  protected:
-  void _build_edges(Graph &g, std::vector<int> &prev, std::vector<int> &curr);
-  int _build_linear(Graph &g, std::vector<int> &prev, std::vector<int> &curr, int pos, int target);
+  void _build_edges(Graph &g, std::vector<int> &prev,
+                    std::vector<int> &curr);
+
+  int _build_linear(Graph &g, std::vector<int> &prev,
+                    std::vector<int> &curr,
+                    int pos,
+                    int target);
 
  private:
   std::string _fa_file, _vf_file;

@@ -177,9 +177,9 @@ class SAMFile: public ReadSource {
     init();
   }
 
-  Read &getRead() override;
-  std::string getHeader() const override;
-  bool updateRead() override;
+  Read &get_read() override;
+  std::string get_header() const override;
+  bool update_read() override;
 
  protected:
   // Load the SAM file
@@ -190,7 +190,7 @@ class SAMFile: public ReadSource {
 
 
   // Data structures to hold the header
-  std::vector<std::string> comments; // @CO lines
+  std::vector<std::string> _comments; // @CO lines
   std::map<std::string, ReferenceSequence> refSeqs; // Maps a sequence name to its record
   std::unordered_map<std::string, ReadGroup> readGroups; // Maps a RG ID to a ReadGroup
   std::unordered_map<std::string, Program> programs; // Maps a program ID to a program

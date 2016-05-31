@@ -5,7 +5,7 @@ project("vargas")
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-include_directories(libb64/include VByte/include)
+include_directories(libsimdpp libb64/include VByte/include doctest include)
 
 set(MAIN_SOURCES
         src/getopt_pp.cpp       # Argument parsing
@@ -18,7 +18,7 @@ set(MAIN_SOURCES
         include/vcfstream.h
         # src/readsim.cpp         # Graph read simulator
         # include/readsim.h
-        # include/readsource.h    # Abstract read source class
+        include/readsource.h    # Abstract read source class
         src/readfile.cpp        # Readfile wrapper
         include/readfile.h
         src/xcoder.cpp          # Compressor and base64 encoder for lists of unsigned ints

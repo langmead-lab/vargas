@@ -21,42 +21,42 @@ class ReadFile: public ReadSource {
  public:
   ReadFile() { }
   ReadFile(std::string file) {
-    readfile.open(file);
-    if (!readfile.good()) throw std::invalid_argument("Invalid read file.");
+    _read_file.open(file);
+    if (!_read_file.good()) throw std::invalid_argument("Invalid read file.");
   }
   ~ReadFile() {
-    if (readfile) readfile.close();
+    if (_read_file) _read_file.close();
   }
 
   /*
    * Gets the current read.
    * @return Read that has already been generated.
    */
-  Read &getRead() override { return read; }
+  Read &get_read() override { return read; }
 
   /*
    * Updates the stored read.
    * @return True if it was successful.
    */
-  bool updateRead() override;
+  bool update_read() override;
 
   /*
    * Comment lines.
    * @return Line delimited comment lines.
    */
-  std::string getHeader() const override { return header; }
+  std::string get_header() const override { return header; }
 
   /*
    * fast forward reads until this line.
    * @param read Raw sequence to resume from (does not return this read).
    */
-   void resumeFromRead(std::string read);
+  void resume_from(std::string read);
 
 
  protected:
   std::string line;
-  std::ifstream readfile;
-  std::vector<std::string> splitMeta;
+  std::ifstream _read_file;
+  std::vector<std::string> _split_meta;
 
 };
 

@@ -13,6 +13,7 @@
 
 #include "readsource.h"
 #include "utils.h"
+#include "simdpp/simd.h"
 
 
 namespace vargas {
@@ -21,30 +22,30 @@ namespace vargas {
  * Stores a Read and associated alignment information. Positions are
  * 1 indexed.
  * @param read Read that was aligned
- * @param optScore Best alignment score
- * @param optAlignEnd Best alignment position, indexed w.r.t the last base of read
- * @param optCount Number of alignments that tied for the best score
- * @param subOptScore Second best alignment score
- * @param subOptAlignEnd Second best alignment position
- * @param subOptCount Number of second-best alignments
+ * @param opt_score Best alignment score
+ * @param opt_align_end Best alignment position, indexed w.r.t the last base of read
+ * @param opt_count Number of alignments that tied for the best score
+ * @param sub_score Second best alignment score
+ * @param sub_align_end Second best alignment position
+ * @param sub_count Number of second-best alignments
  * @param corflag 0 if alignment matches read origin, 1 of second best, 2 otherwise
  */
 struct Alignment {
   Read read;
 
-  uint16_t optScore;
-  int32_t optAlignEnd;
-  int32_t optCount;
+  uint16_t opt_score;
+  int32_t opt_align_end;
+  int32_t opt_count;
 
-  uint16_t subOptScore;
-  int32_t subOptAlignEnd;
-  int32_t subOptCount;
+  uint16_t sub_score;
+  int32_t sub_align_end;
+  int32_t sub_count;
 
   int8_t corflag;
 
 
   Alignment()
-      : optScore(0), optAlignEnd(-1), optCount(-1), subOptScore(0), subOptAlignEnd(-1), subOptCount(-1),
+      : opt_score(0), opt_align_end(-1), opt_count(-1), sub_score(0), sub_align_end(-1), sub_count(-1),
         corflag(-1) { }
 
   /**
@@ -69,18 +70,18 @@ struct Alignment {
         return;
       }
 
-      this->read.readEndPos = std::stoi(splitLine[0]);
+      this->read.end_pos = std::stoi(splitLine[0]);
       this->read.indiv = std::stoi(splitLine[1]);
-      this->read.numSubErr = std::stoi(splitLine[2]);
-      this->read.numVarNodes = std::stoi(splitLine[3]);
-      this->read.numVarBases = std::stoi(splitLine[4]);
+      this->read.sub_err = std::stoi(splitLine[2]);
+      this->read.var_nodes = std::stoi(splitLine[3]);
+      this->read.var_bases = std::stoi(splitLine[4]);
 
-      this->optScore = (uint16_t) std::stoi(splitLine[5]);
-      this->optAlignEnd = std::stoi(splitLine[6]);
-      this->optCount = std::stoi(splitLine[7]);
-      this->subOptScore = (uint16_t) std::stoi(splitLine[8]);
-      this->subOptAlignEnd = std::stoi(splitLine[9]);
-      this->subOptCount = std::stoi(splitLine[10]);
+      this->opt_score = (uint16_t) std::stoi(splitLine[5]);
+      this->opt_align_end = std::stoi(splitLine[6]);
+      this->opt_count = std::stoi(splitLine[7]);
+      this->sub_score = (uint16_t) std::stoi(splitLine[8]);
+      this->sub_align_end = std::stoi(splitLine[9]);
+      this->sub_count = std::stoi(splitLine[10]);
       this->corflag = (int8_t) std::stoi(splitLine[11]);
     }
   }
@@ -94,10 +95,28 @@ struct Alignment {
  * @param an Alignment output
  */
 inline std::ostream &operator<<(std::ostream &os, const Alignment &a) {
-  os << a.read << ',' << a.optScore << ',' << a.optAlignEnd << ',' << a.optCount
-      << ',' << a.subOptScore << ',' << a.subOptAlignEnd << ',' << a.subOptCount
+  os << a.read << ',' << a.opt_score << ',' << a.opt_align_end << ',' << a.opt_count
+      << ',' << a.sub_score << ',' << a.sub_align_end << ',' << a.sub_count
       << ',' << int32_t(a.corflag);
   return os;
+}
+
+template<int block_size>
+class BatchAligner {
+ public:
+  BatchAligner() { }
+
+  //private:
+  simdpp::uint8<block_size> _packaged_reads = NULL;
+
+  void _package_reads(const std::vector<Read> &reads) {
+    // TODO optimize
+  }
+
+};
+TEST_CASE ("Batch Aligner") {
+  simdpp::aligned_allocator<simdpp::uint8<4>, 4> a;
+  simdpp::uint8<4> *_packaged_reads = a.allocate(4);
 }
 
 }

@@ -11,19 +11,18 @@
 
 #include <vector>
 #include "../include/samfile.h"
-#include "../include/utils.h"
 
-vargas::Read &vargas::SAMFile::getRead() {
+vargas::Read &vargas::SAMFile::get_read() {
   return currRead;
 }
-std::string vargas::SAMFile::getHeader() const {
+std::string vargas::SAMFile::get_header() const {
   std::stringstream ss;
-  for (auto comm : comments) {
+  for (auto comm : _comments) {
     ss << comm << '\n';
   }
   return ss.str();
 }
-bool vargas::SAMFile::updateRead() {
+bool vargas::SAMFile::update_read() {
   std::string line;
   if (!getline(input, line)) return false;
   currAlignment = parseAlignment(line);
@@ -31,12 +30,12 @@ bool vargas::SAMFile::updateRead() {
   if (currAlignment.flags.reverseComplemented) currRead.read = reverseComplement(currAlignment.seq);
   else currRead.read = currAlignment.seq;
 
-  currRead.readEndPos = currAlignment.pos;
+  currRead.end_pos = currAlignment.pos;
   currRead.indiv = -1;
-  currRead.numIndelErr = -1;
-  currRead.numSubErr = -1;
-  currRead.numVarBases = -1;
-  currRead.numVarNodes = -1;
+  currRead.indel_err = -1;
+  currRead.sub_err = -1;
+  currRead.var_bases = -1;
+  currRead.var_nodes = -1;
   return true;
 }
 
@@ -175,7 +174,7 @@ void vargas::SAMFile::parseHeaderLine(std::string &line) {
     programs[pg.id] = pg;
   }
   else {
-    comments.push_back(line);
+    _comments.push_back(line);
   }
 }
 
