@@ -13,18 +13,27 @@
 /**
  * Groups together multiple fixed bitsets to emulate a dynamic bitset.
  * A vector of std::bitset<core_size> maintains the information.
- * The data is a set with a vector.
+ * The data is set with a vector.
  */
 template<unsigned int core_size>
 class dyn_bitset {
 
  public:
   dyn_bitset() { }
-
-  dyn_bitset(const dyn_bitset &db) {
-    _bitset = db._bitset;
-    _right_pad = db._right_pad;
-  }
+    /**
+     * Initilize a bitset of length len, all set to val.
+     * @param len bitset length
+     * @param val true/false
+     */
+    explicit dyn_bitset(size_t len,
+                        bool val = false) : _bitset(std::vector<std::bitset<core_size>>((len / core_size) + 1)) {
+      for (std::bitset<core_size> &n : _bitset) {
+        if (val) n.set();
+        else n.reset();
+      }
+      _right_pad = (_bitset.size() * core_size) - len;
+    };
+    dyn_bitset(const dyn_bitset &db) : _bitset(db._bitset), _right_pad(db._right_pad) { }
 
   /**
    * Create a dyn_bitset from a vector. Each bit is
@@ -54,7 +63,21 @@ class dyn_bitset {
   /**
    * @return number of bits used.
    */
-  size_t size() const { return (_bitset.size() * core_size) - _right_pad; }
+  inline size_t size() const { return (_bitset.size() * core_size) - _right_pad; }
+
+    /**
+     * Set all bits to true.
+     */
+    void set() {
+      for (std::bitset<core_size> &bs : _bitset) bs.set();
+    }
+
+    /**
+     * Set all bits to false.
+     */
+    void reset() {
+      for (std::bitset<core_size> &bs : _bitset) bs.reset();
+    }
 
   /**
    * Set a single bit, default true
@@ -117,7 +140,20 @@ class dyn_bitset {
     return false;
   }
 
-  std::string print() const {
+    /**
+     * Init via assignment from vector
+     */
+    template<typename T>
+    dyn_bitset &operator=(const std::vector<T> &pop) {
+      _init_from_vec<T>(pop);
+      return *this;
+    }
+
+
+    /**
+     * @return string of 0's and 1's
+     */
+    std::string to_string() const {
     std::stringstream ss;
     for (size_t c = 0; c < _bitset.size(); ++c) {
       for (size_t i = 0; i < core_size; ++i) {
@@ -131,6 +167,10 @@ class dyn_bitset {
 
  protected:
 
+    /**
+     * Sets a bit if the corresponding vector element tests true.
+     * @param vec vector of values to test
+     */
   template<typename T>
   void _init_from_vec(const std::vector<T> &vec) {
     _bitset.clear();
@@ -145,7 +185,7 @@ class dyn_bitset {
 
  private:
   std::vector<std::bitset<core_size>> _bitset;
-  int _right_pad = 0;
+    size_t _right_pad = 0;
 };
 
 TEST_CASE ("Dynamic Bitset") {
@@ -184,7 +224,7 @@ TEST_CASE ("Dynamic Bitset") {
   std::stringstream ss;
   std::vector<bool> p_bool = {0, 1, 0, 1, 1, 1, 1};
   dyn_bitset<8> p(p_bool);
-      CHECK(p.print() == "0101111");
+      CHECK(p.to_string() == "0101111");
 }
 
 #endif //VARGAS_DYN_BITSET_H

@@ -22,47 +22,17 @@ long vargas::Graph::Node::_newID = 0;
 
 
 vargas::Graph::Graph(const vargas::Graph &g,
-                     const std::vector<bool> &filter) {
+                     const Population &filter) {
 
   _IDMap = g._IDMap;
   _pop_size = g.pop_size();
 
-//  std::unordered_set<long> indexes;
-//  for (long i = 0; i < filter.size(); ++i) {
-//    if (filter[i]) {
-//      indexes.insert(i);
-//    }
-//  }
-
-  std::vector<long> indexes; // indexes of the individuals that are included in the filter
-  for (long i = 0; i < filter.size(); ++i) {
-    if (filter[i]) {
-      indexes.push_back(i);
-    }
-  }
-
-//  // Add all nodes
-//  std::unordered_map<long, nodeptr> includedNodes;
-//  for (auto &n : *(g._IDMap)) {
-//    auto &indivs = n.second->individuals();
-//    for (int i = 0; i < indivs.size(); ++i) {
-//      if (indivs[i] && indexes.count(i)) {
-//        includedNodes[n.first] = n.second;
-//        break;
-//      }
-//    }
-//  }
-
-
   // Add all nodes
   std::unordered_map<long, nodeptr> includedNodes;
   for (auto &n : *(g._IDMap)) {
-    for (long i : indexes) {
-      if (n.second->belongs(i)) {
+    if (n.second->belongs(filter)) {
         includedNodes[n.first] = n.second;
-        break;
       }
-    }
   }
 
   _build_derived_edges(g, includedNodes);
@@ -74,10 +44,7 @@ vargas::Graph::Graph(const vargas::Graph &g,
 
   // Use the same description but add the filter we used
   _desc = g.desc() + "\nfilter: ";
-  for (auto b : filter) {
-    _desc += b == true ? "1" : "0";
-    _desc += ",";
-  }
+  _desc += filter.to_string();
 
   finalize();
 }
@@ -217,6 +184,23 @@ void vargas::Graph::_visit(long n,
   }
 }
 
+std::string vargas::Graph::to_DOT(std::string name) const {
+  std::stringstream dot;
+  dot << "// Each node has the sequence, followed by end_pos,allele_freq\n";
+  dot << "digraph " << name << " {\n";
+  for (auto n : *_IDMap) {
+    dot << n.second->id() << "[label=\"" << n.second->seq_str() << "\n" << n.second->end() << "," << n.second->freq()
+        << "\"];\n";
+  }
+  for (auto &n : _next_map) {
+    for (auto e : n.second) {
+      dot << n.first << " -> " << e << ";\n";
+    }
+  }
+  dot << "}\n";
+  return dot.str();
+}
+
 
 void vargas::GraphBuilder::build(vargas::Graph &g) {
   g = vargas::Graph();
@@ -256,7 +240,6 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
       n.set_seq(_vf.ref());
       n.set_as_ref();
       n.set_af(af[0]);
-      n.set_population(std::vector<bool>(sample_size, true));
       curr_unconnected.push_back(g.add_node(n));
     }
 
@@ -312,7 +295,6 @@ int vargas::GraphBuilder::_build_linear_ref(Graph &g,
   while (pos < target) {
     Graph::Node n;
     n.set_as_ref();
-    n.set_population(std::vector<bool>(_vf.samples().size(), true));
 
     if (pos + _max_node_len >= target) {
       n.set_seq(_fa.subseq(_vf.region_chr(), pos, target - 1));
@@ -325,7 +307,6 @@ int vargas::GraphBuilder::_build_linear_ref(Graph &g,
     }
 
     n.set_endpos(pos - 1);
-    n.set_as_ref();
     curr.push_back(g.add_node(n));
     _build_edges(g, prev, curr);
   }
