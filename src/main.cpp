@@ -12,46 +12,44 @@
 #include "doctest/doctest.h"
 #include "getopt_pp.h"
 #include "graph.h"
-#include "alignment.h"
-//#include "../include/readsim.h"
 
 
 int main(const int argc, const char *argv[]) {
-
-  std::clock_t start;
-  std::cout << "Initial Build: ";
-  start = std::clock();
-
-  vargas::GraphBuilder gb("hs37d5_22.fa", "chr22.bcf");
-  gb.region("22:22,000,000-30,000,000");
-  gb.ingroup(100);
-  vargas::Graph g;
-  gb.build(g);
-  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  std::cout << g.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
-
-  srand(time(NULL));
-  std::vector<bool> filter;
-  for (int i = 0; i < g.pop_size(); ++i) filter.push_back(rand() % 100 > 50);
-  std::cout << "FILTER: ";
-  start = std::clock();
-  vargas::Graph g1(g, filter);
-  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  std::cout << g1.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
-
-  std::cout << "REF: ";
-  start = std::clock();
-  vargas::Graph g2(g, vargas::Graph::REF);
-  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  std::cout << g2.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
-
-  std::cout << "MAXAF: ";
-  start = std::clock();
-  vargas::Graph g3(g, vargas::Graph::MAXAF);
-  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-  std::cout << g3.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
-
-  return 0;
+//
+//  std::clock_t start;
+//  std::cout << "Initial Build: ";
+//  start = std::clock();
+//
+//  vargas::GraphBuilder gb("hs37d5_22.fa", "chr22.bcf");
+//  gb.region("22:0-0");
+//  gb.ingroup(100);
+//  vargas::Graph g;
+//  gb.build(g);
+//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+//  std::cout << g.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
+//
+//  srand(time(NULL));
+//  std::vector<bool> filter;
+//  for (int i = 0; i < g.pop_size(); ++i) filter.push_back(rand() % 100 > 95);
+//  std::cout << "FILTER: ";
+//  start = std::clock();
+//  vargas::Graph g1(g, filter);
+//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+//  std::cout << g1.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
+//
+//  std::cout << "REF: ";
+//  start = std::clock();
+//  vargas::Graph g2(g, vargas::Graph::REF);
+//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+//  std::cout << g2.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
+//
+//  std::cout << "MAXAF: ";
+//  start = std::clock();
+//  vargas::Graph g3(g, vargas::Graph::MAXAF);
+//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+//  std::cout << g3.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
+//
+//  return 0;
 
   GetOpt::GetOpt_pp args(argc, argv);
 

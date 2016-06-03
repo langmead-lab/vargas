@@ -13,6 +13,8 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
+#include <unordered_set>
 #include "../include/graph.h"
 
 
@@ -24,12 +26,33 @@ vargas::Graph::Graph(const vargas::Graph &g,
 
   _IDMap = g._IDMap;
   _pop_size = g.pop_size();
+
+//  std::unordered_set<long> indexes;
+//  for (long i = 0; i < filter.size(); ++i) {
+//    if (filter[i]) {
+//      indexes.insert(i);
+//    }
+//  }
+
   std::vector<long> indexes; // indexes of the individuals that are included in the filter
   for (long i = 0; i < filter.size(); ++i) {
     if (filter[i]) {
       indexes.push_back(i);
     }
   }
+
+//  // Add all nodes
+//  std::unordered_map<long, nodeptr> includedNodes;
+//  for (auto &n : *(g._IDMap)) {
+//    auto &indivs = n.second->individuals();
+//    for (int i = 0; i < indivs.size(); ++i) {
+//      if (indivs[i] && indexes.count(i)) {
+//        includedNodes[n.first] = n.second;
+//        break;
+//      }
+//    }
+//  }
+
 
   // Add all nodes
   std::unordered_map<long, nodeptr> includedNodes;
@@ -213,12 +236,14 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
   std::vector<int> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
   std::vector<int> curr_unconnected; // ID's of nodes added that are unconnected
 
+  const auto sample_size = _vf.samples().size();
+  g.set_popsize(sample_size);
+
   while (_vf.next()) {
     _vf.genotypes();
-    if (g.pop_size() <= 0) g.set_popsize(_vf.allele_pop(_vf.alleles()[0]).size());
     auto &af = _vf.frequencies();
 
-    curr = _build_linear(g, prev_unconnected, curr_unconnected, curr, _vf.pos());
+    curr = _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, _vf.pos());
 
     // Add variant nodes
     // Positions of variant nodes are referenced to ref node
@@ -231,6 +256,7 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
       n.set_seq(_vf.ref());
       n.set_as_ref();
       n.set_af(af[0]);
+      n.set_population(std::vector<bool>(sample_size, true));
       curr_unconnected.push_back(g.add_node(n));
     }
 
@@ -249,7 +275,7 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
 
   }
   // Nodes after last variant
-  _build_linear(g, prev_unconnected, curr_unconnected, curr, _vf.region_upper());
+  _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, _vf.region_upper());
 
   _fa.close();
   _vf.close();
@@ -276,16 +302,17 @@ void vargas::GraphBuilder::_build_edges(vargas::Graph &g,
 }
 
 
-int vargas::GraphBuilder::_build_linear(Graph &g,
-                                        std::vector<int> &prev,
-                                        std::vector<int> &curr,
-                                        int pos,
-                                        int target) {
+int vargas::GraphBuilder::_build_linear_ref(Graph &g,
+                                            std::vector<int> &prev,
+                                            std::vector<int> &curr,
+                                            int pos,
+                                            int target) {
 
   if (target <= 0) target = _fa.seq_len(_vf.region_chr());
   while (pos < target) {
     Graph::Node n;
     n.set_as_ref();
+    n.set_population(std::vector<bool>(_vf.samples().size(), true));
 
     if (pos + _max_node_len >= target) {
       n.set_seq(_fa.subseq(_vf.region_chr(), pos, target - 1));

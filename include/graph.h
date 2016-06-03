@@ -17,11 +17,13 @@
 #include <set>
 #include <sstream>
 #include <unordered_map>
+#include <bitset>
 #include <thread>
 #include "fasta.h"
 #include "varfile.h"
 #include "doctest/doctest.h"
 #include "utils.h"
+#include "dyn_bitset.h"
 
 namespace vargas {
 
@@ -33,10 +35,23 @@ class Graph {
 
  public:
 
+  /**
+   * When a normal population filter is not used, a flag can be used. REF includes
+   * only reference alleles, MAXAF picks the allele with the highest frequency.
+   * Both result in linear graphs.
+   */
   enum Type { REF, MAXAF };
 
   /**
-   * Represents a node in the directed graphs. Edges stored externally.
+   * A population is represented with a dynamic bitset. This allows
+   * for quick population overlap checks.
+   */
+  typedef dyn_bitset<32> Population;
+
+  /**
+   * Represents a node in the directed graphs. Sequences are stored numerically.
+   * populations are stored as bitsets, where 1 indicates that indivudal posseses
+   * the allele.
    */
   class Node {
    public:
@@ -62,7 +77,7 @@ class Graph {
     long id() const { return _id; } // Node ID
     bool is_ref() const { return _ref; } // True if part of the reference seq
     float freq() const { return _af; } // allele frequency. <0 if ref
-
+    const std::vector<bool> &individuals() const { return _individuals; }
 
     static long _newID; // ID of the next instance to be created
 
@@ -74,7 +89,9 @@ class Graph {
       }
     }
     void set_endpos(int pos) { this->_endPos = pos; }
-    void set_population(const std::vector<bool> &pop) { _individuals = pop; }
+    void set_population(const std::vector<bool> &pop) {
+      _individuals = pop;
+    }
     void set_seq(std::string seq) { _seq = seq_to_num(seq); }
     void set_seq(std::vector<uchar> &seq) { this->_seq = seq; }
     void set_as_ref() { _ref = true; }
@@ -88,6 +105,8 @@ class Graph {
     bool _ref = false; // Part of the reference sequence
     float _af = 1;
     long _id;
+
+    std::vector<std::bitset<32>> _indivs;
 
   };
 
@@ -174,37 +193,38 @@ class Graph {
 
   /**
    * const forward iterator to traverse the Graph topologically.
+   * All nodes are covered.
    */
-  class GraphIter {
+  class TopologicalIter {
 
    public:
-    GraphIter(const Graph &g) : _graph(g), _idx(0) { }
-    GraphIter(const Graph &g, long index) : _graph(g), _idx(index) { }
-    ~GraphIter() { }
+    TopologicalIter(const Graph &g) : _graph(g), _idx(0) { }
+    TopologicalIter(const Graph &g, long index) : _graph(g), _idx(index) { }
+    ~TopologicalIter() { }
 
-    GraphIter &operator=(const GraphIter &other) {
+    TopologicalIter &operator=(const TopologicalIter &other) {
       _idx = other._idx;
       return *this;
     }
 
-    bool operator==(const GraphIter &other) const {
+    bool operator==(const TopologicalIter &other) const {
       // Check if comparing like-graphs (weak check)
       if (other._graph._toposort != _graph._toposort) return false;
       return _idx == other._idx;
     }
 
-    bool operator!=(const GraphIter &other) const {
+    bool operator!=(const TopologicalIter &other) const {
       return _idx != other._idx;
     }
 
-    GraphIter &operator++() {
+    TopologicalIter &operator++() {
       if (_idx < _graph._toposort.size()) {
         _idx++;
       }
       return *this;
     }
 
-    GraphIter &operator--() {
+    TopologicalIter &operator--() {
       if (_idx > 0) {
         _idx--;
       }
@@ -221,18 +241,18 @@ class Graph {
   /**
    * Provides an iterator to a topological sorting of the Graph.
    */
-  GraphIter begin() const {
+  TopologicalIter begin() const {
     if (_toposort.size() == 0 && _IDMap->size() > 0) {
       throw std::logic_error("Graph must be finalized before iteration.");
     }
-    return GraphIter(*this);
+    return TopologicalIter(*this);
   }
 
   /**
    * Iterator to end of topological sorting.
    */
-  GraphIter end() const {
-    return GraphIter(*this, _toposort.size());
+  TopologicalIter end() const {
+    return TopologicalIter(*this, _toposort.size());
   }
 
  private:
@@ -406,14 +426,9 @@ TEST_CASE ("Graph class") {
         CHECK_NOTHROW(g.begin());
   }
 
-      SUBCASE("Cyclic Graph") {
-    g.add_edge(3, 1);
-        CHECK_THROWS(g.finalize());
-  }
-
       SUBCASE("Graph iterator") {
     // Node visit order should be topological
-    vargas::Graph::GraphIter i = g.begin();
+    vargas::Graph::TopologicalIter i = g.begin();
 
         CHECK(num_to_seq((*i).seq()) == "AAA");
     ++i;
@@ -453,7 +468,7 @@ TEST_CASE ("Graph class") {
 
       SUBCASE("REF graph") {
     vargas::Graph g2(g, vargas::Graph::REF);
-    vargas::Graph::GraphIter iter(g2);
+    vargas::Graph::TopologicalIter iter(g2);
 
         CHECK((*iter).seq_str() == "AAA");
     ++iter;
@@ -466,7 +481,7 @@ TEST_CASE ("Graph class") {
 
       SUBCASE("MAXAF graph") {
     vargas::Graph g2(g, vargas::Graph::MAXAF);
-    vargas::Graph::GraphIter iter(g2);
+    vargas::Graph::TopologicalIter iter(g2);
 
         CHECK((*iter).seq_str() == "AAA");
     ++iter;
@@ -522,13 +537,15 @@ class GraphBuilder {
   void build(Graph &g);
 
  protected:
-  void _build_edges(Graph &g, std::vector<int> &prev,
+  __attribute__((always_inline))
+  inline void _build_edges(Graph &g, std::vector<int> &prev,
                     std::vector<int> &curr);
 
-  int _build_linear(Graph &g, std::vector<int> &prev,
-                    std::vector<int> &curr,
-                    int pos,
-                    int target);
+  __attribute__((always_inline))
+  inline int _build_linear_ref(Graph &g, std::vector<int> &prev,
+                               std::vector<int> &curr,
+                               int pos,
+                               int target);
 
  private:
   std::string _fa_file, _vf_file;
@@ -635,7 +652,8 @@ TEST_CASE ("Graph Builder") {
 
     std::vector<bool> filter = {0, 0, 0, 1};
     vargas::Graph g2(g, filter);
-    vargas::Graph::GraphIter iter(g2);
+
+    vargas::Graph::TopologicalIter iter(g2);
 
         CHECK((*iter).seq_str() == "CAAAT");
     ++iter;
@@ -648,6 +666,7 @@ TEST_CASE ("Graph Builder") {
         CHECK((*iter).seq_str() == "C");
     ++iter;
         CHECK((*iter).seq_str() == "CC");
+
   }
 
 

@@ -27,7 +27,7 @@ set(MAIN_SOURCES
         src/samfile.cpp
         include/samfile.h
         include/fasta.h
-        include/varfile.h)
+        include/varfile.h include/dyn_bitset.h)
 
 set(GSSW_SOURCES
         gssw/src/gssw.h
@@ -84,8 +84,8 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse4 -std=c99")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++11")
 
 # Release options
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O2")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -O2")
 
 #Debug Options
 set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -pedantic -Wall -Wextra -Wno-unused-function -Wno-sign-compare")

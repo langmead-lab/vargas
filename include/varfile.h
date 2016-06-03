@@ -226,9 +226,10 @@ class VarFile {
    * @return vector of sequence names
    */
   std::vector<std::string> sequences() const {
-    if (!_header) return std::vector<std::string>();
+    if (!_header) return std::vector<std::string>(0);
     std::vector<std::string> ret;
     int num;
+    // As per htslib, only top level is freed.
     const char **seqnames = bcf_hdr_seqnames(_header, &num);
     if (!seqnames) {
       throw std::invalid_argument("Error reading VCF header.");
@@ -260,14 +261,14 @@ class VarFile {
   bool next() {
     if (!_header || !_bcf) return false;
     if (bcf_read(_bcf, _header, _curr_rec) < 0) return false;
-    unpack_shr();
+    unpack_all();
     // Check if its within the filter range
     if (_max_pos > 0 && _curr_rec->pos > _max_pos) return false;
     if (_curr_rec->pos < _min_pos ||
         (_chr.length() != 0 && strcmp(_chr.c_str(), bcf_hdr_id2name(_header, _curr_rec->rid)))) {
       return next();
     }
-    unpack_all();
+    // unpack_all();
     return true;
   }
 
@@ -327,7 +328,7 @@ class VarFile {
 
     // Map of which indivs have each allele
     _genotype_indivs.clear();
-    for (auto allele : alleles()) {
+    for (auto &allele : alleles()) {
       _genotype_indivs[allele] = std::vector<bool>(_genotypes.size(), false);
     }
     for (int s = 0; s < _genotypes.size(); ++s) {
@@ -455,6 +456,7 @@ class VarFile {
 
     _bcf = bcf_open(_file_name.c_str(), "r");
     if (!_bcf) return -1;
+
     _header = bcf_hdr_read(_bcf);
     if (!_header) return -2;
 

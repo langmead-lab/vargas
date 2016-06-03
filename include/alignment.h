@@ -11,9 +11,11 @@
 #ifndef VARGAS_ALIGNMENT_H
 #define VARGAS_ALIGNMENT_H
 
+#include <cstdio>
 #include "readsource.h"
 #include "utils.h"
 #include "simdpp/simd.h"
+#include "readfile.h"
 
 
 namespace vargas {
@@ -107,16 +109,56 @@ class BatchAligner {
   BatchAligner() { }
 
   //private:
-  simdpp::uint8<block_size> _packaged_reads = NULL;
+  std::vector<simdpp::uint8<block_size>> _packaged_reads;
 
   void _package_reads(const std::vector<Read> &reads) {
-    // TODO optimize
+    _packaged_reads.resize(reads[0].read_num.size());
+    if (_packaged_reads.size() < block_size) throw std::invalid_argument("Underfull batch.");
+    for (unsigned int r = 0; r < reads.size(); ++r) {
+      for (unsigned int p = 0; p < _packaged_reads.size();
+           ++p) { ;//  *_packaged_reads[p] + r = (unsigned int) reads[r].read_num[p];
+      }
+    }
   }
 
 };
 TEST_CASE ("Batch Aligner") {
-  simdpp::aligned_allocator<simdpp::uint8<4>, 4> a;
-  simdpp::uint8<4> *_packaged_reads = a.allocate(4);
+  {
+    srand(12345);
+    std::ofstream rfile("rds_tc.reads");
+    for (int i = 0; i < 32; ++i) {
+      for (int c = 0; c < 64; ++c) {
+        switch (rand() % 5) {
+          case 0:
+            rfile << "A";
+            break;
+          case 1:
+            rfile << "C";
+            break;
+          case 2:
+            rfile << "G";
+            break;
+          case 3:
+            rfile << "T";
+            break;
+          default:
+            rfile << "N";
+            break;
+        }
+      }
+      rfile << std::endl;
+    }
+  }
+
+      SUBCASE ("packaging") {
+    vargas::ReadFile rf("rds_tc.reads");
+    auto reads = rf.get_batch(16);
+    BatchAligner<16> ba;
+    ba._package_reads(reads);
+  }
+
+  std::remove("rds_tc.reads");
+
 }
 
 }

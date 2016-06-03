@@ -25,6 +25,7 @@ typedef unsigned char uchar;
  * @param c character
  * @return numeral representation
  */
+__attribute__((always_inline))
 inline uchar base_to_num(char c) {
   switch (c) {
     case 'A':
@@ -50,6 +51,7 @@ inline uchar base_to_num(char c) {
  * @param num numeric form
  * @return char in [A,C,G,T,N]
  */
+__attribute__((always_inline))
 inline char num_to_base(uchar num) {
   switch (num) {
     case 0:
@@ -70,6 +72,7 @@ inline char num_to_base(uchar num) {
  * @param seq Sequence string
  * @return vector of numerals
  */
+__attribute__((always_inline))
 inline std::vector<uchar> seq_to_num(const std::string &seq) {
   std::vector<uchar> num(seq.length());
   std::transform(seq.begin(), seq.end(), num.begin(), base_to_num);
@@ -90,6 +93,7 @@ TEST_CASE ("Sequence to Numeric") {
  * @param num Numeric vector
  * @return sequence string, Sigma={A,G,T,C,N}
  */
+__attribute__((always_inline))
 inline std::string num_to_seq(const std::vector<uchar> &num) {
   std::stringstream builder;
   for (auto &n : num) {
