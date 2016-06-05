@@ -15,41 +15,6 @@
 
 
 int main(const int argc, const char *argv[]) {
-//
-//  std::clock_t start;
-//  std::cout << "Initial Build: ";
-//  start = std::clock();
-//
-//  vargas::GraphBuilder gb("hs37d5_22.fa", "chr22.bcf");
-//  gb.region("22:0-0");
-//  gb.ingroup(100);
-//  vargas::Graph g;
-//  gb.build(g);
-//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-//  std::cout << g.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
-//
-//  srand(time(NULL));
-//  std::vector<bool> filter;
-//  for (int i = 0; i < g.pop_size(); ++i) filter.push_back(rand() % 100 > 95);
-//  std::cout << "FILTER: ";
-//  start = std::clock();
-//  vargas::Graph g1(g, filter);
-//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-//  std::cout << g1.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
-//
-//  std::cout << "REF: ";
-//  start = std::clock();
-//  vargas::Graph g2(g, vargas::Graph::REF);
-//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-//  std::cout << g2.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
-//
-//  std::cout << "MAXAF: ";
-//  start = std::clock();
-//  vargas::Graph g3(g, vargas::Graph::MAXAF);
-//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-//  std::cout << g3.next_map().size() << ":" << (*(g.begin())).end() << ", " << (*(--g.end())).end() << std::endl;
-//
-//  return 0;
 
   GetOpt::GetOpt_pp args(argc, argv);
 
@@ -517,3 +482,81 @@ void printStatHelp() {
 }
 
 */
+
+//TEST_CASE ("Profiling") {
+//  srand(time(NULL));
+//  std::clock_t start;
+//  std::cout << std::endl << "-------------------------Speed profiles-------------------------"
+//      << std::endl << "Initial Build, 1Mbp: ";
+//  start = std::clock();
+//
+//  vargas::GraphBuilder gb("hs37d5_22.fa", "chr22.bcf");
+//  gb.region("22:25,000,000-25,001,000");
+//  gb.ingroup(100);
+//  vargas::Graph g;
+//  gb.build(g);
+//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+//
+//  {
+//    std::vector<bool> filter;
+//    for (int i = 0; i < g.pop_size(); ++i) filter.push_back(rand() % 100 > 95);
+//    std::cout << "FILTER constructor: ";
+//    start = std::clock();
+//    vargas::Graph g1(g, filter);
+//    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+//  }
+//
+//  {
+//    std::cout << "REF constructor: ";
+//    start = std::clock();
+//    vargas::Graph g2(g, vargas::Graph::REF);
+//    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+//  }
+//
+//  {
+//    std::cout << "MAXAF constructor: ";
+//    start = std::clock();
+//    vargas::Graph g3(g, vargas::Graph::MAXAF);
+//    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+//  }
+//
+//  size_t num = 0;
+//
+//  std::cout << "Topographical traversal: ";
+//  start = std::clock();
+//  for (auto i = g.begin(); i != g.end(); ++i) {
+//    num++;
+//  }
+//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+//
+//
+//  num = 0;
+//  std::cout << "Filtering traversal: ";
+//  vargas::Graph::Population filter(g.pop_size(), false);
+//  for (int i = 0; i < g.pop_size(); ++i) {
+//    if (rand() % 100 < 5) filter.set(i);
+//  }
+//  start = std::clock();
+//  for (auto i = g.fbegin(filter); i != g.fend(); ++i) {
+//    num++;
+//  }
+//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+//
+//  num = 0;
+//  std::cout << "REF traversal: ";
+//  start = std::clock();
+//  for (auto i = g.fbegin(vargas::Graph::REF); i != g.fend(); ++i) {
+//    num++;
+//  }
+//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+//
+//  num = 0;
+//  std::cout << "MAXAF traversal: ";
+//  start = std::clock();
+//  for (auto i = g.fbegin(vargas::Graph::MAXAF); i != g.fend(); ++i) {
+//    num++;
+//  }
+//  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " <<
+//      num << std::endl << std::endl;
+//
+//}

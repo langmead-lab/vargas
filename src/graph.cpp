@@ -189,7 +189,9 @@ std::string vargas::Graph::to_DOT(std::string name) const {
   dot << "// Each node has the sequence, followed by end_pos,allele_freq\n";
   dot << "digraph " << name << " {\n";
   for (auto n : *_IDMap) {
-    dot << n.second->id() << "[label=\"" << n.second->seq_str() << "\n" << n.second->end() << "," << n.second->freq()
+    dot << n.second->id() << "[label=\"" << n.second->seq_str()
+        << "\nPOS:" << n.second->end() << ", AF:" << n.second->freq() << ", REF:" << n.second->is_ref()
+        << "\n[" << n.second->individuals().to_string() << "]"
         << "\"];\n";
   }
   for (auto &n : _next_map) {

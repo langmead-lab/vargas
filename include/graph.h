@@ -441,10 +441,39 @@ namespace vargas {
 
               // for parallel nodes
               if (!_queue.empty()) {
-                  for (long nextID : _graph._next_map.at(_currID)) {
-                      if (_queue_unique.count(nextID) == 0) {
-                          _queue_unique.insert(nextID);
-                          _queue.push(nextID);
+                  // MAXAF is a distinct case since we need to look at all next nodes to make
+                  // the decision.
+                  if (_type == MAXAF) {
+                      const std::vector<long> &next_curr = _graph.next_map().at(_currID);
+                      long max_idx = 0;
+                      float max_af = _graph._IDMap->at(next_curr.at(0))->freq();
+                      for (int i = 1; i < next_curr.size(); ++i) {
+                          if (_graph._IDMap->at(next_curr.at(i))->freq() > max_af) {
+                              max_af =
+                          }
+                      }
+                  } else {
+                      for (long nextID : _graph._next_map.at(_currID)) {
+                          if (_queue_unique.count(nextID) == 0) {
+                              //TODO !!!!!!!!!! NEED TO CHECK BELONGS !!!!!!!!!!!!!!!!!!!!
+                              switch (_type) {
+                                  case REF:
+                                      if (_graph._IDMap->at(nextID)->is_ref()) {
+                                          _queue_unique.insert(nextID);
+                                          _queue.push(nextID);
+                                      }
+                                      break;
+                                  case FILTER:
+                                      if (_graph._IDMap->at(nextID)->belongs(_filter)) {
+                                          _queue_unique.insert(nextID);
+                                          _queue.push(nextID);
+                                      }
+                                      break;
+                                  case MAXAF:
+                                      throw std::logic_error("Case should never trigger");
+                                      break;
+                              }
+                          }
                       }
                   }
                   _currID = _queue.front();
@@ -681,6 +710,7 @@ namespace vargas {
           std::vector<bool> a = {0, 1, 1};
           n.set_population(a);
           n.set_seq("TTT");
+          n.set_af(0.3);
           g.add_node(n);
       }
 
@@ -716,59 +746,103 @@ namespace vargas {
               CHECK(num_to_seq(g.node(3).seq()) == "TTT");
       }
 
-          SUBCASE("Filtering Ierator") {
-          Graph::Population filter(3, false);
-          filter.set(2);
-          vargas::Graph::FilteringIter i = g.fbegin(filter);
-              CHECK(num_to_seq((*i).seq()) == "AAA");
-          ++i;
-              CHECK(num_to_seq((*i).seq()) == "CCC");
-          ++i;
-              CHECK(num_to_seq((*i).seq()) == "TTT");
-          ++i;
-              CHECK(i == g.fend());
-      }
+          SUBCASE("Filtering iterators") {
+          /**         (ref)
+           *     GGG   TTT
+           *    /   \ /   \
+           * AAA     \     CCA
+           *    \   / \   /
+           *     CCC   ACA
+           *    (ref)
+           */
+          {
+              vargas::Graph::Node n;
+              std::vector<bool> pop = {1, 0, 0};
+              n.set_population(pop);
+              n.set_af(0.7);
+              n.set_seq("ACA");
+              n.set_endpos(9);
+              n.set_not_ref();
+              g.add_node(n);
+              g.add_edge(1, 4);
+              g.add_edge(2, 4);
+          }
+          {
+              vargas::Graph::Node n;
+              std::vector<bool> pop = {1, 1, 1};
+              n.set_population(pop);
+              n.set_af(1);
+              n.set_seq("CCA");
+              n.set_endpos(12);
+              n.set_as_ref();
+              g.add_node(n);
+              g.add_edge(3, 5);
+              g.add_edge(4, 5);
+          }
+          g.to_DOT("tmp.dot", "g");
 
-          SUBCASE("Filtering Ierator #2") {
-          Graph::Population filter(3, false);
-          filter.set(2);
-          filter.set(1);
-          vargas::Graph::FilteringIter i = g.fbegin(filter);
-              CHECK(num_to_seq((*i).seq()) == "AAA");
-          ++i;
-          // Order of these two don't matter
-          bool mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
-              CHECK(mid);
-          ++i;
-          mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
-              CHECK(mid);
+              SUBCASE("Filtering Iterator") {
+              Graph::Population filter(3, false);
+              filter.set(2);
+              vargas::Graph::FilteringIter i = g.fbegin(filter);
+                  CHECK(num_to_seq((*i).seq()) == "AAA");
+              ++i;
+                  CHECK(num_to_seq((*i).seq()) == "CCC");
+              ++i;
+                  CHECK(num_to_seq((*i).seq()) == "TTT");
+              ++i;
+                  CHECK(num_to_seq((*i).seq()) == "CCA");
+              ++i;
+                  CHECK(i == g.fend());
+          }
 
-          ++i;
-              CHECK(num_to_seq((*i).seq()) == "TTT");
-          ++i;
-              CHECK(i == g.fend());
-      }
+              SUBCASE("Filtering Ierator #2") {
+              Graph::Population filter(3, false);
+              filter.set(2);
+              filter.set(1);
+              vargas::Graph::FilteringIter i = g.fbegin(filter);
+                  CHECK(num_to_seq((*i).seq()) == "AAA");
+              ++i;
+              // Order of these two don't matter
+              bool mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
+                  CHECK(mid);
+              ++i;
+              mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
+                  CHECK(mid);
 
-          SUBCASE("Filtering Ierator: REF") {
-          vargas::Graph::FilteringIter i = g.fbegin(Graph::REF);
-              CHECK(num_to_seq((*i).seq()) == "AAA");
-          ++i;
-              CHECK(num_to_seq((*i).seq()) == "CCC");
-          ++i;
-              CHECK(num_to_seq((*i).seq()) == "TTT");
-          ++i;
-              CHECK(i == g.fend());
-      }
+              ++i;
+                  CHECK(num_to_seq((*i).seq()) == "TTT");
+              ++i;
+                  CHECK(num_to_seq((*i).seq()) == "CCA");
+              ++i;
+                  CHECK(i == g.fend());
+          }
 
-          SUBCASE("Filtering Ierator: MAXAF") {
-          vargas::Graph::FilteringIter i = g.fbegin(Graph::MAXAF);
-              CHECK(num_to_seq((*i).seq()) == "AAA");
-          ++i;
-              CHECK(num_to_seq((*i).seq()) == "GGG");
-          ++i;
-              CHECK(num_to_seq((*i).seq()) == "TTT");
-          ++i;
-              CHECK(i == g.fend());
+              SUBCASE("Filtering Ierator: REF") {
+              vargas::Graph::FilteringIter i = g.fbegin(Graph::REF);
+                  CHECK(num_to_seq((*i).seq()) == "AAA");
+              ++i;
+                  CHECK(num_to_seq((*i).seq()) == "CCC");
+              ++i;
+                  CHECK(num_to_seq((*i).seq()) == "TTT");
+              ++i;
+                  CHECK(num_to_seq((*i).seq()) == "CCA");
+              ++i;
+                  CHECK(i == g.fend());
+          }
+
+              SUBCASE("Filtering Ierator: MAXAF") {
+              vargas::Graph::FilteringIter i = g.fbegin(Graph::MAXAF);
+                  CHECK(num_to_seq((*i).seq()) == "AAA");
+              ++i;
+                  CHECK(num_to_seq((*i).seq()) == "GGG");
+              ++i;
+                  CHECK(num_to_seq((*i).seq()) == "ACA");
+              ++i;
+                  CHECK(num_to_seq((*i).seq()) == "CCA");
+              ++i;
+                  CHECK(i == g.fend());
+          }
       }
 
           SUBCASE("Topographical invalidation") {
