@@ -33,7 +33,6 @@ class dyn_bitset {
       }
       _right_pad = (_bitset.size() * core_size) - len;
     };
-    dyn_bitset(const dyn_bitset &db) : _bitset(db._bitset), _right_pad(db._right_pad) { }
 
   /**
    * Create a dyn_bitset from a vector. Each bit is

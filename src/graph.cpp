@@ -222,8 +222,7 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
   std::vector<int> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
   std::vector<int> curr_unconnected; // ID's of nodes added that are unconnected
 
-  const auto sample_size = _vf.samples().size();
-  g.set_popsize(sample_size);
+  g.set_popsize(_vf.samples().size() * 2);
 
   while (_vf.next()) {
     _vf.genotypes();

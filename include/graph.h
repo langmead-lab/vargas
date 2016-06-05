@@ -391,37 +391,32 @@ namespace vargas {
            * @param g graph
            * @param filter Popultion the node is checked against
            */
-          FilteringIter(const Graph &g, Population filter) : _graph(g), _filter(filter) { }
+          explicit FilteringIter(const Graph &g, const Population &filter) : _graph(g), _filter(filter) { }
 
           /**
            * Traverse a linear subgraph
            * @param g graph
            * @param type one of Graph::MAXAF, Graph::REF
            */
-          FilteringIter(const Graph &g, Graph::Type type) : _graph(g), _type(type) { }
+          explicit FilteringIter(const Graph &g, Graph::Type type) : _graph(g), _type(type) { }
 
           /**
            * Create an iterator to the end.
            * @param g graph
            * @param end should be true. When false, undefined.
            */
-          FilteringIter(const Graph &g, bool end) : _graph(g), _end(end) { }
-
-          FilteringIter &operator=(const FilteringIter &other) {
-              _currID = other._currID;
-              _type = other._type;
-              return *this;
-          }
+          explicit FilteringIter(const Graph &g, bool end) : _graph(g), _end(end) { }
 
           bool operator==(const FilteringIter &other) const {
-              if (&_graph != &other._graph) return false;
               if (_end && other._end) return true;
+              if (&_graph != &other._graph) return false;
               return _currID == other._currID;
           }
 
           bool operator!=(const FilteringIter &other) const {
+              if (_end ^ other._end) return true;
+              if (_end && other._end) return false;
               if (&_graph != &other._graph) return true;
-              if (_end != other._end) return true;
               return _currID != other._currID;
           }
 
@@ -432,109 +427,76 @@ namespace vargas {
           FilteringIter &operator++() {
               // If end of graph has been reached
               if (_end) return *this;
-
-              // found the end
-              if (_graph._next_map.count(_currID) == 0 || _graph._next_map.at(_currID).size() == 0) {
+              if (_graph._next_map.count(_currID) == 0) {
                   _end = true;
                   return *this;
               }
 
-              // for parallel nodes
-              if (!_queue.empty()) {
-                  // MAXAF is a distinct case since we need to look at all next nodes to make
-                  // the decision.
-                  if (_type == MAXAF) {
-                      const std::vector<long> &next_curr = _graph.next_map().at(_currID);
-                      long max_idx = 0;
-                      float max_af = _graph._IDMap->at(next_curr.at(0))->freq();
-                      for (int i = 1; i < next_curr.size(); ++i) {
-                          if (_graph._IDMap->at(next_curr.at(i))->freq() > max_af) {
-                              max_af =
+              const auto &next_vec = _graph._next_map.at(_currID);
+              const auto &graph_map = *(_graph._IDMap);
+
+              switch (_type) {
+                  case REF:
+                      for (long nextID : next_vec) {
+                          if (graph_map.at(nextID)->is_ref()) {
+                              _insert_queue(nextID);
+                              break;
                           }
                       }
-                  } else {
-                      for (long nextID : _graph._next_map.at(_currID)) {
-                          if (_queue_unique.count(nextID) == 0) {
-                              //TODO !!!!!!!!!! NEED TO CHECK BELONGS !!!!!!!!!!!!!!!!!!!!
-                              switch (_type) {
-                                  case REF:
-                                      if (_graph._IDMap->at(nextID)->is_ref()) {
-                                          _queue_unique.insert(nextID);
-                                          _queue.push(nextID);
-                                      }
-                                      break;
-                                  case FILTER:
-                                      if (_graph._IDMap->at(nextID)->belongs(_filter)) {
-                                          _queue_unique.insert(nextID);
-                                          _queue.push(nextID);
-                                      }
-                                      break;
-                                  case MAXAF:
-                                      throw std::logic_error("Case should never trigger");
-                                      break;
-                              }
+                      break;
+
+                  case FILTER:
+                      for (long nextID : next_vec) {
+                          if (graph_map.at(nextID)->belongs(_filter)) _insert_queue(nextID);
+                      }
+                      break;
+
+                  case MAXAF: {
+                      long max_id = graph_map.at(next_vec.at(0))->id();
+                      float max_af = graph_map.at(next_vec.at(0))->freq();
+                      float freq;
+                      for (int i = 1; i < next_vec.size(); ++i) {
+                          freq = graph_map.at(next_vec.at(i))->freq();
+                          if (freq > max_af) {
+                              max_af = freq;
+                              max_id = graph_map.at(next_vec.at(i))->id();
                           }
                       }
+                      _insert_queue(max_id);
                   }
-                  _currID = _queue.front();
-                  _queue.pop();
-                  _queue_unique.erase(_currID);
+                      break;
+
+                  default:
+                      throw std::logic_error("Invalid type.");
+                      break;
+              }
+
+
+              if (_queue.empty()) {
+                  _end = true;
                   return *this;
               }
 
-              // If there is only one next node, go to it
-              if (_graph._next_map.at(_currID).size() == 1) {
-                  _currID = _graph._next_map.at(_currID).at(0);
-              }
-
-                  // REF, assumes only one next ref node for each branch
-              else if (_type == REF) {
-                  for (long id : _graph._next_map.at(_currID)) {
-                      if (_graph._IDMap->at(id)->is_ref()) _currID = id;
-                      return *this;
-                  }
-                  throw std::range_error("No reference node found at branch.");
-              }
-
-                  // max allele freq node
-              else if (_type == MAXAF) {
-                  const std::vector<long> &next = _graph._next_map.at(_currID);
-                  float maxAF = _graph._IDMap->at(next[0])->freq(); //outer check ensures that vector.size >= 1
-                  long maxID = 0;
-
-                  for (size_t i = 1; i < next.size(); ++i) {
-                      const float &af = _graph._IDMap->at(next[i])->freq();
-                      if (af > maxAF) {
-                          maxAF = af;
-                          maxID = next[i];
-                      }
-                  }
-                  _currID = maxID;
-              }
-
-                  // population filter
-              else {
-                  const std::vector<long> &next = _graph._next_map.at(_currID);
-                  for (long nextID : next) {
-                      if (_graph._IDMap->at(nextID)->belongs(_filter) && _queue_unique.count(nextID) == 0) {
-                          _queue_unique.insert(nextID);
-                          _queue.push(nextID);
-                      }
-                  }
-
-                  if (_queue.empty()) {
-                      _end = true;
-                  } else {
-                      _currID = _queue.front();
-                      _queue.pop();
-                      _queue_unique.erase(_currID);
-                  }
-              }
+              _currID = _queue.front();
+              _queue.pop();
+              _queue_unique.erase(_currID);
 
               return *this;
           }
 
+          /**
+           * Inserts the ID into the queue if its unique.
+           * @param id node id to insert
+           */
+          inline void _insert_queue(long id) {
+              if (_queue_unique.count(id) == 0) {
+                  _queue_unique.insert(id);
+                  _queue.push(id);
+              }
+          }
+
           const Graph::Node &operator*() const { return *(_graph._IDMap->at(_currID)); }
+
 
         private:
           const Graph &_graph;
@@ -932,6 +894,10 @@ namespace vargas {
                 std::string vcf) {
           _fa_file = ref;
           _vf_file = vcf;
+      }
+
+      bool good() const {
+          return !_fa.good() || !_vf.good();
       }
 
       void region(std::string region) {

@@ -192,6 +192,10 @@ class VarFile {
     _min_pos = std::stoi(regionSplit[0]);
     _max_pos = std::stoi(regionSplit[1]);
 
+    if (_min_pos > _max_pos) {
+      throw std::invalid_argument("Invalid region.");
+    }
+
   }
 
   /**
