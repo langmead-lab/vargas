@@ -33,6 +33,7 @@ bool vargas::ReadFile::update_read() {
     read.indel_err = -1;
     read.var_nodes = -1;
     read.var_bases = -1;
+    read.read_num = seq_to_num(line);
   } else {
     read.read = line.substr(0, delim);
     split(line.substr(delim + 1), ',', _split_meta);

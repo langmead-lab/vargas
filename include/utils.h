@@ -19,6 +19,7 @@
 #include "doctest/doctest.h"
 
 typedef unsigned char uchar;
+enum class Base: uchar { A = 1, C, G, T, N };
 
 /**
  * Converts a character to a numeral representation.
@@ -26,22 +27,22 @@ typedef unsigned char uchar;
  * @return numeral representation
  */
 __attribute__((always_inline))
-inline uchar base_to_num(char c) {
+inline Base base_to_num(char c) {
   switch (c) {
     case 'A':
     case 'a':
-      return 0;
+      return Base::A;
     case 'C':
     case 'c':
-      return 1;
+      return Base::C;
     case 'G':
     case 'g':
-      return 2;
+      return Base::G;
     case 'T':
     case 't':
-      return 3;
+      return Base::T;
     default:
-      return 4;
+      return Base::N;
   }
 }
 
@@ -52,15 +53,15 @@ inline uchar base_to_num(char c) {
  * @return char in [A,C,G,T,N]
  */
 __attribute__((always_inline))
-inline char num_to_base(uchar num) {
+inline char num_to_base(Base num) {
   switch (num) {
-    case 0:
+    case Base::A:
       return 'A';
-    case 1:
+    case Base::C:
       return 'C';
-    case 2:
+    case Base::G:
       return 'G';
-    case 3:
+    case Base::T:
       return 'T';
     default:
       return 'N';
@@ -73,19 +74,20 @@ inline char num_to_base(uchar num) {
  * @return vector of numerals
  */
 __attribute__((always_inline))
-inline std::vector<uchar> seq_to_num(const std::string &seq) {
-  std::vector<uchar> num(seq.length());
+inline std::vector<Base> seq_to_num(const std::string &seq) {
+  std::vector<Base> num(seq.length());
   std::transform(seq.begin(), seq.end(), num.begin(), base_to_num);
   return num;
 }
+
 TEST_CASE ("Sequence to Numeric") {
-  std::vector<uchar> a = seq_to_num("ACGTN");
+  std::vector<Base> a = seq_to_num("ACGTN");
       REQUIRE(a.size() == 5);
-      CHECK(a[0] == 0);
-      CHECK(a[1] == 1);
-      CHECK(a[2] == 2);
-      CHECK(a[3] == 3);
-      CHECK(a[4] == 4);
+      CHECK(a[0] == Base::A);
+      CHECK(a[1] == Base::C);
+      CHECK(a[2] == Base::G);
+      CHECK(a[3] == Base::T);
+      CHECK(a[4] == Base::N);
 }
 
 /**
@@ -94,15 +96,16 @@ TEST_CASE ("Sequence to Numeric") {
  * @return sequence string, Sigma={A,G,T,C,N}
  */
 __attribute__((always_inline))
-inline std::string num_to_seq(const std::vector<uchar> &num) {
+inline std::string num_to_seq(const std::vector<Base> &num) {
   std::stringstream builder;
   for (auto &n : num) {
     builder << num_to_base(n);
   }
   return builder.str();
 }
+
 TEST_CASE ("Numeric to Sequence") {
-  std::string a = num_to_seq({0, 1, 2, 3, 4});
+  std::string a = num_to_seq({Base::A, Base::C, Base::G, Base::T, Base::N});
       REQUIRE(a.length() == 5);
       CHECK(a[0] == 'A');
       CHECK(a[1] == 'C');
@@ -132,13 +135,10 @@ std::vector<std::string> split(const std::string &s, char delim);
 void split(const std::string &s, char delim, std::vector<std::string> &vec);
 
 
-inline void printEncodedVec(std::ostream &os, const std::vector<uint32_t> &vec, vargas::Xcoder &x) {
-  if (vec.size() == 0) return;
-  os << ':';
-  os << x.compressAndEncode(vec);
+inline bool file_exists(std::string filename) {
+  std::ifstream f(filename);
+  return f.good();
 }
-
-std::string getLastLine(std::ifstream& in);
 
 
 #endif //VARGAS_UTILS_H

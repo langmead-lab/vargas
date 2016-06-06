@@ -1,4 +1,4 @@
-# Variant Genome BatchAligner/Simulator
+# Variant Genome ReadBatch/Simulator
 Vargas uses gssw to align reads to a partial order Graph without traceback. Alignment information is given as the ending position of the best score, as well as a suboptimal alignment score. There are four main modes of operation.
 
 ###Basic Structure

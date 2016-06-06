@@ -101,7 +101,7 @@ namespace vargas {
            * Sequence as a vector of unsigned chars.
            * @return seq
            */
-          const std::vector<uchar> &seq() const { return _seq; }
+          const std::vector<Base> &seq() const { return _seq; }
 
           /**
            * Sequence is stored numerically. Return as a string.
@@ -188,7 +188,7 @@ namespace vargas {
            * Set the stored node sequence
            * @param seq
            */
-          void set_seq(std::vector<uchar> &seq) { this->_seq = seq; }
+          void set_seq(std::vector<Base> &seq) { this->_seq = seq; }
 
           /**
            * Sets the node as a reference node, and sets all bits in the population.
@@ -211,7 +211,7 @@ namespace vargas {
 
         private:
           int _endPos; // End position of the sequence
-          std::vector<uchar> _seq; // sequence in numeric form
+          std::vector<Base> _seq; // sequence in numeric form
           Population _individuals; // Each bit marks an individual, 1 if they have this node
           bool _ref = false; // Part of the reference sequence if true
           float _af = 1;
@@ -230,6 +230,8 @@ namespace vargas {
        * Create a Graph with another Graph and a population filter. The new Graph will only
        * contain nodes if any of the individuals in filter possess the node. The actual nodes
        * are shared_ptr's to the parent Graph, as to prevent duplication of Nodes.
+       * This constructor is slow for large graphs, when possible a filtering iterator should be
+       * used instead.
        * @param g Graph to derive the new Graph from
        * @param filter population filter, only include nodes representative of this population
        */
@@ -241,6 +243,8 @@ namespace vargas {
        * Graph::REF, or Graph::MAXAF
        * The former keeps reference nodes, the later picks the node with the highest allele
        * frequency. Both result in linear graphs.
+       * This constructor is slow for large graphs, when possible a filtering iterator should be
+       * used instead.
        * @param g Graph to derive from
        * @aram t one of Graph::REF, Graph::MAXAF
        */
@@ -262,6 +266,7 @@ namespace vargas {
 
       /**
        * Create an edge linking two nodes. Previous and Next edges are added.
+       * n1->n2
        * @param n1 Node one ID
        * @param n2 Node two ID
        */
@@ -288,11 +293,22 @@ namespace vargas {
        */
       long root() const { return _root; }
 
-      // const reference to maps
+      // Maps a node ID to the shared node object
       const std::shared_ptr<std::unordered_map<long, nodeptr>> &node_map() const { return _IDMap; }
+      // Maps a node ID to a vector of all next nodes (outgoing edges)
       const std::unordered_map<long, std::vector<long>> &next_map() const { return _next_map; }
+      // Maps a node ID to a vector of all incoming edge nodes
       const std::unordered_map<long, std::vector<long>> &prev_map() const { return _prev_map; }
-      const Node &node(long id) const { return *(*_IDMap)[id]; }
+
+      /**
+       * Const reference to a node
+       * @param ID of the node
+       * @return shared node object
+       */
+      const Node &node(long id) const {
+          if (_IDMap->count(id) == 0) throw std::invalid_argument("Invalid Node ID.");
+          return *(*_IDMap).at(id);
+      }
 
       /**
        * @return description of graph
@@ -301,14 +317,14 @@ namespace vargas {
 
       /**
        * Exports the graph in DOT format.
-       * @param name graph name
+       * @param graph name
        */
       std::string to_DOT(std::string name = "g") const;
 
       /**
        * Export the graph in DOT format
-       * @param filename export to file
-       * @param name graph name
+       * @param filename to export to
+       * @param name of the graph
        */
       void to_DOT(std::string filename, std::string name) {
           std::ofstream out(filename);
@@ -328,10 +344,16 @@ namespace vargas {
       int pop_size() const { return _pop_size; }
 
       /**
-       * const forward iterator to traverse the Graph topologically.
-       * All nodes are covered in the order they were inserted.
+       * Provides a parent so we can easily use both iterator types with an aligner.
        */
-      class TopologicalIter {
+      class ConstForwardIter { };
+
+      /**
+       * const forward iterator to traverse the Graph topologically.
+       * All nodes are covered in the order they were inserted, including
+       * nodes with no edges.
+       */
+      class TopologicalIter: ConstForwardIter {
 
         public:
           TopologicalIter(const Graph &g) : _graph(g), _idx(0) { }
@@ -379,22 +401,23 @@ namespace vargas {
        * When incrementing the iterator, only nodes that match a condition will
        * return.
        * Options include:
-       * Filtering: Provided a population, a node is returned if there is an interseciton
+       * Filtering: Provided a population, a node is returned if there is an intersection
        * REF: Only return reference nodes
        * MAXAF: Return the node with the highest allele frequency.
        */
-      class FilteringIter {
+      class FilteringIter: ConstForwardIter {
         public:
           /**
            * Traverse nodes when filter has at least one individual in common with the
-           * node population. BEG is implied.
+           * node population.
            * @param g graph
-           * @param filter Popultion the node is checked against
+           * @param filter Population the node is checked against. If there is an intersection,
+           * the node is returned.
            */
           explicit FilteringIter(const Graph &g, const Population &filter) : _graph(g), _filter(filter) { }
 
           /**
-           * Traverse a linear subgraph
+           * Traverse a linear subgraph.
            * @param g graph
            * @param type one of Graph::MAXAF, Graph::REF
            */
@@ -403,16 +426,25 @@ namespace vargas {
           /**
            * Create an iterator to the end.
            * @param g graph
-           * @param end should be true. When false, undefined.
+           * @param end should be true
            */
-          explicit FilteringIter(const Graph &g, bool end) : _graph(g), _end(end) { }
+          explicit FilteringIter(const Graph &g, bool end = true) : _graph(g), _end(end) { }
 
+          /**
+           * @return true when underlying graph address is the same and current node ID's
+           * are the same. Two end iterators always compare equal.
+           */
           bool operator==(const FilteringIter &other) const {
               if (_end && other._end) return true;
               if (&_graph != &other._graph) return false;
               return _currID == other._currID;
           }
 
+          /**
+           * @return true when current node ID's are not the same or if the
+           * underlying graph is not the same. Two end iterators always compare
+           * false.
+           */
           bool operator!=(const FilteringIter &other) const {
               if (_end ^ other._end) return true;
               if (_end && other._end) return false;
@@ -423,6 +455,7 @@ namespace vargas {
           /**
            * Goes to next node. Nodes are only included if it satisfies the filter.
            * Once the end of the graph is reached, _end is set.
+           * @return iterator to the next node.
            */
           FilteringIter &operator++() {
               // If end of graph has been reached
@@ -440,13 +473,14 @@ namespace vargas {
                       for (long nextID : next_vec) {
                           if (graph_map.at(nextID)->is_ref()) {
                               _insert_queue(nextID);
-                              break;
+                              break; // Assuming there is only one REF node per branch
                           }
                       }
                       break;
 
                   case FILTER:
                       for (long nextID : next_vec) {
+                          // Add all nodes that intersect with filter
                           if (graph_map.at(nextID)->belongs(_filter)) _insert_queue(nextID);
                       }
                       break;
@@ -455,7 +489,7 @@ namespace vargas {
                       long max_id = graph_map.at(next_vec.at(0))->id();
                       float max_af = graph_map.at(next_vec.at(0))->freq();
                       float freq;
-                      for (int i = 1; i < next_vec.size(); ++i) {
+                      for (size_t i = 1; i < next_vec.size(); ++i) {
                           freq = graph_map.at(next_vec.at(i))->freq();
                           if (freq > max_af) {
                               max_af = freq;
@@ -480,14 +514,14 @@ namespace vargas {
               _currID = _queue.front();
               _queue.pop();
               _queue_unique.erase(_currID);
-
               return *this;
           }
 
           /**
-           * Inserts the ID into the queue if its unique.
+           * Inserts the ID into the queue if it's unique.
            * @param id node id to insert
            */
+          __attribute__((always_inline))
           inline void _insert_queue(long id) {
               if (_queue_unique.count(id) == 0) {
                   _queue_unique.insert(id);
@@ -495,13 +529,17 @@ namespace vargas {
               }
           }
 
+          /**
+           * Const reference to the current node.
+           * @return Node
+           */
           const Graph::Node &operator*() const { return *(_graph._IDMap->at(_currID)); }
 
 
         private:
-          const Graph &_graph;
-          Population _filter;
-          Graph::Type _type = FILTER;
+          const Graph &_graph; // Underlying graph
+          Population _filter; // Nodes that intersect with _filter are included if _type == FILTER
+          Graph::Type _type = FILTER; // Set to MAXAF or REF for linear subgraph traversals
           long _currID = _graph.root();
           std::queue<long> _queue;
           std::unordered_set<long> _queue_unique; // Used to make sure we don't repeat nodes
@@ -511,6 +549,7 @@ namespace vargas {
 
       /**
        * Provides an iterator to a topological sorting of the Graph.
+       * @return reference to the root node.
        */
       TopologicalIter begin() const {
           if (_toposort.size() == 0 && _IDMap->size() > 0) {
@@ -518,6 +557,10 @@ namespace vargas {
           }
           return TopologicalIter(*this);
       }
+
+      /**
+       * @return end iterator.
+       */
       TopologicalIter end() const {
           return TopologicalIter(*this, _toposort.size());
       }
@@ -538,6 +581,9 @@ namespace vargas {
           return FilteringIter(*this, type);
       }
 
+      /**
+       * @return end iterator.
+       */
       FilteringIter fend() {
           return FilteringIter(*this, true);
       }
@@ -559,6 +605,7 @@ namespace vargas {
 
       /**
        * Recursive depth first search to find dependencies. Used to topological sort.
+       * Currently unused as impractical for large graphs.
        * @param n current node ID
        * @param unmarked set of unvisited nodes
        * @param temp set of visited but unadded nodes
@@ -601,11 +648,11 @@ namespace vargas {
 
               REQUIRE(n1.seq().size() == 5);
 
-              CHECK(n1.seq()[0] == 0);
-              CHECK(n1.seq()[1] == 1);
-              CHECK(n1.seq()[2] == 2);
-              CHECK(n1.seq()[3] == 3);
-              CHECK(n1.seq()[4] == 4);
+              CHECK(n1.seq()[0] == Base::A);
+              CHECK(n1.seq()[1] == Base::C);
+              CHECK(n1.seq()[2] == Base::G);
+              CHECK(n1.seq()[3] == Base::T);
+              CHECK(n1.seq()[4] == Base::N);
               CHECK(n1.end() == 100);
               CHECK(!n1.is_ref());
               CHECK(!n1.belongs(0));

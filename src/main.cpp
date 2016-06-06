@@ -12,6 +12,7 @@
 #include "doctest/doctest.h"
 #include "getopt_pp.h"
 #include "graph.h"
+#include "alignment.h"
 
 
 int main(const int argc, const char *argv[]) {
@@ -484,16 +485,16 @@ void printStatHelp() {
 */
 
 TEST_CASE ("Profiling") {
+  if (!file_exists("hs37d5_22.fa") || !file_exists("chr22.bcf")) return;
   vargas::GraphBuilder gb("hs37d5_22.fa", "chr22.bcf");
-  if (!gb.good()) return;
 
   srand(time(NULL));
   std::clock_t start;
   std::cout << std::endl << "-------------------------Speed profiles (500kbp)-------------------------"
-      << std::endl << "Initial Build: ";
+      << std::endl << "Initial Build:\n\t";
   start = std::clock();
 
-  gb.region("22:0-0");
+  gb.region("22:25,000,000-25,500,000");
   gb.ingroup(100);
   vargas::Graph g;
   gb.build(g);
@@ -503,33 +504,33 @@ TEST_CASE ("Profiling") {
       << std::endl;
 
   {
-    std::cout << "FILTER constructor: ";
+    std::cout << "FILTER constructor:\n\t";
     start = std::clock();
     vargas::Graph g1(g, filter);
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << g1.next_map().size()
+    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << (g1.next_map().size() + 1)
         << std::endl;
   }
 
   {
-    std::cout << "REF constructor: ";
+    std::cout << "REF constructor:\n\t";
     start = std::clock();
     vargas::Graph g2(g, vargas::Graph::REF);
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << g2.next_map().size()
+    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << (g2.next_map().size() + 1)
         << std::endl;
   }
 
   {
-    std::cout << "MAXAF constructor: ";
+    std::cout << "MAXAF constructor:\n\t";
     start = std::clock();
     vargas::Graph g3(g, vargas::Graph::MAXAF);
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << g3.next_map().size()
+    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << (g3.next_map().size() + 1)
         << std::endl;
   }
 
   size_t num = 0;
 
   {
-    std::cout << "Topographical traversal: ";
+    std::cout << "Topographical traversal:\n\t";
     start = std::clock();
     for (auto i = g.begin(); i != g.end(); ++i) {
       ++num;
@@ -539,7 +540,7 @@ TEST_CASE ("Profiling") {
 
   {
     num = 0;
-    std::cout << "Filtering traversal: " << std::flush;
+    std::cout << "Filtering traversal:\n\t";
     vargas::Graph::Population filt(filter);
     start = std::clock();
 
@@ -551,7 +552,7 @@ TEST_CASE ("Profiling") {
 
   {
     num = 0;
-    std::cout << "REF traversal: ";
+    std::cout << "REF traversal:\n\t";
     start = std::clock();
     for (auto i = g.fbegin(vargas::Graph::REF); i != g.fend(); ++i) {
       ++num;
@@ -561,7 +562,7 @@ TEST_CASE ("Profiling") {
 
   {
     num = 0;
-    std::cout << "MAXAF traversal: ";
+    std::cout << "MAXAF traversal:\n\t";
     start = std::clock();
     for (auto i = g.fbegin(vargas::Graph::MAXAF); i != g.fend(); ++i) {
       num++;
