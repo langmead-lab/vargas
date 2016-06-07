@@ -503,6 +503,64 @@ TEST_CASE ("Profiling") {
   std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << g.node_map()->size()
       << std::endl;
 
+  size_t num = 0;
+
+  {
+    int noind = 1;
+    std::cout << "Insertion order traversal:\n\t";
+    start = std::clock();
+    for (auto i = g.tbegin(); i != g.tend(); ++i) {
+      if (!(*i).is_ref() && !(*i).individuals().any()) ++noind;
+      ++num;
+    }
+    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+    std::cout << "\tNon-ref nodes with no samples: " << noind << std::endl;
+  }
+
+  {
+    num = 0;
+    std::cout << "Filtering traversal, 100% in:\n\t";
+    start = std::clock();
+
+    for (auto i = g.begin(); i != g.end(); ++i) {
+      ++num;
+    }
+    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+  }
+
+  {
+    num = 0;
+    std::cout << "Filtering traversal, 5% in:\n\t";
+    vargas::Graph::Population filt(filter);
+    start = std::clock();
+
+    for (auto i = g.begin(filt); i != g.end(); ++i) {
+      ++num;
+    }
+    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+  }
+
+  {
+    num = 0;
+    std::cout << "REF traversal:\n\t";
+    start = std::clock();
+    for (auto i = g.begin(vargas::Graph::REF); i != g.end(); ++i) {
+      ++num;
+    }
+    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+  }
+
+  {
+    num = 0;
+    std::cout << "MAXAF traversal:\n\t";
+    start = std::clock();
+    for (auto i = g.begin(vargas::Graph::MAXAF); i != g.end(); ++i) {
+      num++;
+    }
+    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " <<
+        num << std::endl << std::endl;
+  }
+
   {
     std::cout << "FILTER constructor:\n\t";
     start = std::clock();
@@ -527,47 +585,4 @@ TEST_CASE ("Profiling") {
         << std::endl;
   }
 
-  size_t num = 0;
-
-  {
-    std::cout << "Topographical traversal:\n\t";
-    start = std::clock();
-    for (auto i = g.begin(); i != g.end(); ++i) {
-      ++num;
-    }
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-  }
-
-  {
-    num = 0;
-    std::cout << "Filtering traversal:\n\t";
-    vargas::Graph::Population filt(filter);
-    start = std::clock();
-
-    for (auto i = g.fbegin(filt); i != g.fend(); ++i) {
-      ++num;
-    }
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-  }
-
-  {
-    num = 0;
-    std::cout << "REF traversal:\n\t";
-    start = std::clock();
-    for (auto i = g.fbegin(vargas::Graph::REF); i != g.fend(); ++i) {
-      ++num;
-    }
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-  }
-
-  {
-    num = 0;
-    std::cout << "MAXAF traversal:\n\t";
-    start = std::clock();
-    for (auto i = g.fbegin(vargas::Graph::MAXAF); i != g.fend(); ++i) {
-      num++;
-    }
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " <<
-        num << std::endl << std::endl;
-  }
 }

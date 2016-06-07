@@ -14,8 +14,7 @@
 
 #include <string>
 #include <sstream>
-// used for test case
-#include "readfile.h"
+#include "doctest/doctest.h"
 #include "utils.h"
 #include "simdpp/simd.h"
 
@@ -32,6 +31,10 @@ namespace vargas {
  * @param indel_err Number of insertions and deletions introduced.
  */
   struct Read {
+      Read() { }
+      Read(std::string r) : read(r), read_num(seq_to_num(r)),
+                            end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1), indel_err(-1) { }
+
       std::string read;
       std::vector<Base> read_num;
       int32_t end_pos;
@@ -135,11 +138,20 @@ namespace vargas {
    * would contain the first bases of every read. Short reads or missing reads are padded
    * with Base::N.
    * @param read_len maximum length of the read
-   * @param num_reads maximum number of reads
+   * @param num_reads max number of reads. If a non-default T is used, this should be set to
+   *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
+   *    SIMDPP_FAST_INT8_SIZE
+   * @param T element type
    */
-  template<unsigned int read_len, unsigned int num_reads>
+  template<unsigned int read_len,
+      unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
+      template<unsigned int, typename=void> class T=simdpp::uint8>
   class ReadBatch {
     public:
+
+      // Optimal number of elements in the vector for the current architecture
+      //const static int num_reads = SIMDPP_FAST_INT8_SIZE;
+
       ReadBatch() { }
 
       /**
@@ -176,7 +188,7 @@ namespace vargas {
        * Return the i'th base of every read in a simdpp vector.
        * @param base index.
        */
-      const simdpp::uint8<num_reads> &at(int i) {
+      const T<num_reads> &at(int i) {
           // let vector handle out of range errors
           return _packaged_reads.at(i);
       }
@@ -185,7 +197,7 @@ namespace vargas {
        * Non const version of at(i).
        * @param base index
        */
-      simdpp::uint8<num_reads> &operator[](int i) {
+      T<num_reads> &operator[](int i) {
           return _packaged_reads.at(i);
       }
 
@@ -195,7 +207,8 @@ namespace vargas {
       size_t max_len() const { return read_len; }
 
       /**
-       * @return batch size. Echos template arg
+       * Returns optimal number of reads in a batch based on SIMD architecture.
+       * @return batch size.
        */
       size_t batch_size() const { return num_reads; }
 
@@ -215,17 +228,20 @@ namespace vargas {
           return f / (num_reads * read_len);
       }
 
-      std::vector<simdpp::uint8<num_reads>>::const_iterator begin() const { return _packaged_reads.begin(); }
-      std::vector<simdpp::uint8<num_reads>>::const_iterator end() const { return _packaged_reads.end(); }
+      typename std::vector<T<num_reads>>::const_iterator begin() const { return _packaged_reads.begin(); }
+      typename std::vector<T<num_reads>>::const_iterator end() const { return _packaged_reads.end(); }
 
     private:
+
       /**
        * _packaged_reads[i] contains all i'th bases.
        * The length of _packaged_reads is the length of the read,
        * where as the length of _packaged_reads[i] is the number
        * of reads.
        */
-      std::vector<simdpp::uint8<num_reads>> _packaged_reads;
+      std::vector<T<num_reads>,
+                  simdpp::aligned_allocator<T<num_reads>, num_reads>> _packaged_reads;
+
       // Unpackaged reads
       std::vector<Read> _reads;
 
@@ -233,7 +249,6 @@ namespace vargas {
        * Interleaves reads so all same-index base positions are in one
        * vector. Empty spaces are padded with Base::N.
        */
-      __attribute__((optimize("unroll-loops")))
       inline void _package_reads() {
           _packaged_reads.resize(read_len);
           if (_reads.size() > num_reads) throw std::range_error("Too many reads for batch size.");
@@ -241,7 +256,7 @@ namespace vargas {
           // allocate memory
           uchar **pckg = (uchar **) malloc(read_len * sizeof(uchar *));
           for (int i = 0; i < read_len; ++i) {
-              pckg[i] = (uchar *) malloc(num_reads * sizeof(uchar));
+              pckg[i] = (uchar *) aligned_alloc(num_reads, sizeof(uchar));
           }
 
           // Interleave reads
@@ -252,19 +267,19 @@ namespace vargas {
 
               // Put each base in the appropriate vector element
               for (size_t p = 0; p < _reads[r].read_num.size(); ++p) {
-                  pckg[p][r] = (uchar) _reads[r].read_num[p];
+                  pckg[p][r] = _reads[r].read_num[p];
               }
 
               // Pad the shorter reads
               for (size_t p = _reads[r].read_num.size(); p < read_len; ++p) {
-                  pckg[p][r] = (uchar) Base::N;
+                  pckg[p][r] = Base::N;
               }
           }
 
           // Pad underful batches
           for (size_t r = _reads.size(); r < num_reads; ++r) {
               for (size_t p = 0; p < read_len; ++p) {
-                  pckg[p][r] = (uchar) Base::N;
+                  pckg[p][r] = Base::N;
               }
           }
 
@@ -286,37 +301,59 @@ namespace vargas {
 }
 
 TEST_CASE ("Read Batch") {
-    {
-        srand(12345);
-        std::ofstream rfile("rds_tc.reads");
-        for (int i = 0; i < 32; ++i) {
-            for (int c = 0; c < 50; ++c) {
-                switch (rand() % 5) {
-                    case 0:
-                        rfile << "A";
-                        break;
-                    case 1:
-                        rfile << "C";
-                        break;
-                    case 2:
-                        rfile << "G";
-                        break;
-                    case 3:
-                        rfile << "T";
-                        break;
-                    default:
-                        rfile << "N";
-                        break;
-                }
-            }
-            rfile << std::endl;
+    std::vector<vargas::Read> reads;
+    for (int i = 0; i < 15; ++i) {
+        reads.push_back(vargas::Read("ACGTACGTCAGCCNNNCTAGTANCGTACTNGGCTAGAACGTACGTCAGCC"));
         }
-    }
 
         SUBCASE ("packaging") {
-        vargas::ReadFile rf("rds_tc.reads");
-        auto reads = rf.get_batch(15);
-        vargas::ReadBatch<64, 16> ba(reads);
+        vargas::ReadBatch<64> rb(reads);
+
+            CHECK(rb.batch_size() == SIMDPP_FAST_INT8_SIZE);
+            CHECK(rb.max_len() == 64);
+
+        auto N = base_to_num('N');
+        for (size_t i = 0; i < reads[0].read_num.size(); ++i) {
+            auto b = rb[i];
+            auto n = reads[0].read_num[i];
+                CHECK(simdpp::extract<0>(b) == n);
+                CHECK(simdpp::extract<1>(b) == n);
+                CHECK(simdpp::extract<2>(b) == n);
+                CHECK(simdpp::extract<3>(b) == n);
+                CHECK(simdpp::extract<4>(b) == n);
+                CHECK(simdpp::extract<5>(b) == n);
+                CHECK(simdpp::extract<6>(b) == n);
+                CHECK(simdpp::extract<7>(b) == n);
+                CHECK(simdpp::extract<8>(b) == n);
+                CHECK(simdpp::extract<9>(b) == n);
+                CHECK(simdpp::extract<10>(b) == n);
+                CHECK(simdpp::extract<11>(b) == n);
+                CHECK(simdpp::extract<12>(b) == n);
+                CHECK(simdpp::extract<13>(b) == n);
+                CHECK(simdpp::extract<14>(b) == n);
+                CHECK(simdpp::extract<15>(b) == N); // Since only 15 reads in the batch
+        }
+
+        // since read_len = 64 but len(read) is 50.
+        for (size_t i = reads[0].read_num.size(); i < 64; ++i) {
+            auto b = rb[i];
+                CHECK(simdpp::extract<0>(b) == N);
+                CHECK(simdpp::extract<1>(b) == N);
+                CHECK(simdpp::extract<2>(b) == N);
+                CHECK(simdpp::extract<3>(b) == N);
+                CHECK(simdpp::extract<4>(b) == N);
+                CHECK(simdpp::extract<5>(b) == N);
+                CHECK(simdpp::extract<6>(b) == N);
+                CHECK(simdpp::extract<7>(b) == N);
+                CHECK(simdpp::extract<8>(b) == N);
+                CHECK(simdpp::extract<9>(b) == N);
+                CHECK(simdpp::extract<10>(b) == N);
+                CHECK(simdpp::extract<11>(b) == N);
+                CHECK(simdpp::extract<12>(b) == N);
+                CHECK(simdpp::extract<13>(b) == N);
+                CHECK(simdpp::extract<14>(b) == N);
+                CHECK(simdpp::extract<15>(b) == N);
+        }
     }
 
     std::remove("rds_tc.reads");

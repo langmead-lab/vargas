@@ -19,7 +19,7 @@
 #include "doctest/doctest.h"
 
 typedef unsigned char uchar;
-enum class Base: uchar { A = 1, C, G, T, N };
+enum Base: uchar { A = 0, C = 1, G = 2, T = 3, N = 4 };
 
 /**
  * Converts a character to a numeral representation.

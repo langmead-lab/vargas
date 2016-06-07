@@ -344,16 +344,12 @@ namespace vargas {
       int pop_size() const { return _pop_size; }
 
       /**
-       * Provides a parent so we can easily use both iterator types with an aligner.
-       */
-      class ConstForwardIter { };
-
-      /**
-       * const forward iterator to traverse the Graph topologically.
+       * const forward iterator to traverse the Graph by insertion order.
        * All nodes are covered in the order they were inserted, including
        * nodes with no edges.
+       * Like FilteringIter() assuming insertion order is in correct order, but faster.
        */
-      class TopologicalIter: ConstForwardIter {
+      class TopologicalIter {
 
         public:
           TopologicalIter(const Graph &g) : _graph(g), _idx(0) { }
@@ -405,8 +401,15 @@ namespace vargas {
        * REF: Only return reference nodes
        * MAXAF: Return the node with the highest allele frequency.
        */
-      class FilteringIter: ConstForwardIter {
+      class FilteringIter {
         public:
+
+          /**
+           * Accept all nodes.
+           * @ param g Graph
+           */
+          explicit FilteringIter(const Graph &g) : _graph(g), _filter(Population(g._pop_size, true)) { }
+
           /**
            * Traverse nodes when filter has at least one individual in common with the
            * node population.
@@ -428,7 +431,7 @@ namespace vargas {
            * @param g graph
            * @param end should be true
            */
-          explicit FilteringIter(const Graph &g, bool end = true) : _graph(g), _end(end) { }
+          explicit FilteringIter(const Graph &g, bool end) : _graph(g), _end(end) { }
 
           /**
            * @return true when underlying graph address is the same and current node ID's
@@ -548,28 +551,19 @@ namespace vargas {
       };
 
       /**
-       * Provides an iterator to a topological sorting of the Graph.
+       * Provides an iterator to the whole graph.
        * @return reference to the root node.
        */
-      TopologicalIter begin() const {
-          if (_toposort.size() == 0 && _IDMap->size() > 0) {
-              throw std::logic_error("Graph must be finalized before iteration.");
-          }
-          return TopologicalIter(*this);
+      FilteringIter begin() const {
+          return FilteringIter(*this);
       }
 
-      /**
-       * @return end iterator.
-       */
-      TopologicalIter end() const {
-          return TopologicalIter(*this, _toposort.size());
-      }
 
       /**
        * Iterator when conditions are applied.
        * @param filter population to compare nodes to
        */
-      FilteringIter fbegin(const Population &filter) {
+      FilteringIter begin(const Population &filter) const {
           return FilteringIter(*this, filter);
       }
 
@@ -577,15 +571,24 @@ namespace vargas {
        * Linear subgraph interator.
        * @param type one of Graph::REF, Graph::MAXAF
        */
-      FilteringIter fbegin(Graph::Type type) {
+      FilteringIter begin(Graph::Type type) const {
           return FilteringIter(*this, type);
       }
 
       /**
        * @return end iterator.
        */
-      FilteringIter fend() {
+      FilteringIter end() const {
           return FilteringIter(*this, true);
+      }
+
+
+      TopologicalIter tbegin() {
+          return TopologicalIter(*this, 0);
+      }
+
+      TopologicalIter tend() {
+          return TopologicalIter(*this, _toposort.size());
       }
 
 
@@ -728,8 +731,6 @@ namespace vargas {
       g.add_edge(1, 3);
       g.add_edge(2, 3);
 
-          CHECK_THROWS(g.begin());
-
       g.finalize();
 
           REQUIRE(g.node_map()->size() == 4);
@@ -793,7 +794,7 @@ namespace vargas {
               SUBCASE("Filtering Iterator") {
               Graph::Population filter(3, false);
               filter.set(2);
-              vargas::Graph::FilteringIter i = g.fbegin(filter);
+              vargas::Graph::FilteringIter i = g.begin(filter);
                   CHECK(num_to_seq((*i).seq()) == "AAA");
               ++i;
                   CHECK(num_to_seq((*i).seq()) == "CCC");
@@ -802,14 +803,14 @@ namespace vargas {
               ++i;
                   CHECK(num_to_seq((*i).seq()) == "CCA");
               ++i;
-                  CHECK(i == g.fend());
+                  CHECK(i == g.end());
           }
 
               SUBCASE("Filtering Ierator #2") {
               Graph::Population filter(3, false);
               filter.set(2);
               filter.set(1);
-              vargas::Graph::FilteringIter i = g.fbegin(filter);
+              vargas::Graph::FilteringIter i = g.begin(filter);
                   CHECK(num_to_seq((*i).seq()) == "AAA");
               ++i;
               // Order of these two don't matter
@@ -824,11 +825,11 @@ namespace vargas {
               ++i;
                   CHECK(num_to_seq((*i).seq()) == "CCA");
               ++i;
-                  CHECK(i == g.fend());
+                  CHECK(i == g.end());
           }
 
               SUBCASE("Filtering Ierator: REF") {
-              vargas::Graph::FilteringIter i = g.fbegin(Graph::REF);
+              vargas::Graph::FilteringIter i = g.begin(Graph::REF);
                   CHECK(num_to_seq((*i).seq()) == "AAA");
               ++i;
                   CHECK(num_to_seq((*i).seq()) == "CCC");
@@ -837,11 +838,11 @@ namespace vargas {
               ++i;
                   CHECK(num_to_seq((*i).seq()) == "CCA");
               ++i;
-                  CHECK(i == g.fend());
+                  CHECK(i == g.end());
           }
 
               SUBCASE("Filtering Ierator: MAXAF") {
-              vargas::Graph::FilteringIter i = g.fbegin(Graph::MAXAF);
+              vargas::Graph::FilteringIter i = g.begin(Graph::MAXAF);
                   CHECK(num_to_seq((*i).seq()) == "AAA");
               ++i;
                   CHECK(num_to_seq((*i).seq()) == "GGG");
@@ -850,20 +851,14 @@ namespace vargas {
               ++i;
                   CHECK(num_to_seq((*i).seq()) == "CCA");
               ++i;
-                  CHECK(i == g.fend());
+                  CHECK(i == g.end());
           }
       }
 
-          SUBCASE("Topographical invalidation") {
-          g.add_edge(1, 2);
-              CHECK_THROWS(g.begin());
-          g.finalize();
-              CHECK_NOTHROW(g.begin());
-      }
 
           SUBCASE("Graph iterator") {
           // Node visit order should be topological
-          vargas::Graph::TopologicalIter i = g.begin();
+          vargas::Graph::TopologicalIter i = g.tbegin();
 
               CHECK(num_to_seq((*i).seq()) == "AAA");
           ++i;
@@ -878,9 +873,9 @@ namespace vargas {
 
               CHECK(num_to_seq((*i).seq()) == "TTT");
           ++i;
-              CHECK(i == g.end());
+              CHECK(i == g.tend());
           ++i;
-              CHECK(i == g.end());
+              CHECK(i == g.tend());
       }
 
           SUBCASE("Derived Graph") {
@@ -911,7 +906,7 @@ namespace vargas {
           ++iter;
               CHECK((*iter).seq_str() == "TTT");
           ++iter;
-              CHECK(iter == g2.end());
+              CHECK(iter == g2.tend());
       }
 
           SUBCASE("MAXAF graph") {
@@ -924,7 +919,7 @@ namespace vargas {
           ++iter;
               CHECK((*iter).seq_str() == "TTT");
           ++iter;
-              CHECK(iter == g2.end());
+              CHECK(iter == g2.tend());
 
       }
 

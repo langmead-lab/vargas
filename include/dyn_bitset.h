@@ -94,6 +94,16 @@ class dyn_bitset {
     }
 
     /**
+     * @return true if any bits are set
+     */
+    bool any() const {
+        for (auto &b : _bitset) {
+            if (b.any()) return true;
+        }
+        return false;
+    }
+
+    /**
      * Flips the specified bit.
      * @param bit bit index
      */
