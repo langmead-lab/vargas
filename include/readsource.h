@@ -12,6 +12,8 @@
 #ifndef VARGAS_READS_H
 #define VARGAS_READS_H
 
+#define SIMDPP_ARCH_X86_SSE4_1
+
 #include <string>
 #include <sstream>
 #include "doctest/doctest.h"
@@ -143,6 +145,7 @@ namespace vargas {
    *    SIMDPP_FAST_INT8_SIZE
    * @param T element type
    */
+
   template<unsigned int read_len,
       unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
       template<unsigned int, typename=void> class T=simdpp::uint8>
@@ -188,7 +191,7 @@ namespace vargas {
        * Return the i'th base of every read in a simdpp vector.
        * @param base index.
        */
-      const T<num_reads> &at(int i) {
+      const T<num_reads> &at(int i) const {
           // let vector handle out of range errors
           return _packaged_reads.at(i);
       }
@@ -239,8 +242,7 @@ namespace vargas {
        * where as the length of _packaged_reads[i] is the number
        * of reads.
        */
-      std::vector<T<num_reads>,
-                  simdpp::aligned_allocator<T<num_reads>, num_reads>> _packaged_reads;
+      std::vector<T<num_reads>, simdpp::aligned_allocator<T<num_reads>, num_reads>> _packaged_reads;
 
       // Unpackaged reads
       std::vector<Read> _reads;
@@ -253,42 +255,42 @@ namespace vargas {
           _packaged_reads.resize(read_len);
           if (_reads.size() > num_reads) throw std::range_error("Too many reads for batch size.");
 
-          // allocate memory
+// allocate memory
           uchar **pckg = (uchar **) malloc(read_len * sizeof(uchar *));
           for (int i = 0; i < read_len; ++i) {
               pckg[i] = (uchar *) aligned_alloc(num_reads, sizeof(uchar));
           }
 
-          // Interleave reads
-          // For each read (read[i] is in _packaged_reads[0..n][i]
+// Interleave reads
+// For each read (read[i] is in _packaged_reads[0..n][i]
           for (size_t r = 0; r < _reads.size(); ++r) {
 
               if (_reads.at(r).read_num.size() > read_len) throw std::range_error("Read too long for batch size.");
 
-              // Put each base in the appropriate vector element
+// Put each base in the appropriate vector element
               for (size_t p = 0; p < _reads[r].read_num.size(); ++p) {
                   pckg[p][r] = _reads[r].read_num[p];
               }
 
-              // Pad the shorter reads
+// Pad the shorter reads
               for (size_t p = _reads[r].read_num.size(); p < read_len; ++p) {
                   pckg[p][r] = Base::N;
               }
           }
 
-          // Pad underful batches
+// Pad underful batches
           for (size_t r = _reads.size(); r < num_reads; ++r) {
               for (size_t p = 0; p < read_len; ++p) {
                   pckg[p][r] = Base::N;
               }
           }
 
-          // Load into vectors
+// Load into vectors
           for (int i = 0; i < read_len; ++i) {
               _packaged_reads[i] = simdpp::load(pckg[i]);
           }
 
-          // Free memory
+// Free memory
           for (int i = 0; i < read_len; ++i) {
               free(pckg[i]);
           }
@@ -297,7 +299,6 @@ namespace vargas {
       }
 
   };
-
 }
 
 TEST_CASE ("Read Batch") {

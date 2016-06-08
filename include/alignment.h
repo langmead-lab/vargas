@@ -11,13 +11,18 @@
 #ifndef VARGAS_ALIGNMENT_H
 #define VARGAS_ALIGNMENT_H
 
+#define SIMDPP_ARCH_X86_SSE4_1
+
+#define DEBUG_PRINT_SW 0
+#define DEBUG_PRINT_SW_ELEM 0
+
 #include <vector>
 #include "readsource.h"
 #include "utils.h"
 #include "simdpp/simd.h"
 #include "readfile.h"
 #include "graph.h"
-
+#include "doctest/doctest.h"
 
 namespace vargas {
 
@@ -116,6 +121,8 @@ namespace vargas {
   /**
    * Aligns a read batch to a reference sequence.
    * All template arguments must match the ReadBatch type.
+   * Note: "score" means something that is added, "penalty" refers to something
+   * that is substracted. All scores/penalties are provided as positive ints.
    * @param read_len maximum read length. Shorter reads are padded by ReadBatch.
    * @param read_len maximum length of the read
    * @param num_reads max number of reads. If a non-default T is used, this should be set to
@@ -127,7 +134,7 @@ namespace vargas {
       unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
       template<unsigned int, typename=void> class CellType=simdpp::uint8>
   class Aligner {
-
+    public:
       /**
        * Default constructor uses the following score values:
        * Match : 2
@@ -135,19 +142,19 @@ namespace vargas {
        * Gap Open : 3
        * Gap Extend : 1
        */
-      Aligner() { _init(); }
+      Aligner() { }
 
       /**
        * Set scoring parameters
        * @param match match score
-       * @param mismatch mismatch score
+       * @param mismatch mismatch penalty
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
-      Aligner(int8_t match,
-              int8_t mismatch,
-              int8_t open,
-              int8_t extend) : _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend) { _init(); }
+      Aligner(uint8_t match,
+              uint8_t mismatch,
+              uint8_t open,
+              uint8_t extend) : _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend) { }
 
       /**
        * Set the scoring scheme used for the alignments.
@@ -164,7 +171,6 @@ namespace vargas {
           _mismatch = mismatch;
           _gap_open = open;
           _gap_extend = extend;
-          _set_score_matrix();
       }
 
       /**
@@ -209,51 +215,192 @@ namespace vargas {
 
       }
 
+      void _test_fill_node(const Graph::Node &n,
+                           const ReadBatch<read_len, num_reads, CellType> &reads,
+                           CellType<num_reads> &max_score,
+                           simdpp::uint32<num_reads> &max_pos) {
+          _fill_node(n, reads, max_score, max_pos);
+      }
+
     private:
-      int8_t _score_matrix[5][5];
-      int8_t _match = 2,
-          _mismatch = -2,
+      uint8_t _match = 2,
+          _mismatch = 2,
           _gap_open = 3,
           _gap_extend = 1;
 
-      void _init() {
-          _set_score_matrix();
+
+      void _fill_node(const Graph::Node &n,
+                      const ReadBatch<read_len, num_reads, CellType> &reads,
+                      CellType<num_reads> &max_score,
+                      simdpp::uint32<num_reads> &max_pos) {
+
+          using namespace simdpp;
+
+          /**
+           * Each vector has an 'a' and a 'b' version. Through each row of the
+           * matrix fill, their roles are swapped such that one becomes the previous
+           * loops data, and the other is filled in.
+           * S and D are padded 1 to provide a left column buffer.
+           */
+          // Score matrix row
+          std::vector<CellType<num_reads>, aligned_allocator<CellType<num_reads>, num_reads>>
+              Sa(n.seq().size() + 1),
+              Sb(n.seq().size() + 1);
+          auto S_prev_ptr = &Sa;
+          auto S_curr_ptr = &Sb;
+
+          // S_i is a del
+          std::vector<CellType<num_reads>, aligned_allocator<CellType<num_reads>, num_reads>>
+              Da(n.seq().size() + 1),
+              Db(n.seq().size() + 1);
+          auto D_prev_ptr = &Da;
+          auto D_curr_ptr = &Db;
+
+          // S_i is a ins
+          std::vector<CellType<num_reads>, aligned_allocator<CellType<num_reads>, num_reads>>
+              Ia(reads.max_len()),
+              Ib(reads.max_len());
+          auto I_prev_ptr = &Ia;
+          auto I_curr_ptr = &Ib;
+
+          // Used for swapping pointers
+          std::vector<CellType<num_reads>, aligned_allocator<CellType<num_reads>, num_reads>> *swp_tmp = NULL;
+
+          CellType<num_reads>
+              Ceq, // Match score when read_base == ref_base
+              Cneq, // mismatch penalty
+              tmp;
+
+          max_score = splat(0);
+
+#if DEBUG_PRINT_SW
+          std::cout << "   ";
+          for (uint32_t col = 1; col < n.seq().size() + 1; ++col) {
+              std::cout << num_to_base(static_cast<Base>(n.seq().at(col - 1))) << " ";
+          }
+#endif
+
+          // For each row of the matrix
+          for (size_t row = 0; row < reads.max_len(); ++row) {
+              /** Swap the rows we are filling in. The previous row/col becomes what we fill in.
+               * S_prev[n] => S(i-1, n)
+               * D_prev[n] => D(i-1, n)
+               * I_prev[r] => I(r, j-1)
+               * where (i,j) is the current cell
+               */
+              swp_tmp = S_prev_ptr;
+              S_prev_ptr = S_curr_ptr;
+              S_curr_ptr = swp_tmp;
+              const auto &S_prev = *S_prev_ptr;
+              auto &S_curr = *S_curr_ptr;
+
+              swp_tmp = D_prev_ptr;
+              D_prev_ptr = D_curr_ptr;
+              D_curr_ptr = swp_tmp;
+              const auto &D_prev = *D_prev_ptr;
+              auto &D_curr = *D_curr_ptr;
+
+              swp_tmp = I_prev_ptr;
+              I_prev_ptr = I_curr_ptr;
+              I_curr_ptr = swp_tmp;
+              const auto &I_prev = *I_prev_ptr;
+              auto &I_curr = *I_curr_ptr;
+
+#if DEBUG_PRINT_SW
+              std::cout << std::endl <<
+                  num_to_base(static_cast<Base>(extract<DEBUG_PRINT_SW_ELEM>(reads.at(row)))) << ": ";
+#endif
+
+              // Fill in the row. Start at one due to left buffer column
+              size_t seq_size = n.seq().size();
+              for (uint32_t col = 1; col < seq_size + 1; ++col) {
+                  // D(i,j) = D(i-1,j) - gap_extend
+                  D_curr[col] = sub_sat(D_prev[col], _gap_extend);
+                  // tmp = S(i-1,j) - ( gap_open + gap_extend)
+                  tmp = sub_sat(S_prev[col], _gap_extend + _gap_open);
+                  // D(i,j) = max{ D(i-1,j) - gap_extend, S(i-1,j) - ( gap_open + gap_extend) }
+                  D_curr[col] = max(D_curr[col], tmp);
+
+                  // I(i,j) = I(i,j-1) - gap_extend
+                  I_curr[row] = sub_sat(I_prev[row], _gap_extend); // I: I(i,j-1) - gap_extend
+                  // tmp = S(i,j-1) - (gap_open + gap_extend)
+                  tmp = sub_sat(S_curr[col - 1], _gap_extend + _gap_open);
+                  I_curr[row] = max(I_curr[row], tmp);
+
+                  _cmp_read_ref(reads.at(row), n.seq().at(col - 1), Ceq, Cneq); // col - 1 due to column padding
+                  S_curr[col] = add_sat(S_prev[col - 1], Ceq); // Add match scores
+                  S_curr[col] = sub_sat(S_curr[col], Cneq); // Subtract mismatch scores
+                  //S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
+                  S_curr[col] = max(D_curr[col], S_curr[col]);
+                  S_curr[col] = max(I_curr[row], S_curr[col]);
+
+                  // Check for better scores
+                  max_score = max(max_score, S_curr[col]);
+#if DEBUG_PRINT_SW
+                  std::cout << ((int)extract<DEBUG_PRINT_SW_ELEM>(S_curr[col])) << "," << std::flush;
+#endif
+              }
+          }
       }
 
-      //TODO this will break if enum Base changes to non-0 start
-      inline void _set_score_matrix() {
-          _score_matrix[Base::A][Base::A] = _match;
-          _score_matrix[Base::A][Base::C] = _mismatch;
-          _score_matrix[Base::A][Base::G] = _mismatch;
-          _score_matrix[Base::A][Base::T] = _mismatch;
-          _score_matrix[Base::A][Base::N] = 0;
+      /**
+       * Compare a ReadBatch position to a reference sequence base.
+       * If either base is Base::N, the score/penalty is set to zero.
+       * To apply all scores to grid element S[i],
+       * S[i] = add_sat(S, Ceq)
+       * S[i] = sub_sat(S, Cneq)
+       * @param read vector of i'th base of all reads in the ReadBatch
+       * @param b reference sequence Base
+       * @param Ceq When the read base matches ref seq base, set to match score
+       * @param Cneq When the read base doesn't match ref base, set to mismatch penalty
+       */
+      __attribute__((always_inline))
+      inline void _cmp_read_ref(const CellType<num_reads> &read,
+                                Base b,
+                                CellType<num_reads> &Ceq,
+                                CellType<num_reads> &Cneq) {
 
-          _score_matrix[Base::C][Base::A] = _mismatch;
-          _score_matrix[Base::C][Base::C] = _match;
-          _score_matrix[Base::C][Base::G] = _mismatch;
-          _score_matrix[Base::C][Base::T] = _mismatch;
-          _score_matrix[Base::C][Base::N] = 0;
+          using namespace simdpp;
 
-          _score_matrix[Base::G][Base::A] = _mismatch;
-          _score_matrix[Base::G][Base::C] = _mismatch;
-          _score_matrix[Base::G][Base::G] = _match;
-          _score_matrix[Base::G][Base::T] = _mismatch;
-          _score_matrix[Base::G][Base::N] = 0;
+          Ceq = splat(0);
+          Cneq = splat(0);
 
-          _score_matrix[Base::T][Base::A] = _mismatch;
-          _score_matrix[Base::T][Base::C] = _mismatch;
-          _score_matrix[Base::T][Base::G] = _mismatch;
-          _score_matrix[Base::T][Base::T] = _match;
-          _score_matrix[Base::T][Base::N] = 0;
+          if (b != Base::N) {
+              // Set all mismatching pairs to _mismatch
+              auto tmp = cmp_neq(read, b);
+              Cneq = tmp & _mismatch;
+              // If the read base is Base::N, set to 0 (Ceq)
+              tmp = cmp_eq(read, Base::N);
+              Cneq = blend(Ceq, Cneq, tmp);
 
-          _score_matrix[Base::N][Base::A] = 0;
-          _score_matrix[Base::N][Base::C] = 0;
-          _score_matrix[Base::N][Base::G] = 0;
-          _score_matrix[Base::N][Base::T] = 0;
-          _score_matrix[Base::N][Base::N] = 0;
+              // b is not N, so all equal bases are valid
+              tmp = cmp_eq(read, b);
+              Ceq = tmp & _match;
+          }
       }
+
   };
 
 }
 
+TEST_CASE ("Fill Node") {
+    std::vector<vargas::Read> reads;
+    reads.push_back(vargas::Read("AGTC"));
+    reads.push_back(vargas::Read("CATN"));
+    reads.push_back(vargas::Read("AGTC"));
+    reads.push_back(vargas::Read("CCCC"));
+
+    vargas::ReadBatch<4> rb(reads);
+
+    vargas::Graph::Node n;
+    n.set_seq("AGTCATNAGTCCCC");
+
+    simdpp::uint8<16> max;
+    simdpp::uint32<16> maxpos;
+
+    vargas::Aligner<4> a;
+
+    a._test_fill_node(n, rb, max, maxpos);
+    int i;
+}
 #endif //VARGAS_ALIGNMENT_H

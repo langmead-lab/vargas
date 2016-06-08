@@ -8,7 +8,10 @@
  *
  * main.cpp
  */
+
 #define DOCTEST_CONFIG_IMPLEMENT
+
+#include <iostream>
 #include "doctest/doctest.h"
 #include "getopt_pp.h"
 #include "graph.h"
