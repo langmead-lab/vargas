@@ -245,7 +245,7 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
     }
 
     //alt nodes
-    for (int i = 1; i < _vf.alleles().size(); ++i) {
+    for (size_t i = 1; i < _vf.alleles().size(); ++i) {
       Graph::Node n;
       n.set_not_ref();
       const std::string &allele = _vf.alleles()[i];

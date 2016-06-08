@@ -17,7 +17,7 @@ set(FILE_IO
 set(MAIN_SOURCES
         src/getopt_pp.cpp
         src/main.cpp
-        src/graph.cpp           # Graph representation
+        src/graph.cpp
         )
 
 add_library(varg ${MAIN_SOURCES})
@@ -28,6 +28,6 @@ target_link_libraries(vargas varg hts fio)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++11")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O2")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -pg -pedantic -Wall -Wextra -Wno-unused-function -Wno-sign-compare")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -pg -pedantic -Wall -Wextra -Wno-unused-function")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -O2")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS} -O2")

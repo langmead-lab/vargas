@@ -71,7 +71,7 @@ const std::vector<std::string> &vargas::VarFile::genotypes() {
     for (auto &allele : alleles()) {
         _genotype_indivs[allele] = std::vector<bool>(_genotypes.size(), false);
     }
-    for (int s = 0; s < _genotypes.size(); ++s) {
+    for (size_t s = 0; s < _genotypes.size(); ++s) {
         _genotype_indivs[_genotypes[s]][s] = true;
     }
 
@@ -86,7 +86,7 @@ const std::vector<float> &vargas::VarFile::frequencies() {
     float sum = 0;
 
     // Get the ref frequency and add to result vector +1, so we can put ref at index 0
-    for (int i = 0; i < val.size(); ++i) {
+    for (size_t i = 0; i < val.size(); ++i) {
         sum += val[i];
         _allele_freqs[i + 1] = val[i];
     }

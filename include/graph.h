@@ -389,7 +389,7 @@ namespace vargas {
 
         private:
           const Graph &_graph;
-          long _idx;
+          size_t _idx;
       };
 
       /**
