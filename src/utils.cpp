@@ -10,8 +10,7 @@
 
 
 #include <sstream>
-#include "../include/utils.h"
-
+#include "utils.h"
 
 std::vector<std::string> split(const std::string &s, char delim) {
   /** Split string with delim, return a vector **/

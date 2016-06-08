@@ -87,16 +87,6 @@ inline std::vector<Base> seq_to_num(const std::string &seq) {
   return num;
 }
 
-TEST_CASE ("Sequence to Numeric") {
-  std::vector<Base> a = seq_to_num("ACGTN");
-      REQUIRE(a.size() == 5);
-      CHECK(a[0] == Base::A);
-      CHECK(a[1] == Base::C);
-      CHECK(a[2] == Base::G);
-      CHECK(a[3] == Base::T);
-      CHECK(a[4] == Base::N);
-}
-
 /**
  * Convert a numeric vector to a sequence of bases.
  * @param num Numeric vector
@@ -109,6 +99,16 @@ inline std::string num_to_seq(const std::vector<Base> &num) {
     builder << num_to_base(n);
   }
   return builder.str();
+}
+
+TEST_CASE ("Sequence to Numeric") {
+  std::vector<Base> a = seq_to_num("ACGTN");
+      REQUIRE(a.size() == 5);
+      CHECK(a[0] == Base::A);
+      CHECK(a[1] == Base::C);
+      CHECK(a[2] == Base::G);
+      CHECK(a[3] == Base::T);
+      CHECK(a[4] == Base::N);
 }
 
 TEST_CASE ("Numeric to Sequence") {
@@ -130,7 +130,6 @@ TEST_CASE ("Numeric to Sequence") {
 /// <param name="elems">Vector to store results in. Vector is replaced!</param>
 /// <returns>Vector of split string.</returns>
 std::vector<std::string> split(const std::string &s, char delim);
-
 
 /// <summary>
 /// Splits the specified string, resets vec and returns with split string.
