@@ -11,12 +11,11 @@
 #ifndef VARGAS_ALIGNMENT_H
 #define VARGAS_ALIGNMENT_H
 
-#define SIMDPP_ARCH_X86_SSE4_1
-
 #define DEBUG_PRINT_SW 0
 #define DEBUG_PRINT_SW_ELEM 0
 
 #include <vector>
+#include <algorithm>
 #include "readsource.h"
 #include "utils.h"
 #include "simdpp/simd.h"
@@ -156,6 +155,10 @@ namespace vargas {
               uint8_t open,
               uint8_t extend) : _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend) { }
 
+      ~Aligner() {
+          _dealloc();
+      }
+
       /**
        * Set the scoring scheme used for the alignments.
        * @param match match score
@@ -223,12 +226,99 @@ namespace vargas {
       }
 
     private:
-      uint8_t _match = 2,
-          _mismatch = 2,
-          _gap_open = 3,
-          _gap_extend = 1;
+      // Aligned vector of matrix fill type
+      typedef std::vector<CellType<num_reads>, simdpp::aligned_allocator<CellType<num_reads>, num_reads>> VecType;
 
+      uint8_t
+          _match = 2,       // Match score, is added
+          _mismatch = 2,    // mismatch penalty, is subtracted
+          _gap_open = 3,    // gap open penalty, subtracted
+          _gap_extend = 1;  // gap extension penalty, subtracted
 
+      /**
+       * Each vector has an 'a' and a 'b' version. Through each row of the
+       * matrix fill, their roles are swapped such that one becomes the previous
+       * loops data, and the other is filled in.
+       * S and D are padded 1 to provide a left column buffer.
+       *
+       * The allocated memory persists between node fills, growing if needed.
+       */
+      VecType
+          *Sa = nullptr, // Matrix row
+          *Sb = nullptr,
+          *Da = nullptr, // Deletion vector
+          *Db = nullptr,
+          *Ia = nullptr, // Insertion vector
+          *Ib = nullptr;
+
+      /**
+       * S_prev[n] => S(i-1, n)
+       * D_prev[n] => D(i-1, n)
+       * I_prev[r] => I(r, j-1)
+       * where (i,j) is the current cell
+       */
+      CellType<num_reads>
+          *S_prev = nullptr,
+          *S_curr = nullptr,
+          *D_prev = nullptr,
+          *D_curr = nullptr,
+          *I_prev = nullptr,
+          *I_curr = nullptr;
+
+      /**
+       * deletes allocated matrix filling vectors.
+       */
+      void _dealloc() {
+          if (Sa) delete Sa;
+          if (Sb) delete Sb;
+          if (Da) delete Da;
+          if (Db) delete Db;
+          if (Ia) delete Ia;
+          if (Ib) delete Ib;
+
+          Sa = nullptr;
+          Sb = nullptr;
+          Da = nullptr;
+          Db = nullptr;
+          Ia = nullptr;
+          Ib = nullptr;
+
+          S_prev = nullptr;
+          S_curr = nullptr;
+          D_prev = nullptr;
+          D_curr = nullptr;
+          I_prev = nullptr;
+          I_curr = nullptr;
+      }
+
+      /**
+       * Allocate S and D vectors. I is determined by template parameter.
+       * @param seq length of S and D vectors, i.e. node length.
+       */
+      void _alloc(size_t seq) {
+          _dealloc();
+          Sa = new VecType(seq + 1);
+          Sb = new VecType(seq + 1);
+          Da = new VecType(seq + 1);
+          Db = new VecType(seq + 1);
+          Ia = new VecType(read_len);
+          Ib = new VecType(read_len);
+
+          S_prev = Sa->data();
+          S_curr = Sb->data();
+          D_prev = Da->data();
+          D_curr = Db->data();
+          I_prev = Ia->data();
+          I_curr = Ib->data();
+      }
+
+      /**
+       * Computes local alignment of the node.
+       * @param n Node to align to
+       * @param reads ReadBatch to align
+       * @param max_score each element corresponds to that reads max score
+       * @param max_pos offset of best alignment from node beginning.
+       */
       void _fill_node(const Graph::Node &n,
                       const ReadBatch<read_len, num_reads, CellType> &reads,
                       CellType<num_reads> &max_score,
@@ -236,42 +326,29 @@ namespace vargas {
 
           using namespace simdpp;
 
-          /**
-           * Each vector has an 'a' and a 'b' version. Through each row of the
-           * matrix fill, their roles are swapped such that one becomes the previous
-           * loops data, and the other is filled in.
-           * S and D are padded 1 to provide a left column buffer.
-           */
-          // Score matrix row
-          std::vector<CellType<num_reads>, aligned_allocator<CellType<num_reads>, num_reads>>
-              Sa(n.seq().size() + 1),
-              Sb(n.seq().size() + 1);
-          auto S_prev_ptr = &Sa;
-          auto S_curr_ptr = &Sb;
-
-          // S_i is a del
-          std::vector<CellType<num_reads>, aligned_allocator<CellType<num_reads>, num_reads>>
-              Da(n.seq().size() + 1),
-              Db(n.seq().size() + 1);
-          auto D_prev_ptr = &Da;
-          auto D_curr_ptr = &Db;
-
-          // S_i is a ins
-          std::vector<CellType<num_reads>, aligned_allocator<CellType<num_reads>, num_reads>>
-              Ia(reads.max_len()),
-              Ib(reads.max_len());
-          auto I_prev_ptr = &Ia;
-          auto I_curr_ptr = &Ib;
+          // Allocate memory if needed
+          if (S_prev == nullptr) {
+              _dealloc(); // Make sure all are freed
+              _alloc(n.seq().size());
+          }
+              // Make sure there's enough memory
+          else if (Sa->size() < n.seq().size()) {
+              // Make sure its the correct size
+              Sa->resize(n.seq().size());
+              Sb->resize(n.seq().size());
+              Da->resize(n.seq().size());
+              Db->resize(n.seq().size());
+          }
 
           // Used for swapping pointers
-          std::vector<CellType<num_reads>, aligned_allocator<CellType<num_reads>, num_reads>> *swp_tmp = NULL;
+          auto swp_tmp = S_prev;
 
           CellType<num_reads>
               Ceq, // Match score when read_base == ref_base
               Cneq, // mismatch penalty
-              tmp;
+              tmp = splat(0);
 
-          max_score = splat(0);
+          max_score = tmp;
 
 #if DEBUG_PRINT_SW
           std::cout << "   ";
@@ -280,31 +357,17 @@ namespace vargas {
           }
 #endif
 
+          // Clear old data
+          for (size_t i = 0; i < Sa->size(); ++i) {
+              S_prev[i] = tmp;
+              D_prev[i] = tmp;
+          }
+          for (size_t i = 0; i < read_len; ++i) {
+              I_prev[i] = tmp;
+          }
+
           // For each row of the matrix
-          for (size_t row = 0; row < reads.max_len(); ++row) {
-              /** Swap the rows we are filling in. The previous row/col becomes what we fill in.
-               * S_prev[n] => S(i-1, n)
-               * D_prev[n] => D(i-1, n)
-               * I_prev[r] => I(r, j-1)
-               * where (i,j) is the current cell
-               */
-              swp_tmp = S_prev_ptr;
-              S_prev_ptr = S_curr_ptr;
-              S_curr_ptr = swp_tmp;
-              const auto &S_prev = *S_prev_ptr;
-              auto &S_curr = *S_curr_ptr;
-
-              swp_tmp = D_prev_ptr;
-              D_prev_ptr = D_curr_ptr;
-              D_curr_ptr = swp_tmp;
-              const auto &D_prev = *D_prev_ptr;
-              auto &D_curr = *D_curr_ptr;
-
-              swp_tmp = I_prev_ptr;
-              I_prev_ptr = I_curr_ptr;
-              I_curr_ptr = swp_tmp;
-              const auto &I_prev = *I_prev_ptr;
-              auto &I_curr = *I_curr_ptr;
+          for (size_t row = 0; row < read_len; ++row) {
 
 #if DEBUG_PRINT_SW
               std::cout << std::endl <<
@@ -335,11 +398,27 @@ namespace vargas {
                   S_curr[col] = max(I_curr[row], S_curr[col]);
 
                   // Check for better scores
+                  tmp = S_curr[col] > max_score; // Mask of all elems that have new high score
                   max_score = max(max_score, S_curr[col]);
+
 #if DEBUG_PRINT_SW
                   std::cout << ((int)extract<DEBUG_PRINT_SW_ELEM>(S_curr[col])) << "," << std::flush;
 #endif
               }
+
+              // Swap the rows we are filling in. The previous row/col becomes what we fill in.
+              swp_tmp = S_prev;
+              S_prev = S_curr;
+              S_curr = swp_tmp;
+
+              swp_tmp = D_prev;
+              D_prev = D_curr;
+              D_curr = swp_tmp;
+
+              swp_tmp = I_prev;
+              I_prev = I_curr;
+              I_curr = swp_tmp;
+
           }
       }
 
@@ -384,23 +463,60 @@ namespace vargas {
 }
 
 TEST_CASE ("Fill Node") {
-    std::vector<vargas::Read> reads;
-    reads.push_back(vargas::Read("AGTC"));
-    reads.push_back(vargas::Read("CATN"));
-    reads.push_back(vargas::Read("AGTC"));
-    reads.push_back(vargas::Read("CCCC"));
 
-    vargas::ReadBatch<4> rb(reads);
+    srand(12345);
 
-    vargas::Graph::Node n;
-    n.set_seq("AGTCATNAGTCCCC");
+        SUBCASE("Alignment scores") {
+        std::vector<vargas::Read> reads;
+        reads.push_back(vargas::Read("CGT")); // Score 6, Match
+        reads.push_back(vargas::Read("ATAGCCA")); // Score 10, del
+        reads.push_back(vargas::Read("ATAACGCCA")); // Score 12, Ins
+        reads.push_back(vargas::Read("TACCCCA")); // Score 10, mismatch
 
-    simdpp::uint8<16> max;
-    simdpp::uint32<16> maxpos;
+        vargas::Graph::Node n;
+        n.set_seq("ACGTNATACGCCA");
 
-    vargas::Aligner<4> a;
+        vargas::ReadBatch<16> rb(reads);
+        vargas::Aligner<16> a;
 
-    a._test_fill_node(n, rb, max, maxpos);
-    int i;
+        simdpp::uint8<SIMDPP_FAST_INT8_SIZE> maxscore;
+        simdpp::uint32<SIMDPP_FAST_INT8_SIZE> maxpos;
+
+        a._test_fill_node(n, rb, maxscore, maxpos);
+            CHECK(simdpp::extract<0>(maxscore) == 6);
+            CHECK(simdpp::extract<1>(maxscore) == 10);
+            CHECK(simdpp::extract<2>(maxscore) == 12);
+            CHECK(simdpp::extract<3>(maxscore) == 10);
+
+    }
+
+        SUBCASE("Profile alignment") {
+        vargas::Graph::Node n;
+        {
+            std::stringstream ss;
+            for (size_t i = 0; i < 100000; ++i) {
+                ss << rand_base();
+            }
+            n.set_seq(ss.str());
+        }
+
+        std::vector<vargas::Read> reads;
+        for (size_t i = 0; i < 16; ++i) {
+            std::stringstream r;
+            for (size_t r = 0; r < 50; ++r) r << rand_base();
+            reads.push_back(vargas::Read(r.str()));
+        }
+
+        vargas::ReadBatch<50> rb(reads);
+        vargas::Aligner<50> a;
+
+        simdpp::uint8<SIMDPP_FAST_INT8_SIZE> max;
+        simdpp::uint32<SIMDPP_FAST_INT8_SIZE> maxpos;
+
+        std::cout << "\n10 Node Fill (" << SIMDPP_FAST_INT8_SIZE << "x 50rdlen x 10000bp): ";
+        clock_t start = std::clock();
+        for (int i = 0; i < 10; ++i) a._test_fill_node(n, rb, max, maxpos);
+        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s\n" << std::endl;
+    }
 }
 #endif //VARGAS_ALIGNMENT_H

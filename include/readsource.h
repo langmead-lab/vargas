@@ -12,8 +12,6 @@
 #ifndef VARGAS_READS_H
 #define VARGAS_READS_H
 
-#define SIMDPP_ARCH_X86_SSE4_1
-
 #include <string>
 #include <sstream>
 #include "doctest/doctest.h"

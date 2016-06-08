@@ -146,5 +146,20 @@ inline bool file_exists(std::string filename) {
   return f.good();
 }
 
+inline char rand_base() {
+  switch (rand() % 5) {
+    case 0:
+      return 'A';
+    case 1:
+      return 'T';
+    case 2:
+      return 'C';
+    case 3:
+      return 'G';
+    default:
+      return 'N';
+  }
+}
+
 
 #endif //VARGAS_UTILS_H
