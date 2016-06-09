@@ -29,8 +29,7 @@ int main(const int argc, const char *argv[]) {
     doc.setOption("abort-after", 5);
     doc.setOption("sort", "name");
     int res = doc.run();
-    if (doc.shouldExit()) return res;
-    std::cerr << std::endl;
+    return res;
   }
 
   try {

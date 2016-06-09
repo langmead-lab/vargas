@@ -240,7 +240,7 @@ namespace vargas {
        * where as the length of _packaged_reads[i] is the number
        * of reads.
        */
-      std::vector<T<num_reads>, simdpp::aligned_allocator<T<num_reads>, num_reads>> _packaged_reads;
+      std::vector<T<num_reads>> _packaged_reads;
 
       // Unpackaged reads
       std::vector<Read> _reads;
@@ -256,7 +256,7 @@ namespace vargas {
 // allocate memory
           uchar **pckg = (uchar **) malloc(read_len * sizeof(uchar *));
           for (int i = 0; i < read_len; ++i) {
-              pckg[i] = (uchar *) aligned_alloc(num_reads, sizeof(uchar));
+              pckg[i] = (uchar *) malloc(num_reads * sizeof(uchar));
           }
 
 // Interleave reads

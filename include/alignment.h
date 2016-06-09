@@ -11,8 +11,9 @@
 #ifndef VARGAS_ALIGNMENT_H
 #define VARGAS_ALIGNMENT_H
 
-#define DEBUG_PRINT_SW 0
+#define DEBUG_PRINT_SW 1
 #define DEBUG_PRINT_SW_ELEM 0
+#define __INLINE__ __attribute__((always_inline))
 
 #include <vector>
 #include <algorithm>
@@ -121,7 +122,9 @@ namespace vargas {
    * Aligns a read batch to a reference sequence.
    * All template arguments must match the ReadBatch type.
    * Note: "score" means something that is added, "penalty" refers to something
-   * that is substracted. All scores/penalties are provided as positive ints.
+   * that is subtracted. All scores/penalties are provided as positive ints.
+   * Most memory is allocated for the class so it can be reused during alignment.
+   * The state of the memory between function calls is unknown, and must be reset.
    * @param read_len maximum read length. Shorter reads are padded by ReadBatch.
    * @param read_len maximum length of the read
    * @param num_reads max number of reads. If a non-default T is used, this should be set to
@@ -133,6 +136,8 @@ namespace vargas {
       unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
       template<unsigned int, typename=void> class CellType=simdpp::uint8>
   class Aligner {
+      typedef typename std::vector<CellType<num_reads>> VecType;
+
     public:
       /**
        * Default constructor uses the following score values:
@@ -141,7 +146,7 @@ namespace vargas {
        * Gap Open : 3
        * Gap Extend : 1
        */
-      Aligner() { }
+      Aligner() : max_pos(std::vector<uint32_t>(num_reads)) { }
 
       /**
        * Set scoring parameters
@@ -153,7 +158,8 @@ namespace vargas {
       Aligner(uint8_t match,
               uint8_t mismatch,
               uint8_t open,
-              uint8_t extend) : _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend) { }
+              uint8_t extend) : _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend),
+                                max_pos(std::vector<uint32_t>(num_reads)) { }
 
       ~Aligner() {
           _dealloc();
@@ -215,55 +221,58 @@ namespace vargas {
                  Graph::FilteringIter begin,
                  Graph::FilteringIter end,
                  std::vector<Alignment> &aligns) {
+          max_score = simdpp::splat(0);
+          max_pos = std::vector<uint32_t>(num_reads);
+
+          std::unordered_map<long, _seed> seed_map;
+          std::vector<long> prev_ids;
+          std::vector<_seed> seeds;
+
+          for (auto gi = begin; gi != end; ++gi) {
+              gi.incoming(prev_ids);
+              if (prev_ids.size() == 0) {
+                  seeds.push_back(_seed());
+              } else {
+                  for (long id : prev_ids) {
+                      if (seed_map.count(id) == 0) throw std::logic_error("Previous node not populated.");
+                      seeds.push_back(seed_map.at(id));
+                  }
+              }
+              seed_map[(*gi).id()] = _fill_node(*gi, reads, seeds);
+          }
+
+          aligns.clear();
 
       }
 
-      void _test_fill_node(const Graph::Node &n,
-                           const ReadBatch<read_len, num_reads, CellType> &reads,
-                           CellType<num_reads> &max_score,
-                           simdpp::uint32<num_reads> &max_pos) {
-          _fill_node(n, reads, max_score, max_pos);
+      /**
+       * Only used for testing. returns the max score of the read alignment
+       * to the node.
+       * @param n Graph::Node to align to
+       * @param reads ReadBatch to align
+       */
+      CellType<num_reads> _test_fill_node(const Graph::Node &n,
+                                          const ReadBatch<read_len, num_reads, CellType> &reads,
+                                          std::vector<uint32_t> &pos) {
+          max_score = simdpp::splat(0);
+          max_pos = std::vector<uint32_t>(num_reads);
+          _fill_node(n, reads);
+          pos = max_pos;
+          return max_score;
       }
 
-    private:
-      // Aligned vector of matrix fill type
-      typedef std::vector<CellType<num_reads>, simdpp::aligned_allocator<CellType<num_reads>, num_reads>> VecType;
-
-      uint8_t
-          _match = 2,       // Match score, is added
-          _mismatch = 2,    // mismatch penalty, is subtracted
-          _gap_open = 3,    // gap open penalty, subtracted
-          _gap_extend = 1;  // gap extension penalty, subtracted
+    protected:
 
       /**
-       * Each vector has an 'a' and a 'b' version. Through each row of the
-       * matrix fill, their roles are swapped such that one becomes the previous
-       * loops data, and the other is filled in.
-       * S and D are padded 1 to provide a left column buffer.
-       *
-       * The allocated memory persists between node fills, growing if needed.
+       * Ending vectors from a previous node
+       * @param S_col last column of score matrix
+       * @param I_col last column of I vector
        */
-      VecType
-          *Sa = nullptr, // Matrix row
-          *Sb = nullptr,
-          *Da = nullptr, // Deletion vector
-          *Db = nullptr,
-          *Ia = nullptr, // Insertion vector
-          *Ib = nullptr;
-
-      /**
-       * S_prev[n] => S(i-1, n)
-       * D_prev[n] => D(i-1, n)
-       * I_prev[r] => I(r, j-1)
-       * where (i,j) is the current cell
-       */
-      CellType<num_reads>
-          *S_prev = nullptr,
-          *S_curr = nullptr,
-          *D_prev = nullptr,
-          *D_curr = nullptr,
-          *I_prev = nullptr,
-          *I_curr = nullptr;
+      struct _seed {
+          _seed() : S_col(read_len), I_col(read_len) { }
+          VecType S_col;
+          VecType I_col;
+      };
 
       /**
        * deletes allocated matrix filling vectors.
@@ -313,16 +322,26 @@ namespace vargas {
       }
 
       /**
+       * Computes local alignment of the node, with no previous seed.
+       * @param n Node to align to
+       * @param reads ReadBatch to align
+       */
+      _seed _fill_node(const Graph::Node &n,
+                       const ReadBatch<read_len, num_reads, CellType> &reads) {
+          std::vector<_seed> seeds;
+          seeds.push_back(_seed());
+          return _fill_node(n, reads, seeds);
+      }
+
+      /**
        * Computes local alignment of the node.
        * @param n Node to align to
        * @param reads ReadBatch to align
-       * @param max_score each element corresponds to that reads max score
-       * @param max_pos offset of best alignment from node beginning.
+       * @param seeds seeds from previous nodes
        */
-      void _fill_node(const Graph::Node &n,
-                      const ReadBatch<read_len, num_reads, CellType> &reads,
-                      CellType<num_reads> &max_score,
-                      simdpp::uint32<num_reads> &max_pos) {
+      _seed _fill_node(const Graph::Node &n,
+                       const ReadBatch<read_len, num_reads, CellType> &reads,
+                       const std::vector<_seed> &seeds) {
 
           using namespace simdpp;
 
@@ -339,16 +358,7 @@ namespace vargas {
               Da->resize(n.seq().size());
               Db->resize(n.seq().size());
           }
-
-          // Used for swapping pointers
-          auto swp_tmp = S_prev;
-
-          CellType<num_reads>
-              Ceq, // Match score when read_base == ref_base
-              Cneq, // mismatch penalty
-              tmp = splat(0);
-
-          max_score = tmp;
+          _seed nxt; // Seed for next node
 
 #if DEBUG_PRINT_SW
           std::cout << "   ";
@@ -357,54 +367,39 @@ namespace vargas {
           }
 #endif
 
+          tmp = splat(0);
           // Clear old data
-          for (size_t i = 0; i < Sa->size(); ++i) {
+          for (size_t i = 1; i < Sa->size(); ++i) {
               S_prev[i] = tmp;
               D_prev[i] = tmp;
           }
-          for (size_t i = 0; i < read_len; ++i) {
-              I_prev[i] = tmp;
-          }
+          auto node_seq = n.seq().data();
+
 
           // For each row of the matrix
-          for (size_t row = 0; row < read_len; ++row) {
+          for (uint32_t row = 0; row < read_len; ++row) {
 
-#if DEBUG_PRINT_SW
+              _fill_cell(reads.at(row), node_seq[0], row, 1, n, seeds);
+
+              #if DEBUG_PRINT_SW
               std::cout << std::endl <<
-                  num_to_base(static_cast<Base>(extract<DEBUG_PRINT_SW_ELEM>(reads.at(row)))) << ": ";
-#endif
+                  num_to_base(static_cast<Base>(extract<DEBUG_PRINT_SW_ELEM>(reads.at(row)))) << ": "
+                  << ((int) extract<DEBUG_PRINT_SW_ELEM>(S_curr[1])) << "," << std::flush;
+              #endif
 
-              // Fill in the row. Start at one due to left buffer column
-              size_t seq_size = n.seq().size();
-              for (uint32_t col = 1; col < seq_size + 1; ++col) {
-                  // D(i,j) = D(i-1,j) - gap_extend
-                  D_curr[col] = sub_sat(D_prev[col], _gap_extend);
-                  // tmp = S(i-1,j) - ( gap_open + gap_extend)
-                  tmp = sub_sat(S_prev[col], _gap_extend + _gap_open);
-                  // D(i,j) = max{ D(i-1,j) - gap_extend, S(i-1,j) - ( gap_open + gap_extend) }
-                  D_curr[col] = max(D_curr[col], tmp);
+              // Fill in the row. Start at two due to left buffer column and above seeding step
+              size_t seq_size_bnd = 1 + n.seq().size();
+              for (uint32_t col = 2; col < seq_size_bnd; ++col) {
 
-                  // I(i,j) = I(i,j-1) - gap_extend
-                  I_curr[row] = sub_sat(I_prev[row], _gap_extend); // I: I(i,j-1) - gap_extend
-                  // tmp = S(i,j-1) - (gap_open + gap_extend)
-                  tmp = sub_sat(S_curr[col - 1], _gap_extend + _gap_open);
-                  I_curr[row] = max(I_curr[row], tmp);
-
-                  _cmp_read_ref(reads.at(row), n.seq().at(col - 1), Ceq, Cneq); // col - 1 due to column padding
-                  S_curr[col] = add_sat(S_prev[col - 1], Ceq); // Add match scores
-                  S_curr[col] = sub_sat(S_curr[col], Cneq); // Subtract mismatch scores
-                  //S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
-                  S_curr[col] = max(D_curr[col], S_curr[col]);
-                  S_curr[col] = max(I_curr[row], S_curr[col]);
-
-                  // Check for better scores
-                  tmp = S_curr[col] > max_score; // Mask of all elems that have new high score
-                  max_score = max(max_score, S_curr[col]);
+                  _fill_cell(reads.at(row), node_seq[col - 1], row, col, n);
 
 #if DEBUG_PRINT_SW
-                  std::cout << ((int)extract<DEBUG_PRINT_SW_ELEM>(S_curr[col])) << "," << std::flush;
+                  std::cout << ((int) extract<DEBUG_PRINT_SW_ELEM>(S_curr[col])) << "," << std::flush;
 #endif
               }
+
+              // Save last S col to seed next node
+              nxt.S_col[row] = S_curr[seq_size_bnd - 1];
 
               // Swap the rows we are filling in. The previous row/col becomes what we fill in.
               swp_tmp = S_prev;
@@ -420,53 +415,274 @@ namespace vargas {
               I_curr = swp_tmp;
 
           }
+
+          #if DEBUG_PRINT_SW
+          std::cout << std::endl;
+          #endif
+
+          // origin vector of what is now I_prev
+          nxt.I_col = (Ia->data() == I_prev) ? *Ia : *Ib;
+          return nxt;
       }
 
       /**
-       * Compare a ReadBatch position to a reference sequence base.
-       * If either base is Base::N, the score/penalty is set to zero.
-       * To apply all scores to grid element S[i],
-       * S[i] = add_sat(S, Ceq)
-       * S[i] = sub_sat(S, Cneq)
-       * @param read vector of i'th base of all reads in the ReadBatch
-       * @param b reference sequence Base
-       * @param Ceq When the read base matches ref seq base, set to match score
-       * @param Cneq When the read base doesn't match ref base, set to mismatch penalty
+       * Fills the current cell, if there are no previous seeds.
+       * @param read_base ReadBatch vector
+       * @param ref reference sequence base
+       * @param row current row in matrix
+       * @param col current column in matrix
        */
-      __attribute__((always_inline))
-      inline void _cmp_read_ref(const CellType<num_reads> &read,
-                                Base b,
-                                CellType<num_reads> &Ceq,
-                                CellType<num_reads> &Cneq) {
+      __INLINE__
+      inline void _fill_cell(const CellType<num_reads> &read_base,
+                             Base ref,
+                             uint32_t row,
+                             uint32_t col,
+                             const Graph::Node &n) {
+          using namespace simdpp;
 
+          _D(col);
+          _I(row, col);
+          _M(col, read_base, ref);
+          _fill_cell_finish(row, col, n);
+      }
+
+      /**
+       * Fills the current cell using seeds. Used for the first column of a Node.
+       * @param read_base ReadBatch vector
+       * @param ref reference sequence base
+       * @param row current row in matrix
+       * @param col current column in matrix
+       * @param seeds seeds from previous nodes
+       */
+      __INLINE__
+      inline void _fill_cell(const CellType<num_reads> &read_base,
+                             Base ref,
+                             uint32_t row,
+                             uint32_t col,
+                             const Graph::Node &n,
+                             const std::vector<_seed> &seeds) {
+          using namespace simdpp;
+
+          _D(col);
+          _I(row, seeds);
+          _M(row, col, read_base, ref, seeds);
+          _fill_cell_finish(row, col, n);
+      }
+
+      /**
+       * Score if there is a deletion
+       * @param col current column
+       */
+      __INLINE__
+      inline void _D(uint32_t col) {
+          using namespace simdpp;
+
+          // D(i,j) = D(i-1,j) - gap_extend
+          D_curr[col] = sub_sat(D_prev[col], _gap_extend);
+          // tmp = S(i-1,j) - ( gap_open + gap_extend)
+          tmp = sub_sat(S_prev[col], _gap_extend + _gap_open);
+          // D(i,j) = max{ D(i-1,j) - gap_extend, S(i-1,j) - ( gap_open + gap_extend) }
+          D_curr[col] = max(D_curr[col], tmp);
+      }
+
+      /**
+       * Score if there is an insertion
+       * @param row current row
+       * @param col current column
+       */
+      __INLINE__
+      inline void _I(uint32_t row,
+                     uint32_t col) {
+          using namespace simdpp;
+
+          // I(i,j) = I(i,j-1) - gap_extend
+          I_curr[row] = sub_sat(I_prev[row], _gap_extend); // I: I(i,j-1) - gap_extend
+          // tmp = S(i,j-1) - (gap_open + gap_extend)
+          tmp = sub_sat(S_curr[col - 1], _gap_extend + _gap_open);
+          I_curr[row] = max(I_curr[row], tmp);
+      }
+
+      /**
+       * Best score if there is an insertion. Uses previous seeds.
+       * @param row current row
+       * @param seeds previous nodes' seeds
+       */
+      __INLINE__
+      inline void _I(uint32_t row,
+                     const std::vector<_seed> &seeds) {
+          using namespace simdpp;
+
+          I_curr[row] = splat(0);
+
+          for (auto &s : seeds) {
+              // I(i,j) = I(i,j-1) - gap_extend
+              tmp = sub_sat(s.I_col[row], _gap_extend); // I: I(i,j-1) - gap_extend
+              I_curr[row] = max(I_curr[row], tmp);
+              // tmp = S(i,j-1) - (gap_open + gap_extend)
+              tmp = sub_sat(s.S_col[row], _gap_extend + _gap_open);
+              I_curr[row] = max(I_curr[row], tmp);
+          }
+      }
+
+      /**
+       * Best score if there is a match/mismatch. Uses S_prev.
+       * @param col current column
+       * @param read read base vector
+       * @param ref reference sequence base
+       */
+      __INLINE__
+      inline void _M(uint32_t col,
+                     const CellType<num_reads> &read,
+                     Base ref) {
           using namespace simdpp;
 
           Ceq = splat(0);
           Cneq = splat(0);
 
-          if (b != Base::N) {
+          if (ref != Base::N) {
               // Set all mismatching pairs to _mismatch
-              auto tmp = cmp_neq(read, b);
+              auto tmp = cmp_neq(read, ref);
               Cneq = tmp & _mismatch;
               // If the read base is Base::N, set to 0 (Ceq)
               tmp = cmp_eq(read, Base::N);
               Cneq = blend(Ceq, Cneq, tmp);
 
               // b is not N, so all equal bases are valid
-              tmp = cmp_eq(read, b);
+              tmp = cmp_eq(read, ref);
               Ceq = tmp & _match;
           }
+
+          S_curr[col] = add_sat(S_prev[col - 1], Ceq); // Add match scores
+          S_curr[col] = sub_sat(S_curr[col], Cneq); // Subtract mismatch scores
       }
+
+      /**
+       * Best score if there is a match/mismatch. Uses seeds.
+       * @param row current row
+       * @param col current column
+       * @param read current read base vec
+       * @param ref reference sequence base
+       * @param seeds previous nodes' seeds
+       */
+      __INLINE__
+      inline void _M(uint32_t row,
+                     uint32_t col,
+                     const CellType<num_reads> &read,
+                     Base ref,
+                     const std::vector<_seed> &seeds) {
+          using namespace simdpp;
+
+          Ceq = splat(0);
+          Cneq = splat(0);
+
+          if (ref != Base::N) {
+              // Set all mismatching pairs to _mismatch
+              auto tmp = cmp_neq(read, ref);
+              Cneq = tmp & _mismatch;
+              // If the read base is Base::N, set to 0 (Ceq)
+              tmp = cmp_eq(read, Base::N);
+              Cneq = blend(Ceq, Cneq, tmp);
+
+              // b is not N, so all equal bases are valid
+              tmp = cmp_eq(read, ref);
+              Ceq = tmp & _match;
+          }
+
+          S_curr[col] = splat(0);
+          for (auto &s : seeds) {
+              tmp = (row == 0) ? Ceq : add_sat(s.S_col[row - 1], Ceq); // Add match scores
+              tmp = sub_sat(tmp, Cneq); // Subtract mismatch scores
+              S_curr[col] = max(S_curr[col], tmp);
+          }
+
+      }
+
+      /**
+       * Takes the max of D,I, and M vectors and stores the current best score/position
+       * @param row current row
+       * @param col current column
+       */
+      __INLINE__
+      inline void _fill_cell_finish(uint32_t row,
+                                    uint32_t col,
+                                    const Graph::Node &n) {
+          using namespace simdpp;
+
+          //S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
+          S_curr[col] = max(D_curr[col], S_curr[col]);
+          S_curr[col] = max(I_curr[row], S_curr[col]);
+
+          // Check for better scores
+          tmp = S_curr[col] > max_score; // Mask of all elems that have new high score
+          // If there were any new high scores
+          if (reduce_or(tmp)) {
+              max_score = max(max_score, S_curr[col]); // update max scores
+              uint8_t *curr = (uint8_t *) &tmp; // Interpret as byte to check which ones update
+              for (uchar i = 0; i < num_reads; ++i) {
+                  // Check if the i'th elements MSB is set
+                  if (*(curr + (i * _bit_width))) max_pos[i] = n.end() - n.seq().size() + col;
+              }
+          }
+      }
+
+
+    private:
+      const uint8_t _bit_width = sizeof(CellType<num_reads>) / num_reads;
+
+      uint8_t
+          _match = 2,       // Match score, is added
+          _mismatch = 2,    // mismatch penalty, is subtracted
+          _gap_open = 3,    // gap open penalty, subtracted
+          _gap_extend = 1;  // gap extension penalty, subtracted
+
+      /**
+       * Each vector has an 'a' and a 'b' version. Through each row of the
+       * matrix fill, their roles are swapped such that one becomes the previous
+       * loops data, and the other is filled in.
+       * S and D are padded 1 to provide a left column buffer.
+       *
+       * The allocated memory persists between node fills, growing if needed.
+       */
+      VecType
+          *Sa = nullptr, // Matrix row
+          *Sb = nullptr,
+          *Da = nullptr, // Deletion vector
+          *Db = nullptr,
+          *Ia = nullptr, // Insertion vector
+          *Ib = nullptr;
+
+      /**
+       * S_prev[n] => S(i-1, n)
+       * D_prev[n] => D(i-1, n)
+       * I_prev[r] => I(r, j-1)
+       * where (i,j) is the current cell
+       */
+      CellType<num_reads>
+          *S_prev = nullptr,
+          *S_curr = nullptr,
+          *D_prev = nullptr,
+          *D_curr = nullptr,
+          *I_prev = nullptr,
+          *I_curr = nullptr,
+          *swp_tmp;
+
+      CellType<num_reads>
+          Ceq, // Match score when read_base == ref_base
+          Cneq, // mismatch penalty
+          tmp; // temporary for use within functions
+
+      CellType<num_reads> max_score;
+      std::vector<uint32_t> max_pos;
 
   };
 
 }
 
-TEST_CASE ("Fill Node") {
+TEST_CASE ("Alignment") {
 
     srand(12345);
 
-        SUBCASE("Alignment scores") {
+        SUBCASE("Node Fill scores") {
         std::vector<vargas::Read> reads;
         reads.push_back(vargas::Read("CGT")); // Score 6, Match
         reads.push_back(vargas::Read("ATAGCCA")); // Score 10, del
@@ -474,27 +690,107 @@ TEST_CASE ("Fill Node") {
         reads.push_back(vargas::Read("TACCCCA")); // Score 10, mismatch
 
         vargas::Graph::Node n;
+        n.set_endpos(13);
         n.set_seq("ACGTNATACGCCA");
 
         vargas::ReadBatch<16> rb(reads);
         vargas::Aligner<16> a;
+        std::vector<uint32_t> pos;
 
-        simdpp::uint8<SIMDPP_FAST_INT8_SIZE> maxscore;
-        simdpp::uint32<SIMDPP_FAST_INT8_SIZE> maxpos;
+        auto maxscore = a._test_fill_node(n, rb, pos);
+            CHECK((int) simdpp::extract<0>(maxscore) == 6);
+            CHECK((int) simdpp::extract<1>(maxscore) == 10);
+            CHECK((int) simdpp::extract<2>(maxscore) == 12);
+            CHECK((int) simdpp::extract<3>(maxscore) == 10);
 
-        a._test_fill_node(n, rb, maxscore, maxpos);
-            CHECK(simdpp::extract<0>(maxscore) == 6);
-            CHECK(simdpp::extract<1>(maxscore) == 10);
-            CHECK(simdpp::extract<2>(maxscore) == 12);
-            CHECK(simdpp::extract<3>(maxscore) == 10);
+            CHECK(pos[0] == 4);
+            CHECK(pos[1] == 13);
+            CHECK(pos[2] == 13);
+            CHECK(pos[3] == 13);
 
     }
 
-        SUBCASE("Profile alignment") {
+        SUBCASE("Graph Alignment- linear") {
+        vargas::Graph::Node::_newID = 0;
+        vargas::Graph g;
+
+        /**   GGG
+        *    /   \
+        * AAA     TTT
+        *    \   /
+        *     CCC(ref)
+        */
+
+        {
+            vargas::Graph::Node n;
+            n.set_endpos(3);
+            n.set_as_ref();
+            std::vector<bool> a = {0, 1, 1};
+            n.set_population(a);
+            n.set_seq("AAA");
+            g.add_node(n);
+        }
+
+        {
+            vargas::Graph::Node n;
+            n.set_endpos(6);
+            n.set_as_ref();
+            std::vector<bool> a = {0, 0, 1};
+            n.set_population(a);
+            n.set_af(0.4);
+            n.set_seq("CCC");
+            g.add_node(n);
+        }
+
+        {
+            vargas::Graph::Node n;
+            n.set_endpos(6);
+            n.set_not_ref();
+            std::vector<bool> a = {0, 1, 0};
+            n.set_population(a);
+            n.set_af(0.6);
+            n.set_seq("GGG");
+            g.add_node(n);
+        }
+
+        {
+            vargas::Graph::Node n;
+            n.set_endpos(9);
+            n.set_as_ref();
+            std::vector<bool> a = {0, 1, 1};
+            n.set_population(a);
+            n.set_seq("TTT");
+            n.set_af(0.3);
+            g.add_node(n);
+        }
+
+        g.add_edge(0, 1);
+        g.add_edge(0, 2);
+        g.add_edge(1, 3);
+        g.add_edge(2, 3);
+        g.set_popsize(3);
+
+        g.finalize();
+
+        std::vector<vargas::Read> reads;
+        reads.push_back(vargas::Read("CCTT"));
+        reads.push_back(vargas::Read("GGTT"));
+        reads.push_back(vargas::Read("AAGG"));
+        reads.push_back(vargas::Read("AACC"));
+        reads.push_back(vargas::Read("AGGGT"));
+        reads.push_back(vargas::Read("GG"));
+
+        vargas::ReadBatch<5> rb(reads);
+        vargas::Aligner<5> a;
+
+        a.align(reads, g);
+    }
+
+        SUBCASE("Node Fill Profile") {
         vargas::Graph::Node n;
         {
             std::stringstream ss;
-            for (size_t i = 0; i < 100000; ++i) {
+            for (size_t i = 0; i < 10000; ++i) {
                 ss << rand_base();
             }
             n.set_seq(ss.str());
@@ -502,20 +798,19 @@ TEST_CASE ("Fill Node") {
 
         std::vector<vargas::Read> reads;
         for (size_t i = 0; i < 16; ++i) {
-            std::stringstream r;
-            for (size_t r = 0; r < 50; ++r) r << rand_base();
-            reads.push_back(vargas::Read(r.str()));
+            std::stringstream rd;
+            for (size_t r = 0; r < 50; ++r) rd << rand_base();
+            reads.push_back(vargas::Read(rd.str()));
         }
 
         vargas::ReadBatch<50> rb(reads);
         vargas::Aligner<50> a;
 
-        simdpp::uint8<SIMDPP_FAST_INT8_SIZE> max;
-        simdpp::uint32<SIMDPP_FAST_INT8_SIZE> maxpos;
+        std::vector<uint32_t> pos;
 
         std::cout << "\n10 Node Fill (" << SIMDPP_FAST_INT8_SIZE << "x 50rdlen x 10000bp): ";
         clock_t start = std::clock();
-        for (int i = 0; i < 10; ++i) a._test_fill_node(n, rb, max, maxpos);
+        // for (int i = 0; i < 10; ++i) a._test_fill_node(n, rb, pos);
         std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s\n" << std::endl;
     }
 }

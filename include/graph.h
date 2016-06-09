@@ -434,6 +434,30 @@ namespace vargas {
           explicit FilteringIter(const Graph &g, bool end) : _graph(g), _end(end) { }
 
           /**
+           * Get vec of incoming edges.
+           * @param ids vector to populate with node ID's
+           */
+          void incoming(std::vector<long> &ids) {
+              if (_graph._prev_map.count(_currID) == 0) {
+                  ids = std::vector<long>();
+                  return;
+              }
+              ids = _graph._prev_map.at(_currID);
+          }
+
+          /**
+           * Get vec of outgoing edges.
+           * @param ids vector to populate with node ID's
+           */
+          void outgoing(std::vector<long> &ids) {
+              if (_graph._next_map.count(_currID) == 0) {
+                  ids = std::vector<long>();
+                  return;
+              }
+              ids = _graph._next_map.at(_currID);
+          }
+
+          /**
            * @return true when underlying graph address is the same and current node ID's
            * are the same. Two end iterators always compare equal.
            */
