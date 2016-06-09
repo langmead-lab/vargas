@@ -12,4 +12,4 @@
 	url = https://github.com/gaddra/libsimdpp
 [submodule "doctest"]
 	path = doctest
-	url = https://github.com/onqtam/doctest/
+	url = https://github.com/gaddra/doctest/
