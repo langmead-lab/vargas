@@ -13,6 +13,7 @@
 
 #include <iostream>
 #include "doctest/doctest.h"
+#include "main.h"
 #include "getopt_pp.h"
 #include "graph.h"
 #include "alignment.h"
@@ -20,48 +21,49 @@
 
 int main(const int argc, const char *argv[]) {
 
-  GetOpt::GetOpt_pp args(argc, argv);
 
-  // Run test cases
-  if (args >> GetOpt::OptionPresent("runtests")) {
-    doctest::Context doc(argc, argv);
-    doc.setOption("no-breaks", true);
-    doc.setOption("abort-after", 5);
-    doc.setOption("sort", "name");
-    int res = doc.run();
-    return res;
-  }
-
-  try {
-    if (argc > 1) {
-      if (!strcmp(argv[1], "build")) {
+    try {
+        if (argc > 1) {
+            if (!strcmp(argv[1], "test")) {
+                doctest::Context doc(argc, argv);
+                doc.setOption("no-breaks", true);
+                doc.setOption("abort-after", 5);
+                doc.setOption("sort", "name");
+                exit(doc.run());
+            }
+            else if (!strcmp(argv[1], "profile")) {
+                exit(profile(argc, argv));
+            }
+            else if (!strcmp(argv[1], "build")) {
 //        exit(build_main(argc, argv));
-      }
-      else if (!strcmp(argv[1], "sim")) {
+            }
+            else if (!strcmp(argv[1], "sim")) {
 //        exit(sim_main(argc, argv));
-      }
-      else if (!strcmp(argv[1], "align")) {
+            }
+            else if (!strcmp(argv[1], "align")) {
 //        exit(align_main(argc, argv));
-      }
-      else if (!strcmp(argv[1], "export")) {
-        //       exit(export_main(argc, argv));
-      }
-      else if (!strcmp(argv[1], "stat")) {
-        //       exit(stat_main(argc, argv));
-      }
+            }
+            else if (!strcmp(argv[1], "export")) {
+                //       exit(export_main(argc, argv));
+            }
+            else if (!strcmp(argv[1], "stat")) {
+                //       exit(stat_main(argc, argv));
+            }
+        }
+    } catch (std::exception &e) {
+        std::cerr << e.what() << std::endl;
+        exit(1);
     }
-  } catch (std::exception &e) {
-    std::cerr << e.what() << std::endl;
-    exit(1);
-  }
 
-  if (args >> GetOpt::OptionPresent('h', "help")) {
-//    printMainHelp();
-    exit(0);
-  }
-  std::cerr << "Define a valid mode of operation." << std::endl;
-//  printMainHelp();
-  exit(1);
+    GetOpt::GetOpt_pp args(argc, argv);
+    if (args >> GetOpt::OptionPresent('h', "help")) {
+        main_help();
+        exit(0);
+    }
+
+    std::cerr << "Define a valid mode of operation." << std::endl;
+    main_help();
+    exit(1);
 
 }
 
@@ -370,20 +372,6 @@ int sim_main(const int argc, const char *argv[]) {
 }
 
 
-void printMainHelp() {
-  using std::cout;
-  using std::endl;
-  cout << endl
-      << "---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
-  cout << "Operating modes \'vargas MODE\':" << endl;
-  cout << "\tbuild     Generate Graph build file from reference FASTA and VCF files." << endl;
-  cout << "\tsim       Simulate reads from a Graph." << endl;
-  cout << "\talign     Align reads to a Graph." << endl;
-  cout << "\tstat      Count nodes and edges of a given Graph." << endl;
-  cout << "\texport    Export Graph in DOT format." << endl << endl;
-}
-
-
 void printBuildHelp() {
   using std::cout;
   using std::endl;
@@ -486,105 +474,160 @@ void printStatHelp() {
 
 */
 
-TEST_CASE ("Profiling") {
-  if (!file_exists("hs37d5_22.fa") || !file_exists("chr22.bcf")) return;
-  vargas::GraphBuilder gb("hs37d5_22.fa", "chr22.bcf");
+int profile(const int argc, const char *argv[]) {
+    std::string bcf = "chr22.bcf", fasta = "hs37d5_22.fa";
+    std::string region = "22:25,000,000-25,500,000";
+    std::string read;
+    int ingroup = 100;
 
-  srand(time(NULL));
-  std::clock_t start;
-  std::cout << std::endl << "-------------------------Speed profiles (500kbp)-------------------------"
-      << std::endl << "Initial Build:\n\t";
-  start = std::clock();
+    GetOpt::GetOpt_pp args(argc, argv);
 
-  gb.region("22:25,000,000-25,500,000");
-  gb.ingroup(100);
-  vargas::Graph g;
-  gb.build(g);
-  std::vector<bool> filter;
-  for (int i = 0; i < g.pop_size(); ++i) filter.push_back(rand() % 100 > 95);
-  std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << g.node_map()->size()
-      << std::endl;
-
-  size_t num = 0;
-
-  {
-    int noind = 1;
-    std::cout << "Insertion order traversal:\n\t";
-    start = std::clock();
-    for (auto i = g.tbegin(); i != g.tend(); ++i) {
-      if (!(*i).is_ref() && !(*i).individuals().any()) ++noind;
-      ++num;
+    if (args >> GetOpt::OptionPresent('h', "help")) {
+        profile_help();
+        return 0;
     }
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-    std::cout << "\tNon-ref nodes with no samples: " << noind << std::endl;
-  }
 
-  {
-    num = 0;
-    std::cout << "Filtering traversal, 100% in:\n\t";
-    start = std::clock();
+    args >> GetOpt::Option('f', "fasta", fasta)
+        >> GetOpt::Option('v', "var", bcf)
+        >> GetOpt::Option('r', "region", region)
+        >> GetOpt::Option('i', "ingroup", ingroup)
+        >> GetOpt::Option('s', "string", read);
 
-    for (auto i = g.begin(); i != g.end(); ++i) {
-      ++num;
+
+    if (!file_exists(fasta) || !file_exists(bcf)) {
+        throw std::invalid_argument("File does not exist.");
     }
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-  }
 
-  {
-    num = 0;
-    std::cout << "Filtering traversal, 5% in:\n\t";
-    vargas::Graph::Population filt(filter);
-    start = std::clock();
+    vargas::GraphBuilder gb(fasta, bcf);
+    gb.region(region);
+    gb.ingroup(100);
+    if (!gb.good()) throw std::invalid_argument("Error opening files\n" + fasta + "\nand/or:\n" + bcf);
 
-    for (auto i = g.begin(filt); i != g.end(); ++i) {
-      ++num;
-    }
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-  }
+    srand(time(NULL));
+    std::clock_t start = std::clock();
 
-  {
-    num = 0;
-    std::cout << "REF traversal:\n\t";
-    start = std::clock();
-    for (auto i = g.begin(vargas::Graph::REF); i != g.end(); ++i) {
-      ++num;
-    }
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-  }
-
-  {
-    num = 0;
-    std::cout << "MAXAF traversal:\n\t";
-    start = std::clock();
-    for (auto i = g.begin(vargas::Graph::MAXAF); i != g.end(); ++i) {
-      num++;
-    }
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " <<
-        num << std::endl << std::endl;
-  }
-
-  {
-    std::cout << "FILTER constructor:\n\t";
-    start = std::clock();
-    vargas::Graph g1(g, filter);
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << (g1.next_map().size() + 1)
+    std::cout << "Initial Build:\n\t";
+    vargas::Graph g;
+    gb.build(g);
+    std::vector<bool> filter;
+    for (size_t i = 0; i < g.pop_size(); ++i) filter.push_back(rand() % 100 > 95);
+    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << g.node_map()->size()
         << std::endl;
-  }
 
-  {
-    std::cout << "REF constructor:\n\t";
-    start = std::clock();
-    vargas::Graph g2(g, vargas::Graph::REF);
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << (g2.next_map().size() + 1)
-        << std::endl;
-  }
+    size_t num = 0;
 
-  {
-    std::cout << "MAXAF constructor:\n\t";
-    start = std::clock();
-    vargas::Graph g3(g, vargas::Graph::MAXAF);
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << (g3.next_map().size() + 1)
-        << std::endl;
-  }
+    {
+        int noind = 1;
+        std::cout << "Insertion order traversal:\n\t";
+        start = std::clock();
+        for (auto i = g.tbegin(); i != g.tend(); ++i) {
+            if (!(*i).is_ref() && !(*i).individuals().any()) ++noind;
+            ++num;
+        }
+        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+        std::cout << "\tNon-ref nodes with no samples: " << noind << std::endl;
+    }
 
+    {
+        num = 0;
+        std::cout << "Filtering traversal, 100% in:\n\t";
+        start = std::clock();
+
+        for (auto i = g.begin(); i != g.end(); ++i) {
+            ++num;
+        }
+        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+    }
+
+    {
+        num = 0;
+        std::cout << "Filtering traversal, 5% in:\n\t";
+        vargas::Graph::Population filt(filter);
+        start = std::clock();
+
+        for (auto i = g.begin(filt); i != g.end(); ++i) {
+            ++num;
+        }
+        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+    }
+
+    {
+        num = 0;
+        std::cout << "REF traversal:\n\t";
+        start = std::clock();
+        for (auto i = g.begin(vargas::Graph::REF); i != g.end(); ++i) {
+            ++num;
+        }
+        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+    }
+
+    {
+        num = 0;
+        std::cout << "MAXAF traversal:\n\t";
+        start = std::clock();
+        for (auto i = g.begin(vargas::Graph::MAXAF); i != g.end(); ++i) {
+            num++;
+        }
+        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " <<
+            num << std::endl << std::endl;
+    }
+
+    node_fill_profile();
+
+    {
+        std::vector<vargas::Read> reads;
+
+        for (int i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
+            std::stringstream rd;
+            for (int r = 0; r < 50; ++r) rd << rand_base();
+            reads.push_back(rd.str());
+        }
+
+        std::vector<std::string> split_str;
+        if (read.length() > 0) {
+            split(read, ',', split_str);
+            if (split_str.size() > SIMDPP_FAST_INT8_SIZE) split_str.resize(SIMDPP_FAST_INT8_SIZE);
+            for (size_t i = 0; i < split_str.size(); ++i) reads[i] = vargas::Read(split_str[i]);
+        }
+
+        vargas::ReadBatch<50> rb(reads);
+        vargas::Aligner<50> a;
+
+        std::cout << SIMDPP_FAST_INT8_SIZE << " read alignment:\n\t";
+        auto pop_filt = g.subset(ingroup);
+        start = std::clock();
+        std::vector<vargas::Alignment> aligns = a.align(rb, g.begin(pop_filt), g.end());
+        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+
+        for (size_t i = 0; i < split_str.size(); ++i) std::cout << aligns[i] << std::endl;
+
+    }
+    return 0;
+}
+
+void main_help() {
+    using std::cout;
+    using std::endl;
+    cout << endl
+        << "---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
+    cout << "Operating modes \'vargas MODE\':" << endl;
+    cout << "\ttest      Run doctests." << endl;
+    cout << "\tprofile   Run profiles." << endl;
+    cout << "\tbuild     Generate Graph build file from reference FASTA and VCF files." << endl;
+    cout << "\tsim       Simulate reads from a Graph." << endl;
+    cout << "\talign     Align reads to a Graph." << endl;
+    cout << "\tstat      Count nodes and edges of a given Graph." << endl;
+    cout << "\texport    Export Graph in DOT format." << endl << endl;
+}
+
+void profile_help() {
+    using std::cout;
+    using std::endl;
+    cout << endl
+        << "---------------------- vargas profile, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
+    cout << "f\tfasta       <string> Reference filename." << endl;
+    cout << "v\tvar         <string> VCF/BCF filename." << endl;
+    cout << "r\tregion      <string> Region of graph, format CHR:MIN-MAX." << endl;
+    cout << "i\tingroup     <int> Percent of genotypes to include in alignment" << endl;
+    cout << "s\tstring      <string,string..> Include reads in alignment. Rest will be random." << endl << endl;
 }

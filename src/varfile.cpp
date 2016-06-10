@@ -46,7 +46,7 @@ std::vector<std::string> vargas::VarFile::sequences() const {
 
 bool vargas::VarFile::next() {
     if (!_header || !_bcf) return false;
-    if (bcf_read(_bcf, _header, _curr_rec) < 0) return false;
+    if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
     unpack_all();
     // Check if its within the filter range
     if (_max_pos > 0 && _curr_rec->pos > _max_pos) return false;
@@ -140,8 +140,8 @@ void vargas::VarFile::_load_shared() {
             // Copy number
             if (allele.substr(1, 2) == "CN" && allele.at(3) != 'V') {
                 int copy = std::stoi(allele.substr(3, allele.length() - 4));
-                allele = "";
-                for (int i = 0; i < copy; ++i) allele += ref;
+                allele = ref; //TODO change this policy? if its CN0 make it ref.
+                for (int i = 0; i < copy - 1; ++i) allele += ref;
             } else {
                 // Other types are just subbed with the ref.
                 allele = ref;

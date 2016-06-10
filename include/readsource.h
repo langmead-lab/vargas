@@ -219,6 +219,16 @@ namespace vargas {
       const std::vector<Read> &reads() const { return _reads; }
 
       /**
+       * Get a read, empty read if out of range.
+       * @param i index of read
+       * @return Read at i
+       */
+      Read get_read(int i) const {
+          if (i < 0 || i >= _reads.size()) return Read();
+          return _reads[i];
+      }
+
+      /**
        * Get the utilization of the batch capacity. In effect how much
        * padding was used.
        * @return fill, between 0 and 1.

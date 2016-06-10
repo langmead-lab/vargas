@@ -11,8 +11,8 @@
 #ifndef VARGAS_ALIGNMENT_H
 #define VARGAS_ALIGNMENT_H
 
-#define DEBUG_PRINT_SW 1
-#define DEBUG_PRINT_SW_ELEM 0
+#define DEBUG_PRINT_SW 0
+#define DEBUG_PRINT_SW_ELEM 6
 #define __INLINE__ __attribute__((always_inline))
 
 #include <vector>
@@ -94,6 +94,14 @@ namespace vargas {
               this->corflag = (int8_t) std::stoi(splitLine[11]);
           }
       }
+
+      Alignment(const Read &r,
+                uint16_t best_score, int32_t best_pos, int32_t best_count,
+                uint16_t sec_score, int32_t sec_pos, int32_t sec_count,
+                int8_t flag) : read(r),
+                               opt_score(best_score), opt_align_end(best_pos), opt_count(best_count),
+                               sub_score(sec_score), sub_align_end(sec_pos), sub_count(sec_count),
+                               corflag(flag) { }
 
   };
 
@@ -221,28 +229,47 @@ namespace vargas {
                  Graph::FilteringIter begin,
                  Graph::FilteringIter end,
                  std::vector<Alignment> &aligns) {
+          using namespace simdpp;
+
           max_score = simdpp::splat(0);
           max_pos = std::vector<uint32_t>(num_reads);
 
           std::unordered_map<long, _seed> seed_map;
-          std::vector<long> prev_ids;
           std::vector<_seed> seeds;
 
-          for (auto gi = begin; gi != end; ++gi) {
-              gi.incoming(prev_ids);
-              if (prev_ids.size() == 0) {
-                  seeds.push_back(_seed());
-              } else {
-                  for (long id : prev_ids) {
-                      if (seed_map.count(id) == 0) throw std::logic_error("Previous node not populated.");
-                      seeds.push_back(seed_map.at(id));
-                  }
-              }
-              seed_map[(*gi).id()] = _fill_node(*gi, reads, seeds);
+          auto gi = begin;
+          while (gi != end) {
+              long cid = (*gi).id();
+              _get_seeds(gi.incoming(), seed_map, seeds);
+              seed_map[cid] = _fill_node(*gi, reads, seeds);
+
+              ++gi;
           }
 
           aligns.clear();
 
+          // Workaround to avoid loops
+          if (num_reads == 16) {
+              aligns.emplace(aligns.end(), reads.get_read(0), extract<0>(max_score), max_pos[0], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(1), extract<1>(max_score), max_pos[1], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(2), extract<2>(max_score), max_pos[2], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(3), extract<3>(max_score), max_pos[3], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(4), extract<4>(max_score), max_pos[4], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(5), extract<5>(max_score), max_pos[5], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(6), extract<6>(max_score), max_pos[6], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(7), extract<7>(max_score), max_pos[7], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(8), extract<8>(max_score), max_pos[8], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(9), extract<9>(max_score), max_pos[9], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(10), extract<10>(max_score), max_pos[10], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(11), extract<11>(max_score), max_pos[11], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(12), extract<12>(max_score), max_pos[12], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(13), extract<13>(max_score), max_pos[13], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(14), extract<14>(max_score), max_pos[14], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(15), extract<15>(max_score), max_pos[15], 0, 0, 0, 0, 0);
+          }
+
+          // pop off padded reads
+          for (size_t i = num_reads; i > reads.reads().size(); --i) aligns.pop_back();
       }
 
       /**
@@ -273,6 +300,22 @@ namespace vargas {
           VecType S_col;
           VecType I_col;
       };
+
+      void _get_seeds(const std::vector<long> &prev_ids,
+                      std::unordered_map<long, _seed> &seed_map,
+                      std::vector<_seed> &seeds) {
+          seeds.clear();
+          if (prev_ids.size() == 0) {
+              seeds.push_back(_seed());
+          } else {
+              for (long id : prev_ids) {
+                  if (seed_map.count(id) == 0) {
+                      throw std::range_error("Invalid node ordering.");
+                  }
+                  seeds.push_back(seed_map.at(id));
+              }
+          }
+      }
 
       /**
        * deletes allocated matrix filling vectors.
@@ -346,18 +389,10 @@ namespace vargas {
           using namespace simdpp;
 
           // Allocate memory if needed
-          if (S_prev == nullptr) {
-              _dealloc(); // Make sure all are freed
+          if (Sa == nullptr || Sa->size() <= n.seq().size()) {
               _alloc(n.seq().size());
           }
-              // Make sure there's enough memory
-          else if (Sa->size() < n.seq().size()) {
-              // Make sure its the correct size
-              Sa->resize(n.seq().size());
-              Sb->resize(n.seq().size());
-              Da->resize(n.seq().size());
-              Db->resize(n.seq().size());
-          }
+
           _seed nxt; // Seed for next node
 
 #if DEBUG_PRINT_SW
@@ -375,17 +410,16 @@ namespace vargas {
           }
           auto node_seq = n.seq().data();
 
-
           // For each row of the matrix
           for (uint32_t row = 0; row < read_len; ++row) {
 
               _fill_cell(reads.at(row), node_seq[0], row, 1, n, seeds);
 
-              #if DEBUG_PRINT_SW
-              std::cout << std::endl <<
-                  num_to_base(static_cast<Base>(extract<DEBUG_PRINT_SW_ELEM>(reads.at(row)))) << ": "
+#if DEBUG_PRINT_SW
+              std::cout << std::endl
+                  << num_to_base(static_cast<Base>(extract<DEBUG_PRINT_SW_ELEM>(reads.at(row)))) << ": "
                   << ((int) extract<DEBUG_PRINT_SW_ELEM>(S_curr[1])) << "," << std::flush;
-              #endif
+#endif
 
               // Fill in the row. Start at two due to left buffer column and above seeding step
               size_t seq_size_bnd = 1 + n.seq().size();
@@ -413,12 +447,11 @@ namespace vargas {
               swp_tmp = I_prev;
               I_prev = I_curr;
               I_curr = swp_tmp;
-
           }
 
-          #if DEBUG_PRINT_SW
+#if DEBUG_PRINT_SW
           std::cout << std::endl;
-          #endif
+#endif
 
           // origin vector of what is now I_prev
           nxt.I_col = (Ia->data() == I_prev) ? *Ia : *Ib;
@@ -710,7 +743,7 @@ TEST_CASE ("Alignment") {
 
     }
 
-        SUBCASE("Graph Alignment- linear") {
+        SUBCASE("Graph Alignment") {
         vargas::Graph::Node::_newID = 0;
         vargas::Graph g;
 
@@ -755,11 +788,11 @@ TEST_CASE ("Alignment") {
 
         {
             vargas::Graph::Node n;
-            n.set_endpos(9);
+            n.set_endpos(10);
             n.set_as_ref();
             std::vector<bool> a = {0, 1, 1};
             n.set_population(a);
-            n.set_seq("TTT");
+            n.set_seq("TTTA");
             n.set_af(0.3);
             g.add_node(n);
         }
@@ -779,14 +812,50 @@ TEST_CASE ("Alignment") {
         reads.push_back(vargas::Read("AACC"));
         reads.push_back(vargas::Read("AGGGT"));
         reads.push_back(vargas::Read("GG"));
+        reads.push_back(vargas::Read("AAATTTA"));
+        reads.push_back(vargas::Read("AAAGCCC"));
 
-        vargas::ReadBatch<5> rb(reads);
-        vargas::Aligner<5> a;
+        vargas::ReadBatch<8> rb(reads);
+        vargas::Aligner<8> a;
 
-        a.align(reads, g);
+        std::vector<vargas::Alignment> aligns = a.align(reads, g);
+            REQUIRE(aligns.size() == 8);
+
+            CHECK(aligns[0].read.read == "CCTT");
+            CHECK(aligns[0].opt_score == 8);
+            CHECK(aligns[0].opt_align_end == 8);
+
+            CHECK(aligns[1].read.read == "GGTT");
+            CHECK(aligns[1].opt_score == 8);
+            CHECK(aligns[1].opt_align_end == 8);
+
+            CHECK(aligns[2].read.read == "AAGG");
+            CHECK(aligns[2].opt_score == 8);
+            CHECK(aligns[2].opt_align_end == 5);
+
+            CHECK(aligns[3].read.read == "AACC");
+            CHECK(aligns[3].opt_score == 8);
+            CHECK(aligns[3].opt_align_end == 5);
+
+            CHECK(aligns[4].read.read == "AGGGT");
+            CHECK(aligns[4].opt_score == 10);
+            CHECK(aligns[4].opt_align_end == 7);
+
+            CHECK(aligns[5].read.read == "GG");
+            CHECK(aligns[5].opt_score == 4);
+            CHECK(aligns[5].opt_align_end == 5);
+
+            CHECK(aligns[6].read.read == "AAATTTA");
+            CHECK(aligns[6].opt_score == 8);
+            CHECK(aligns[6].opt_align_end == 10);
+
+            CHECK(aligns[7].read.read == "AAAGCCC");
+            CHECK(aligns[7].opt_score == 8);
+            CHECK(aligns[7].opt_align_end == 6);
     }
+}
 
-        SUBCASE("Node Fill Profile") {
+void node_fill_profile() {
         vargas::Graph::Node n;
         {
             std::stringstream ss;
@@ -810,8 +879,7 @@ TEST_CASE ("Alignment") {
 
         std::cout << "\n10 Node Fill (" << SIMDPP_FAST_INT8_SIZE << "x 50rdlen x 10000bp): ";
         clock_t start = std::clock();
-        // for (int i = 0; i < 10; ++i) a._test_fill_node(n, rb, pos);
+    for (int i = 0; i < 10; ++i) a._test_fill_node(n, rb, pos);
         std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s\n" << std::endl;
-    }
 }
 #endif //VARGAS_ALIGNMENT_H

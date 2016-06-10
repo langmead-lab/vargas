@@ -219,10 +219,11 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
   }
 
   int curr = _vf.region_lower(); // The Graph has been built up to this position, exclusive
-  std::vector<int> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
-  std::vector<int> curr_unconnected; // ID's of nodes added that are unconnected
+  std::vector<long> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
+  std::vector<long> curr_unconnected; // ID's of nodes added that are unconnected
 
   g.set_popsize(_vf.samples().size() * 2);
+  const Graph::Population all_pop(g.pop_size(), true);
 
   while (_vf.next()) {
     _vf.genotypes();
@@ -247,12 +248,15 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
     //alt nodes
     for (size_t i = 1; i < _vf.alleles().size(); ++i) {
       Graph::Node n;
-      n.set_not_ref();
       const std::string &allele = _vf.alleles()[i];
-      n.set_seq(allele);
-      n.set_af(af[i]);
       n.set_population(_vf.allele_pop(allele));
-      curr_unconnected.push_back(g.add_node(n));
+      if (n.individuals() && all_pop) {
+        // Only add alleles that someone has
+        n.set_seq(allele);
+        n.set_af(af[i]);
+        n.set_not_ref();
+        curr_unconnected.push_back(g.add_node(n));
+      }
     }
 
     _build_edges(g, prev_unconnected, curr_unconnected);
@@ -274,10 +278,10 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
 
 
 void vargas::GraphBuilder::_build_edges(vargas::Graph &g,
-                                        std::vector<int> &prev,
-                                        std::vector<int> &curr) {
-  for (int pID : prev) {
-    for (int cID : curr) {
+                                        std::vector<long> &prev,
+                                        std::vector<long> &curr) {
+  for (long pID : prev) {
+    for (long cID : curr) {
       g.add_edge(pID, cID);
     }
   }
@@ -287,10 +291,10 @@ void vargas::GraphBuilder::_build_edges(vargas::Graph &g,
 
 
 int vargas::GraphBuilder::_build_linear_ref(Graph &g,
-                                            std::vector<int> &prev,
-                                            std::vector<int> &curr,
-                                            int pos,
-                                            int target) {
+                                            std::vector<long> &prev,
+                                            std::vector<long> &curr,
+                                            long pos,
+                                            long target) {
 
   if (target <= 0) target = _fa.seq_len(_vf.region_chr());
   while (pos < target) {

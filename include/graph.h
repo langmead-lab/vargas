@@ -293,11 +293,22 @@ namespace vargas {
        */
       long root() const { return _root; }
 
-      // Maps a node ID to the shared node object
+      /**
+       * Maps a ndoe ID to a shared node object
+       * @return map of ID, shared_ptr<Node> pairs
+       */
       const std::shared_ptr<std::unordered_map<long, nodeptr>> &node_map() const { return _IDMap; }
-      // Maps a node ID to a vector of all next nodes (outgoing edges)
+
+      /**
+       * Maps a node ID to a vector of all next nodes (outgoing edges)
+       * @return map of ID, outgoing edge vectors
+       */
       const std::unordered_map<long, std::vector<long>> &next_map() const { return _next_map; }
-      // Maps a node ID to a vector of all incoming edge nodes
+
+      /**
+       *  Maps a node ID to a vector of all incoming edge nodes
+       *  @return map of ID, incoming edges
+       */
       const std::unordered_map<long, std::vector<long>> &prev_map() const { return _prev_map; }
 
       /**
@@ -341,7 +352,19 @@ namespace vargas {
       /**
        * @return population size
        */
-      int pop_size() const { return _pop_size; }
+      size_t pop_size() const { return _pop_size; }
+
+      /**
+       * Return a Population of a subset of the graph.
+       * @return Population with ingroup % indivduals set.
+       */
+      Population subset(int ingroup) const {
+          Population p(_pop_size);
+          for (size_t i = 0; i < _pop_size; ++i) {
+              if (rand() % 100 < ingroup) p.set(i);
+          }
+          return p;
+      }
 
       /**
        * const forward iterator to traverse the Graph by insertion order.
@@ -433,29 +456,13 @@ namespace vargas {
            */
           explicit FilteringIter(const Graph &g, bool end) : _graph(g), _end(end) { }
 
-          /**
-           * Get vec of incoming edges.
-           * @param ids vector to populate with node ID's
-           */
-          void incoming(std::vector<long> &ids) {
-              if (_graph._prev_map.count(_currID) == 0) {
-                  ids = std::vector<long>();
-                  return;
-              }
-              ids = _graph._prev_map.at(_currID);
-          }
+          explicit FilteringIter(const Graph &g, long id) : _graph(g), _currID(id) { }
 
           /**
-           * Get vec of outgoing edges.
-           * @param ids vector to populate with node ID's
+           * Reference to the underlying graph.
+           * @return const ref to graph
            */
-          void outgoing(std::vector<long> &ids) {
-              if (_graph._next_map.count(_currID) == 0) {
-                  ids = std::vector<long>();
-                  return;
-              }
-              ids = _graph._next_map.at(_currID);
-          }
+          const Graph &graph() const { return _graph; }
 
           /**
            * @return true when underlying graph address is the same and current node ID's
@@ -538,6 +545,7 @@ namespace vargas {
                   return *this;
               }
 
+              _traversed.insert(_currID); // Insert previous iterator position (node id)
               _currID = _queue.front();
               _queue.pop();
               _queue_unique.erase(_currID);
@@ -562,6 +570,19 @@ namespace vargas {
            */
           const Graph::Node &operator*() const { return *(_graph._IDMap->at(_currID)); }
 
+          /**
+           * All nodes that we've traversed that have incoming edges to the current node.
+           * @return vector of previous nodes
+           */
+          const std::vector<long> &incoming() {
+              _incoming.clear();
+              if (_graph._prev_map.count(_currID) == 0) return _incoming;
+              for (auto &id : _graph._prev_map.at(_currID)) {
+                  if (_traversed.count(id)) _incoming.push_back(id);
+              }
+              return _incoming;
+          }
+
 
         private:
           const Graph &_graph; // Underlying graph
@@ -571,6 +592,8 @@ namespace vargas {
           std::queue<long> _queue;
           std::unordered_set<long> _queue_unique; // Used to make sure we don't repeat nodes
           bool _end = false;
+          std::unordered_set<long> _traversed; // Set of all nodes we've passed
+          std::vector<long> _incoming; // Set of incoming edges, for use by incoming()
 
       };
 
@@ -628,7 +651,7 @@ namespace vargas {
       std::vector<long> _add_order; // Order nodes were added
       // Description, used by the builder to store construction params
       std::string _desc;
-      int _pop_size = 0;
+      size_t _pop_size = 0;
 
       /**
        * Recursive depth first search to find dependencies. Used to topological sort.
@@ -996,14 +1019,14 @@ namespace vargas {
 
     protected:
       __attribute__((always_inline))
-      inline void _build_edges(Graph &g, std::vector<int> &prev,
-                               std::vector<int> &curr);
+      inline void _build_edges(Graph &g, std::vector<long> &prev,
+                               std::vector<long> &curr);
 
       __attribute__((always_inline))
-      inline int _build_linear_ref(Graph &g, std::vector<int> &prev,
-                                   std::vector<int> &curr,
-                                   int pos,
-                                   int target);
+      inline int _build_linear_ref(Graph &g, std::vector<long> &prev,
+                                   std::vector<long> &curr,
+                                   long pos,
+                                   long target);
 
     private:
       std::string _fa_file, _vf_file;

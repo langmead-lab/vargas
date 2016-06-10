@@ -20,11 +20,16 @@ int align_main(const int argc, const char *argv[]);
 int stat_main(const int argc, const char *argv[]);
 
 // Program menus
-void printMainHelp();
+
 void printBuildHelp();
 void printSimHelp();
 void printAlignHelp();
 void printExportHelp();
 void printStatHelp();
+
+void main_help();
+void profile_help();
+
+int profile(const int argc, const char *argv[]);
 
 #endif //VARGAS_MAIN_H

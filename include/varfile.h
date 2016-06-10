@@ -456,12 +456,12 @@ TEST_CASE ("VCF File handler") {
         REQUIRE(vcf.genotypes().size() == 4);
         CHECK(vcf.genotypes()[0] == "CC");
         CHECK(vcf.genotypes()[1] == "CC");
-        CHECK(vcf.genotypes()[2] == "");
+          CHECK(vcf.genotypes()[2] == "C");
         CHECK(vcf.genotypes()[3] == "CC");
         REQUIRE(vcf.alleles().size() == 3);
         CHECK(vcf.alleles()[0] == "C");
         CHECK(vcf.alleles()[1] == "CC");
-        CHECK(vcf.alleles()[2] == "");
+          CHECK(vcf.alleles()[2] == "C");
         CHECK(vcf.ref() == "C");
         CHECK(vcf.pos() == 9);
 
@@ -521,7 +521,7 @@ TEST_CASE ("VCF File handler") {
 
     vcf.next();
         REQUIRE(vcf.genotypes().size() == 2);
-        CHECK(vcf.genotypes()[0] == "");
+          CHECK(vcf.genotypes()[0] == "C");
         CHECK(vcf.genotypes()[1] == "CC");
 
     // Allele set should be complete, ingroup should reflect minimized set
