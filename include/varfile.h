@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unordered_map>
+#include "dyn_bitset.h"
 #include "utils.h"
 #include "htslib/vcfutils.h"
 #include "htslib/hts.h"
@@ -34,7 +35,7 @@ namespace vargas {
  */
 class VarFile {
  public:
-
+    typedef dyn_bitset<64> Population;
   /**
   * Get the specified format field from the record.
   * @param T Valid types are int, char, float.
@@ -307,14 +308,14 @@ class VarFile {
     return FormatField<T>(_header, _curr_rec, tag).values;
   }
 
-  /**
-   * Return the population set that has the allele.
-   * The returned vector has the same size as number of genotypes (samples * 2).
-   * When true, that individual/phase possed that allele.
-   * @param allele allele to get the population of
-   * @return vector<bool> of indviduals that have the allele
-   */
-  const std::vector<bool> &allele_pop(std::string allele) const { return _genotype_indivs.at(allele); }
+    /**
+     * Return the population set that has the allele.
+     * The returned vector has the same size as number of genotypes (samples * 2).
+     * When true, that individual/phase possed that allele.
+     * @param allele allele to get the population of
+     * @return Population of indviduals that have the allele
+     */
+    const Population &allele_pop(std::string allele) const { return _genotype_indivs.at(allele); }
 
   /**
    * Check if the file is properly loaded.
@@ -392,7 +393,7 @@ class VarFile {
 
   std::vector<std::string> _genotypes; // restricted to _ingroup
   std::vector<float> _allele_freqs;
-  std::unordered_map<std::string, std::vector<bool>> _genotype_indivs;
+    std::unordered_map<std::string, Population> _genotype_indivs;
   std::vector<std::string> _alleles;
   std::vector<std::string> _samples;
   std::vector<std::string> _ingroup; // subset of _samples

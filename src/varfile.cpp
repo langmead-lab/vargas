@@ -61,18 +61,18 @@ bool vargas::VarFile::next() {
 
 const std::vector<std::string> &vargas::VarFile::genotypes() {
     FormatField<int> gt(_header, _curr_rec, "GT");
-    _genotypes.clear();
-    for (int o : gt.values) {
-        _genotypes.push_back(_alleles[bcf_gt_allele(o)]);
+    _genotypes.resize(gt.values.size());
+    for (size_t i = 0; i < _genotypes.size(); ++i) {
+        _genotypes[i] = (_alleles[bcf_gt_allele(gt.values.at(i))]);
     }
 
     // Map of which indivs have each allele
     _genotype_indivs.clear();
     for (auto &allele : alleles()) {
-        _genotype_indivs[allele] = std::vector<bool>(_genotypes.size(), false);
+        _genotype_indivs[allele] = Population(_genotypes.size(), false);
     }
     for (size_t s = 0; s < _genotypes.size(); ++s) {
-        _genotype_indivs[_genotypes[s]][s] = true;
+        _genotype_indivs[_genotypes[s]].set(s);
     }
 
     return _genotypes;

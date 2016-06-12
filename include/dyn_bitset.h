@@ -122,6 +122,14 @@ class dyn_bitset {
     }
 
     /**
+     * Alias for at(). Does not allow setting.
+     * @param idx index of bit to get
+     */
+    bool operator[](const int bit) const {
+        return at(bit);
+    }
+
+    /**
      * Add a bit.
      * @param val 0/1 bit
      */

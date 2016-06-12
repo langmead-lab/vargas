@@ -13,7 +13,7 @@
 
 #define DEBUG_PRINT_SW 0
 #define DEBUG_PRINT_SW_ELEM 6
-#define __INLINE__ __attribute__((always_inline))
+#define __INLINE__ __attribute__((always_inline)) inline
 
 #include <vector>
 #include <algorithm>
@@ -154,7 +154,8 @@ namespace vargas {
        * Gap Open : 3
        * Gap Extend : 1
        */
-      Aligner() : max_pos(std::vector<uint32_t>(num_reads)) { }
+      Aligner(size_t max_node_len)
+          : max_pos(std::vector<uint32_t>(num_reads)), _max_node_len(max_node_len) { _alloc(); }
 
       /**
        * Set scoring parameters
@@ -163,11 +164,13 @@ namespace vargas {
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
-      Aligner(uint8_t match,
+      Aligner(size_t max_node_len,
+              uint8_t match,
               uint8_t mismatch,
               uint8_t open,
-              uint8_t extend) : _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend),
-                                max_pos(std::vector<uint32_t>(num_reads)) { }
+              uint8_t extend) :
+          _max_node_len(max_node_len), _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend),
+          max_pos(std::vector<uint32_t>(num_reads)) { _alloc(); }
 
       ~Aligner() {
           _dealloc();
@@ -233,19 +236,13 @@ namespace vargas {
 
           max_score = simdpp::splat(0);
           max_pos = std::vector<uint32_t>(num_reads);
-
-          std::unordered_map<long, _seed> seed_map;
-          std::vector<_seed> seeds;
-
-          auto gi = begin;
-          while (gi != end) {
-              long cid = (*gi).id();
-              _get_seeds(gi.incoming(), seed_map, seeds);
-              seed_map[cid] = _fill_node(*gi, reads, seeds);
-
-              ++gi;
+          _seed seed;
+          std::unordered_map<uint32_t, _seed> seed_map;
+          seed_map.reserve(begin.graph().node_map()->size());
+          for (auto gi = begin; gi != end; ++gi) {
+              _get_seed(gi.incoming(), seed_map, &seed);
+              seed_map.emplace((*gi).id(), _fill_node(*gi, reads, &seed));
           }
-
           aligns.clear();
 
           // Workaround to avoid loops
@@ -301,20 +298,25 @@ namespace vargas {
           VecType I_col;
       };
 
-      void _get_seeds(const std::vector<long> &prev_ids,
-                      std::unordered_map<long, _seed> &seed_map,
-                      std::vector<_seed> &seeds) {
-          seeds.clear();
-          if (prev_ids.size() == 0) {
-              seeds.push_back(_seed());
-          } else {
-              for (long id : prev_ids) {
-                  if (seed_map.count(id) == 0) {
-                      throw std::range_error("Invalid node ordering.");
+      void _get_seed(const std::vector<uint32_t> &prev_ids,
+                     const std::unordered_map<uint32_t, _seed> &seed_map,
+                     _seed *seed) {
+          using namespace simdpp;
+
+          try {
+              for (size_t i = 0; i < read_len; ++i) {
+                  seed->I_col[i] = splat(0);
+                  seed->S_col[i] = splat(0);
+                  for (uint32_t id : prev_ids) {
+                      seed->I_col[i] = max(seed->I_col[i], seed_map.at(id).I_col[i]);
+                      seed->S_col[i] = max(seed->S_col[i], seed_map.at(id).S_col[i]);
                   }
-                  seeds.push_back(seed_map.at(id));
+                  }
               }
+          catch (std::exception &e) {
+              std::cerr << "Invalid node ordering." << std::endl;
           }
+
       }
 
       /**
@@ -347,12 +349,11 @@ namespace vargas {
        * Allocate S and D vectors. I is determined by template parameter.
        * @param seq length of S and D vectors, i.e. node length.
        */
-      void _alloc(size_t seq) {
-          _dealloc();
-          Sa = new VecType(seq + 1);
-          Sb = new VecType(seq + 1);
-          Da = new VecType(seq + 1);
-          Db = new VecType(seq + 1);
+      void _alloc() {
+          Sa = new VecType(_max_node_len + 1);
+          Sb = new VecType(_max_node_len + 1);
+          Da = new VecType(_max_node_len + 1);
+          Db = new VecType(_max_node_len + 1);
           Ia = new VecType(read_len);
           Ib = new VecType(read_len);
 
@@ -371,9 +372,9 @@ namespace vargas {
        */
       _seed _fill_node(const Graph::Node &n,
                        const ReadBatch<read_len, num_reads, CellType> &reads) {
-          std::vector<_seed> seeds;
-          seeds.push_back(_seed());
-          return _fill_node(n, reads, seeds);
+          _seed s;
+          s = _fill_node(n, reads, &s);
+          return s;
       }
 
       /**
@@ -384,14 +385,9 @@ namespace vargas {
        */
       _seed _fill_node(const Graph::Node &n,
                        const ReadBatch<read_len, num_reads, CellType> &reads,
-                       const std::vector<_seed> &seeds) {
+                       const _seed *s) {
 
           using namespace simdpp;
-
-          // Allocate memory if needed
-          if (Sa == nullptr || Sa->size() <= n.seq().size()) {
-              _alloc(n.seq().size());
-          }
 
           _seed nxt; // Seed for next node
 
@@ -413,7 +409,7 @@ namespace vargas {
           // For each row of the matrix
           for (uint32_t row = 0; row < read_len; ++row) {
 
-              _fill_cell(reads.at(row), node_seq[0], row, 1, n, seeds);
+              _fill_cell(reads.at(row), node_seq[0], row, 1, n, s);
 
 #if DEBUG_PRINT_SW
               std::cout << std::endl
@@ -466,11 +462,11 @@ namespace vargas {
        * @param col current column in matrix
        */
       __INLINE__
-      inline void _fill_cell(const CellType<num_reads> &read_base,
-                             Base ref,
-                             uint32_t row,
-                             uint32_t col,
-                             const Graph::Node &n) {
+      void _fill_cell(const CellType<num_reads> &read_base,
+                      Base ref,
+                      uint32_t row,
+                      uint32_t col,
+                      const Graph::Node &n) {
           using namespace simdpp;
 
           _D(col);
@@ -488,17 +484,17 @@ namespace vargas {
        * @param seeds seeds from previous nodes
        */
       __INLINE__
-      inline void _fill_cell(const CellType<num_reads> &read_base,
-                             Base ref,
-                             uint32_t row,
-                             uint32_t col,
-                             const Graph::Node &n,
-                             const std::vector<_seed> &seeds) {
+      void _fill_cell(const CellType<num_reads> &read_base,
+                      Base ref,
+                      uint32_t row,
+                      uint32_t col,
+                      const Graph::Node &n,
+                      const _seed *s) {
           using namespace simdpp;
 
           _D(col);
-          _I(row, seeds);
-          _M(row, col, read_base, ref, seeds);
+          _I(row, s);
+          _M(row, col, read_base, ref, s);
           _fill_cell_finish(row, col, n);
       }
 
@@ -507,7 +503,7 @@ namespace vargas {
        * @param col current column
        */
       __INLINE__
-      inline void _D(uint32_t col) {
+      void _D(uint32_t col) {
           using namespace simdpp;
 
           // D(i,j) = D(i-1,j) - gap_extend
@@ -524,8 +520,8 @@ namespace vargas {
        * @param col current column
        */
       __INLINE__
-      inline void _I(uint32_t row,
-                     uint32_t col) {
+      void _I(uint32_t row,
+              uint32_t col) {
           using namespace simdpp;
 
           // I(i,j) = I(i,j-1) - gap_extend
@@ -541,20 +537,17 @@ namespace vargas {
        * @param seeds previous nodes' seeds
        */
       __INLINE__
-      inline void _I(uint32_t row,
-                     const std::vector<_seed> &seeds) {
+      void _I(uint32_t row,
+              const _seed *s) {
           using namespace simdpp;
 
           I_curr[row] = splat(0);
 
-          for (auto &s : seeds) {
               // I(i,j) = I(i,j-1) - gap_extend
-              tmp = sub_sat(s.I_col[row], _gap_extend); // I: I(i,j-1) - gap_extend
-              I_curr[row] = max(I_curr[row], tmp);
+          I_curr[row] = sub_sat(s->I_col[row], _gap_extend); // I: I(i,j-1) - gap_extend
               // tmp = S(i,j-1) - (gap_open + gap_extend)
-              tmp = sub_sat(s.S_col[row], _gap_extend + _gap_open);
+          tmp = sub_sat(s->S_col[row], _gap_extend + _gap_open);
               I_curr[row] = max(I_curr[row], tmp);
-          }
       }
 
       /**
@@ -564,9 +557,9 @@ namespace vargas {
        * @param ref reference sequence base
        */
       __INLINE__
-      inline void _M(uint32_t col,
-                     const CellType<num_reads> &read,
-                     Base ref) {
+      void _M(uint32_t col,
+              const CellType<num_reads> &read,
+              Base ref) {
           using namespace simdpp;
 
           Ceq = splat(0);
@@ -598,11 +591,11 @@ namespace vargas {
        * @param seeds previous nodes' seeds
        */
       __INLINE__
-      inline void _M(uint32_t row,
-                     uint32_t col,
-                     const CellType<num_reads> &read,
-                     Base ref,
-                     const std::vector<_seed> &seeds) {
+      void _M(uint32_t row,
+              uint32_t col,
+              const CellType<num_reads> &read,
+              Base ref,
+              const _seed *s) {
           using namespace simdpp;
 
           Ceq = splat(0);
@@ -622,11 +615,9 @@ namespace vargas {
           }
 
           S_curr[col] = splat(0);
-          for (auto &s : seeds) {
-              tmp = (row == 0) ? Ceq : add_sat(s.S_col[row - 1], Ceq); // Add match scores
+          tmp = (row == 0) ? Ceq : add_sat(s->S_col[row - 1], Ceq); // Add match scores
               tmp = sub_sat(tmp, Cneq); // Subtract mismatch scores
               S_curr[col] = max(S_curr[col], tmp);
-          }
 
       }
 
@@ -636,9 +627,9 @@ namespace vargas {
        * @param col current column
        */
       __INLINE__
-      inline void _fill_cell_finish(uint32_t row,
-                                    uint32_t col,
-                                    const Graph::Node &n) {
+      void _fill_cell_finish(uint32_t row,
+                             uint32_t col,
+                             const Graph::Node &n) {
           using namespace simdpp;
 
           //S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
@@ -707,6 +698,8 @@ namespace vargas {
       CellType<num_reads> max_score;
       std::vector<uint32_t> max_pos;
 
+      size_t _max_node_len;
+
   };
 
 }
@@ -727,7 +720,7 @@ TEST_CASE ("Alignment") {
         n.set_seq("ACGTNATACGCCA");
 
         vargas::ReadBatch<16> rb(reads);
-        vargas::Aligner<16> a;
+        vargas::Aligner<16> a(15);
         std::vector<uint32_t> pos;
 
         auto maxscore = a._test_fill_node(n, rb, pos);
@@ -803,8 +796,6 @@ TEST_CASE ("Alignment") {
         g.add_edge(2, 3);
         g.set_popsize(3);
 
-        g.finalize();
-
         std::vector<vargas::Read> reads;
         reads.push_back(vargas::Read("CCTT"));
         reads.push_back(vargas::Read("GGTT"));
@@ -816,7 +807,7 @@ TEST_CASE ("Alignment") {
         reads.push_back(vargas::Read("AAAGCCC"));
 
         vargas::ReadBatch<8> rb(reads);
-        vargas::Aligner<8> a;
+        vargas::Aligner<8> a(5);
 
         std::vector<vargas::Alignment> aligns = a.align(reads, g);
             REQUIRE(aligns.size() == 8);
@@ -873,11 +864,11 @@ void node_fill_profile() {
         }
 
         vargas::ReadBatch<50> rb(reads);
-        vargas::Aligner<50> a;
+    vargas::Aligner<50> a(10000);
 
         std::vector<uint32_t> pos;
 
-        std::cout << "\n10 Node Fill (" << SIMDPP_FAST_INT8_SIZE << "x 50rdlen x 10000bp): ";
+    std::cout << "\n10 Node Fill (" << SIMDPP_FAST_INT8_SIZE << "x 50rdlen x 10000bp):\n\t";
         clock_t start = std::clock();
     for (int i = 0; i < 10; ++i) a._test_fill_node(n, rb, pos);
         std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s\n" << std::endl;

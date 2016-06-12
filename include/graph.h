@@ -37,19 +37,15 @@ namespace vargas {
 
     public:
 
+      typedef VarFile::Population Population;
+
       /**
        * When a normal population filter is not used, a flag can be used. REF includes
        * only reference alleles, MAXAF picks the allele with the highest frequency.
        * Both result in linear graphs.
        * Filter used as a placeholder, it should never be passed as a param.
        */
-      enum Type { REF, MAXAF, FILTER };
-
-      /**
-       * A population is represented with a dynamic bitset. This allows
-       * for quick population overlap checks using operator&&.
-       */
-      typedef dyn_bitset<64> Population;
+      enum Type { TOPO, REF, MAXAF, FILTER, END };
 
       /**
        * Represents a node in the directed graphs. Sequences are stored numerically.
@@ -66,11 +62,17 @@ namespace vargas {
                bool ref,
                float af) :
               _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) { }
+          Node(int pos,
+               const std::string &seq,
+               const Population &pop,
+               bool ref,
+               float af) :
+              _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) { }
 
           /**
            * @return length of the sequence
            */
-          ulong length() const { return _seq.size(); } // Length of sequence
+          size_t length() const { return _seq.size(); } // Length of sequence
 
           /**
            * @return position of last base in seq, 0 indexed
@@ -119,7 +121,7 @@ namespace vargas {
            * Node id.
            * @return unique node ID
            */
-          long id() const { return _id; }
+          uint32_t id() const { return _id; }
 
           /**
            * True if node common to all individuals, or REF.
@@ -139,13 +141,13 @@ namespace vargas {
            */
           const Population &individuals() const { return _individuals; }
 
-          static long _newID; // ID of the next instance to be created
+          static uint32_t _newID; // ID of the next instance to be created
 
           /**
            * Set the id of the node, should rarely be used as unique ID's are generated.
            * @param id
            */
-          void setID(long id) {
+          void setID(uint32_t id) {
               if (id >= _newID) {
                   this->_id = id;
                   _newID = ++id;
@@ -215,7 +217,7 @@ namespace vargas {
           Population _individuals; // Each bit marks an individual, 1 if they have this node
           bool _ref = false; // Part of the reference sequence if true
           float _af = 1;
-          long _id;
+          uint32_t _id;
 
       };
 
@@ -224,7 +226,8 @@ namespace vargas {
       /**
        * Default constructor inits a new Graph, including a new node map.
        */
-      Graph() : _IDMap(std::make_shared<std::unordered_map<long, nodeptr>>(std::unordered_map<long, nodeptr>())) { }
+      Graph() : _IDMap(std::make_shared<std::unordered_map<uint32_t, nodeptr>>(std::unordered_map<uint32_t,
+                                                                                                  nodeptr>())) { }
 
       /**
        * Create a Graph with another Graph and a population filter. The new Graph will only
@@ -252,17 +255,11 @@ namespace vargas {
             Type t);
 
       /**
-       * Builds the topographical sort of the Graph, used for Graph iteration.
-       * Currently it is assumed the nodes are inserted in topographical order.
-       */
-      void finalize();
-
-      /**
        * Add a new node to the Graph. A new node is created so the original can be destroyed.
        * The first node added is set as the Graph root. Nodes must be added in topographical order.
        * @param n node to add, ID is preserved.
        */
-      long add_node(Node &n);
+      uint32_t add_node(Node &n);
 
       /**
        * Create an edge linking two nodes. Previous and Next edges are added.
@@ -270,14 +267,14 @@ namespace vargas {
        * @param n1 Node one ID
        * @param n2 Node two ID
        */
-      bool add_edge(long n1,
-                    long n2);
+      bool add_edge(uint32_t n1,
+                    uint32_t n2);
 
       /**
        * Sets the root of the Graph.
        * @param id ID of root node
        */
-      void set_root(long id) {
+      void set_root(uint32_t id) {
           _root = id;
       }
 
@@ -291,32 +288,32 @@ namespace vargas {
        * Return root node ID
        * @return root
        */
-      long root() const { return _root; }
+      uint32_t root() const { return _root; }
 
       /**
        * Maps a ndoe ID to a shared node object
        * @return map of ID, shared_ptr<Node> pairs
        */
-      const std::shared_ptr<std::unordered_map<long, nodeptr>> &node_map() const { return _IDMap; }
+      const std::shared_ptr<std::unordered_map<uint32_t, nodeptr>> &node_map() const { return _IDMap; }
 
       /**
        * Maps a node ID to a vector of all next nodes (outgoing edges)
        * @return map of ID, outgoing edge vectors
        */
-      const std::unordered_map<long, std::vector<long>> &next_map() const { return _next_map; }
+      const std::unordered_map<uint32_t, std::vector<uint32_t>> &next_map() const { return _next_map; }
 
       /**
        *  Maps a node ID to a vector of all incoming edge nodes
        *  @return map of ID, incoming edges
        */
-      const std::unordered_map<long, std::vector<long>> &prev_map() const { return _prev_map; }
+      const std::unordered_map<uint32_t, std::vector<uint32_t>> &prev_map() const { return _prev_map; }
 
       /**
        * Const reference to a node
        * @param ID of the node
        * @return shared node object
        */
-      const Node &node(long id) const {
+      const Node &node(uint32_t id) const {
           if (_IDMap->count(id) == 0) throw std::invalid_argument("Invalid Node ID.");
           return *(*_IDMap).at(id);
       }
@@ -367,55 +364,6 @@ namespace vargas {
       }
 
       /**
-       * const forward iterator to traverse the Graph by insertion order.
-       * All nodes are covered in the order they were inserted, including
-       * nodes with no edges.
-       * Like FilteringIter() assuming insertion order is in correct order, but faster.
-       */
-      class TopologicalIter {
-
-        public:
-          TopologicalIter(const Graph &g) : _graph(g), _idx(0) { }
-          TopologicalIter(const Graph &g, long index) : _graph(g), _idx(index) { }
-
-          TopologicalIter &operator=(const TopologicalIter &other) {
-              _idx = other._idx;
-              return *this;
-          }
-
-          bool operator==(const TopologicalIter &other) const {
-              // Check if comparing like-graphs (weak check)
-              if (&_graph != &other._graph) return false;
-              return _idx == other._idx;
-          }
-
-          bool operator!=(const TopologicalIter &other) const {
-              if (&_graph != &other._graph) return true;
-              return _idx != other._idx;
-          }
-
-          TopologicalIter &operator++() {
-              if (_idx < _graph._toposort.size()) {
-                  _idx++;
-              }
-              return *this;
-          }
-
-          TopologicalIter &operator--() {
-              if (_idx > 0) {
-                  _idx--;
-              }
-              return *this;
-          }
-
-          const Graph::Node &operator*() const { return _graph.node(_graph._toposort[_idx]); }
-
-        private:
-          const Graph &_graph;
-          size_t _idx;
-      };
-
-      /**
        * const forward iterator to traverse the graph while applying a filter.
        * When incrementing the iterator, only nodes that match a condition will
        * return.
@@ -431,7 +379,8 @@ namespace vargas {
            * Accept all nodes.
            * @ param g Graph
            */
-          explicit FilteringIter(const Graph &g) : _graph(g), _filter(Population(g._pop_size, true)) { }
+          explicit FilteringIter(const Graph &g) :
+              _graph(g), _type(TOPO), _currID(0) { }
 
           /**
            * Traverse nodes when filter has at least one individual in common with the
@@ -440,23 +389,18 @@ namespace vargas {
            * @param filter Population the node is checked against. If there is an intersection,
            * the node is returned.
            */
-          explicit FilteringIter(const Graph &g, const Population &filter) : _graph(g), _filter(filter) { }
+          explicit FilteringIter(const Graph &g, const Population &filter) :
+              _graph(g), _filter(filter), _type(FILTER), _currID(g._root) { }
 
           /**
            * Traverse a linear subgraph.
            * @param g graph
            * @param type one of Graph::MAXAF, Graph::REF
            */
-          explicit FilteringIter(const Graph &g, Graph::Type type) : _graph(g), _type(type) { }
-
-          /**
-           * Create an iterator to the end.
-           * @param g graph
-           * @param end should be true
-           */
-          explicit FilteringIter(const Graph &g, bool end) : _graph(g), _end(end) { }
-
-          explicit FilteringIter(const Graph &g, long id) : _graph(g), _currID(id) { }
+          explicit FilteringIter(const Graph &g, Graph::Type type)
+              : _graph(g), _type(type), _currID(g._root) {
+              if (_type == TOPO) _currID = 0;
+          }
 
           /**
            * Reference to the underlying graph.
@@ -469,8 +413,9 @@ namespace vargas {
            * are the same. Two end iterators always compare equal.
            */
           bool operator==(const FilteringIter &other) const {
-              if (_end && other._end) return true;
-              if (&_graph != &other._graph) return false;
+              if (_type == END && other._type == END) return true; // All ends are equal
+              if (_type != other._type) return false; // Same type of iterator
+              if (&_graph != &other._graph) return false; // same base graph
               return _currID == other._currID;
           }
 
@@ -480,8 +425,8 @@ namespace vargas {
            * false.
            */
           bool operator!=(const FilteringIter &other) const {
-              if (_end ^ other._end) return true;
-              if (_end && other._end) return false;
+              if (_type == END && other._type == END) return false;
+              if (_type != other._type) return true;
               if (&_graph != &other._graph) return true;
               return _currID != other._currID;
           }
@@ -493,9 +438,16 @@ namespace vargas {
            */
           FilteringIter &operator++() {
               // If end of graph has been reached
-              if (_end) return *this;
+              if (_type == END) return *this;
+
+              if (_type == TOPO) {
+                  ++_currID;
+                  if (_currID == _add_order_size) _type = END;
+                  return *this;
+              }
+
               if (_graph._next_map.count(_currID) == 0) {
-                  _end = true;
+                  _type = END;
                   return *this;
               }
 
@@ -504,7 +456,7 @@ namespace vargas {
 
               switch (_type) {
                   case REF:
-                      for (long nextID : next_vec) {
+                      for (uint32_t nextID : next_vec) {
                           if (graph_map.at(nextID)->is_ref()) {
                               _insert_queue(nextID);
                               break; // Assuming there is only one REF node per branch
@@ -513,14 +465,14 @@ namespace vargas {
                       break;
 
                   case FILTER:
-                      for (long nextID : next_vec) {
+                      for (uint32_t nextID : next_vec) {
                           // Add all nodes that intersect with filter
                           if (graph_map.at(nextID)->belongs(_filter)) _insert_queue(nextID);
                       }
                       break;
 
                   case MAXAF: {
-                      long max_id = graph_map.at(next_vec.at(0))->id();
+                      uint32_t max_id = graph_map.at(next_vec.at(0))->id();
                       float max_af = graph_map.at(next_vec.at(0))->freq();
                       float freq;
                       for (size_t i = 1; i < next_vec.size(); ++i) {
@@ -541,7 +493,7 @@ namespace vargas {
 
 
               if (_queue.empty()) {
-                  _end = true;
+                  _type = END;
                   return *this;
               }
 
@@ -552,12 +504,14 @@ namespace vargas {
               return *this;
           }
 
+          Type type() const { return _type; }
+
           /**
            * Inserts the ID into the queue if it's unique.
            * @param id node id to insert
            */
           __attribute__((always_inline))
-          inline void _insert_queue(long id) {
+          inline void _insert_queue(uint32_t id) {
               if (_queue_unique.count(id) == 0) {
                   _queue_unique.insert(id);
                   _queue.push(id);
@@ -568,32 +522,43 @@ namespace vargas {
            * Const reference to the current node.
            * @return Node
            */
-          const Graph::Node &operator*() const { return *(_graph._IDMap->at(_currID)); }
+          const Graph::Node &operator*() const {
+              if (_type == TOPO) return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
+              if (_type == END) return *(_graph._IDMap->at(*(_graph._add_order.end())));
+              return *(_graph._IDMap->at(_currID));
+          }
 
           /**
            * All nodes that we've traversed that have incoming edges to the current node.
            * @return vector of previous nodes
            */
-          const std::vector<long> &incoming() {
+          const std::vector<uint32_t> &incoming() {
               _incoming.clear();
               if (_graph._prev_map.count(_currID) == 0) return _incoming;
+              if (_type == TOPO) return _graph._prev_map.at(_graph._add_order.at(_currID));
               for (auto &id : _graph._prev_map.at(_currID)) {
                   if (_traversed.count(id)) _incoming.push_back(id);
               }
               return _incoming;
           }
 
+          const std::vector<uint32_t> &outgoing() {
+              if (_graph._prev_map.count(_currID) == 0) return _outgoing;
+              return _graph._next_map.at(_graph._add_order.at(_currID));
+          }
+
 
         private:
           const Graph &_graph; // Underlying graph
           Population _filter; // Nodes that intersect with _filter are included if _type == FILTER
-          Graph::Type _type = FILTER; // Set to MAXAF or REF for linear subgraph traversals
-          long _currID = _graph.root();
-          std::queue<long> _queue;
-          std::unordered_set<long> _queue_unique; // Used to make sure we don't repeat nodes
-          bool _end = false;
-          std::unordered_set<long> _traversed; // Set of all nodes we've passed
-          std::vector<long> _incoming; // Set of incoming edges, for use by incoming()
+          Graph::Type _type; // Set to MAXAF or REF for linear subgraph traversals
+          uint32_t _currID;
+          std::queue<uint32_t> _queue;
+          std::unordered_set<uint32_t> _queue_unique; // Used to make sure we don't repeat nodes
+          std::unordered_set<uint32_t> _traversed; // Set of all nodes we've passed
+          std::vector<uint32_t> _incoming; // Set of incoming edges, for use by incoming()
+          const std::vector<uint32_t> _outgoing; // empty vec
+          size_t _add_order_size = _graph._add_order.size();
 
       };
 
@@ -626,45 +591,26 @@ namespace vargas {
        * @return end iterator.
        */
       FilteringIter end() const {
-          return FilteringIter(*this, true);
+          return FilteringIter(*this, END);
       }
 
-
-      TopologicalIter tbegin() {
-          return TopologicalIter(*this, 0);
-      }
-
-      TopologicalIter tend() {
-          return TopologicalIter(*this, _toposort.size());
-      }
+      void node_len(size_t len) { _max_node_len = len; }
+      size_t max_node_len() const { return _max_node_len; }
 
 
     private:
-      long _root = -1; // Root of the Graph
+      uint32_t _root = -1; // Root of the Graph
       // maps a node ID to a nodeptr. Any derived graphs use the same base node ID map.
-      std::shared_ptr<std::unordered_map<long, nodeptr>> _IDMap;
+      std::shared_ptr<std::unordered_map<uint32_t, nodeptr>> _IDMap;
       // maps a node ID to the vector of nodes it points to
-      std::unordered_map<long, std::vector<long>> _next_map;
+      std::unordered_map<uint32_t, std::vector<uint32_t>> _next_map;
       // maps a node ID to a vector of node ID's that point to it
-      std::unordered_map<long, std::vector<long>> _prev_map;
-      std::vector<long> _toposort; // Sorted Graph
-      std::vector<long> _add_order; // Order nodes were added
+      std::unordered_map<uint32_t, std::vector<uint32_t>> _prev_map;
+      std::vector<uint32_t> _add_order; // Order nodes were added
       // Description, used by the builder to store construction params
       std::string _desc;
       size_t _pop_size = 0;
-
-      /**
-       * Recursive depth first search to find dependencies. Used to topological sort.
-       * Currently unused as impractical for large graphs.
-       * @param n current node ID
-       * @param unmarked set of unvisited nodes
-       * @param temp set of visited but unadded nodes
-       * @param perm set of completed nodes
-       */
-      void _visit(long n,
-                  std::set<long> &unmarked,
-                  std::set<long> &temp,
-                  std::set<long> &perm);
+      size_t _max_node_len;
 
       /**
        * Given a subset of nodes from Graph g, rebuild all applicable edges in the new graph.
@@ -672,7 +618,7 @@ namespace vargas {
        * @param includedNodes subset of g's nodes to include
        */
       void _build_derived_edges(const Graph &g,
-                                const std::unordered_map<long, nodeptr> &includedNodes);
+                                const std::unordered_map<uint32_t, nodeptr> &includedNodes);
 
   };
 
@@ -777,8 +723,6 @@ namespace vargas {
       g.add_edge(0, 2);
       g.add_edge(1, 3);
       g.add_edge(2, 3);
-
-      g.finalize();
 
           REQUIRE(g.node_map()->size() == 4);
           REQUIRE(g.prev_map().size() == 3);
@@ -905,7 +849,7 @@ namespace vargas {
 
           SUBCASE("Graph iterator") {
           // Node visit order should be topological
-          vargas::Graph::TopologicalIter i = g.tbegin();
+          vargas::Graph::FilteringIter i = g.begin();
 
               CHECK(num_to_seq((*i).seq()) == "AAA");
           ++i;
@@ -920,9 +864,9 @@ namespace vargas {
 
               CHECK(num_to_seq((*i).seq()) == "TTT");
           ++i;
-              CHECK(i == g.tend());
+              CHECK(i == g.end());
           ++i;
-              CHECK(i == g.tend());
+              CHECK(i == g.end());
       }
 
           SUBCASE("Derived Graph") {
@@ -945,7 +889,7 @@ namespace vargas {
 
           SUBCASE("REF graph") {
           vargas::Graph g2(g, vargas::Graph::REF);
-          vargas::Graph::TopologicalIter iter(g2);
+          vargas::Graph::FilteringIter iter(g2);
 
               CHECK((*iter).seq_str() == "AAA");
           ++iter;
@@ -953,12 +897,12 @@ namespace vargas {
           ++iter;
               CHECK((*iter).seq_str() == "TTT");
           ++iter;
-              CHECK(iter == g2.tend());
+              CHECK(iter == g2.end());
       }
 
           SUBCASE("MAXAF graph") {
           vargas::Graph g2(g, vargas::Graph::MAXAF);
-          vargas::Graph::TopologicalIter iter(g2);
+          vargas::Graph::FilteringIter iter(g2);
 
               CHECK((*iter).seq_str() == "AAA");
           ++iter;
@@ -966,7 +910,7 @@ namespace vargas {
           ++iter;
               CHECK((*iter).seq_str() == "TTT");
           ++iter;
-              CHECK(iter == g2.tend());
+              CHECK(iter == g2.end());
 
       }
 
@@ -1019,14 +963,17 @@ namespace vargas {
 
     protected:
       __attribute__((always_inline))
-      inline void _build_edges(Graph &g, std::vector<long> &prev,
-                               std::vector<long> &curr);
+      inline void _build_edges(Graph &g, std::vector<uint32_t> &prev,
+                               std::vector<uint32_t> &curr);
 
       __attribute__((always_inline))
-      inline int _build_linear_ref(Graph &g, std::vector<long> &prev,
-                                   std::vector<long> &curr,
-                                   long pos,
-                                   long target);
+      inline int _build_linear_ref(Graph &g, std::vector<uint32_t> &prev,
+                                   std::vector<uint32_t> &curr,
+                                   uint32_t pos,
+                                   uint32_t target);
+
+      __attribute__((always_inline))
+      inline std::vector<std::string> _split_seq(std::string seq);
 
     private:
       std::string _fa_file, _vf_file;
@@ -1036,7 +983,7 @@ namespace vargas {
 
       // Graph construction parameters
       int _ingroup = 100; // percent of individuals to use. Ref nodes always included
-      int _max_node_len = 1000000;
+      int _max_node_len = 10000000;
   };
 
 }
@@ -1134,7 +1081,9 @@ TEST_CASE ("Graph Builder") {
         std::vector<bool> filter = {0, 0, 0, 1};
         vargas::Graph g2(g, filter);
 
-        vargas::Graph::TopologicalIter iter(g2);
+        g2.to_DOT("tmp.dot", "gr");
+
+        vargas::Graph::FilteringIter iter(g2);
 
             CHECK((*iter).seq_str() == "CAAAT");
         ++iter;

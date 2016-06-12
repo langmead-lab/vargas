@@ -22,7 +22,7 @@
 int main(const int argc, const char *argv[]) {
 
 
-    try {
+    //   try {
         if (argc > 1) {
             if (!strcmp(argv[1], "test")) {
                 doctest::Context doc(argc, argv);
@@ -44,16 +44,16 @@ int main(const int argc, const char *argv[]) {
 //        exit(align_main(argc, argv));
             }
             else if (!strcmp(argv[1], "export")) {
-                //       exit(export_main(argc, argv));
+//       exit(export_main(argc, argv));
             }
             else if (!strcmp(argv[1], "stat")) {
-                //       exit(stat_main(argc, argv));
+//       exit(stat_main(argc, argv));
             }
         }
-    } catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
-        exit(1);
-    }
+//    } catch (std::exception &e) {
+//        std::cerr << "EXCEPTION: " << e.what() << std::endl;
+//        exit(1);
+//    }
 
     GetOpt::GetOpt_pp args(argc, argv);
     if (args >> GetOpt::OptionPresent('h', "help")) {
@@ -500,7 +500,6 @@ int profile(const int argc, const char *argv[]) {
 
     vargas::GraphBuilder gb(fasta, bcf);
     gb.region(region);
-    gb.ingroup(100);
     if (!gb.good()) throw std::invalid_argument("Error opening files\n" + fasta + "\nand/or:\n" + bcf);
 
     srand(time(NULL));
@@ -515,64 +514,72 @@ int profile(const int argc, const char *argv[]) {
         << std::endl;
 
     size_t num = 0;
+//
+//    {
+//        std::cout << "Insertion order traversal:\n\t";
+//        start = std::clock();
+//        for (auto i = g.begin(); i != g.end(); ++i) {
+//            ++num;
+//        }
+//        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+//    }
+//
+//    {
+//        num = 0;
+//        std::cout << "Filtering traversal, 100% in:\n\t";
+//        start = std::clock();
+//
+//        for (auto i = g.begin(g.subset(100)); i != g.end(); ++i) {
+//            ++num;
+//        }
+//        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+//    }
+//
+//    {
+//        num = 0;
+//        std::cout << "Filtering traversal, 5% in:\n\t";
+//        vargas::Graph::Population filt(filter);
+//        start = std::clock();
+//
+//        for (auto i = g.begin(filt); i != g.end(); ++i) {
+//            ++num;
+//        }
+//        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+//    }
+//
+//    {
+//        num = 0;
+//        std::cout << "REF traversal:\n\t";
+//        start = std::clock();
+//        for (auto i = g.begin(vargas::Graph::REF); i != g.end(); ++i) {
+//            ++num;
+//        }
+//        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+//    }
+//
+//    {
+//        num = 0;
+//        std::cout << "MAXAF traversal:\n\t";
+//        start = std::clock();
+//        for (auto i = g.begin(vargas::Graph::MAXAF); i != g.end(); ++i) {
+//            num++;
+//        }
+//        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " <<
+//            num << std::endl;
+//    }
+//
+//    {
+//        num = 0;
+//        std::cout << "Filter constructor:\n\t";
+//        auto pop_filt = g.subset(ingroup);
+//        start = std::clock();
+//        vargas::Graph g2(g, pop_filt);
+//        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " <<
+//            num << std::endl;
+//    }
+//
+//    node_fill_profile();
 
-    {
-        int noind = 1;
-        std::cout << "Insertion order traversal:\n\t";
-        start = std::clock();
-        for (auto i = g.tbegin(); i != g.tend(); ++i) {
-            if (!(*i).is_ref() && !(*i).individuals().any()) ++noind;
-            ++num;
-        }
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-        std::cout << "\tNon-ref nodes with no samples: " << noind << std::endl;
-    }
-
-    {
-        num = 0;
-        std::cout << "Filtering traversal, 100% in:\n\t";
-        start = std::clock();
-
-        for (auto i = g.begin(); i != g.end(); ++i) {
-            ++num;
-        }
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-    }
-
-    {
-        num = 0;
-        std::cout << "Filtering traversal, 5% in:\n\t";
-        vargas::Graph::Population filt(filter);
-        start = std::clock();
-
-        for (auto i = g.begin(filt); i != g.end(); ++i) {
-            ++num;
-        }
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-    }
-
-    {
-        num = 0;
-        std::cout << "REF traversal:\n\t";
-        start = std::clock();
-        for (auto i = g.begin(vargas::Graph::REF); i != g.end(); ++i) {
-            ++num;
-        }
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-    }
-
-    {
-        num = 0;
-        std::cout << "MAXAF traversal:\n\t";
-        start = std::clock();
-        for (auto i = g.begin(vargas::Graph::MAXAF); i != g.end(); ++i) {
-            num++;
-        }
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " <<
-            num << std::endl << std::endl;
-    }
-
-    node_fill_profile();
 
     {
         std::vector<vargas::Read> reads;
@@ -591,15 +598,27 @@ int profile(const int argc, const char *argv[]) {
         }
 
         vargas::ReadBatch<50> rb(reads);
-        vargas::Aligner<50> a;
+        vargas::Aligner<50> a(g.max_node_len());
 
         std::cout << SIMDPP_FAST_INT8_SIZE << " read alignment:\n\t";
+        std::cout << "Filtering iterator:\n\t";
         auto pop_filt = g.subset(ingroup);
-        start = std::clock();
-        std::vector<vargas::Alignment> aligns = a.align(rb, g.begin(pop_filt), g.end());
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
 
-        for (size_t i = 0; i < split_str.size(); ++i) std::cout << aligns[i] << std::endl;
+//        {
+//            start = std::clock();
+//            std::vector<vargas::Alignment> aligns = a.align(rb, g.begin(pop_filt), g.end());
+//            std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+//            for (size_t i = 0; i < split_str.size(); ++i) std::cout << aligns[i] << std::endl;
+//        }
+
+        std::cout << "\tDerived Graph:\n\t";
+        {
+            vargas::Graph g2(g, pop_filt);
+            start = std::clock();
+            std::vector<vargas::Alignment> aligns = a.align(rb, g2.begin(), g2.end());
+            std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+            for (size_t i = 0; i < split_str.size(); ++i) std::cout << aligns[i] << std::endl;
+        }
 
     }
     return 0;
