@@ -611,9 +611,10 @@ int profile(const int argc, const char *argv[]) {
 //            for (size_t i = 0; i < split_str.size(); ++i) std::cout << aligns[i] << std::endl;
 //        }
 
-        std::cout << "\tDerived Graph:\n\t";
         {
+            start = std::clock();
             vargas::Graph g2(g, pop_filt);
+            std::cout << "\tDerived Graph (" << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s)\n\t";
             start = std::clock();
             std::vector<vargas::Alignment> aligns = a.align(rb, g2.begin(), g2.end());
             std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;

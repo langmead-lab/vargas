@@ -11,6 +11,8 @@
 #ifndef VARGAS_ALIGNMENT_H
 #define VARGAS_ALIGNMENT_H
 
+#define SIMDPP_ARCH_X86_SSE4_1
+
 #define DEBUG_PRINT_SW 0
 #define DEBUG_PRINT_SW_ELEM 6
 #define __INLINE__ __attribute__((always_inline)) inline
@@ -234,7 +236,7 @@ namespace vargas {
                  std::vector<Alignment> &aligns) {
           using namespace simdpp;
 
-          max_score = simdpp::splat(0);
+          max_score = ZERO_CT;
           max_pos = std::vector<uint32_t>(num_reads);
           _seed seed;
           std::unordered_map<uint32_t, _seed> seed_map;
@@ -278,7 +280,7 @@ namespace vargas {
       CellType<num_reads> _test_fill_node(const Graph::Node &n,
                                           const ReadBatch<read_len, num_reads, CellType> &reads,
                                           std::vector<uint32_t> &pos) {
-          max_score = simdpp::splat(0);
+          max_score = ZERO_CT;
           max_pos = std::vector<uint32_t>(num_reads);
           _fill_node(n, reads);
           pos = max_pos;
@@ -305,8 +307,8 @@ namespace vargas {
 
           try {
               for (size_t i = 0; i < read_len; ++i) {
-                  seed->I_col[i] = splat(0);
-                  seed->S_col[i] = splat(0);
+                  seed->I_col[i] = ZERO_CT;
+                  seed->S_col[i] = ZERO_CT;
                   for (uint32_t id : prev_ids) {
                       seed->I_col[i] = max(seed->I_col[i], seed_map.at(id).I_col[i]);
                       seed->S_col[i] = max(seed->S_col[i], seed_map.at(id).S_col[i]);
@@ -350,10 +352,10 @@ namespace vargas {
        * @param seq length of S and D vectors, i.e. node length.
        */
       void _alloc() {
-          Sa = new VecType(_max_node_len + 1);
-          Sb = new VecType(_max_node_len + 1);
-          Da = new VecType(_max_node_len + 1);
-          Db = new VecType(_max_node_len + 1);
+          Sa = new VecType(_max_node_len);
+          Sb = new VecType(_max_node_len);
+          Da = new VecType(_max_node_len);
+          Db = new VecType(_max_node_len);
           Ia = new VecType(read_len);
           Ib = new VecType(read_len);
 
@@ -387,50 +389,24 @@ namespace vargas {
                        const ReadBatch<read_len, num_reads, CellType> &reads,
                        const _seed *s) {
 
-          using namespace simdpp;
-
           _seed nxt; // Seed for next node
-
-#if DEBUG_PRINT_SW
-          std::cout << "   ";
-          for (uint32_t col = 1; col < n.seq().size() + 1; ++col) {
-              std::cout << num_to_base(static_cast<Base>(n.seq().at(col - 1))) << " ";
-          }
-#endif
-
-          tmp = splat(0);
-          // Clear old data
-          for (size_t i = 1; i < Sa->size(); ++i) {
-              S_prev[i] = tmp;
-              D_prev[i] = tmp;
-          }
           auto node_seq = n.seq().data();
+          size_t seq_size = n.seq().size();
 
-          // For each row of the matrix
-          for (uint32_t row = 0; row < read_len; ++row) {
+          // top left corner
+          _fill_cell_rzcz(reads.at(0), node_seq[0], s);
+          _fill_cell_finish(0, 0, n);
 
-              _fill_cell(reads.at(row), node_seq[0], row, 1, n, s);
+          // top row
+          for (uint32_t c = 1; c < seq_size; ++c) {
+              _fill_cell_rz(reads.at(0), node_seq[c], c);
+              _fill_cell_finish(0, c, n);
+          }
 
-#if DEBUG_PRINT_SW
-              std::cout << std::endl
-                  << num_to_base(static_cast<Base>(extract<DEBUG_PRINT_SW_ELEM>(reads.at(row)))) << ": "
-                  << ((int) extract<DEBUG_PRINT_SW_ELEM>(S_curr[1])) << "," << std::flush;
-#endif
+          nxt.S_col[0] = S_curr[seq_size - 1];
 
-              // Fill in the row. Start at two due to left buffer column and above seeding step
-              size_t seq_size_bnd = 1 + n.seq().size();
-              for (uint32_t col = 2; col < seq_size_bnd; ++col) {
-
-                  _fill_cell(reads.at(row), node_seq[col - 1], row, col, n);
-
-#if DEBUG_PRINT_SW
-                  std::cout << ((int) extract<DEBUG_PRINT_SW_ELEM>(S_curr[col])) << "," << std::flush;
-#endif
-              }
-
-              // Save last S col to seed next node
-              nxt.S_col[row] = S_curr[seq_size_bnd - 1];
-
+          // Rest of the rows
+          for (uint32_t r = 1; r < read_len; ++r) {
               // Swap the rows we are filling in. The previous row/col becomes what we fill in.
               swp_tmp = S_prev;
               S_prev = S_curr;
@@ -443,15 +419,73 @@ namespace vargas {
               swp_tmp = I_prev;
               I_prev = I_curr;
               I_curr = swp_tmp;
+
+              // first col
+              _fill_cell_cz(reads.at(r), node_seq[0], r, s);
+              _fill_cell_finish(r, 0, n);
+
+              // Inner grid
+              for (uint32_t c = 1; c < seq_size; ++c) {
+                  _fill_cell(reads.at(r), node_seq[c], r, c);
+                  _fill_cell_finish(r, c, n);
+              }
+
+              nxt.S_col[r] = S_curr[seq_size - 1];
+
           }
 
-#if DEBUG_PRINT_SW
-          std::cout << std::endl;
-#endif
-
-          // origin vector of what is now I_prev
-          nxt.I_col = (Ia->data() == I_prev) ? *Ia : *Ib;
+          // origin vector of what is now I_curr
+          nxt.I_col = (Ia->data() == I_curr) ? *Ia : *Ib;
           return nxt;
+      }
+
+      /**
+     * Fills the current cell, if there are no previous seeds.
+     * @param read_base ReadBatch vector
+     * @param ref reference sequence base
+     * @param row current row in matrix
+     * @param col current column in matrix
+     */
+      __INLINE__
+      void _fill_cell_rzcz(const CellType<num_reads> &read_base,
+                           Base ref,
+                           const _seed *s) {
+          _D(0, ZERO_CT, ZERO_CT);
+          _I(0, s->S_col[0]);
+          _M(0, read_base, ref, ZERO_CT);
+      }
+
+      /**
+* Fills the current cell, if there are no previous seeds.
+* @param read_base ReadBatch vector
+* @param ref reference sequence base
+* @param row current row in matrix
+* @param col current column in matrix
+*/
+      __INLINE__
+      void _fill_cell_rz(const CellType<num_reads> &read_base,
+                         Base ref,
+                         uint32_t col) {
+          _D(col, ZERO_CT, ZERO_CT);
+          _I(0, S_curr[col - 1]);
+          _M(col, read_base, ref, ZERO_CT);
+      }
+
+      /**
+* Fills the current cell, if there are no previous seeds.
+* @param read_base ReadBatch vector
+* @param ref reference sequence base
+* @param row current row in matrix
+* @param col current column in matrix
+*/
+      __INLINE__
+      void _fill_cell_cz(const CellType<num_reads> &read_base,
+                         Base ref,
+                         uint32_t row,
+                         const _seed *s) {
+          _D(0, D_prev[0], S_prev[0]);
+          _I(row, s->S_col[row]);
+          _M(0, read_base, ref, s->S_col[row - 1]);
       }
 
       /**
@@ -465,37 +499,12 @@ namespace vargas {
       void _fill_cell(const CellType<num_reads> &read_base,
                       Base ref,
                       uint32_t row,
-                      uint32_t col,
-                      const Graph::Node &n) {
+                      uint32_t col) {
           using namespace simdpp;
 
-          _D(col);
-          _I(row, col);
-          _M(col, read_base, ref);
-          _fill_cell_finish(row, col, n);
-      }
-
-      /**
-       * Fills the current cell using seeds. Used for the first column of a Node.
-       * @param read_base ReadBatch vector
-       * @param ref reference sequence base
-       * @param row current row in matrix
-       * @param col current column in matrix
-       * @param seeds seeds from previous nodes
-       */
-      __INLINE__
-      void _fill_cell(const CellType<num_reads> &read_base,
-                      Base ref,
-                      uint32_t row,
-                      uint32_t col,
-                      const Graph::Node &n,
-                      const _seed *s) {
-          using namespace simdpp;
-
-          _D(col);
-          _I(row, s);
-          _M(row, col, read_base, ref, s);
-          _fill_cell_finish(row, col, n);
+          _D(col, D_prev[col], S_prev[col]);
+          _I(row, S_curr[col - 1]);
+          _M(col, read_base, ref, S_prev[col - 1]);
       }
 
       /**
@@ -503,13 +512,17 @@ namespace vargas {
        * @param col current column
        */
       __INLINE__
-      void _D(uint32_t col) {
+      void _D(uint32_t col,
+              const CellType<num_reads> &Dp,
+              const CellType<num_reads> &Sp) {
           using namespace simdpp;
 
           // D(i,j) = D(i-1,j) - gap_extend
-          D_curr[col] = sub_sat(D_prev[col], _gap_extend);
+          // Dp is D_prev[col], 0 for row=0
+          D_curr[col] = sub_sat(Dp, _gap_extend);
           // tmp = S(i-1,j) - ( gap_open + gap_extend)
-          tmp = sub_sat(S_prev[col], _gap_extend + _gap_open);
+          // Sp is S_prev[col], 0 for row=0
+          tmp = sub_sat(Sp, _gap_extend + _gap_open);
           // D(i,j) = max{ D(i-1,j) - gap_extend, S(i-1,j) - ( gap_open + gap_extend) }
           D_curr[col] = max(D_curr[col], tmp);
       }
@@ -520,34 +533,15 @@ namespace vargas {
        * @param col current column
        */
       __INLINE__
-      void _I(uint32_t row,
-              uint32_t col) {
+      void _I(uint32_t row, const CellType<num_reads> &Sc) {
           using namespace simdpp;
 
           // I(i,j) = I(i,j-1) - gap_extend
           I_curr[row] = sub_sat(I_prev[row], _gap_extend); // I: I(i,j-1) - gap_extend
           // tmp = S(i,j-1) - (gap_open + gap_extend)
-          tmp = sub_sat(S_curr[col - 1], _gap_extend + _gap_open);
+          // Sc is S_curr[col - 1], seed->S_col[row] for col=0
+          tmp = sub_sat(Sc, _gap_extend + _gap_open);
           I_curr[row] = max(I_curr[row], tmp);
-      }
-
-      /**
-       * Best score if there is an insertion. Uses previous seeds.
-       * @param row current row
-       * @param seeds previous nodes' seeds
-       */
-      __INLINE__
-      void _I(uint32_t row,
-              const _seed *s) {
-          using namespace simdpp;
-
-          I_curr[row] = splat(0);
-
-              // I(i,j) = I(i,j-1) - gap_extend
-          I_curr[row] = sub_sat(s->I_col[row], _gap_extend); // I: I(i,j-1) - gap_extend
-              // tmp = S(i,j-1) - (gap_open + gap_extend)
-          tmp = sub_sat(s->S_col[row], _gap_extend + _gap_open);
-              I_curr[row] = max(I_curr[row], tmp);
       }
 
       /**
@@ -559,15 +553,16 @@ namespace vargas {
       __INLINE__
       void _M(uint32_t col,
               const CellType<num_reads> &read,
-              Base ref) {
+              Base ref,
+              const CellType<num_reads> &Sp) {
           using namespace simdpp;
 
-          Ceq = splat(0);
-          Cneq = splat(0);
+          Ceq = ZERO_CT;
+          Cneq = ZERO_CT;
 
           if (ref != Base::N) {
               // Set all mismatching pairs to _mismatch
-              auto tmp = cmp_neq(read, ref);
+              tmp = cmp_neq(read, ref);
               Cneq = tmp & _mismatch;
               // If the read base is Base::N, set to 0 (Ceq)
               tmp = cmp_eq(read, Base::N);
@@ -578,48 +573,12 @@ namespace vargas {
               Ceq = tmp & _match;
           }
 
-          S_curr[col] = add_sat(S_prev[col - 1], Ceq); // Add match scores
+          // Sp is S_prev[col - 1], 0 for row=0
+          // Seed->S_col[row - 1] for col=0
+          S_curr[col] = add_sat(Sp, Ceq); // Add match scores
           S_curr[col] = sub_sat(S_curr[col], Cneq); // Subtract mismatch scores
       }
 
-      /**
-       * Best score if there is a match/mismatch. Uses seeds.
-       * @param row current row
-       * @param col current column
-       * @param read current read base vec
-       * @param ref reference sequence base
-       * @param seeds previous nodes' seeds
-       */
-      __INLINE__
-      void _M(uint32_t row,
-              uint32_t col,
-              const CellType<num_reads> &read,
-              Base ref,
-              const _seed *s) {
-          using namespace simdpp;
-
-          Ceq = splat(0);
-          Cneq = splat(0);
-
-          if (ref != Base::N) {
-              // Set all mismatching pairs to _mismatch
-              auto tmp = cmp_neq(read, ref);
-              Cneq = tmp & _mismatch;
-              // If the read base is Base::N, set to 0 (Ceq)
-              tmp = cmp_eq(read, Base::N);
-              Cneq = blend(Ceq, Cneq, tmp);
-
-              // b is not N, so all equal bases are valid
-              tmp = cmp_eq(read, ref);
-              Ceq = tmp & _match;
-          }
-
-          S_curr[col] = splat(0);
-          tmp = (row == 0) ? Ceq : add_sat(s->S_col[row - 1], Ceq); // Add match scores
-              tmp = sub_sat(tmp, Cneq); // Subtract mismatch scores
-              S_curr[col] = max(S_curr[col], tmp);
-
-      }
 
       /**
        * Takes the max of D,I, and M vectors and stores the current best score/position
@@ -644,7 +603,7 @@ namespace vargas {
               uint8_t *curr = (uint8_t *) &tmp; // Interpret as byte to check which ones update
               for (uchar i = 0; i < num_reads; ++i) {
                   // Check if the i'th elements MSB is set
-                  if (*(curr + (i * _bit_width))) max_pos[i] = n.end() - n.seq().size() + col;
+                  if (*(curr + (i * _bit_width))) max_pos[i] = n.end() - n.seq().size() + col + 1;
               }
           }
       }
@@ -652,6 +611,7 @@ namespace vargas {
 
     private:
       const uint8_t _bit_width = sizeof(CellType<num_reads>) / num_reads;
+      const CellType<num_reads> ZERO_CT = simdpp::splat(0);
 
       uint8_t
           _match = 2,       // Match score, is added
