@@ -4,3 +4,6 @@
 [submodule "libsimdpp"]
 	path = libsimdpp
 	url = https://github.com/gaddra/libsimdpp
+[submodule "doctest"]
+	path = doctest
+	url = https://github.com/gaddra/doctest
