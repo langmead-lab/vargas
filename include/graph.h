@@ -780,7 +780,6 @@ namespace vargas {
               g.add_edge(3, 5);
               g.add_edge(4, 5);
           }
-          g.to_DOT("tmp.dot", "g");
 
               SUBCASE("Filtering Iterator") {
               Graph::Population filter(3, false);
@@ -1080,8 +1079,6 @@ TEST_CASE ("Graph Builder") {
 
         std::vector<bool> filter = {0, 0, 0, 1};
         vargas::Graph g2(g, filter);
-
-        g2.to_DOT("tmp.dot", "gr");
 
         vargas::Graph::FilteringIter iter(g2);
 
