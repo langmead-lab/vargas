@@ -22,7 +22,7 @@ include(libsimdpp/cmake/SimdppMultiarch.cmake)
 simdpp_get_runnable_archs(RUNNABLE_ARCHS)
 
 # SIMD architecture to use
-#add_definitions(-DSIMDPP_ARCH_X86_SSE4_1)
+add_definitions(-DSIMDPP_ARCH_X86_SSE4_1)
 
 add_executable(vargas ${MAIN_SOURCES})
 target_link_libraries(vargas hts)

@@ -11,8 +11,6 @@
 #ifndef VARGAS_ALIGNMENT_H
 #define VARGAS_ALIGNMENT_H
 
-#define SIMDPP_ARCH_X86_SSE4_1
-
 #define DEBUG_PRINT_SW 0
 #define DEBUG_PRINT_SW_ELEM 6
 #define __INLINE__ __attribute__((always_inline)) inline
@@ -247,7 +245,7 @@ namespace vargas {
           }
           aligns.clear();
 
-          // Workaround to avoid loops
+          // Workaround to avoid loops and template args
           if (num_reads == 16) {
               aligns.emplace(aligns.end(), reads.get_read(0), extract<0>(max_score), max_pos[0], 0, 0, 0, 0, 0);
               aligns.emplace(aligns.end(), reads.get_read(1), extract<1>(max_score), max_pos[1], 0, 0, 0, 0, 0);
@@ -305,13 +303,16 @@ namespace vargas {
                      _seed *seed) {
           using namespace simdpp;
 
+          const _seed *ns;
+
           try {
               for (size_t i = 0; i < read_len; ++i) {
                   seed->I_col[i] = ZERO_CT;
                   seed->S_col[i] = ZERO_CT;
                   for (uint32_t id : prev_ids) {
-                      seed->I_col[i] = max(seed->I_col[i], seed_map.at(id).I_col[i]);
-                      seed->S_col[i] = max(seed->S_col[i], seed_map.at(id).S_col[i]);
+                      ns = &seed_map.at(id);
+                      seed->I_col[i] = max(seed->I_col[i], ns->I_col[i]);
+                      seed->S_col[i] = max(seed->S_col[i], ns->S_col[i]);
                   }
                   }
               }
@@ -380,7 +381,7 @@ namespace vargas {
       }
 
       /**
-       * Computes local alignment of the node.
+       * Computes local alignment to the node.
        * @param n Node to align to
        * @param reads ReadBatch to align
        * @param seeds seeds from previous nodes
@@ -390,17 +391,19 @@ namespace vargas {
                        const _seed *s) {
 
           _seed nxt; // Seed for next node
-          auto node_seq = n.seq().data();
+          auto node_seq = n.seq().data(); // Raw pointer faster than at()
+          const CellType<num_reads> *read_ptr = reads.data();
           size_t seq_size = n.seq().size();
+          uint32_t node_origin = n.end() - seq_size;
 
           // top left corner
-          _fill_cell_rzcz(reads.at(0), node_seq[0], s);
-          _fill_cell_finish(0, 0, n);
+          _fill_cell_rzcz(read_ptr[0], node_seq[0], s);
+          _fill_cell_finish(0, 0, node_origin);
 
           // top row
           for (uint32_t c = 1; c < seq_size; ++c) {
-              _fill_cell_rz(reads.at(0), node_seq[c], c);
-              _fill_cell_finish(0, c, n);
+              _fill_cell_rz(read_ptr[0], node_seq[c], c);
+              _fill_cell_finish(0, c, node_origin);
           }
 
           nxt.S_col[0] = S_curr[seq_size - 1];
@@ -421,13 +424,13 @@ namespace vargas {
               I_curr = swp_tmp;
 
               // first col
-              _fill_cell_cz(reads.at(r), node_seq[0], r, s);
-              _fill_cell_finish(r, 0, n);
+              _fill_cell_cz(read_ptr[r], node_seq[0], r, s);
+              _fill_cell_finish(r, 0, node_origin);
 
               // Inner grid
               for (uint32_t c = 1; c < seq_size; ++c) {
-                  _fill_cell(reads.at(r), node_seq[c], r, c);
-                  _fill_cell_finish(r, c, n);
+                  _fill_cell(read_ptr[r], node_seq[c], r, c);
+                  _fill_cell_finish(r, c, node_origin);
               }
 
               nxt.S_col[r] = S_curr[seq_size - 1];
@@ -440,15 +443,14 @@ namespace vargas {
       }
 
       /**
-     * Fills the current cell, if there are no previous seeds.
-     * @param read_base ReadBatch vector
-     * @param ref reference sequence base
-     * @param row current row in matrix
-     * @param col current column in matrix
-     */
+       * Fills the top left cell.
+       * @param read_base ReadBatch vector
+       * @param ref reference sequence base
+       * @param seed alignment seed from previous node
+       */
       __INLINE__
       void _fill_cell_rzcz(const CellType<num_reads> &read_base,
-                           Base ref,
+                           const Base &ref,
                            const _seed *s) {
           _D(0, ZERO_CT, ZERO_CT);
           _I(0, s->S_col[0]);
@@ -456,32 +458,31 @@ namespace vargas {
       }
 
       /**
-* Fills the current cell, if there are no previous seeds.
-* @param read_base ReadBatch vector
-* @param ref reference sequence base
-* @param row current row in matrix
-* @param col current column in matrix
-*/
+       * Fills cells when row is 0.
+       * @param read_base ReadBatch vector
+       * @param ref reference sequence base
+       * @param col current column in matrix
+       */
       __INLINE__
       void _fill_cell_rz(const CellType<num_reads> &read_base,
-                         Base ref,
-                         uint32_t col) {
+                         const Base &ref,
+                         const uint32_t &col) {
           _D(col, ZERO_CT, ZERO_CT);
           _I(0, S_curr[col - 1]);
           _M(col, read_base, ref, ZERO_CT);
       }
 
       /**
-* Fills the current cell, if there are no previous seeds.
-* @param read_base ReadBatch vector
-* @param ref reference sequence base
-* @param row current row in matrix
-* @param col current column in matrix
-*/
+       * Fills cells when col is 0.
+       * @param read_base ReadBatch vector
+       * @param ref reference sequence base
+       * @param row current row in matrix
+       * @param seed alignment seed from previous node
+       */
       __INLINE__
       void _fill_cell_cz(const CellType<num_reads> &read_base,
-                         Base ref,
-                         uint32_t row,
+                         const Base &ref,
+                         const uint32_t &row,
                          const _seed *s) {
           _D(0, D_prev[0], S_prev[0]);
           _I(row, s->S_col[row]);
@@ -489,7 +490,7 @@ namespace vargas {
       }
 
       /**
-       * Fills the current cell, if there are no previous seeds.
+       * Fills the current cell.
        * @param read_base ReadBatch vector
        * @param ref reference sequence base
        * @param row current row in matrix
@@ -497,9 +498,9 @@ namespace vargas {
        */
       __INLINE__
       void _fill_cell(const CellType<num_reads> &read_base,
-                      Base ref,
-                      uint32_t row,
-                      uint32_t col) {
+                      const Base &ref,
+                      const uint32_t &row,
+                      const uint32_t &col) {
           using namespace simdpp;
 
           _D(col, D_prev[col], S_prev[col]);
@@ -510,9 +511,11 @@ namespace vargas {
       /**
        * Score if there is a deletion
        * @param col current column
+       * @param Dp Previous D value at current col.
+       * @param Sp Previous S value at current col.
        */
       __INLINE__
-      void _D(uint32_t col,
+      void _D(const uint32_t &col,
               const CellType<num_reads> &Dp,
               const CellType<num_reads> &Sp) {
           using namespace simdpp;
@@ -530,10 +533,11 @@ namespace vargas {
       /**
        * Score if there is an insertion
        * @param row current row
-       * @param col current column
+       * @param Sc Previous S value (cell to the left)
        */
       __INLINE__
-      void _I(uint32_t row, const CellType<num_reads> &Sc) {
+      void _I(const uint32_t &row,
+              const CellType<num_reads> &Sc) {
           using namespace simdpp;
 
           // I(i,j) = I(i,j-1) - gap_extend
@@ -549,11 +553,12 @@ namespace vargas {
        * @param col current column
        * @param read read base vector
        * @param ref reference sequence base
+       * @param Sp Previous S val at col-1 (upper left cell)
        */
       __INLINE__
       void _M(uint32_t col,
               const CellType<num_reads> &read,
-              Base ref,
+              const Base &ref,
               const CellType<num_reads> &Sp) {
           using namespace simdpp;
 
@@ -584,11 +589,12 @@ namespace vargas {
        * Takes the max of D,I, and M vectors and stores the current best score/position
        * @param row current row
        * @param col current column
+       * @param n Current node, used to get absolute alignment position
        */
       __INLINE__
-      void _fill_cell_finish(uint32_t row,
-                             uint32_t col,
-                             const Graph::Node &n) {
+      void _fill_cell_finish(const uint32_t &row,
+                             const uint32_t &col,
+                             const uint32_t &node_origin) {
           using namespace simdpp;
 
           //S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
@@ -603,14 +609,16 @@ namespace vargas {
               uint8_t *curr = (uint8_t *) &tmp; // Interpret as byte to check which ones update
               for (uchar i = 0; i < num_reads; ++i) {
                   // Check if the i'th elements MSB is set
-                  if (*(curr + (i * _bit_width))) max_pos[i] = n.end() - n.seq().size() + col + 1;
+                  if (*(curr + (i * _bit_width))) max_pos[i] = node_origin + col + 1;
               }
           }
       }
 
 
     private:
+      // Used to store max positions with varying vector sizes
       const uint8_t _bit_width = sizeof(CellType<num_reads>) / num_reads;
+      // Zero vector
       const CellType<num_reads> ZERO_CT = simdpp::splat(0);
 
       uint8_t

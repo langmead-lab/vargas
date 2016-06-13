@@ -195,6 +195,14 @@ namespace vargas {
       }
 
       /**
+       * Pointer to raw packaged read data.
+       * @return T<num_reads> pointer
+       */
+      const T<num_reads> *data() const {
+          return _packaged_reads.data();
+      }
+
+      /**
        * Non const version of at(i).
        * @param base index
        */
