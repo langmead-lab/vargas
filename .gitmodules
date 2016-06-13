@@ -1,15 +1,6 @@
-[submodule "gssw"]
-	path = gssw
-	url = https://github.com/gaddra/gssw.git
-[submodule "VByte"]
-	path = VByte
-	url = https://github.com/gaddra/VByte
 [submodule "htslib"]
 	path = htslib
 	url = https://github.com/gaddra/htslib
 [submodule "libsimdpp"]
 	path = libsimdpp
 	url = https://github.com/gaddra/libsimdpp
-[submodule "doctest"]
-	path = doctest
-	url = https://github.com/gaddra/doctest/
