@@ -40,9 +40,9 @@ vargas::Graph::Graph(const vargas::Graph &g,
   _build_derived_edges(g, includedNodes);
 
   // Use the same description but add the filter we used
-  _desc = g.desc() + "\nfilter: ";
+  _desc = g.desc() + "\n#Sample filter: ";
   _desc += filter.to_string();
-
+  _max_node_len = g._max_node_len;
 }
 
 
@@ -53,13 +53,14 @@ vargas::Graph::Graph(const Graph &g,
   std::unordered_map<uint32_t, nodeptr> includedNodes;
 
   if (type == REF) {
-    // Add all nodes
-    for (auto &n : *(g._IDMap)) {
-      if (n.second->is_ref()) {
-        includedNodes[n.first] = n.second;
+    for (auto &nid : g._add_order) {
+      auto &n = (*_IDMap)[nid];
+      if (n->is_ref()) {
+        includedNodes[nid] = n;
+        _add_order.push_back(nid);
       }
     }
-    _desc = g.desc() + "\nfilter: REF";
+    _desc = g.desc() + "\n#filter: REF";
   }
 
   else if (type == MAXAF) {
@@ -67,6 +68,7 @@ vargas::Graph::Graph(const Graph &g,
     uint32_t maxid, size;
     while (true) {
       includedNodes[curr] = (*g._IDMap).at(curr);
+      _add_order.push_back(curr);
       if (g._next_map.count(curr) == 0) break; // end of graph
       maxid = g._next_map.at(curr).at(0);
       size = g._next_map.at(curr).size();
@@ -77,15 +79,12 @@ vargas::Graph::Graph(const Graph &g,
       }
       curr = maxid;
     }
-    _desc = g.desc() + "\nfilter: MAXAF";
+    _desc = g.desc() + "\n#filter: MAXAF";
   }
 
   _build_derived_edges(g, includedNodes);
+  _max_node_len = g._max_node_len;
 
-  _add_order = g._add_order;
-  for (int i = _add_order.size() - 1; i >= 0; --i) {
-    if (includedNodes.count(_add_order[i]) == 0) _add_order.erase(_add_order.begin() + i);
-  }
 }
 
 
@@ -94,7 +93,7 @@ void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
   // Add all edges for included nodes
   for (auto &n : includedNodes) {
     if (g._next_map.count(n.second->id()) == 0) continue;
-    for (auto e : g._next_map.at(n.second->id())) {
+    for (auto &e : g._next_map.at(n.second->id())) {
       if (includedNodes.count(e)) {
         add_edge(n.second->id(), e);
       }
@@ -220,16 +219,17 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
   // Nodes after last variant
   _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, _vf.region_upper());
 
+  std::string desc = "#Reference: " + _fa.file();
+  desc += "\n#B/VCF: " + _vf.file();
+  desc += "\n#Region: " + _vf.region_chr() + ":" + std::to_string(_vf.region_lower()) + "-"
+      + std::to_string(_vf.region_upper());
+  desc += "\n#Ingroup pct: " + _vf.ingroup_str();
+  desc += "\n#Number of samples: " + std::to_string(_vf.num_samples());
+  g.set_desc(desc);
+  g.node_len(_max_node_len);
+
   _fa.close();
   _vf.close();
-
-  std::string desc = "REF: " + _fa.file();
-  desc += "\nB/VCF: " + _vf.file();
-  desc += "\nRegion: " + _vf.region_chr() + ":" + std::to_string(_vf.region_lower()) + "-"
-      + std::to_string(_vf.region_upper());
-  desc += "\nIngroup: " + _vf.ingroup_str();
-
-  g.node_len(_max_node_len);
 }
 
 void vargas::GraphBuilder::_build_edges(vargas::Graph &g,

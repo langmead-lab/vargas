@@ -49,7 +49,7 @@ namespace vargas {
   inline std::ostream &operator<<(std::ostream &os, const Read &r) {
       std::stringstream ss;
       ss << r.read
-          << '#' << r.end_pos
+          << ',' << r.end_pos
           << ',' << r.indiv
           << ',' << r.sub_err
           << ',' << r.indel_err

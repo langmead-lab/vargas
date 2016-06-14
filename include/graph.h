@@ -456,7 +456,7 @@ namespace vargas {
 
               switch (_type) {
                   case REF:
-                      for (uint32_t nextID : next_vec) {
+                      for (const uint32_t &nextID : next_vec) {
                           if (graph_map.at(nextID)->is_ref()) {
                               _insert_queue(nextID);
                               break; // Assuming there is only one REF node per branch
@@ -465,7 +465,7 @@ namespace vargas {
                       break;
 
                   case FILTER:
-                      for (uint32_t nextID : next_vec) {
+                      for (const uint32_t &nextID : next_vec) {
                           // Add all nodes that intersect with filter
                           if (graph_map.at(nextID)->belongs(_filter)) _insert_queue(nextID);
                       }
@@ -488,7 +488,6 @@ namespace vargas {
 
                   default:
                       throw std::logic_error("Invalid type.");
-                      break;
               }
 
 
@@ -534,8 +533,12 @@ namespace vargas {
            */
           const std::vector<uint32_t> &incoming() {
               _incoming.clear();
+              if (_type == TOPO) {
+                  const uint32_t nid = _graph._add_order.at(_currID);
+                  if (_graph._prev_map.count(nid) == 0) return _incoming;
+                  return _graph._prev_map.at(nid);
+              }
               if (_graph._prev_map.count(_currID) == 0) return _incoming;
-              if (_type == TOPO) return _graph._prev_map.at(_graph._add_order.at(_currID));
               for (auto &id : _graph._prev_map.at(_currID)) {
                   if (_traversed.count(id)) _incoming.push_back(id);
               }
@@ -982,7 +985,7 @@ namespace vargas {
 
       // Graph construction parameters
       int _ingroup = 100; // percent of individuals to use. Ref nodes always included
-      int _max_node_len = 10000000;
+      int _max_node_len = 1000000;
   };
 
 }

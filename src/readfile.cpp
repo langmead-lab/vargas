@@ -18,8 +18,7 @@
 #include "readfile.h"
 
 bool vargas::ReadFile::update_read() {
-  if (!_read_file) throw std::invalid_argument("No _read_file specified.");
-  if (!std::getline(_read_file, line)) return false;
+  if (!_read_file || !std::getline(_read_file, line)) return false;
   if (line.at(0) == '#') {
     header += "\n" + line;
     return update_read();

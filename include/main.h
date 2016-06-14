@@ -12,6 +12,10 @@
 #ifndef VARGAS_MAIN_H
 #define VARGAS_MAIN_H
 
+#include "alignment.h"
+#include "graph.h"
+#include "readfile.h"
+
 // Operational modes
 int build_main(const int argc, const char *argv[]);
 int export_main(const int argc, const char *argv[]);
@@ -23,13 +27,21 @@ int stat_main(const int argc, const char *argv[]);
 
 void printBuildHelp();
 void printSimHelp();
-void printAlignHelp();
 void printExportHelp();
 void printStatHelp();
 
 void main_help();
 void profile_help();
+void align_help();
 
 int profile(const int argc, const char *argv[]);
+
+void talign(const vargas::ReadBatch<READ_LEN> rb,
+            const vargas::Graph &g,
+            uint8_t match,
+            uint8_t mismatch,
+            uint8_t gopen,
+            uint8_t gext,
+            std::vector<vargas::Alignment> &aligns);
 
 #endif //VARGAS_MAIN_H

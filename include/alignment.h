@@ -155,7 +155,12 @@ namespace vargas {
        * Gap Extend : 1
        */
       Aligner(size_t max_node_len)
-          : max_pos(std::vector<uint32_t>(num_reads)), _max_node_len(max_node_len) { _alloc(); }
+          :
+          max_pos(std::vector<uint32_t>(num_reads)),
+          max_count(std::vector<uint32_t>(num_reads)),
+          sub_pos(std::vector<uint32_t>(num_reads)),
+          sub_count(std::vector<uint32_t>(num_reads)),
+          _max_node_len(max_node_len) { _alloc(); }
 
       /**
        * Set scoring parameters
@@ -169,8 +174,12 @@ namespace vargas {
               uint8_t mismatch,
               uint8_t open,
               uint8_t extend) :
-          _max_node_len(max_node_len), _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend),
-          max_pos(std::vector<uint32_t>(num_reads)) { _alloc(); }
+          _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend),
+          max_pos(std::vector<uint32_t>(num_reads)),
+          max_count(std::vector<uint32_t>(num_reads)),
+          sub_pos(std::vector<uint32_t>(num_reads)),
+          sub_count(std::vector<uint32_t>(num_reads)),
+          _max_node_len(max_node_len) { _alloc(); }
 
       ~Aligner() {
           _dealloc();
@@ -245,24 +254,44 @@ namespace vargas {
           }
           aligns.clear();
 
-          // Workaround to avoid loops and template args
+          // Workaround to avoid loops for the template args
           if (num_reads == 16) {
-              aligns.emplace(aligns.end(), reads.get_read(0), extract<0>(max_score), max_pos[0], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(1), extract<1>(max_score), max_pos[1], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(2), extract<2>(max_score), max_pos[2], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(3), extract<3>(max_score), max_pos[3], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(4), extract<4>(max_score), max_pos[4], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(5), extract<5>(max_score), max_pos[5], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(6), extract<6>(max_score), max_pos[6], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(7), extract<7>(max_score), max_pos[7], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(8), extract<8>(max_score), max_pos[8], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(9), extract<9>(max_score), max_pos[9], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(10), extract<10>(max_score), max_pos[10], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(11), extract<11>(max_score), max_pos[11], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(12), extract<12>(max_score), max_pos[12], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(13), extract<13>(max_score), max_pos[13], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(14), extract<14>(max_score), max_pos[14], 0, 0, 0, 0, 0);
-              aligns.emplace(aligns.end(), reads.get_read(15), extract<15>(max_score), max_pos[15], 0, 0, 0, 0, 0);
+              aligns.emplace(aligns.end(), reads.get_read(0), extract<0>(max_score), max_pos[0], max_count[0],
+                             extract<0>(sub_score), sub_pos[0], sub_count[0], 0);
+              aligns.emplace(aligns.end(), reads.get_read(1), extract<1>(max_score), max_pos[1], max_count[1],
+                             extract<1>(sub_score), sub_pos[1], sub_count[1], 0);
+              aligns.emplace(aligns.end(), reads.get_read(2), extract<2>(max_score), max_pos[2], max_count[2],
+                             extract<2>(sub_score), sub_pos[2], sub_count[2], 0);
+              aligns.emplace(aligns.end(), reads.get_read(3), extract<3>(max_score), max_pos[3], max_count[3],
+                             extract<3>(sub_score), sub_pos[3], sub_count[3], 0);
+              aligns.emplace(aligns.end(), reads.get_read(4), extract<4>(max_score), max_pos[4], max_count[4],
+                             extract<4>(sub_score), sub_pos[4], sub_count[4], 0);
+              aligns.emplace(aligns.end(), reads.get_read(5), extract<5>(max_score), max_pos[5], max_count[5],
+                             extract<5>(sub_score), sub_pos[5], sub_count[5], 0);
+              aligns.emplace(aligns.end(), reads.get_read(6), extract<6>(max_score), max_pos[6], max_count[6],
+                             extract<6>(sub_score), sub_pos[6], sub_count[6], 0);
+              aligns.emplace(aligns.end(), reads.get_read(7), extract<7>(max_score), max_pos[7], max_count[7],
+                             extract<7>(sub_score), sub_pos[7], sub_count[7], 0);
+              aligns.emplace(aligns.end(), reads.get_read(8), extract<8>(max_score), max_pos[8], max_count[8],
+                             extract<8>(sub_score), sub_pos[8], sub_count[8], 0);
+              aligns.emplace(aligns.end(), reads.get_read(9), extract<9>(max_score), max_pos[9], max_count[9],
+                             extract<9>(sub_score), sub_pos[9], sub_count[9], 0);
+              aligns.emplace(aligns.end(), reads.get_read(10), extract<10>(max_score), max_pos[10], max_count[10],
+                             extract<10>(sub_score), sub_pos[10], sub_count[10], 0);
+              aligns.emplace(aligns.end(), reads.get_read(11), extract<11>(max_score), max_pos[11], max_count[11],
+                             extract<11>(sub_score), sub_pos[11], sub_count[11], 0);
+              aligns.emplace(aligns.end(), reads.get_read(12), extract<12>(max_score), max_pos[12], max_count[12],
+                             extract<12>(sub_score), sub_pos[12], sub_count[12], 0);
+              aligns.emplace(aligns.end(), reads.get_read(13), extract<13>(max_score), max_pos[13], max_count[13],
+                             extract<13>(sub_score), sub_pos[13], sub_count[13], 0);
+              aligns.emplace(aligns.end(), reads.get_read(14), extract<14>(max_score), max_pos[14], max_count[14],
+                             extract<14>(sub_score), sub_pos[14], sub_count[14], 0);
+              aligns.emplace(aligns.end(), reads.get_read(15), extract<15>(max_score), max_pos[15], max_count[15],
+                             extract<15>(sub_score), sub_pos[15], sub_count[15], 0);
+          }
+          else {
+              throw std::logic_error("No extraction implemented for num reads per vector = " +
+                  std::to_string(num_reads));
           }
 
           // pop off padded reads
@@ -592,6 +621,7 @@ namespace vargas {
        * @param n Current node, used to get absolute alignment position
        */
       __INLINE__
+      __attribute__((optimize("unroll-loops")))
       void _fill_cell_finish(const uint32_t &row,
                              const uint32_t &col,
                              const uint32_t &node_origin) {
@@ -601,15 +631,50 @@ namespace vargas {
           S_curr[col] = max(D_curr[col], S_curr[col]);
           S_curr[col] = max(I_curr[row], S_curr[col]);
 
-          // Check for better scores
-          tmp = S_curr[col] > max_score; // Mask of all elems that have new high score
-          // If there were any new high scores
+          // Check for new high scores
+          tmp = S_curr[col] > max_score;
           if (reduce_or(tmp)) {
-              max_score = max(max_score, S_curr[col]); // update max scores
-              uint8_t *curr = (uint8_t *) &tmp; // Interpret as byte to check which ones update
+              max_score = max(max_score, S_curr[col]);
               for (uchar i = 0; i < num_reads; ++i) {
                   // Check if the i'th elements MSB is set
-                  if (*(curr + (i * _bit_width))) max_pos[i] = node_origin + col + 1;
+                  if (*(tmp_ptr + (i * _bit_width))) {
+                      max_pos[i] = node_origin + col + 1;
+                      max_count[i] = 0;
+                  }
+              }
+          }
+
+          // Check for equal max score. If we set a new high score this will set the count to 1
+          tmp = cmp_eq(S_curr[col], max_score);
+          if (reduce_or(tmp)) {
+              for (uchar i = 0; i < num_reads; ++i) {
+                  // Check if the i'th elements MSB is set
+                  if (*(tmp_ptr + (i * _bit_width))) ++max_count[i];
+              }
+          }
+
+          // new second best score
+          tmp = S_curr[col] > sub_score;
+          if (reduce_or(tmp)) {
+              uint32_t curr = node_origin + col + 1;
+              for (uchar i = 0; i < num_reads; ++i) {
+                  // Check if the i'th elements MSB is set
+                  if (*(tmp_ptr + (i * _bit_width))) {
+                      // Check if far enough from current best
+                      if (max_pos[i] < curr - READ_LEN) {
+                          //TODO add -(max_score/sub_score) term
+                          ;
+                      }
+                  }
+              }
+          }
+
+          // Repeat sub score
+          tmp = cmp_eq(S_curr[col], sub_score);
+          if (reduce_or(tmp)) {
+              for (uchar i = 0; i < num_reads; ++i) {
+                  // Check if the i'th elements MSB is set
+                  if (*(tmp_ptr + (i * _bit_width))) ++sub_count[i];
               }
           }
       }
@@ -662,9 +727,15 @@ namespace vargas {
           Ceq, // Match score when read_base == ref_base
           Cneq, // mismatch penalty
           tmp; // temporary for use within functions
+      const uint8_t *tmp_ptr = (uint8_t *) &tmp;
 
       CellType<num_reads> max_score;
       std::vector<uint32_t> max_pos;
+      std::vector<uint32_t> max_count;
+
+      CellType<num_reads> sub_score;
+      std::vector<uint32_t> sub_pos;
+      std::vector<uint32_t> sub_count;
 
       size_t _max_node_len;
 
