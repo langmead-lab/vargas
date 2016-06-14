@@ -12,6 +12,8 @@
 #ifndef VARGAS_MAIN_H
 #define VARGAS_MAIN_H
 
+#define READ_LEN 50
+
 #include "alignment.h"
 #include "graph.h"
 #include "readfile.h"
