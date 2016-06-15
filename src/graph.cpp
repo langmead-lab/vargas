@@ -169,8 +169,9 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
   }
 
   int curr = _vf.region_lower(); // The Graph has been built up to this position, exclusive
-  std::vector<uint32_t> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
-  std::vector<uint32_t> curr_unconnected; // ID's of nodes added that are unconnected
+  std::unordered_set<uint32_t> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
+  std::unordered_set<uint32_t> curr_unconnected; // ID's of nodes added that are unconnected
+  std::unordered_map<uint32_t, uint32_t> chain;
 
   g.set_popsize(_vf.samples().size() * 2);
   const Graph::Population all_pop(g.pop_size(), true);
@@ -192,28 +193,43 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
       n.set_seq(_vf.ref());
       n.set_as_ref();
       n.set_af(af[0]);
-      curr_unconnected.push_back(g.add_node(n));
+      curr_unconnected.insert(g.add_node(n));
     }
 
     //alt nodes
+    uint32_t prev_split, curr_split, chain_origin;
+    chain.clear();
     for (size_t i = 1; i < _vf.alleles().size(); ++i) {
-
       const std::string &allele = _vf.alleles()[i];
+      if (allele == _vf.ref()) continue; // Remove duplicate nodes, REF is substituted in for unknown tags
       auto allele_split = _split_seq(allele);
       Graph::Population pop(_vf.allele_pop(allele));
       if (pop && all_pop) { // Only add if someone has the allele
-        for (auto &part : allele_split) {
+        {
           Graph::Node n;
+          n.set_endpos(curr - 1);
           n.set_population(pop);
-          n.set_seq(part);
+          n.set_seq(allele_split[0]);
           n.set_af(af[i]);
           n.set_not_ref();
-          curr_unconnected.push_back(g.add_node(n));
-          _build_edges(g, prev_unconnected, curr_unconnected);
+          prev_split = chain_origin = g.add_node(n);
+          curr_unconnected.insert(prev_split);
+        }
+        for (size_t i = 1; i < allele_split.size(); ++i) {
+          Graph::Node n;
+          n.set_endpos(curr - 1);
+          n.set_population(pop);
+          n.set_seq(allele_split[i]);
+          n.set_af(af[i]);
+          n.set_not_ref();
+          curr_split = g.add_node(n);
+          g.add_edge(prev_split, curr_split);
+          prev_split = curr_split;
+          chain[chain_origin] = prev_split;
         }
       }
     }
-
+    _build_edges(g, prev_unconnected, curr_unconnected, &chain);
 
   }
   // Nodes after last variant
@@ -233,8 +249,9 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
 }
 
 void vargas::GraphBuilder::_build_edges(vargas::Graph &g,
-                                        std::vector<uint32_t> &prev,
-                                        std::vector<uint32_t> &curr) {
+                                        std::unordered_set<uint32_t> &prev,
+                                        std::unordered_set<uint32_t> &curr,
+                                        std::unordered_map<uint32_t, uint32_t> *chain) {
   for (uint32_t pID : prev) {
     for (uint32_t cID : curr) {
       g.add_edge(pID, cID);
@@ -242,12 +259,19 @@ void vargas::GraphBuilder::_build_edges(vargas::Graph &g,
   }
   prev = curr;
   curr.clear();
+
+  if (chain) {
+    for (auto &r : *chain) {
+      prev.erase(r.first);
+      prev.insert(r.second);
+    }
+  }
 }
 
 
 int vargas::GraphBuilder::_build_linear_ref(Graph &g,
-                                            std::vector<uint32_t> &prev,
-                                            std::vector<uint32_t> &curr,
+                                            std::unordered_set<uint32_t> &prev,
+                                            std::unordered_set<uint32_t> &curr,
                                             uint32_t pos,
                                             uint32_t target) {
 
@@ -260,7 +284,7 @@ int vargas::GraphBuilder::_build_linear_ref(Graph &g,
     n.set_seq(s);
     pos += s.length();
     n.set_endpos(pos - 1);
-    curr.push_back(g.add_node(n));
+    curr.insert(g.add_node(n));
     _build_edges(g, prev, curr);
   }
   return target;

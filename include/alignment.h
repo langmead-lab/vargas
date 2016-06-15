@@ -247,13 +247,12 @@ namespace vargas {
           max_pos = std::vector<uint32_t>(num_reads);
           _seed seed;
           std::unordered_map<uint32_t, _seed> seed_map;
-          seed_map.reserve(begin.graph().node_map()->size());
           for (auto gi = begin; gi != end; ++gi) {
               _get_seed(gi.incoming(), seed_map, &seed);
               seed_map.emplace((*gi).id(), _fill_node(*gi, reads, &seed));
           }
-          aligns.clear();
 
+          aligns.clear();
           // Workaround to avoid loops for the template args
           if (num_reads == 16) {
               aligns.emplace(aligns.end(), reads.get_read(0), extract<0>(max_score), max_pos[0], max_count[0],

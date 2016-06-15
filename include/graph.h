@@ -965,12 +965,13 @@ namespace vargas {
 
     protected:
       __attribute__((always_inline))
-      inline void _build_edges(Graph &g, std::vector<uint32_t> &prev,
-                               std::vector<uint32_t> &curr);
+      inline void _build_edges(Graph &g, std::unordered_set<uint32_t> &prev,
+                               std::unordered_set<uint32_t> &curr,
+                               std::unordered_map<uint32_t, uint32_t> *chain = NULL);
 
       __attribute__((always_inline))
-      inline int _build_linear_ref(Graph &g, std::vector<uint32_t> &prev,
-                                   std::vector<uint32_t> &curr,
+      inline int _build_linear_ref(Graph &g, std::unordered_set<uint32_t> &prev,
+                                   std::unordered_set<uint32_t> &curr,
                                    uint32_t pos,
                                    uint32_t target);
 
@@ -985,7 +986,7 @@ namespace vargas {
 
       // Graph construction parameters
       int _ingroup = 100; // percent of individuals to use. Ref nodes always included
-      int _max_node_len = 1000000;
+      int _max_node_len = 10000000;
   };
 
 }
@@ -1026,7 +1027,7 @@ TEST_CASE ("Graph Builder") {
             << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
             << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
             << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
-            << "x\t10\t.\tC\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
             << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
             << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
             << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
@@ -1040,6 +1041,8 @@ TEST_CASE ("Graph Builder") {
 
         vargas::Graph g;
         gb.build(g);
+
+        g.to_DOT("tmp.dot", "g");
 
         auto giter = g.begin();
 
@@ -1094,6 +1097,8 @@ TEST_CASE ("Graph Builder") {
             CHECK((*iter).seq_str() == "T");
         ++iter;
             CHECK((*iter).seq_str() == "C");
+        ++iter;
+            CHECK((*iter).seq_str() == "CCCCC");
         ++iter;
             CHECK((*iter).seq_str() == "CC");
 
