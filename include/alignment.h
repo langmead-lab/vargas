@@ -138,11 +138,13 @@ namespace vargas {
    * @param num_reads max number of reads. If a non-default T is used, this should be set to
    *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
    *    SIMDPP_FAST_INT8_SIZE
-   * @param CellType element type. Determines max score range. Default uint8
+   * @param CellType element type. Determines max score range. Default simdp::uint8.
+   * @param NativeT Native version of CellType. Defaukt uint8_t
    */
   template<unsigned int read_len,
       unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
-      template<unsigned int, typename=void> class CellType=simdpp::uint8>
+      template<unsigned int, typename=void> class CellType=simdpp::uint8,
+      typename NativeT=uint8_t>
   class Aligner {
       typedef typename std::vector<CellType<num_reads>> VecType;
 
@@ -244,6 +246,7 @@ namespace vargas {
           using namespace simdpp;
 
           max_score = ZERO_CT;
+          sub_score = ZERO_CT;
           max_pos = std::vector<uint32_t>(num_reads);
           _seed seed;
           std::unordered_map<uint32_t, _seed> seed_map;
@@ -253,45 +256,19 @@ namespace vargas {
           }
 
           aligns.clear();
-          // Workaround to avoid loops for the template args
-          if (num_reads == 16) {
-              aligns.emplace(aligns.end(), reads.get_read(0), extract<0>(max_score), max_pos[0], max_count[0],
-                             extract<0>(sub_score), sub_pos[0], sub_count[0], 0);
-              aligns.emplace(aligns.end(), reads.get_read(1), extract<1>(max_score), max_pos[1], max_count[1],
-                             extract<1>(sub_score), sub_pos[1], sub_count[1], 0);
-              aligns.emplace(aligns.end(), reads.get_read(2), extract<2>(max_score), max_pos[2], max_count[2],
-                             extract<2>(sub_score), sub_pos[2], sub_count[2], 0);
-              aligns.emplace(aligns.end(), reads.get_read(3), extract<3>(max_score), max_pos[3], max_count[3],
-                             extract<3>(sub_score), sub_pos[3], sub_count[3], 0);
-              aligns.emplace(aligns.end(), reads.get_read(4), extract<4>(max_score), max_pos[4], max_count[4],
-                             extract<4>(sub_score), sub_pos[4], sub_count[4], 0);
-              aligns.emplace(aligns.end(), reads.get_read(5), extract<5>(max_score), max_pos[5], max_count[5],
-                             extract<5>(sub_score), sub_pos[5], sub_count[5], 0);
-              aligns.emplace(aligns.end(), reads.get_read(6), extract<6>(max_score), max_pos[6], max_count[6],
-                             extract<6>(sub_score), sub_pos[6], sub_count[6], 0);
-              aligns.emplace(aligns.end(), reads.get_read(7), extract<7>(max_score), max_pos[7], max_count[7],
-                             extract<7>(sub_score), sub_pos[7], sub_count[7], 0);
-              aligns.emplace(aligns.end(), reads.get_read(8), extract<8>(max_score), max_pos[8], max_count[8],
-                             extract<8>(sub_score), sub_pos[8], sub_count[8], 0);
-              aligns.emplace(aligns.end(), reads.get_read(9), extract<9>(max_score), max_pos[9], max_count[9],
-                             extract<9>(sub_score), sub_pos[9], sub_count[9], 0);
-              aligns.emplace(aligns.end(), reads.get_read(10), extract<10>(max_score), max_pos[10], max_count[10],
-                             extract<10>(sub_score), sub_pos[10], sub_count[10], 0);
-              aligns.emplace(aligns.end(), reads.get_read(11), extract<11>(max_score), max_pos[11], max_count[11],
-                             extract<11>(sub_score), sub_pos[11], sub_count[11], 0);
-              aligns.emplace(aligns.end(), reads.get_read(12), extract<12>(max_score), max_pos[12], max_count[12],
-                             extract<12>(sub_score), sub_pos[12], sub_count[12], 0);
-              aligns.emplace(aligns.end(), reads.get_read(13), extract<13>(max_score), max_pos[13], max_count[13],
-                             extract<13>(sub_score), sub_pos[13], sub_count[13], 0);
-              aligns.emplace(aligns.end(), reads.get_read(14), extract<14>(max_score), max_pos[14], max_count[14],
-                             extract<14>(sub_score), sub_pos[14], sub_count[14], 0);
-              aligns.emplace(aligns.end(), reads.get_read(15), extract<15>(max_score), max_pos[15], max_count[15],
-                             extract<15>(sub_score), sub_pos[15], sub_count[15], 0);
+
+          uint8_t cor = 2, max, sub;
+          for (int i = 0; i < num_reads; ++i) {
+              max = extract(i, max_score);
+              sub = extract(i, sub_score);
+              if ((reads.reads()[i].end_pos - READ_LEN) < max && max > (reads.reads()[i].end_pos + READ_LEN))
+                  cor = 0;
+              else if ((reads.reads()[i].end_pos - READ_LEN) < sub && sub > (reads.reads()[i].end_pos + READ_LEN))
+                  cor = 0;
+              aligns.emplace(aligns.end(), reads.get_read(i), max, max_pos[i], max_count[i],
+                             sub, sub_pos[i], sub_count[i], cor);
           }
-          else {
-              throw std::logic_error("No extraction implemented for num reads per vector = " +
-                  std::to_string(num_reads));
-          }
+
 
           // pop off padded reads
           for (size_t i = num_reads; i > reads.reads().size(); --i) aligns.pop_back();
@@ -307,6 +284,7 @@ namespace vargas {
                                           const ReadBatch<read_len, num_reads, CellType> &reads,
                                           std::vector<uint32_t> &pos) {
           max_score = ZERO_CT;
+          sub_score = ZERO_CT;
           max_pos = std::vector<uint32_t>(num_reads);
           _fill_node(n, reads);
           pos = max_pos;
@@ -345,7 +323,7 @@ namespace vargas {
                   }
               }
           catch (std::exception &e) {
-              std::cerr << "Invalid node ordering." << std::endl;
+              throw std::logic_error("Unable to get seed, invalid node ordering.");
           }
 
       }
@@ -615,6 +593,7 @@ namespace vargas {
 
       /**
        * Takes the max of D,I, and M vectors and stores the current best score/position
+       * Currently does not support non-deafault template args
        * @param row current row
        * @param col current column
        * @param n Current node, used to get absolute alignment position
@@ -626,18 +605,28 @@ namespace vargas {
                              const uint32_t &node_origin) {
           using namespace simdpp;
 
+          uint32_t curr = node_origin + col + 1; // absolute position
+
           //S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
           S_curr[col] = max(D_curr[col], S_curr[col]);
           S_curr[col] = max(I_curr[row], S_curr[col]);
 
           // Check for new high scores
           tmp = S_curr[col] > max_score;
+          NativeT max_elem;
           if (reduce_or(tmp)) {
               max_score = max(max_score, S_curr[col]);
               for (uchar i = 0; i < num_reads; ++i) {
                   // Check if the i'th elements MSB is set
-                  if (*(tmp_ptr + (i * _bit_width))) {
-                      max_pos[i] = node_origin + col + 1;
+                  if (extract(i, tmp)) {
+                      max_elem = extract(i, max_score);
+                      // If old max is larger than old sub_max, and if its far enough away
+                      if (max_elem > extract(i, sub_score) && curr < max_pos[i] - READ_LEN) {
+                          insert(max_elem, i, sub_score);
+                          sub_pos[i] = max_pos[i];
+                          sub_count[i] = max_count[i];
+                      }
+                      max_pos[i] = curr;
                       max_count[i] = 0;
                   }
               }
@@ -648,21 +637,21 @@ namespace vargas {
           if (reduce_or(tmp)) {
               for (uchar i = 0; i < num_reads; ++i) {
                   // Check if the i'th elements MSB is set
-                  if (*(tmp_ptr + (i * _bit_width))) ++max_count[i];
+                  if (extract(i, tmp)) ++max_count[i];
               }
           }
 
           // new second best score
           tmp = S_curr[col] > sub_score;
           if (reduce_or(tmp)) {
-              uint32_t curr = node_origin + col + 1;
               for (uchar i = 0; i < num_reads; ++i) {
                   // Check if the i'th elements MSB is set
-                  if (*(tmp_ptr + (i * _bit_width))) {
+                  if (extract(i, tmp)) {
                       // Check if far enough from current best
                       if (max_pos[i] < curr - READ_LEN) {
                           //TODO add -(max_score/sub_score) term
-                          ;
+                          insert(extract(i, S_curr[col]), i, sub_score);
+                          sub_pos[i] = curr;
                       }
                   }
               }
@@ -673,15 +662,37 @@ namespace vargas {
           if (reduce_or(tmp)) {
               for (uchar i = 0; i < num_reads; ++i) {
                   // Check if the i'th elements MSB is set
-                  if (*(tmp_ptr + (i * _bit_width))) ++sub_count[i];
+                  if (extract(i, tmp)) ++sub_count[i];
               }
           }
       }
 
+      /**
+       * Extract the i'th element from a vector. No range checking is done.
+       * @param i index of element
+       * @param vec vector to extract from
+       */
+      __INLINE__
+      NativeT extract(uint8_t i, const CellType<num_reads> &vec) {
+          static NativeT *ptr;
+          ptr = (NativeT *) &vec;
+          return ptr[i];
+      }
+
+      /**
+       * Insert into the i'th element from a vector. No range checking is done.
+       * @param ins element to insert
+       * @param i index of element
+       * @param vec vector to insert in
+       */
+      __INLINE__
+      void insert(NativeT ins, uint8_t i, const CellType<num_reads> &vec) {
+          static NativeT *ptr;
+          ptr = (NativeT *) &vec;
+          ptr[i] = ins;
+      }
 
     private:
-      // Used to store max positions with varying vector sizes
-      const uint8_t _bit_width = sizeof(CellType<num_reads>) / num_reads;
       // Zero vector
       const CellType<num_reads> ZERO_CT = simdpp::splat(0);
 
@@ -696,8 +707,6 @@ namespace vargas {
        * matrix fill, their roles are swapped such that one becomes the previous
        * loops data, and the other is filled in.
        * S and D are padded 1 to provide a left column buffer.
-       *
-       * The allocated memory persists between node fills, growing if needed.
        */
       VecType
           *Sa = nullptr, // Matrix row
@@ -726,12 +735,13 @@ namespace vargas {
           Ceq, // Match score when read_base == ref_base
           Cneq, // mismatch penalty
           tmp; // temporary for use within functions
-      const uint8_t *tmp_ptr = (uint8_t *) &tmp;
 
+      // Optimal alignment info
       CellType<num_reads> max_score;
       std::vector<uint32_t> max_pos;
       std::vector<uint32_t> max_count;
 
+      // Suboptimal alignment info
       CellType<num_reads> sub_score;
       std::vector<uint32_t> sub_pos;
       std::vector<uint32_t> sub_count;
