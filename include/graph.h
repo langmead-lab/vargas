@@ -115,7 +115,7 @@ namespace vargas {
            * Size of the Population of the node. This should be consistant throughout the graph.
            * @return pop_size
            */
-          ulong pop_size() const { return _individuals.size(); }
+          unsigned pop_size() const { return _individuals.size(); }
 
           /**
            * Node id.
