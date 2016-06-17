@@ -22,17 +22,11 @@ class ReadFile: public ReadSource {
   ReadFile() { }
   ReadFile(std::string file) {
     _read_file.open(file);
-    if (!_read_file.good()) throw std::invalid_argument("Invalid read file.");
+      if (!_read_file.good()) throw std::invalid_argument("Invalid reads file: " + file);
   }
   ~ReadFile() {
     if (_read_file) _read_file.close();
   }
-
-  /*
-   * Gets the current read.
-   * @return Read that has already been generated.
-   */
-  Read &get_read() override { return read; }
 
   /*
    * Updates the stored read.

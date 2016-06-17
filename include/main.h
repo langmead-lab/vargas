@@ -12,8 +12,6 @@
 #ifndef VARGAS_MAIN_H
 #define VARGAS_MAIN_H
 
-#define READ_LEN 50
-
 #include "alignment.h"
 #include "graph.h"
 #include "readfile.h"
@@ -37,13 +35,4 @@ void profile_help();
 void align_help();
 
 int profile(const int argc, const char *argv[]);
-
-void talign(const vargas::ReadBatch<READ_LEN> rb,
-            const vargas::Graph &g,
-            uint8_t match,
-            uint8_t mismatch,
-            uint8_t gopen,
-            uint8_t gext,
-            std::vector<vargas::Alignment> &aligns);
-
 #endif //VARGAS_MAIN_H

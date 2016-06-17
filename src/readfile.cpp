@@ -24,9 +24,10 @@ bool vargas::ReadFile::update_read() {
     return update_read();
   }
 
-  unsigned long delim = line.find('#');
+  unsigned long delim = line.find(',');
   if (delim == std::string::npos) {
     read.read = line;
+    read.desc = "-";
     read.end_pos = 0;
     read.indiv = -1;
     read.sub_err = -1;
@@ -37,7 +38,7 @@ bool vargas::ReadFile::update_read() {
   } else {
     read.read = line.substr(0, delim);
     split(line.substr(delim + 1), ',', _split_meta);
-    if (_split_meta.size() != 6) {
+    if (_split_meta.size() != 7) {
       std::cerr << "Unexpected number of fields." << std::endl;
       read.end_pos = 0;
       read.indiv = -1;
@@ -48,12 +49,13 @@ bool vargas::ReadFile::update_read() {
       return false;
     }
 
-    read.end_pos = uint32_t(std::stoi(_split_meta[0]));
-    read.indiv = std::stoi(_split_meta[1]);
-    read.sub_err = std::stoi(_split_meta[2]);
-    read.indel_err = std::stoi(_split_meta[3]);
-    read.var_nodes = std::stoi(_split_meta[4]);
-    read.var_bases = std::stoi(_split_meta[5]);
+    read.desc = _split_meta[0];
+    read.end_pos = uint32_t(std::stoi(_split_meta[1]));
+    read.indiv = std::stoi(_split_meta[2]);
+    read.sub_err = std::stoi(_split_meta[3]);
+    read.indel_err = std::stoi(_split_meta[4]);
+    read.var_nodes = std::stoi(_split_meta[5]);
+    read.var_bases = std::stoi(_split_meta[6]);
     read.read_num = seq_to_num(read.read);
   }
   return true;

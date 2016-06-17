@@ -32,11 +32,12 @@ namespace vargas {
  */
   struct Read {
       Read() { }
-      Read(std::string r) : read(r), read_num(seq_to_num(r)),
+      Read(std::string r) : read(r), read_num(seq_to_num(r)), desc("-"),
                             end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1), indel_err(-1) { }
 
       std::string read;
       std::vector<Base> read_num;
+      std::string desc;
       int32_t end_pos;
       int32_t indiv;
       int32_t sub_err;
@@ -47,16 +48,21 @@ namespace vargas {
   };
 
   inline std::ostream &operator<<(std::ostream &os, const Read &r) {
-      std::stringstream ss;
-      ss << r.read
+      os << r.read
+          << ',' << r.desc
           << ',' << r.end_pos
           << ',' << r.indiv
           << ',' << r.sub_err
           << ',' << r.indel_err
           << ',' << r.var_nodes
           << ',' << r.var_bases;
-      os << ss.str();
       return os;
+  }
+
+  inline std::string to_string(const Read &r) {
+      std::stringstream ss;
+      ss << r;
+      return ss.str();
   }
 
 /**
@@ -85,18 +91,12 @@ namespace vargas {
       virtual std::string to_string() {
           std::stringstream ss;
           Read r = get_read();
-          ss << r.read
-              << '#' << r.end_pos
-              << ',' << r.indiv
-              << ',' << r.sub_err
-              << ',' << r.indel_err
-              << ',' << r.var_nodes
-              << ',' << r.var_bases;
+          ss << r;
           return ss.str();
       };
 
       // Get the current read object
-      virtual Read &get_read() = 0;
+      Read &get_read() { return read; };
 
       // Get read file header
       virtual std::string get_header() const = 0;
@@ -119,7 +119,7 @@ namespace vargas {
           return _batch;
       }
 
-      inline std::ostream &operator<<(std::ostream &os) {
+      virtual inline std::ostream &operator<<(std::ostream &os) {
           os << update_and_get();
           return os;
       }
@@ -137,15 +137,13 @@ namespace vargas {
    * contains bases from all reads, respective to the base number. For example ReadBatch[0]
    * would contain the first bases of every read. Short reads or missing reads are padded
    * with Base::N.
-   * @param read_len maximum length of the read
    * @param num_reads max number of reads. If a non-default T is used, this should be set to
    *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
    *    SIMDPP_FAST_INT8_SIZE
    * @param T element type
    */
 
-  template<unsigned int read_len,
-      unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
+  template<unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
       template<unsigned int, typename=void> class T=simdpp::uint8>
   class ReadBatch {
     public:
@@ -153,17 +151,44 @@ namespace vargas {
       // Optimal number of elements in the vector for the current architecture
       //const static int num_reads = SIMDPP_FAST_INT8_SIZE;
 
-      ReadBatch() { }
-
       /**
-       * @param batch package the given vector of reads
+       * @param len maximum read length
        */
-      ReadBatch(const std::vector<Read> &batch) : _reads(batch) { _package_reads(); }
+      ReadBatch(int len) : read_len(len) { }
 
       /**
+       * Read length is set to first read size.
+       * @param batch package the given vector of reads. Must be nonempty.
+       */
+      ReadBatch(const std::vector<Read> &batch) : _reads(batch) {
+          if (batch.size() == 0) throw std::invalid_argument("Vector of reads must be non-empty.");
+          read_len = batch[0].read.length();
+          _package_reads();
+      }
+
+      /**
+       * Read length is set to first read size.
        * @param obtain a batch of reads from the Read source and package them.
        */
       ReadBatch(ReadSource &rs) : _reads(rs.get_batch(num_reads)) {
+          if (_reads.size() == 0) throw std::invalid_argument("Unable to get reads.");
+          read_len = _reads[0].read.length();
+          _package_reads();
+      }
+
+      /**
+       * @param batch package the given vector of reads. Must be nonempty.
+       * @param len max read length
+       */
+      ReadBatch(const std::vector<Read> &batch, int len) : _reads(batch), read_len(len) {
+          _package_reads();
+      }
+
+      /**
+       * @param obtain a batch of reads from the Read source and package them.
+       * @param len max read length
+       */
+      ReadBatch(ReadSource &rs, int len) : _reads(rs.get_batch(num_reads)), read_len(len) {
           _package_reads();
       }
 
@@ -252,6 +277,8 @@ namespace vargas {
 
     private:
 
+      int read_len;
+
       /**
        * _packaged_reads[i] contains all i'th bases.
        * The length of _packaged_reads is the length of the read,
@@ -271,42 +298,42 @@ namespace vargas {
           _packaged_reads.resize(read_len);
           if (_reads.size() > num_reads) throw std::range_error("Too many reads for batch size.");
 
-// allocate memory
+          // allocate memory
           uchar **pckg = (uchar **) malloc(read_len * sizeof(uchar *));
           for (int i = 0; i < read_len; ++i) {
               pckg[i] = (uchar *) malloc(num_reads * sizeof(uchar));
           }
 
-// Interleave reads
-// For each read (read[i] is in _packaged_reads[0..n][i]
+          // Interleave reads
+          // For each read (read[i] is in _packaged_reads[0..n][i]
           for (size_t r = 0; r < _reads.size(); ++r) {
 
               if (_reads.at(r).read_num.size() > read_len) throw std::range_error("Read too long for batch size.");
 
-// Put each base in the appropriate vector element
+              // Put each base in the appropriate vector element
               for (size_t p = 0; p < _reads[r].read_num.size(); ++p) {
                   pckg[p][r] = _reads[r].read_num[p];
               }
 
-// Pad the shorter reads
+              // Pad the shorter reads
               for (size_t p = _reads[r].read_num.size(); p < read_len; ++p) {
                   pckg[p][r] = Base::N;
               }
           }
 
-// Pad underful batches
+          // Pad underful batches
           for (size_t r = _reads.size(); r < num_reads; ++r) {
               for (size_t p = 0; p < read_len; ++p) {
                   pckg[p][r] = Base::N;
               }
           }
 
-// Load into vectors
+          // Load into vectors
           for (int i = 0; i < read_len; ++i) {
               _packaged_reads[i] = simdpp::load(pckg[i]);
           }
 
-// Free memory
+          // Free memory
           for (int i = 0; i < read_len; ++i) {
               free(pckg[i]);
           }
@@ -324,7 +351,7 @@ TEST_CASE ("Read Batch") {
         }
 
         SUBCASE ("packaging") {
-        vargas::ReadBatch<64> rb(reads);
+        vargas::ReadBatch<> rb(reads, 64);
 
             CHECK(rb.batch_size() == SIMDPP_FAST_INT8_SIZE);
             CHECK(rb.max_len() == 64);

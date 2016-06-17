@@ -115,7 +115,7 @@ namespace vargas {
            * Size of the Population of the node. This should be consistant throughout the graph.
            * @return pop_size
            */
-          unsigned pop_size() const { return _individuals.size(); }
+          size_t pop_size() const { return _individuals.size(); }
 
           /**
            * Node id.
@@ -1041,8 +1041,6 @@ TEST_CASE ("Graph Builder") {
 
         vargas::Graph g;
         gb.build(g);
-
-        g.to_DOT("tmp.dot", "g");
 
         auto giter = g.begin();
 

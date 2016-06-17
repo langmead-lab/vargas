@@ -11,8 +11,6 @@
 #ifndef VARGAS_ALIGNMENT_H
 #define VARGAS_ALIGNMENT_H
 
-#define DEBUG_PRINT_SW 0
-#define DEBUG_PRINT_SW_ELEM 6
 #define __INLINE__ __attribute__((always_inline)) inline
 
 #include <vector>
@@ -133,16 +131,13 @@ namespace vargas {
    * that is subtracted. All scores/penalties are provided as positive ints.
    * Most memory is allocated for the class so it can be reused during alignment.
    * The state of the memory between function calls is unknown, and must be reset.
-   * @param read_len maximum read length. Shorter reads are padded by ReadBatch.
-   * @param read_len maximum length of the read
    * @param num_reads max number of reads. If a non-default T is used, this should be set to
    *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
    *    SIMDPP_FAST_INT8_SIZE
    * @param CellType element type. Determines max score range. Default simdp::uint8.
    * @param NativeT Native version of CellType. Defaukt uint8_t
    */
-  template<unsigned int read_len,
-      unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
+  template<unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
       template<unsigned int, typename=void> class CellType=simdpp::uint8,
       typename NativeT=uint8_t>
   class Aligner {
@@ -155,23 +150,29 @@ namespace vargas {
        * Mismatch : -2
        * Gap Open : 3
        * Gap Extend : 1
+       * @param max_node_len maximum node length
+       * @param len maximum read length
        */
-      Aligner(size_t max_node_len)
+      Aligner(size_t max_node_len, int len)
           :
           max_pos(std::vector<uint32_t>(num_reads)),
           max_count(std::vector<uint32_t>(num_reads)),
           sub_pos(std::vector<uint32_t>(num_reads)),
           sub_count(std::vector<uint32_t>(num_reads)),
-          _max_node_len(max_node_len) { _alloc(); }
+          _max_node_len(max_node_len),
+          read_len(len) { _alloc(); }
 
       /**
        * Set scoring parameters
+       * @param max_node_len max node length
+       * @param len max read length
        * @param match match score
        * @param mismatch mismatch penalty
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
       Aligner(size_t max_node_len,
+              int len,
               uint8_t match,
               uint8_t mismatch,
               uint8_t open,
@@ -181,6 +182,7 @@ namespace vargas {
           max_count(std::vector<uint32_t>(num_reads)),
           sub_pos(std::vector<uint32_t>(num_reads)),
           sub_count(std::vector<uint32_t>(num_reads)),
+          read_len(len),
           _max_node_len(max_node_len) { _alloc(); }
 
       ~Aligner() {
@@ -210,7 +212,7 @@ namespace vargas {
        * @param g Graph
        * @return vector of alignments
        */
-      std::vector<Alignment> align(const ReadBatch<read_len, num_reads, CellType> &reads,
+      std::vector<Alignment> align(const ReadBatch<num_reads, CellType> &reads,
                                    const Graph &g) {
           return align(reads, g.begin(), g.end());
       }
@@ -223,11 +225,11 @@ namespace vargas {
        * @param end iterator to end of graph
        * @return vector of alignments
        */
-      std::vector<Alignment> align(const ReadBatch<read_len, num_reads, CellType> &reads,
+      std::vector<Alignment> align(const ReadBatch<num_reads, CellType> &reads,
                                    Graph::FilteringIter begin,
                                    Graph::FilteringIter end) {
           std::vector<Alignment> aligns;
-          align(reads, begin, end, aligns);
+          align_into(reads, begin, end, aligns);
           return aligns;
       }
 
@@ -239,16 +241,16 @@ namespace vargas {
       * @param end iterator to end of graph
       * @param aligns vector of alignments
       */
-      void align(const ReadBatch<read_len, num_reads, CellType> &reads,
-                 Graph::FilteringIter begin,
-                 Graph::FilteringIter end,
-                 std::vector<Alignment> &aligns) {
+      void align_into(ReadBatch<num_reads, CellType> reads,
+                      Graph::FilteringIter begin,
+                      Graph::FilteringIter end,
+                      std::vector<Alignment> &aligns) {
           using namespace simdpp;
 
           max_score = ZERO_CT;
           sub_score = ZERO_CT;
           max_pos = std::vector<uint32_t>(num_reads);
-          _seed seed;
+          _seed seed(read_len);
           std::unordered_map<uint32_t, _seed> seed_map;
           for (auto gi = begin; gi != end; ++gi) {
               _get_seed(gi.incoming(), seed_map, &seed);
@@ -261,10 +263,10 @@ namespace vargas {
           for (int i = 0; i < num_reads; ++i) {
               max = extract(i, max_score);
               sub = extract(i, sub_score);
-              if ((reads.reads()[i].end_pos - READ_LEN) < max && max > (reads.reads()[i].end_pos + READ_LEN))
+              if ((reads.reads()[i].end_pos - read_len) < max && max<(reads.reads()[i].end_pos + read_len))
                   cor = 0;
-              else if ((reads.reads()[i].end_pos - READ_LEN) < sub && sub > (reads.reads()[i].end_pos + READ_LEN))
-                  cor = 0;
+              else if ((reads.reads()[i].end_pos - read_len) < sub && sub<(reads.reads()[i].end_pos + read_len))
+                  cor = 1;
               aligns.emplace(aligns.end(), reads.get_read(i), max, max_pos[i], max_count[i],
                              sub, sub_pos[i], sub_count[i], cor);
           }
@@ -281,7 +283,7 @@ namespace vargas {
        * @param reads ReadBatch to align
        */
       CellType<num_reads> _test_fill_node(const Graph::Node &n,
-                                          const ReadBatch<read_len, num_reads, CellType> &reads,
+                                          const ReadBatch<num_reads, CellType> &reads,
                                           std::vector<uint32_t> &pos) {
           max_score = ZERO_CT;
           sub_score = ZERO_CT;
@@ -299,7 +301,7 @@ namespace vargas {
        * @param I_col last column of I vector
        */
       struct _seed {
-          _seed() : S_col(read_len), I_col(read_len) { }
+          _seed(int read_len) : S_col(read_len), I_col(read_len) { }
           VecType S_col;
           VecType I_col;
       };
@@ -380,8 +382,8 @@ namespace vargas {
        * @param reads ReadBatch to align
        */
       _seed _fill_node(const Graph::Node &n,
-                       const ReadBatch<read_len, num_reads, CellType> &reads) {
-          _seed s;
+                       const ReadBatch<num_reads, CellType> &reads) {
+          _seed s(read_len);
           s = _fill_node(n, reads, &s);
           return s;
       }
@@ -393,10 +395,10 @@ namespace vargas {
        * @param seeds seeds from previous nodes
        */
       _seed _fill_node(const Graph::Node &n,
-                       const ReadBatch<read_len, num_reads, CellType> &reads,
+                       const ReadBatch<num_reads, CellType> &reads,
                        const _seed *s) {
 
-          _seed nxt; // Seed for next node
+          _seed nxt(read_len); // Seed for next node
           auto node_seq = n.seq().data(); // Raw pointer faster than at()
           const CellType<num_reads> *read_ptr = reads.data();
           size_t seq_size = n.seq().size();
@@ -599,7 +601,6 @@ namespace vargas {
        * @param n Current node, used to get absolute alignment position
        */
       __INLINE__
-      __attribute__((optimize("unroll-loops")))
       void _fill_cell_finish(const uint32_t &row,
                              const uint32_t &col,
                              const uint32_t &node_origin) {
@@ -621,7 +622,7 @@ namespace vargas {
                   if (extract(i, tmp)) {
                       max_elem = extract(i, max_score);
                       // If old max is larger than old sub_max, and if its far enough away
-                      if (max_elem > extract(i, sub_score) && curr < max_pos[i] - READ_LEN) {
+                      if (max_elem > extract(i, sub_score) && curr < max_pos[i] - read_len) {
                           insert(max_elem, i, sub_score);
                           sub_pos[i] = max_pos[i];
                           sub_count[i] = max_count[i];
@@ -648,10 +649,11 @@ namespace vargas {
                   // Check if the i'th elements MSB is set
                   if (extract(i, tmp)) {
                       // Check if far enough from current best
-                      if (max_pos[i] < curr - READ_LEN) {
+                      if (max_pos[i] < curr - read_len) {
                           //TODO add -(max_score/sub_score) term
                           insert(extract(i, S_curr[col]), i, sub_score);
                           sub_pos[i] = curr;
+                          sub_count[i] = 0;
                       }
                   }
               }
@@ -693,6 +695,9 @@ namespace vargas {
       }
 
     private:
+
+      int read_len; // Maximum read length
+
       // Zero vector
       const CellType<num_reads> ZERO_CT = simdpp::splat(0);
 
@@ -767,8 +772,8 @@ TEST_CASE ("Alignment") {
         n.set_endpos(13);
         n.set_seq("ACGTNATACGCCA");
 
-        vargas::ReadBatch<16> rb(reads);
-        vargas::Aligner<16> a(15);
+        vargas::ReadBatch<> rb(reads, 16);
+        vargas::Aligner<> a(15, 16);
         std::vector<uint32_t> pos;
 
         auto maxscore = a._test_fill_node(n, rb, pos);
@@ -854,8 +859,8 @@ TEST_CASE ("Alignment") {
         reads.push_back(vargas::Read("AAATTTA"));
         reads.push_back(vargas::Read("AAAGCCC"));
 
-        vargas::ReadBatch<8> rb(reads);
-        vargas::Aligner<8> a(5);
+        vargas::ReadBatch<> rb(reads, 8);
+        vargas::Aligner<> a(5, 8);
 
         std::vector<vargas::Alignment> aligns = a.align(reads, g);
             REQUIRE(aligns.size() == 8);
@@ -911,8 +916,8 @@ void node_fill_profile() {
             reads.push_back(vargas::Read(rd.str()));
         }
 
-        vargas::ReadBatch<50> rb(reads);
-    vargas::Aligner<50> a(10000);
+    vargas::ReadBatch<> rb(reads, 50);
+    vargas::Aligner<> a(10000, 50);
 
         std::vector<uint32_t> pos;
 

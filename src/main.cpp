@@ -466,7 +466,7 @@ int profile(const int argc, const char *argv[]) {
 
     args >> GetOpt::Option('f', "fasta", fasta)
         >> GetOpt::Option('v', "var", bcf)
-        >> GetOpt::Option('r', "region", region)
+        >> GetOpt::Option('g', "region", region)
         >> GetOpt::Option('i', "ingroup", ingroup)
         >> GetOpt::Option('s', "string", read);
 
@@ -585,8 +585,8 @@ int profile(const int argc, const char *argv[]) {
             for (size_t i = 0; i < split_str.size(); ++i) reads[i] = vargas::Read(split_str[i]);
         }
 
-        vargas::ReadBatch<50> rb(reads);
-        vargas::Aligner<50> a(g.max_node_len());
+        vargas::ReadBatch<> rb(reads, 50);
+        vargas::Aligner<> a(g.max_node_len(), 50);
 
         std::cout << SIMDPP_FAST_INT8_SIZE << " read alignment:\n\t";
         std::cout << "Filtering iterator:\n\t";
@@ -623,8 +623,9 @@ int align_main(const int argc, const char *argv[]) {
 
     // Load parameters
     uint8_t match = 2, mismatch = 2, gopen = 3, gext = 1;
-    unsigned int threads = 1;
-    std::string outfile, readsfile, reffile, varfile, region, ingroups;
+    unsigned int threads = 1, read_len = 50;
+    std::string outfile, readsfile, reffile, varfile, region, ingroups = "100";
+    bool outgroups = false;
 
     args >> GetOpt::Option('m', "match", match)
         >> GetOpt::Option('n', "mismatch", mismatch)
@@ -636,7 +637,9 @@ int align_main(const int argc, const char *argv[]) {
         >> GetOpt::Option('v', "var", varfile)
         >> GetOpt::Option('g', "region", region)
         >> GetOpt::Option('i', "ingroup", ingroups)
-        >> GetOpt::Option('j', "threads", threads);
+        >> GetOpt::Option('j', "threads", threads)
+        >> GetOpt::Option('l', "rlen", read_len)
+        >> GetOpt::OptionPresent('x', "outgroup", outgroups);
 
     if (threads == 0) threads = std::thread::hardware_concurrency();
 
@@ -649,59 +652,70 @@ int align_main(const int argc, const char *argv[]) {
     vargas::Graph base_graph;
     gb.build(base_graph);
 
+    out << base_graph.desc() << std::endl;
+
     std::vector<vargas::Read> read_batch;
+    std::vector<std::shared_ptr<vargas::Aligner<>>> aligners;
+    for (uint8_t i = 0; i < threads; ++i)
+        aligners.push_back(std::make_shared<vargas::Aligner<>>(base_graph.max_node_len(),
+                                                               read_len,
+                                                               match,
+                                                               mismatch,
+                                                               gopen,
+                                                               gext));
     auto readfile_split = split(readsfile, ',');
     auto ingroups_split = split(ingroups, ',');
 
+    // Create populations
+    std::unordered_map<std::string, vargas::Graph::Population> pops;
+    for (auto igrp : ingroups_split) {
+        int pct = std::stoi(igrp);
+        if (pct < 0) continue;
+        auto pop = base_graph.subset(pct);
+        pops.insert(std::make_pair(igrp + 'i', pop));
+        if (pct >= 0 && outgroups) {
+            pops.insert(std::make_pair(igrp + 'o', ~pop));
+        }
+    }
+    for (auto &p : pops) out << "#" << p.first << ":" << p.second.to_string() << std::endl;
 
     // For each read file
     for (auto rfile : readfile_split) {
         // For each subgraph type
-        for (auto &igrp : ingroups_split) {
+        for (auto &pop : pops) {
             vargas::ReadFile reads(rfile);
-            int in = std::stoi(igrp);
+
             // Create subgraph
             vargas::Graph subgraph;
-            if (in < 0) subgraph = vargas::Graph(base_graph, vargas::Graph::MAXAF);
-            else subgraph = vargas::Graph(base_graph, base_graph.subset(in));
-            out << subgraph.desc() << std::endl;
+            subgraph = vargas::Graph(base_graph, pop.second);
+
             while (true) {
                 std::vector<std::thread> jobs;
                 std::vector<std::vector<vargas::Alignment>> aligns(threads);
                 for (unsigned int i = 0; i < threads; ++i) {
                     read_batch = reads.get_batch(SIMDPP_FAST_INT8_SIZE);
                     if (read_batch.size() == 0) break;
-                    jobs.push_back(std::thread(talign,
-                                               read_batch,
-                                               std::ref(subgraph),
-                                               match,
-                                               mismatch,
-                                               gopen,
-                                               gext,
-                                               std::ref(aligns[i])));
+                    jobs.emplace(jobs.end(),
+                                 &vargas::Aligner<>::align_into,
+                                 aligners[i],
+                                 read_batch,
+                                 subgraph.begin(),
+                                 subgraph.end(),
+                                 std::ref(aligns[i]));
                 }
-                if (jobs.size() == 0) break;
-                std::for_each(jobs.begin(), jobs.end(), std::mem_fn(&std::thread::join));
+                if (jobs.size() == 0) break; // no more reads
+
+                std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
+
                 for (auto &aset : aligns) {
                     for (auto &a : aset) {
-                        out << igrp << ',' << a << std::endl;
+                        out << pop.first << ',' << a << std::endl;
                     }
                 }
             }
         }
     }
     return 0;
-}
-
-void talign(const vargas::ReadBatch<READ_LEN> rb,
-            const vargas::Graph &g,
-            uint8_t match,
-            uint8_t mismatch,
-            uint8_t gopen,
-            uint8_t gext,
-            std::vector<vargas::Alignment> &aligns) {
-    vargas::Aligner<READ_LEN> aligner(g.max_node_len(), match, mismatch, gopen, gext);
-    aligner.align(rb, g.begin(), g.end(), aligns);
 }
 
 void main_help() {
@@ -724,7 +738,7 @@ void profile_help() {
         << "---------------------- vargas profile, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
     cout << "-f\t--fasta         <string> Reference filename." << endl;
     cout << "-v\t--var           <string> VCF/BCF filename." << endl;
-    cout << "-r\t--region        <string> Region of graph, format CHR:MIN-MAX." << endl;
+    cout << "-g\t--region        <string> Region of graph, format CHR:MIN-MAX." << endl;
     cout << "-i\t--ingroup       <int> Percent of genotypes to include in alignment" << endl;
     cout << "-s\t--string        <string,string..> Include reads in alignment. Rest will be random." << endl << endl;
 }
@@ -738,13 +752,14 @@ void align_help() {
     cout << "-f\t--fasta         <string> Reference filename." << endl;
     cout << "-v\t--var           <string> VCF/BCF filename." << endl;
     cout << "-g\t--region        <string> Region of graph, format CHR:MIN-MAX." << endl;
-    cout << "-i\t--ingroup       <int, int...> Align to each percent ingroup subgraphs. -1 for max AF" << endl;
+    cout << "-i\t--ingroup       <int, int...> Align to percent ingroup subgraphs. -1 for max AF. Default 100." << endl;
     cout << "-x\t--outgroup      Align to outgroups for all -i" << endl;
     cout << "-m\t--match         <int> Match score, default 2" << endl;
     cout << "-n\t--mismatch      <int> Mismatch penalty, default 2" << endl;
     cout << "-o\t--gap_open      <int> Gap opening penalty, default 3" << endl;
     cout << "-e\t--gap_extend    <int> Gap extend penalty, default 1" << endl;
     cout << "-r\t--reads         <string, string...> Read file to align" << endl;
+    cout << "-l\t--rlen          <int> Max read length. Default 50." << endl;
     cout << "-t\t--outfile       <string> Alignment output file." << endl;
     cout << "-j\t--threads       Number of threads. 0 for maximum hardware concurrency." << endl << endl;
 

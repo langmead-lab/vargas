@@ -130,6 +130,18 @@ class dyn_bitset {
     }
 
     /**
+     * Flips every bit (negation)
+     * @return negated bitset
+     */
+    dyn_bitset<core_size> operator~() const {
+        dyn_bitset<core_size> ret = *this;
+        for (size_t i = 0; i < size(); ++i) {
+            ret.flip(i);
+        }
+        return ret;
+    }
+
+    /**
      * Add a bit.
      * @param val 0/1 bit
      */
