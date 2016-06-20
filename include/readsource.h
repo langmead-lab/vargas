@@ -31,10 +31,12 @@ namespace vargas {
  * @param indel_err Number of insertions and deletions introduced.
  */
   struct Read {
-      Read() { }
-      Read(std::string r) : read(r), read_num(seq_to_num(r)), desc("-"),
+      Read() : read_orig(""), read(""), desc("-"),
+               end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1), indel_err(-1) { }
+      Read(std::string r) : read_orig(""), read(r), read_num(seq_to_num(r)), desc("-"),
                             end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1), indel_err(-1) { }
 
+      std::string read_orig;
       std::string read;
       std::vector<Base> read_num;
       std::string desc;
@@ -116,6 +118,10 @@ namespace vargas {
               if (!update_read()) break;
               _batch.push_back(read);
           }
+          return _batch;
+      }
+
+      const std::vector<Read> &batch() const {
           return _batch;
       }
 

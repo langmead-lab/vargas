@@ -795,7 +795,7 @@ TEST_CASE ("Alignment") {
 
         /**   GGG
         *    /   \
-        * AAA     TTT
+        * AAA     TTTA
         *    \   /
         *     CCC(ref)
         */
@@ -862,7 +862,7 @@ TEST_CASE ("Alignment") {
         vargas::ReadBatch<> rb(reads, 8);
         vargas::Aligner<> a(5, 8);
 
-        std::vector<vargas::Alignment> aligns = a.align(reads, g);
+        std::vector<vargas::Alignment> aligns = a.align(rb, g);
             REQUIRE(aligns.size() == 8);
 
             CHECK(aligns[0].read.read == "CCTT");

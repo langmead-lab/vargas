@@ -85,7 +85,6 @@ namespace vargas {
            * @return belongs
            */
           bool belongs(uint idx) const {
-              if (_ref) return true;
               return _individuals.at(idx);
           }
 
@@ -94,8 +93,7 @@ namespace vargas {
            * @param pop Population filter
            * @return belongs
            */
-          bool belongs(const Population &pop) {
-              if (_ref) return true;
+          bool belongs(const Population &pop) const {
               return pop && _individuals;
           }
 
@@ -963,6 +961,12 @@ namespace vargas {
        */
       void build(Graph &g);
 
+      Graph build() {
+          Graph g;
+          build(g);
+          return g;
+      }
+
     protected:
       __attribute__((always_inline))
       inline void _build_edges(Graph &g, std::unordered_set<uint32_t> &prev,
@@ -1083,18 +1087,13 @@ TEST_CASE ("Graph Builder") {
 
         std::vector<bool> filter = {0, 0, 0, 1};
         vargas::Graph g2(g, filter);
-
-        vargas::Graph::FilteringIter iter(g2);
+        auto iter = g2.begin();
 
             CHECK((*iter).seq_str() == "CAAAT");
         ++iter;
             CHECK((*iter).seq_str() == "AAG");
         ++iter;
-            CHECK((*iter).seq_str() == "G");
-        ++iter;
             CHECK((*iter).seq_str() == "T");
-        ++iter;
-            CHECK((*iter).seq_str() == "C");
         ++iter;
             CHECK((*iter).seq_str() == "CCCCC");
         ++iter;

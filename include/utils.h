@@ -161,5 +161,11 @@ inline char rand_base() {
   }
 }
 
+/**
+ * Edit distance between strings. Taken from:
+ * https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#C.2B.2B
+ */
+int levenshtein_distance(const std::string &s1, const std::string &s2);
+
 
 #endif //VARGAS_UTILS_H
