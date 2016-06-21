@@ -20,6 +20,13 @@
 
 namespace vargas {
 
+  const std::string READ_META_END = "end";
+  const std::string READ_META_MUT = "mut";
+  const std::string READ_META_INDEL = "indel";
+  const std::string READ_META_VARNODE = "vnode";
+  const std::string READ_META_VARBASE = "vbase";
+  const std::string READ_META_DESC = "desc";
+
 /**
  * Struct to represent a Read.
  * @param read base sequence.
@@ -49,22 +56,35 @@ namespace vargas {
 
   };
 
-  inline std::ostream &operator<<(std::ostream &os, const Read &r) {
-      os << r.read
-          << ',' << r.desc
-          << ',' << r.end_pos
-          << ',' << r.indiv
-          << ',' << r.sub_err
-          << ',' << r.indel_err
-          << ',' << r.var_nodes
-          << ',' << r.var_bases;
-      return os;
+  inline std::string to_fasta(const Read &r) {
+      std::stringstream ss;
+      ss << ">"
+          << READ_META_END << "=" << r.end_pos << ","
+          << READ_META_MUT << "=" << r.sub_err << ","
+          << READ_META_INDEL << "=" << r.indel_err << ","
+          << READ_META_VARNODE << "=" << r.var_nodes << ","
+          << READ_META_VARBASE << "=" << r.var_bases << ","
+          << READ_META_DESC << "=" << r.desc
+          << std::endl
+          << r.read;
+      return ss.str();
   }
 
-  inline std::string to_string(const Read &r) {
+  inline std::string to_csv(const Read &r) {
       std::stringstream ss;
-      ss << r;
+      ss << r.read << ','
+          << r.end_pos << ','
+          << r.sub_err << ','
+          << r.indel_err << ','
+          << r.var_nodes << ','
+          << r.var_bases << ','
+          << r.desc;
       return ss.str();
+  }
+
+  inline std::ostream &operator<<(std::ostream &os, const Read &r) {
+      os << to_fasta(r);
+      return os;
   }
 
 /**

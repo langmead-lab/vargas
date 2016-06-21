@@ -25,21 +25,16 @@ namespace vargas {
    */
   struct ReadProfile {
       int len = 50;
-      int num_mut = 0;
-      int num_indel = 0;
-
       bool rand = false;
-      float mut_rate = 0.02f;
-      float indel_rate = 0.02f;
+      float mut = 0;
+      float indel = 0;
   };
 
   inline std::ostream &operator<<(std::ostream &os, const ReadProfile &rp) {
       os << "len=" << rp.len
-          << " num_mut=" << rp.num_mut
-          << " num_indel=" << rp.num_indel
-          << " rand=" << rp.rand
-          << " mut_rate=" << rp.mut_rate
-          << " indel_rate=" << rp.indel_rate;
+          << " mut=" << rp.mut
+          << " indel=" << rp.indel
+          << " rand=" << rp.rand;
       return os;
   }
 
@@ -115,7 +110,7 @@ namespace vargas {
               for (size_t i = 0; i < read_str.length(); ++i) {
                   char m = read_str[i];
                   // Mutation error
-                  if (rand() % 10000 < 10000 * _prof.mut_rate) {
+                  if (rand() % 10000 < 10000 * _prof.mut) {
                       do {
                           m = rand_base();
                       } while (m == read_str[i]);
@@ -123,13 +118,13 @@ namespace vargas {
                   }
 
                   // Insertion
-                  if (rand() % 10000 < 5000 * _prof.indel_rate) {
+                  if (rand() % 10000 < 5000 * _prof.indel) {
                       read_mut += rand_base();
                       ++read.indel_err;
                   }
 
                   // Deletion (if we don't enter)
-                  if (rand() % 10000 > 5000 * _prof.indel_rate) {
+                  if (rand() % 10000 > 5000 * _prof.indel) {
                       read_mut += m;
                       ++read.indel_err;
                   }
@@ -137,10 +132,10 @@ namespace vargas {
           }
           else {
               // Fixed number of errors
-              read.sub_err = _prof.num_mut;
-              read.indel_err = _prof.num_indel;
+              read.sub_err = std::round(_prof.mut);
+              read.indel_err = std::round(_prof.indel);
               std::vector<int> indel_pos;
-              for (int i = 0; i < _prof.num_indel;) {
+              for (int i = 0; i < read.indel_err;) {
                   int r = rand() % read_str.length();
                   if (std::find(indel_pos.begin(), indel_pos.end(), r) == indel_pos.end()) {
                       indel_pos.push_back(r);
@@ -159,7 +154,7 @@ namespace vargas {
               }
               read_mut += read_str.substr(prev, std::string::npos);
 
-              for (int i = 0; i < _prof.num_mut;) {
+              for (int i = 0; i < read.sub_err;) {
                   int r = rand() % read_str.length();
                   if (read_str[r] == read_mut[r]) { // Make sure we don't double mutate same base
                       do {
@@ -273,7 +268,7 @@ TEST_CASE ("Read sim") {
         for (int i = 0; i < 3; ++i) {
             vargas::ReadProfile prof;
             prof.len = 5;
-            prof.num_mut = i;
+            prof.mut = i;
             vargas::ReadSim rs(g, prof);
             rs.update_read();
             auto read = rs.get_read();
@@ -285,7 +280,7 @@ TEST_CASE ("Read sim") {
         for (int i = 0; i < 3; ++i) {
             vargas::ReadProfile prof;
             prof.len = 5;
-            prof.num_indel = i;
+            prof.indel = i;
             vargas::ReadSim rs(g, prof);
             rs.update_read();
             auto read = rs.get_read();

@@ -113,7 +113,7 @@ namespace vargas {
  * @param an Alignment output
  */
   inline std::ostream &operator<<(std::ostream &os, const Alignment &a) {
-      os << a.read
+      os << to_csv(a.read)
           << ',' << a.opt_score
           << ',' << a.opt_align_end
           << ',' << a.opt_count
