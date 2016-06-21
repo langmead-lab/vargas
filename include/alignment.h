@@ -306,6 +306,12 @@ namespace vargas {
           VecType I_col;
       };
 
+      /**
+       * Returns the best seed from all previous nodes.
+       * @param prev_ids All nodes preceding current node
+       * @param seed_map ID->seed map for all previous nodes
+       * @param _seed best seed to populate
+       */
       void _get_seed(const std::vector<uint32_t> &prev_ids,
                      const std::unordered_map<uint32_t, _seed> &seed_map,
                      _seed *seed) {

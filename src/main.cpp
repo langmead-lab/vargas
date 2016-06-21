@@ -518,7 +518,10 @@ int align_main(const int argc, const char *argv[]) {
     uint8_t match = 2, mismatch = 2, gopen = 3, gext = 1;
     unsigned int threads = 1, read_len = 50;
     std::string outfile, readsfile, gdeffile;
-    bool R = false, X = false, O = false, I = false;
+    bool R = false, // Align to reference
+        X = false, // Align to max-AF graph
+        O = false, // Align to outgroup graph
+        I = false; // Align to ingroup graph
 
     args >> GetOpt::Option('m', "match", match)
         >> GetOpt::Option('n', "mismatch", mismatch)
@@ -542,9 +545,7 @@ int align_main(const int argc, const char *argv[]) {
 
     std::unordered_map<std::string, vargas::Graph::Population> pop_defs;
     auto gb = load_gdef(gdeffile, pop_defs);
-
     vargas::Graph base_graph = gb.build();
-
     out << base_graph.desc() << std::endl;
 
     std::vector<std::shared_ptr<vargas::Aligner<>>> aligners;
@@ -556,7 +557,7 @@ int align_main(const int argc, const char *argv[]) {
                                                                gopen,
                                                                gext));
 
-    // Load reads
+    // Load reads. Maps graph origin label to a vector of reads
     std::unordered_map<std::string, std::vector<vargas::Read>> read_origins;
     auto readfile_split = split(readsfile, ',');
     for (auto &rfile : readfile_split) {
@@ -596,11 +597,14 @@ void align_to_graph(std::string label,
                     const std::vector<std::shared_ptr<vargas::Aligner<>>> &aligners,
                     std::ostream &out,
                     int threads) {
+
+    // Number of full parallel batches
     size_t batches = reads.size() / SIMDPP_FAST_INT8_SIZE;
 
     std::vector<std::thread> jobs;
     std::vector<std::vector<vargas::Alignment>> aligns(threads);
 
+    // <= to catch remainder reads
     for (size_t i = 0; i <= batches; ++i) {
         auto end_iter = ((i + 1) * SIMDPP_FAST_INT8_SIZE) > reads.size() ?
                         reads.end() : reads.begin() + ((i + 1) * SIMDPP_FAST_INT8_SIZE);
@@ -613,10 +617,12 @@ void align_to_graph(std::string label,
                      subgraph.end(),
                      std::ref(aligns[jobs.size()]));
 
+        // Once we use the allocated threads let them all finish.
         if (jobs.size() == threads || i == batches) {
             std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
             jobs.clear();
 
+            // Print alignments
             for (auto &aset : aligns) {
                 for (auto &a : aset) {
                     out << label << ',' << a << std::endl;
@@ -636,20 +642,22 @@ int sim_main(const int argc, const char *argv[]) {
 
     // Load parameters
     unsigned int threads = 1, read_len = 50, num_reads = 1000;
-    std::string mut = "0", indel = "0";
+    std::string mut = "0", indel = "0", vnodes = "-1", vbases = "-1";
     std::string outfile, gdeffile, sources = "";
     bool use_rate = false, exclude_comment = false;
 
     args >> GetOpt::Option('t', "outfile", outfile)
         >> GetOpt::Option('g', "gdef", gdeffile)
         >> GetOpt::Option('s', "source", sources)
+        >> GetOpt::Option('v', "vnodes", vnodes)
+        >> GetOpt::Option('b', "vbases", vbases)
         >> GetOpt::Option('j', "threads", threads)
         >> GetOpt::Option('l', "rlen", read_len)
-        >> GetOpt::OptionPresent('a', "rate", use_rate)
         >> GetOpt::Option('n', "numreads", num_reads)
-        >> GetOpt::OptionPresent('e', "exclude", exclude_comment)
         >> GetOpt::Option('m', "mut", mut)
-        >> GetOpt::Option('d', "indel", indel);
+        >> GetOpt::Option('i', "indel", indel)
+        >> GetOpt::OptionPresent('a', "rate", use_rate)
+        >> GetOpt::OptionPresent('e', "exclude", exclude_comment);
 
     if (threads == 0) threads = std::thread::hardware_concurrency();
 
@@ -669,8 +677,6 @@ int sim_main(const int argc, const char *argv[]) {
         }
     }
 
-
-
     vargas::Graph base_graph = gb.build();
 
     if (!exclude_comment) out << base_graph.desc() << std::endl;
@@ -678,6 +684,8 @@ int sim_main(const int argc, const char *argv[]) {
 
     auto mut_split = split(mut, ',');
     auto indel_split = split(indel, ',');
+    auto vnode_split = split(vnodes, ',');
+    auto vbase_split = split(vbases, ',');
 
     // For each subgraph type
     for (auto &pop : pops) {
@@ -690,31 +698,38 @@ int sim_main(const int argc, const char *argv[]) {
         vargas::ReadSim rs_template(subgraph);
         for (int i = 0; i < threads; ++i) sims.push_back(std::make_shared<vargas::ReadSim>(rs_template));
 
-        for (auto &ind : indel_split) {
-            for (auto &m : mut_split) {
-                vargas::ReadProfile prof;
-                prof.len = read_len;
-                prof.mut = std::stof(m);
-                prof.indel = std::stof(ind);
-                prof.rand = use_rate;
+        for (auto &vbase : vbase_split) {
+            for (auto &vnode : vnode_split) {
+                for (auto &ind : indel_split) {
+                    for (auto &m : mut_split) {
+                        vargas::ReadProfile prof;
+                        prof.len = read_len;
+                        prof.mut = std::stof(m);
+                        prof.indel = std::stof(ind);
+                        prof.rand = use_rate;
+                        prof.var_bases = std::stoi(vbase);
+                        prof.var_nodes = std::stoi(vnode);
 
-                if (!exclude_comment) out << "#prof:" << prof << std::endl;
+                        if (!exclude_comment) out << "#prof:" << prof << std::endl;
 
-                for (unsigned int i = 0; i < threads; ++i) {
-                    sims[i]->set_prof(prof);
-                    jobs.emplace(jobs.end(),
-                                 &vargas::ReadSim::get_batch,
-                                 sims[i],
-                                 num_reads / threads);
-                }
+                        for (unsigned int i = 0; i < threads; ++i) {
+                            sims[i]->set_prof(prof);
+                            jobs.emplace(jobs.end(),
+                                         &vargas::ReadSim::get_batch,
+                                         sims[i],
+                                         num_reads / threads);
+                        }
 
-                std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
+                        std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
+                        jobs.clear();
 
-                for (auto &s : sims) {
-                    for (auto r : s->batch()) {
-                        r.desc = pop.first;
-                        out << r << std::endl;
+                        for (auto &s : sims) {
+                            for (auto r : s->batch()) {
+                                r.desc = pop.first;
+                                out << r << std::endl;
 
+                            }
+                        }
                     }
                 }
             }
@@ -810,9 +825,6 @@ vargas::GraphBuilder load_gdef(std::string file_name,
         else if (tag == "nlen") {
             nlen = val;
         }
-        else if (tag == "outgroup") {
-            outgroup = std::stoi(val);
-        }
     }
 
     vargas::GraphBuilder gb(ref, var);
@@ -828,10 +840,6 @@ vargas::GraphBuilder load_gdef(std::string file_name,
             if (line_split[1][i] == '1') pop.set(i);
         }
         pset[line_split[0]] = pop;
-        if (outgroup) {
-            line_split[0][line_split[0].find('i')] = 'o';
-            pset[line_split[0]] = ~pop;
-        }
     }
 
     return gb;
@@ -886,6 +894,8 @@ void align_help() {
         << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
     cout << "-g\t--gdef          <string> Graph definition file." << endl;
     cout << "-r\t--reads         <string, string...> Read files to align" << endl;
+    cout << "-t\t--outfile       <string> Alignment output file." << endl;
+    cout << "-l\t--rlen          <int> Max read length. Default 50." << endl;
     cout << "-R\t                Align to reference graph." << endl;
     cout << "-X\t                Align to maximum allele frequency graph." << endl;
     cout << "-I\t                Align to ingroup graph." << endl;
@@ -894,16 +904,9 @@ void align_help() {
     cout << "-n\t--mismatch      <int> Mismatch penalty, default 2" << endl;
     cout << "-o\t--gap_open      <int> Gap opening penalty, default 3" << endl;
     cout << "-e\t--gap_extend    <int> Gap extend penalty, default 1" << endl;
-    cout << "-l\t--rlen          <int> Max read length. Default 50." << endl;
-    cout << "-t\t--outfile       <string> Alignment output file." << endl;
     cout << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency." << endl << endl;
 
     cout << "Lines beginning with \'#\' are ignored." << endl;
-    cout << "Output format:" << endl;
-    cout << "\tINGROUP,READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE,";
-    cout << "SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH" << endl << endl;
-    cout << "ALIGNMENT_MATCH:\n\t0- optimal match, 1- suboptimal match, 2- no match" << endl << endl;
-
 }
 
 void sim_help() {
@@ -913,13 +916,14 @@ void sim_help() {
     cout << endl
         << "-------------------- vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------" << endl;
     cout << "-g\t--gdef          <string> Graph definition file." << endl;
-    cout << "-s\t--source       <string, string...> Simulate from specified subgraphs, default all." << endl;
+    cout << "-t\t--outfile       <string> Alignment output file." << endl;
+    cout << "-s\t--source        <string, string...> Simulate from specified subgraphs, default all." << endl;
     cout << "-n\t--numreads      <int> Number of reads to simulate from each subgraph." << endl;
     cout << "-m\t--muterr        <float, float...> Read mutation error. Default 0." << endl;
     cout << "-i\t--indelerr      <float, float...> Read indel error. Default 0." << endl;
-    cout << "-v\t--vnodes        <int, int...> Number of variant nodes, default 0." << endl;
-    cout << "-l\t--rlen          <int> Read length, default " << endl;
-    cout << "-t\t--outfile       <string> Alignment output file." << endl;
+    cout << "-v\t--vnodes        <int, int...> Number of variant nodes, default any (-1)." << endl;
+    cout << "-b\t--vbases        <int, int...> Number of variant bases, default any (-1)." << endl;
+    cout << "-l\t--rlen          <int> Read length, default 50." << endl;
     cout << "-a\t--rate          Interpret -m, -i as rates, instead of exact number of errors." << endl;
     cout << "-e\t--exclude       Exclude comments, include only FASTA lines" << endl;
     cout << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency." << endl << endl;

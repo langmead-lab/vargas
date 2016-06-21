@@ -22,7 +22,7 @@ class ReadFile: public ReadSource {
   ReadFile() { }
   ReadFile(std::string file) {
     _read_file.open(file);
-      if (!_read_file.good()) throw std::invalid_argument("Invalid reads file: " + file);
+    if (!_read_file.good()) throw std::invalid_argument("Invalid reads file \"" + file + "\"");
   }
   ~ReadFile() {
     if (_read_file) _read_file.close();

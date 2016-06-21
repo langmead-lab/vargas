@@ -28,12 +28,23 @@ namespace vargas {
       bool rand = false;
       float mut = 0;
       float indel = 0;
+      int var_nodes = -1;
+      int var_bases = -1;
   };
 
+  /**
+   * Output the profile in the form:
+   * len=READ_LEN mut=NUM_MUT indel=NUM_INDEL vnode=NUM_VAR_NODES vbase=NUM_VAR_BASE rand=USE_RATES
+   * @param os output stream
+   * @param rp Read Profile
+   * @return output stream
+   */
   inline std::ostream &operator<<(std::ostream &os, const ReadProfile &rp) {
       os << "len=" << rp.len
           << " mut=" << rp.mut
           << " indel=" << rp.indel
+          << " vnode=" << rp.var_nodes
+          << " vbase=" << rp.var_bases
           << " rand=" << rp.rand;
       return os;
   }
@@ -84,6 +95,7 @@ namespace vargas {
                   ++read.var_nodes;
                   read.var_bases += len;
               }
+
               if (read_str.length() >= _prof.len) break; // Done
 
               // Pick random next node.
@@ -98,6 +110,8 @@ namespace vargas {
           }
 
           if (std::count(read_str.begin(), read_str.end(), 'N') >= _prof.len / 2) return update_read();
+          if (_prof.var_nodes >= 0 && read.var_nodes != _prof.var_nodes) return update_read();
+          if (_prof.var_bases >= 0 && read.var_bases != _prof.var_bases) return update_read();
 
           // Introduce errors
           read.sub_err = 0;

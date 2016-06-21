@@ -29,7 +29,10 @@ namespace vargas {
 
 /**
  * Struct to represent a Read.
+ * @param read_orig unmutated read sequence
  * @param read base sequence.
+ * @param read_num Numeric read representation
+ * @param desc Description, typically read origin graph
  * @param end_pos position of last base in seq.
  * @param indiv Individual the read was taken from.
  * @param sub_err Number of substitiution errors introduced.
@@ -56,6 +59,15 @@ namespace vargas {
 
   };
 
+  /**
+   * Output two lines given the form:
+   *
+   * > Meta information
+   * read_sequence
+   *
+   * @param r Read to print
+   * @return two-line string
+   */
   inline std::string to_fasta(const Read &r) {
       std::stringstream ss;
       ss << ">"
@@ -70,25 +82,37 @@ namespace vargas {
       return ss.str();
   }
 
+  /**
+   * Convert the read to single line CSV with the form:
+   * desc,read_seq,end_pos,sub_err,indel_err,var_nodes,var_bases
+   * @param r Read to print
+   * @return single line string
+   */
   inline std::string to_csv(const Read &r) {
       std::stringstream ss;
-      ss << r.read << ','
+      ss << r.desc << ','
+          << r.read << ','
           << r.end_pos << ','
           << r.sub_err << ','
           << r.indel_err << ','
           << r.var_nodes << ','
-          << r.var_bases << ','
-          << r.desc;
+          << r.var_bases;
       return ss.str();
   }
 
+  /**
+   * Output the FASTA form of the read.
+   * @param os output stream
+   * @param r Read to output
+   * @return output stream
+   */
   inline std::ostream &operator<<(std::ostream &os, const Read &r) {
       os << to_fasta(r);
       return os;
   }
 
 /**
- * Abstract class defining functions for read sources. A read source encapsulates
+ * Class defining functions for read sources. A read source encapsulates
  * one read at a time. The stored read is updated with update_read(), and obtained
  * with get_read().
  */
@@ -101,6 +125,7 @@ namespace vargas {
 
       /**
        * Updates the stored and and returns the read.
+       * @return String representation of Read
        */
       virtual std::string update_and_get() {
           if (!update_read()) {
@@ -109,7 +134,10 @@ namespace vargas {
           return to_string();
       }
 
-      // Returns a string representation
+      /**
+       * Convert the read to the FASTA form.
+       * @return two line string
+       */
       virtual std::string to_string() {
           std::stringstream ss;
           Read r = get_read();
@@ -117,13 +145,20 @@ namespace vargas {
           return ss.str();
       };
 
-      // Get the current read object
+      /**
+       * @return current Read
+       */
       Read &get_read() { return read; };
 
-      // Get read file header
+      /**
+       * @return all comment lines encountered
+       */
       virtual std::string get_header() const = 0;
 
-      // Update the current read, return false if none are available
+      /**
+       * Update the current stored read.
+       * @return true on success
+       */
       virtual bool update_read() = 0;
 
       /**
@@ -141,6 +176,10 @@ namespace vargas {
           return _batch;
       }
 
+      /**
+       * Get the stored batch of reads.
+       * @return vector of Reads
+       */
       const std::vector<Read> &batch() const {
           return _batch;
       }
