@@ -1,6 +1,6 @@
 /**
  * @author Ravi Gaddipati (rgaddip1@jhu.edu)
- * @date May 28, 2016
+ * @date June 26, 2016
  *
  * Implementation of a directed graph. Each node stores a sequence and relevant
  * information. Graphs can be derived from other graphs with a filter, allowing
@@ -31,12 +31,15 @@ namespace vargas {
 
 /**
  * Represents a Graph of the genome. The Graph is backed by a map of Graph::Nodes, and edges
- * are backed by a map of node ID's.
+ * are backed by a map of node ID's. If a graoh is built using a previous graph, the underlying
+ * nodes of the origin graph are used by the derived graph. shared_ptr's are used to preserve
+ * lifetimes.
  */
   class Graph {
 
     public:
 
+      // Alias for a dyn_bitset
       typedef VarFile::Population Population;
 
       /**
@@ -49,19 +52,14 @@ namespace vargas {
 
       /**
        * Represents a node in the directed graphs. Sequences are stored numerically.
-       * populations are stored as bitsets, where 1 indicates that indivudal posseses
-       * the allele.
+       * populations are stored as bitsets, where 1 indicates that individual possessess
+       * the given allele.
        */
       class Node {
         public:
           // Assign a unique ID to each node
           Node() : _id(_newID++) { }
-          Node(int pos,
-               const std::string &seq,
-               const std::vector<bool> &pop,
-               bool ref,
-               float af) :
-              _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) { }
+
           Node(int pos,
                const std::string &seq,
                const Population &pop,
@@ -139,8 +137,6 @@ namespace vargas {
            */
           const Population &individuals() const { return _individuals; }
 
-          static uint32_t _newID; // ID of the next instance to be created
-
           /**
            * Set the id of the node, should rarely be used as unique ID's are generated.
            * @param id
@@ -209,6 +205,8 @@ namespace vargas {
            */
           void set_af(float af) { _af = af; }
 
+          static uint32_t _newID; // ID of the next instance to be created
+
         private:
           int _endPos; // End position of the sequence
           std::vector<Base> _seq; // sequence in numeric form
@@ -231,8 +229,6 @@ namespace vargas {
        * Create a Graph with another Graph and a population filter. The new Graph will only
        * contain nodes if any of the individuals in filter possess the node. The actual nodes
        * are shared_ptr's to the parent Graph, as to prevent duplication of Nodes.
-       * This constructor is slow for large graphs, when possible a filtering iterator should be
-       * used instead.
        * @param g Graph to derive the new Graph from
        * @param filter population filter, only include nodes representative of this population
        */
@@ -244,8 +240,6 @@ namespace vargas {
        * Graph::REF, or Graph::MAXAF
        * The former keeps reference nodes, the later picks the node with the highest allele
        * frequency. Both result in linear graphs.
-       * This constructor is slow for large graphs, when possible a filtering iterator should be
-       * used instead.
        * @param g Graph to derive from
        * @aram t one of Graph::REF, Graph::MAXAF
        */
@@ -507,8 +501,8 @@ namespace vargas {
            * Inserts the ID into the queue if it's unique.
            * @param id node id to insert
            */
-          __attribute__((always_inline))
-          inline void _insert_queue(uint32_t id) {
+          __INLINE__
+          void _insert_queue(uint32_t id) {
               if (_queue_unique.count(id) == 0) {
                   _queue_unique.insert(id);
                   _queue.push(id);
@@ -543,6 +537,9 @@ namespace vargas {
               return _incoming;
           }
 
+          /**
+           * @return vector of all outgoing edges
+           */
           const std::vector<uint32_t> &outgoing() {
               if (_graph._prev_map.count(_currID) == 0) return _outgoing;
               return _graph._next_map.at(_graph._add_order.at(_currID));
@@ -595,7 +592,15 @@ namespace vargas {
           return FilteringIter(*this, END);
       }
 
+      /**
+       * Set the maximum node length of the graph.
+       * @param len max node length
+       */
       void node_len(size_t len) { _max_node_len = len; }
+
+      /**
+       * @return max node len
+       */
       size_t max_node_len() const { return _max_node_len; }
 
 
@@ -623,320 +628,59 @@ namespace vargas {
 
   };
 
-  TEST_CASE ("Node class") {
-      vargas::Graph::Node::_newID = 0;
-      vargas::Graph::Node n1;
-      vargas::Graph::Node n2;
-          CHECK(n1.id() == 0);
-          CHECK(n2.id() == 1);
-
-          SUBCASE("Node ID change") {
-          n1.setID(1);
-              CHECK(n1.id() == 0);
-          n1.setID(2);
-              CHECK(n1.id() == 2);
-      }
-
-          SUBCASE("Set Node params") {
-          n1.set_seq("ACGTN");
-          std::vector<bool> a = {0, 0, 1};
-          n1.set_population(a);
-          n1.set_endpos(100);
-
-              REQUIRE(n1.seq().size() == 5);
-
-              CHECK(n1.seq()[0] == Base::A);
-              CHECK(n1.seq()[1] == Base::C);
-              CHECK(n1.seq()[2] == Base::G);
-              CHECK(n1.seq()[3] == Base::T);
-              CHECK(n1.seq()[4] == Base::N);
-              CHECK(n1.end() == 100);
-              CHECK(!n1.is_ref());
-              CHECK(!n1.belongs(0));
-              CHECK(!n1.belongs(1));
-              CHECK(n1.belongs(2));
-
-          n1.set_as_ref();
-          n1.set_population(3, true);
-              CHECK(n1.is_ref());
-              CHECK(n1.belongs(0) == true);
-              CHECK(n1.belongs(1) == true);
-              CHECK(n1.belongs(2) == true);
-      }
-
-  }
-
-  TEST_CASE ("Graph class") {
-      vargas::Graph::Node::_newID = 0;
-      vargas::Graph g;
-
-      /**   GGG
-      *    /   \
-      * AAA     TTT
-      *    \   /
-      *     CCC(ref)
-      */
-
-      {
-          vargas::Graph::Node n;
-          n.set_endpos(3);
-          n.set_as_ref();
-          std::vector<bool> a = {0, 1, 1};
-          n.set_population(a);
-          n.set_seq("AAA");
-          g.add_node(n);
-      }
-
-      {
-          vargas::Graph::Node n;
-          n.set_endpos(6);
-          n.set_as_ref();
-          std::vector<bool> a = {0, 0, 1};
-          n.set_population(a);
-          n.set_af(0.4);
-          n.set_seq("CCC");
-          g.add_node(n);
-      }
-
-      {
-          vargas::Graph::Node n;
-          n.set_endpos(6);
-          n.set_not_ref();
-          std::vector<bool> a = {0, 1, 0};
-          n.set_population(a);
-          n.set_af(0.6);
-          n.set_seq("GGG");
-          g.add_node(n);
-      }
-
-      {
-          vargas::Graph::Node n;
-          n.set_endpos(9);
-          n.set_as_ref();
-          std::vector<bool> a = {0, 1, 1};
-          n.set_population(a);
-          n.set_seq("TTT");
-          n.set_af(0.3);
-          g.add_node(n);
-      }
-
-      g.add_edge(0, 1);
-      g.add_edge(0, 2);
-      g.add_edge(1, 3);
-      g.add_edge(2, 3);
-
-          REQUIRE(g.node_map()->size() == 4);
-          REQUIRE(g.prev_map().size() == 3);
-          REQUIRE(g.next_map().size() == 3);
-
-      // Check forward edges
-          REQUIRE(g.next_map().at(0).size() == 2);
-          REQUIRE(g.next_map().at(1).size() == 1);
-          REQUIRE(g.next_map().at(2).size() == 1);
-          REQUIRE(g.next_map().count(3) == 0);
-
-      // Check prev edges
-          REQUIRE(g.prev_map().count(0) == 0);
-          REQUIRE(g.prev_map().at(1).size() == 1);
-          REQUIRE(g.prev_map().at(2).size() == 1);
-          REQUIRE(g.prev_map().at(3).size() == 2);
-
-          SUBCASE("Proper Graph setup") {
-              CHECK(num_to_seq(g.node(0).seq()) == "AAA");
-              CHECK(num_to_seq(g.node(1).seq()) == "CCC");
-              CHECK(num_to_seq(g.node(2).seq()) == "GGG");
-              CHECK(num_to_seq(g.node(3).seq()) == "TTT");
-      }
-
-          SUBCASE("Filtering iterators") {
-          /**         (ref)
-           *     GGG   TTT
-           *    /   \ /   \
-           * AAA     \     CCA
-           *    \   / \   /
-           *     CCC   ACA
-           *    (ref)
-           */
-          {
-              vargas::Graph::Node n;
-              std::vector<bool> pop = {1, 0, 0};
-              n.set_population(pop);
-              n.set_af(0.7);
-              n.set_seq("ACA");
-              n.set_endpos(9);
-              n.set_not_ref();
-              g.add_node(n);
-              g.add_edge(1, 4);
-              g.add_edge(2, 4);
-          }
-          {
-              vargas::Graph::Node n;
-              std::vector<bool> pop = {1, 1, 1};
-              n.set_population(pop);
-              n.set_af(1);
-              n.set_seq("CCA");
-              n.set_endpos(12);
-              n.set_as_ref();
-              g.add_node(n);
-              g.add_edge(3, 5);
-              g.add_edge(4, 5);
-          }
-
-              SUBCASE("Filtering Iterator") {
-              Graph::Population filter(3, false);
-              filter.set(2);
-              vargas::Graph::FilteringIter i = g.begin(filter);
-                  CHECK(num_to_seq((*i).seq()) == "AAA");
-              ++i;
-                  CHECK(num_to_seq((*i).seq()) == "CCC");
-              ++i;
-                  CHECK(num_to_seq((*i).seq()) == "TTT");
-              ++i;
-                  CHECK(num_to_seq((*i).seq()) == "CCA");
-              ++i;
-                  CHECK(i == g.end());
-          }
-
-              SUBCASE("Filtering Ierator #2") {
-              Graph::Population filter(3, false);
-              filter.set(2);
-              filter.set(1);
-              vargas::Graph::FilteringIter i = g.begin(filter);
-                  CHECK(num_to_seq((*i).seq()) == "AAA");
-              ++i;
-              // Order of these two don't matter
-              bool mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
-                  CHECK(mid);
-              ++i;
-              mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
-                  CHECK(mid);
-
-              ++i;
-                  CHECK(num_to_seq((*i).seq()) == "TTT");
-              ++i;
-                  CHECK(num_to_seq((*i).seq()) == "CCA");
-              ++i;
-                  CHECK(i == g.end());
-          }
-
-              SUBCASE("Filtering Ierator: REF") {
-              vargas::Graph::FilteringIter i = g.begin(Graph::REF);
-                  CHECK(num_to_seq((*i).seq()) == "AAA");
-              ++i;
-                  CHECK(num_to_seq((*i).seq()) == "CCC");
-              ++i;
-                  CHECK(num_to_seq((*i).seq()) == "TTT");
-              ++i;
-                  CHECK(num_to_seq((*i).seq()) == "CCA");
-              ++i;
-                  CHECK(i == g.end());
-          }
-
-              SUBCASE("Filtering Ierator: MAXAF") {
-              vargas::Graph::FilteringIter i = g.begin(Graph::MAXAF);
-                  CHECK(num_to_seq((*i).seq()) == "AAA");
-              ++i;
-                  CHECK(num_to_seq((*i).seq()) == "GGG");
-              ++i;
-                  CHECK(num_to_seq((*i).seq()) == "ACA");
-              ++i;
-                  CHECK(num_to_seq((*i).seq()) == "CCA");
-              ++i;
-                  CHECK(i == g.end());
-          }
-      }
-
-
-          SUBCASE("Graph iterator") {
-          // Node visit order should be topological
-          vargas::Graph::FilteringIter i = g.begin();
-
-              CHECK(num_to_seq((*i).seq()) == "AAA");
-          ++i;
-
-          // Order of these two don't matter
-          bool mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
-              CHECK(mid);
-          ++i;
-          mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
-              CHECK(mid);
-          ++i;
-
-              CHECK(num_to_seq((*i).seq()) == "TTT");
-          ++i;
-              CHECK(i == g.end());
-          ++i;
-              CHECK(i == g.end());
-      }
-
-          SUBCASE("Derived Graph") {
-          std::vector<bool> filter = {0, 0, 1};
-          vargas::Graph g2(g, filter);
-
-              CHECK(g2.node_map()->size() == 4);
-              CHECK(&(*g.node_map()) == &(*g2.node_map())); // Underlying node map unchanged
-              CHECK(g2.next_map().size() == 2);
-              CHECK(g2.prev_map().size() == 2);
-
-              CHECK(g2.next_map().at(0).size() == 1);
-              CHECK(g2.next_map().at(1).size() == 1);
-              CHECK(g2.next_map().count(2) == 0); // This node shouldn't be included
-              CHECK(g2.next_map().count(3) == 0);
-              CHECK(g2.prev_map().count(0) == 0);
-              CHECK(g2.prev_map().at(1).size() == 1);
-              CHECK(g2.prev_map().at(3).size() == 1);
-      }
-
-          SUBCASE("REF graph") {
-          vargas::Graph g2(g, vargas::Graph::REF);
-          vargas::Graph::FilteringIter iter(g2);
-
-              CHECK((*iter).seq_str() == "AAA");
-          ++iter;
-              CHECK((*iter).seq_str() == "CCC");
-          ++iter;
-              CHECK((*iter).seq_str() == "TTT");
-          ++iter;
-              CHECK(iter == g2.end());
-      }
-
-          SUBCASE("MAXAF graph") {
-          vargas::Graph g2(g, vargas::Graph::MAXAF);
-          vargas::Graph::FilteringIter iter(g2);
-
-              CHECK((*iter).seq_str() == "AAA");
-          ++iter;
-              CHECK((*iter).seq_str() == "GGG");
-          ++iter;
-              CHECK((*iter).seq_str() == "TTT");
-          ++iter;
-              CHECK(iter == g2.end());
-
-      }
-
-  }
-
+  /**
+   * Takes a reference sequence and a variant file and builds a graph. The base graph can
+   * include a subset of samples, or a full graph can be built and subsequent graphs derived
+   * from the base graph.
+   */
   class GraphBuilder {
 
     public:
+      /**
+       * Construct a graph from the given reference and variant file.
+       * @param reffile Reference FASTA file
+       * @param vcffile VCF or BCF variant file
+       */
       GraphBuilder(std::string reffile,
                    std::string vcffile) :
           _fa_file(reffile), _vf_file(vcffile) { }
 
+      /**
+       * Use the provided files for graph building.
+       * @param ref FASTA reference
+       * @param vcf VCF/BCF variant file
+       */
       void open(std::string ref,
                 std::string vcf) {
           _fa_file = ref;
           _vf_file = vcf;
       }
 
+      /**
+       * Checks if input files are valid. Generally an internal function.
+       * @return true if open and valid.
+       */
       bool good() const {
           return !_fa.good() || !_vf.good();
       }
 
+      /**
+       * Set the region of the graph to build. Format should be
+       * CHR:XX,XXX-YY,YYY
+       * Where CHR is the sequence name, XX,XXX is the min pos and YY,YYY is the max pos.
+       * Both are inclusive.
+       * @param region
+       */
       void region(std::string region) {
           _vf.set_region(region);
       }
 
+      /**
+       * Set the region of the sequence to build.
+       * @param chr Chromosome/sequence of build
+       * @param min min pos, inclusive
+       * @param max max pos, inclusive
+       */
       void region(std::string chr,
                   int min,
                   int max) {
@@ -957,10 +701,14 @@ namespace vargas {
 
       /**
        * Apply the various parameters and build the Graph.
-       * @return pointer to Graph.
+       * @param g Graph to build into
        */
       void build(Graph &g);
 
+      /**
+       * Build the graph using the specified params.
+       * @return Graph Built Graph
+       */
       Graph build() {
           Graph g;
           build(g);
@@ -968,19 +716,39 @@ namespace vargas {
       }
 
     protected:
-      __attribute__((always_inline))
-      inline void _build_edges(Graph &g, std::unordered_set<uint32_t> &prev,
+      /**
+       * Builds edges between pending previous nodes and the current level. Each
+       * prev is connected to each curr, and curr becomes the new prev.
+       * @param prev previous unconnected nodes (linked to main graph already)
+       * @param curr current unconnected nodes
+       * @param chain if a single linear node is split, map the beginning of the sequence to the end.
+       */
+      __INLINE__
+      void _build_edges(Graph &g, std::unordered_set<uint32_t> &prev,
                                std::unordered_set<uint32_t> &curr,
                                std::unordered_map<uint32_t, uint32_t> *chain = NULL);
 
-      __attribute__((always_inline))
-      inline int _build_linear_ref(Graph &g, std::unordered_set<uint32_t> &prev,
+      /**
+       * Builds a linear sequence of nodes set as reference nodes.
+       * @param prev previous unconnected nodes (linked to main graph already)
+       * @param curr current unconnected nodes
+       * @param pos current position
+       * @param target build linear sequence up to this position
+       * @return ending position
+       */
+      __INLINE__
+      int _build_linear_ref(Graph &g, std::unordered_set<uint32_t> &prev,
                                    std::unordered_set<uint32_t> &curr,
                                    uint32_t pos,
                                    uint32_t target);
 
-      __attribute__((always_inline))
-      inline std::vector<std::string> _split_seq(std::string seq);
+      /**
+       * Splits a sequence into multiple sequences if neccessary to conform to the
+       * max_node_len spec.
+       * @return vector of split sequences
+       */
+      __INLINE__
+      std::vector<std::string> _split_seq(std::string seq);
 
     private:
       std::string _fa_file, _vf_file;
@@ -990,8 +758,301 @@ namespace vargas {
 
       // Graph construction parameters
       int _ingroup = 100; // percent of individuals to use. Ref nodes always included
-      int _max_node_len = 10000000;
+      unsigned int _max_node_len = 10000000; // If a node is longer, split into multiple nodes
   };
+
+}
+
+TEST_CASE ("Node class") {
+    vargas::Graph::Node::_newID = 0;
+    vargas::Graph::Node n1;
+    vargas::Graph::Node n2;
+        CHECK(n1.id() == 0);
+        CHECK(n2.id() == 1);
+
+        SUBCASE("Node ID change") {
+        n1.setID(1);
+            CHECK(n1.id() == 0);
+        n1.setID(2);
+            CHECK(n1.id() == 2);
+    }
+
+        SUBCASE("Set Node params") {
+        n1.set_seq("ACGTN");
+        std::vector<bool> a = {0, 0, 1};
+        n1.set_population(a);
+        n1.set_endpos(100);
+
+            REQUIRE(n1.seq().size() == 5);
+
+            CHECK(n1.seq()[0] == Base::A);
+            CHECK(n1.seq()[1] == Base::C);
+            CHECK(n1.seq()[2] == Base::G);
+            CHECK(n1.seq()[3] == Base::T);
+            CHECK(n1.seq()[4] == Base::N);
+            CHECK(n1.end() == 100);
+            CHECK(!n1.is_ref());
+            CHECK(!n1.belongs(0));
+            CHECK(!n1.belongs(1));
+            CHECK(n1.belongs(2));
+
+        n1.set_as_ref();
+        n1.set_population(3, true);
+            CHECK(n1.is_ref());
+            CHECK(n1.belongs(0) == true);
+            CHECK(n1.belongs(1) == true);
+            CHECK(n1.belongs(2) == true);
+    }
+
+}
+
+TEST_CASE ("Graph class") {
+    vargas::Graph::Node::_newID = 0;
+    vargas::Graph g;
+
+    /**   GGG
+    *    /   \
+    * AAA     TTT
+    *    \   /
+    *     CCC(ref)
+    */
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(3);
+        n.set_as_ref();
+        std::vector<bool> a = {0, 1, 1};
+        n.set_population(a);
+        n.set_seq("AAA");
+        g.add_node(n);
+    }
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(6);
+        n.set_as_ref();
+        std::vector<bool> a = {0, 0, 1};
+        n.set_population(a);
+        n.set_af(0.4);
+        n.set_seq("CCC");
+        g.add_node(n);
+    }
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(6);
+        n.set_not_ref();
+        std::vector<bool> a = {0, 1, 0};
+        n.set_population(a);
+        n.set_af(0.6);
+        n.set_seq("GGG");
+        g.add_node(n);
+    }
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(9);
+        n.set_as_ref();
+        std::vector<bool> a = {0, 1, 1};
+        n.set_population(a);
+        n.set_seq("TTT");
+        n.set_af(0.3);
+        g.add_node(n);
+    }
+
+    g.add_edge(0, 1);
+    g.add_edge(0, 2);
+    g.add_edge(1, 3);
+    g.add_edge(2, 3);
+
+        REQUIRE(g.node_map()->size() == 4);
+        REQUIRE(g.prev_map().size() == 3);
+        REQUIRE(g.next_map().size() == 3);
+
+    // Check forward edges
+        REQUIRE(g.next_map().at(0).size() == 2);
+        REQUIRE(g.next_map().at(1).size() == 1);
+        REQUIRE(g.next_map().at(2).size() == 1);
+        REQUIRE(g.next_map().count(3) == 0);
+
+    // Check prev edges
+        REQUIRE(g.prev_map().count(0) == 0);
+        REQUIRE(g.prev_map().at(1).size() == 1);
+        REQUIRE(g.prev_map().at(2).size() == 1);
+        REQUIRE(g.prev_map().at(3).size() == 2);
+
+        SUBCASE("Proper Graph setup") {
+            CHECK(num_to_seq(g.node(0).seq()) == "AAA");
+            CHECK(num_to_seq(g.node(1).seq()) == "CCC");
+            CHECK(num_to_seq(g.node(2).seq()) == "GGG");
+            CHECK(num_to_seq(g.node(3).seq()) == "TTT");
+    }
+
+        SUBCASE("Filtering iterators") {
+        /**         (ref)
+         *     GGG   TTT
+         *    /   \ /   \
+         * AAA     \     CCA
+         *    \   / \   /
+         *     CCC   ACA
+         *    (ref)
+         */
+        {
+            vargas::Graph::Node n;
+            std::vector<bool> pop = {1, 0, 0};
+            n.set_population(pop);
+            n.set_af(0.7);
+            n.set_seq("ACA");
+            n.set_endpos(9);
+            n.set_not_ref();
+            g.add_node(n);
+            g.add_edge(1, 4);
+            g.add_edge(2, 4);
+        }
+        {
+            vargas::Graph::Node n;
+            std::vector<bool> pop = {1, 1, 1};
+            n.set_population(pop);
+            n.set_af(1);
+            n.set_seq("CCA");
+            n.set_endpos(12);
+            n.set_as_ref();
+            g.add_node(n);
+            g.add_edge(3, 5);
+            g.add_edge(4, 5);
+        }
+
+            SUBCASE("Filtering Iterator") {
+            vargas::Graph::Population filter(3, false);
+            filter.set(2);
+            vargas::Graph::FilteringIter i = g.begin(filter);
+                CHECK(num_to_seq((*i).seq()) == "AAA");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCC");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "TTT");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCA");
+            ++i;
+                CHECK(i == g.end());
+        }
+
+            SUBCASE("Filtering Ierator #2") {
+            vargas::Graph::Population filter(3, false);
+            filter.set(2);
+            filter.set(1);
+            vargas::Graph::FilteringIter i = g.begin(filter);
+                CHECK(num_to_seq((*i).seq()) == "AAA");
+            ++i;
+            // Order of these two don't matter
+            bool mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
+                CHECK(mid);
+            ++i;
+            mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
+                CHECK(mid);
+
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "TTT");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCA");
+            ++i;
+                CHECK(i == g.end());
+        }
+
+            SUBCASE("Filtering Ierator: REF") {
+            vargas::Graph::FilteringIter i = g.begin(vargas::Graph::REF);
+                CHECK(num_to_seq((*i).seq()) == "AAA");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCC");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "TTT");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCA");
+            ++i;
+                CHECK(i == g.end());
+        }
+
+            SUBCASE("Filtering Ierator: MAXAF") {
+            vargas::Graph::FilteringIter i = g.begin(vargas::Graph::MAXAF);
+                CHECK(num_to_seq((*i).seq()) == "AAA");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "GGG");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "ACA");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCA");
+            ++i;
+                CHECK(i == g.end());
+        }
+    }
+
+
+        SUBCASE("Graph iterator") {
+        // Node visit order should be topological
+        vargas::Graph::FilteringIter i = g.begin();
+
+            CHECK(num_to_seq((*i).seq()) == "AAA");
+        ++i;
+
+        // Order of these two don't matter
+        bool mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
+            CHECK(mid);
+        ++i;
+        mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
+            CHECK(mid);
+        ++i;
+
+            CHECK(num_to_seq((*i).seq()) == "TTT");
+        ++i;
+            CHECK(i == g.end());
+        ++i;
+            CHECK(i == g.end());
+    }
+
+        SUBCASE("Derived Graph") {
+        std::vector<bool> filter = {0, 0, 1};
+        vargas::Graph g2(g, filter);
+
+            CHECK(g2.node_map()->size() == 4);
+            CHECK(&(*g.node_map()) == &(*g2.node_map())); // Underlying node map unchanged
+            CHECK(g2.next_map().size() == 2);
+            CHECK(g2.prev_map().size() == 2);
+
+            CHECK(g2.next_map().at(0).size() == 1);
+            CHECK(g2.next_map().at(1).size() == 1);
+            CHECK(g2.next_map().count(2) == 0); // This node shouldn't be included
+            CHECK(g2.next_map().count(3) == 0);
+            CHECK(g2.prev_map().count(0) == 0);
+            CHECK(g2.prev_map().at(1).size() == 1);
+            CHECK(g2.prev_map().at(3).size() == 1);
+    }
+
+        SUBCASE("REF graph") {
+        vargas::Graph g2(g, vargas::Graph::REF);
+        vargas::Graph::FilteringIter iter(g2);
+
+            CHECK((*iter).seq_str() == "AAA");
+        ++iter;
+            CHECK((*iter).seq_str() == "CCC");
+        ++iter;
+            CHECK((*iter).seq_str() == "TTT");
+        ++iter;
+            CHECK(iter == g2.end());
+    }
+
+        SUBCASE("MAXAF graph") {
+        vargas::Graph g2(g, vargas::Graph::MAXAF);
+        vargas::Graph::FilteringIter iter(g2);
+
+            CHECK((*iter).seq_str() == "AAA");
+        ++iter;
+            CHECK((*iter).seq_str() == "GGG");
+        ++iter;
+            CHECK((*iter).seq_str() == "TTT");
+        ++iter;
+            CHECK(iter == g2.end());
+
+    }
 
 }
 

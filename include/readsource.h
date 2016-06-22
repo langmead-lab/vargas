@@ -1,12 +1,12 @@
 /**
  * Ravi Gaddipati
- * April 22, 2016
+ * June 22, 2016
  * rgaddip1@jhu.edu
  *
  * Abstract class for objects that can be used as a
  * source of reads (i.e. ReadSim and ReadFile).
  *
- * readsource.h
+ * @file readsource.h
  */
 
 #ifndef VARGAS_READS_H
@@ -20,6 +20,7 @@
 
 namespace vargas {
 
+  // Tags defining meta information in FASTA read names
   const std::string READ_META_END = "end";
   const std::string READ_META_MUT = "mut";
   const std::string READ_META_INDEL = "indel";
@@ -125,7 +126,7 @@ namespace vargas {
 
       /**
        * Updates the stored and and returns the read.
-       * @return String representation of Read
+       * @return String representation of Read, FASTA form
        */
       virtual std::string update_and_get() {
           if (!update_read()) {
@@ -245,7 +246,7 @@ namespace vargas {
        * @param batch package the given vector of reads. Must be nonempty.
        * @param len max read length
        */
-      ReadBatch(const std::vector<Read> &batch, int len) : _reads(batch), read_len(len) {
+      ReadBatch(const std::vector<Read> &batch, int len) : read_len(len), _reads(batch) {
           _package_reads();
       }
 

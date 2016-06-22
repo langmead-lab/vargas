@@ -1,11 +1,11 @@
 /**
  * Ravi Gaddipati
- * November 23, 2015
+ * June 26, 2016
  * rgaddip1@jhu.edu
  *
- *contains common functions.
+ * Contains common functions.
  *
- * utils.h
+ * @file utils.h
  */
 
 #ifndef VARGAS_UTILS_H
@@ -17,6 +17,12 @@
 #else
 #define LIKELY(x) (x)
 #define UNLIKELY(x) (x)
+#endif
+
+#ifdef __GNUC__
+#define __INLINE__ __attribute__((always_inline)) inline
+#else
+#define __INLINE__ inline
 #endif
 
 #include <vector>
@@ -33,8 +39,8 @@ enum Base: uchar { A = 0, C = 1, G = 2, T = 3, N = 4 };
  * @param c character
  * @return numeral representation
  */
-__attribute__((always_inline))
-inline Base base_to_num(char c) {
+__INLINE__
+Base base_to_num(char c) {
   switch (c) {
     case 'A':
     case 'a':
@@ -59,8 +65,8 @@ inline Base base_to_num(char c) {
  * @param num numeric form
  * @return char in [A,C,G,T,N]
  */
-__attribute__((always_inline))
-inline char num_to_base(Base num) {
+__INLINE__
+char num_to_base(Base num) {
   switch (num) {
     case Base::A:
       return 'A';
@@ -80,8 +86,8 @@ inline char num_to_base(Base num) {
  * @param seq Sequence string
  * @return vector of numerals
  */
-__attribute__((always_inline))
-inline std::vector<Base> seq_to_num(const std::string &seq) {
+__INLINE__
+std::vector<Base> seq_to_num(const std::string &seq) {
   std::vector<Base> num(seq.length());
   std::transform(seq.begin(), seq.end(), num.begin(), base_to_num);
   return num;
@@ -92,14 +98,65 @@ inline std::vector<Base> seq_to_num(const std::string &seq) {
  * @param num Numeric vector
  * @return sequence string, Sigma={A,G,T,C,N}
  */
-__attribute__((always_inline))
-inline std::string num_to_seq(const std::vector<Base> &num) {
+__INLINE__
+std::string num_to_seq(const std::vector<Base> &num) {
   std::stringstream builder;
   for (auto &n : num) {
     builder << num_to_base(n);
   }
   return builder.str();
 }
+
+
+/**
+ * Splits a string into a vector given some character delimiter.
+ * @param s string to split
+ * @param delim split string at delim, discarding the delim
+ * @return vector to store results in
+ */
+std::vector<std::string> split(const std::string &s, char delim);
+
+/**
+ * Splits a string into a vector given some character delimiter.
+ * @param s string to split
+ * @param delim split string at delim, discarding the delim
+ * @param vec vector to store results in
+ */
+void split(const std::string &s, char delim, std::vector<std::string> &vec);
+
+
+/**
+ * Opens a file and checks if its valid.
+ * @param filename File to check if valid.
+ */
+inline bool file_exists(std::string filename) {
+  std::ifstream f(filename);
+  return f.good();
+}
+
+__INLINE__
+char rand_base() {
+  switch (rand() % 5) {
+    case 0:
+      return 'A';
+    case 1:
+      return 'T';
+    case 2:
+      return 'C';
+    case 3:
+      return 'G';
+    default:
+      return 'N';
+  }
+}
+
+/**
+ * Edit distance between strings. Taken from:
+ * https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#C.2B.2B
+ * @param s1 sequence a
+ * @param s2 sequence b
+ */
+int levenshtein_distance(const std::string &s1, const std::string &s2);
 
 TEST_CASE ("Sequence to Numeric") {
   std::vector<Base> a = seq_to_num("ACGTN");
@@ -120,52 +177,5 @@ TEST_CASE ("Numeric to Sequence") {
       CHECK(a[3] == 'T');
       CHECK(a[4] == 'N');
 }
-
-
-/// <summary>
-/// Splits the specified string, resets elems and returns with split string.
-/// </summary>
-/// <param name="s">The string</param>
-/// <param name="delim">The delimiter</param>
-/// <param name="elems">Vector to store results in. Vector is replaced!</param>
-/// <returns>Vector of split string.</returns>
-std::vector<std::string> split(const std::string &s, char delim);
-
-/// <summary>
-/// Splits the specified string, resets vec and returns with split string.
-/// </summary>
-/// <param name="s">The string</param>
-/// <param name="delim">The delimiter</param>
-/// <param name="vec">Vector to store results in. Vector is cleared!</param>
-/// <returns>Vector of split string.</returns>
-void split(const std::string &s, char delim, std::vector<std::string> &vec);
-
-
-inline bool file_exists(std::string filename) {
-  std::ifstream f(filename);
-  return f.good();
-}
-
-inline char rand_base() {
-  switch (rand() % 5) {
-    case 0:
-      return 'A';
-    case 1:
-      return 'T';
-    case 2:
-      return 'C';
-    case 3:
-      return 'G';
-    default:
-      return 'N';
-  }
-}
-
-/**
- * Edit distance between strings. Taken from:
- * https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#C.2B.2B
- */
-int levenshtein_distance(const std::string &s1, const std::string &s2);
-
 
 #endif //VARGAS_UTILS_H

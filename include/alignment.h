@@ -1,17 +1,18 @@
 /**
  * Ravi Gaddipati
- * Jan 27, 2016
+ * June 21, 2016
  * rgaddip1@jhu.edu
  *
- * Provides tools to interact with Alignments.
+ * Provides tools to interact with Alignments. Reads are aligned using
+ * SIMD vectorized smith-waterman. Reads are grouped into batches, with
+ * size determined by the optimal hardware support. The default template
+ * parameters support an 8 bit score.
  *
  * alignment.h
  */
 
 #ifndef VARGAS_ALIGNMENT_H
 #define VARGAS_ALIGNMENT_H
-
-#define __INLINE__ __attribute__((always_inline)) inline
 
 #include <vector>
 #include <algorithm>
@@ -25,8 +26,7 @@
 namespace vargas {
 
 /**
- * Stores a Read and associated alignment information. Positions are
- * 1 indexed.
+ * Stores a Read and associated alignment information.
  * @param read Read that was aligned
  * @param opt_score Best alignment score
  * @param opt_align_end Best alignment position, indexed w.r.t the last base of read
@@ -54,44 +54,6 @@ namespace vargas {
 
       Alignment() : opt_score(0), opt_align_end(-1), opt_count(-1), sub_score(0),
                     sub_align_end(-1), sub_count(-1), corflag(-1) { }
-
-      /**
-       * Create an alignment with a read and associated meta information.
-       * If meta information does not match the expected format, return after
-       * populating the raw read.
-       * @param line Read
-       */
-      Alignment(std::string line) {
-          Alignment();
-          std::vector<std::string> splitLine = split(line, '#');
-          // We have the read string
-          if (splitLine.size() > 0) {
-              this->read.read = splitLine[0];
-          }
-
-          // We have meta info
-          if (splitLine.size() > 1) {
-              splitLine = split(splitLine[1], ',');
-              if (splitLine.size() != 12) {
-                  // Unexpected format
-                  return;
-              }
-
-              this->read.end_pos = std::stoi(splitLine[0]);
-              this->read.indiv = std::stoi(splitLine[1]);
-              this->read.sub_err = std::stoi(splitLine[2]);
-              this->read.var_nodes = std::stoi(splitLine[3]);
-              this->read.var_bases = std::stoi(splitLine[4]);
-
-              this->opt_score = (uint16_t) std::stoi(splitLine[5]);
-              this->opt_align_end = std::stoi(splitLine[6]);
-              this->opt_count = std::stoi(splitLine[7]);
-              this->sub_score = (uint16_t) std::stoi(splitLine[8]);
-              this->sub_align_end = std::stoi(splitLine[9]);
-              this->sub_count = std::stoi(splitLine[10]);
-              this->corflag = (int8_t) std::stoi(splitLine[11]);
-          }
-      }
 
       Alignment(const Read &r,
                 uint16_t best_score, int32_t best_pos, int32_t best_count,
@@ -155,12 +117,12 @@ namespace vargas {
        */
       Aligner(size_t max_node_len, int len)
           :
+          read_len(len),
           max_pos(std::vector<uint32_t>(num_reads)),
           max_count(std::vector<uint32_t>(num_reads)),
           sub_pos(std::vector<uint32_t>(num_reads)),
           sub_count(std::vector<uint32_t>(num_reads)),
-          _max_node_len(max_node_len),
-          read_len(len) { _alloc(); }
+          _max_node_len(max_node_len) { _alloc(); }
 
       /**
        * Set scoring parameters
@@ -177,12 +139,12 @@ namespace vargas {
               uint8_t mismatch,
               uint8_t open,
               uint8_t extend) :
+          read_len(len),
           _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend),
           max_pos(std::vector<uint32_t>(num_reads)),
           max_count(std::vector<uint32_t>(num_reads)),
           sub_pos(std::vector<uint32_t>(num_reads)),
           sub_count(std::vector<uint32_t>(num_reads)),
-          read_len(len),
           _max_node_len(max_node_len) { _alloc(); }
 
       ~Aligner() {

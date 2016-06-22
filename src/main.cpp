@@ -21,6 +21,8 @@
 
 int main(const int argc, const char *argv[]) {
 
+    srand(time(NULL)); // Rand used in profiles and sim.h
+
     if (argc > 1) {
         if (!strcmp(argv[1], "test")) {
             doctest::Context doc(argc, argv);
@@ -372,7 +374,7 @@ int profile(const int argc, const char *argv[]) {
     gb.region(region);
     if (!gb.good()) throw std::invalid_argument("Error opening files\n" + fasta + "\nand/or:\n" + bcf);
 
-    srand(time(NULL));
+
     std::clock_t start = std::clock();
 
     std::cout << "Initial Build:\n\t";
@@ -596,7 +598,7 @@ void align_to_graph(std::string label,
                     const std::vector<vargas::Read> &reads,
                     const std::vector<std::shared_ptr<vargas::Aligner<>>> &aligners,
                     std::ostream &out,
-                    int threads) {
+                    unsigned int threads) {
 
     // Number of full parallel batches
     size_t batches = reads.size() / SIMDPP_FAST_INT8_SIZE;
@@ -696,7 +698,7 @@ int sim_main(const int argc, const char *argv[]) {
 
         std::vector<std::shared_ptr<vargas::ReadSim>> sims;
         vargas::ReadSim rs_template(subgraph);
-        for (int i = 0; i < threads; ++i) sims.push_back(std::make_shared<vargas::ReadSim>(rs_template));
+        for (unsigned int i = 0; i < threads; ++i) sims.push_back(std::make_shared<vargas::ReadSim>(rs_template));
 
         for (auto &vbase : vbase_split) {
             for (auto &vnode : vnode_split) {
@@ -781,13 +783,14 @@ int define_main(const int argc, const char *argv[]) {
         int ingrp = std::stoi(ingrp_str);
         for (int n = 0; n < num; ++n) {
             dyn_bitset<64> filter(vf.num_samples() * 2);
-            for (int i = 0; i < filter.size(); ++i) {
+            for (unsigned int i = 0; i < filter.size(); ++i) {
                 if (rand() % 100 < ingrp) filter.set(i);
             }
             out << std::to_string(ingrp) + "i" + std::to_string(n) << ":" << filter.to_string() << std::endl;
         }
     }
 
+    return 0;
 }
 
 vargas::GraphBuilder load_gdef(std::string file_name,
@@ -803,7 +806,6 @@ vargas::GraphBuilder load_gdef(std::string file_name,
     auto line_split = split(line, ';');
 
     std::string ref, var, reg, base, nlen;
-    bool outgroup;
 
     for (auto &tpair : line_split) {
         auto tpair_split = split(tpair, '=');
@@ -836,7 +838,7 @@ vargas::GraphBuilder load_gdef(std::string file_name,
     while (std::getline(in, line)) {
         split(line, ':', line_split);
         vargas::Graph::Population pop(line_split[1].size());
-        for (int i = 0; i < line_split[1].length(); ++i) {
+        for (size_t i = 0; i < line_split[1].length(); ++i) {
             if (line_split[1][i] == '1') pop.set(i);
         }
         pset[line_split[0]] = pop;

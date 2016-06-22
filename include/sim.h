@@ -1,12 +1,15 @@
-//
-// Created by gaddra on 6/17/16.
-//
+/**
+ * Ravi Gaddipati
+ * June 26, 2016
+ * rgaddip1@jhu.edu
+ *
+ * Simulates random reads from a graph, returning reads that follow a specified ReadProfile.
+ *
+ * @file sim.h
+ */
 
 #ifndef VARGAS_SIM_H
 #define VARGAS_SIM_H
-
-#define READ_SIM_RATE -1
-#define READ_SIM_FIXED -2
 
 #include "readsource.h"
 #include "graph.h"
@@ -16,15 +19,14 @@ namespace vargas {
   /**
    * Parameter list controlling the types of reads created.
    * @param len Nominal length of the read
-   * @param enforce_len reject reads that do not match len
-   * @param num_mut Number of mutation errors
-   * @param num_indel number of insertions/deletions
+   * @param mut Number of mutation errors, or rate
+   * @param indel number of insertions/deletions, or rate
    * @param rand Introduce mutations and indels at a random rate
-   * @param mut_rate mutation rate, used with rand=true
-   * @param indel_rate indel generation rate, used with rand=true
+   * @param var_nodes Number of variant nodes
+   * @param var_bases number of total variant bases
    */
   struct ReadProfile {
-      int len = 50;
+      unsigned int len = 50;
       bool rand = false;
       float mut = 0;
       float indel = 0;
@@ -33,8 +35,8 @@ namespace vargas {
   };
 
   /**
-   * Output the profile in the form:
-   * len=READ_LEN mut=NUM_MUT indel=NUM_INDEL vnode=NUM_VAR_NODES vbase=NUM_VAR_BASE rand=USE_RATES
+   * Output the profile in the form: \n
+   * len=READ_LEN mut=NUM_MUT indel=NUM_INDEL vnode=NUM_VAR_NODES vbase=NUM_VAR_BASE rand=USE_RATES \n
    * @param os output stream
    * @param rp Read Profile
    * @return output stream
@@ -50,13 +52,20 @@ namespace vargas {
   }
 
   /**
-   * Generate reads from a graph using a given profile. srand() must be called.
+   * Generate reads from a graph using a given profile. srand() should be called externally.
    */
   class ReadSim: public ReadSource {
 
     public:
+      /**
+       * @param g Graph to simulate from
+       */
       ReadSim(const Graph &g) : _graph(g) { _init(); }
 
+      /**
+       * @param g Graph to simulate from
+       * @param prof accept reads following this profile
+       */
       ReadSim(const Graph &_graph, const ReadProfile &prof) : _graph(_graph), _prof(prof) { _init(); }
 
       /**
@@ -204,12 +213,18 @@ namespace vargas {
           _prof = prof;
       }
 
+      /**
+       * @return the profile used to generate the reads
+       */
       virtual std::string get_header() const override {
           std::stringstream ss;
           ss << _prof;
           return ss.str();
       }
 
+      /**
+       * @return current profile being used to filter reads.
+       */
       ReadProfile get_profile() const { return _prof; }
 
 
@@ -218,6 +233,10 @@ namespace vargas {
       std::vector<uint32_t> next_keys;
       ReadProfile _prof;
 
+      /**
+       * Creates a vector of keys of all outgoing edges. Allows for random node selection
+       * This precludes the possibility of having reads begin in the last node of the graph.
+       */
       void _init() {
           for (auto &n : _graph.next_map()) {
               next_keys.push_back(n.first);
@@ -225,8 +244,6 @@ namespace vargas {
       }
 
   };
-
-
 }
 
 TEST_CASE ("Read sim") {
@@ -302,4 +319,5 @@ TEST_CASE ("Read sim") {
         }
     }
 }
+
 #endif //VARGAS_SIM_H
