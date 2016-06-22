@@ -671,7 +671,7 @@ int sim_main(const int argc, const char *argv[]) {
 
     if (sources.length() == 0) pops = pop_defs;
     else {
-        std::vector<std::string> source_split = split(sources, ',');
+        std::vector<std::string> source_split = split(sources, ';');
         for (auto &i : source_split) {
             if (pop_defs.find(i) == pop_defs.end())
                 throw std::invalid_argument("\"" + i + "\" not found in GDEF file.");
@@ -786,7 +786,7 @@ int define_main(const int argc, const char *argv[]) {
             for (unsigned int i = 0; i < filter.size(); ++i) {
                 if (rand() % 100 < ingrp) filter.set(i);
             }
-            out << std::to_string(ingrp) + "i" + std::to_string(n) << ":" << filter.to_string() << std::endl;
+            out << std::to_string(ingrp) + "," + std::to_string(n) << ":" << filter.to_string() << std::endl;
         }
     }
 
@@ -919,7 +919,7 @@ void sim_help() {
         << "-------------------- vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------" << endl;
     cout << "-g\t--gdef          <string> Graph definition file." << endl;
     cout << "-t\t--outfile       <string> Alignment output file." << endl;
-    cout << "-s\t--source        <string, string...> Simulate from specified subgraphs, default all." << endl;
+    cout << "-s\t--source        <string; string...> Simulate from specified subgraphs, default all." << endl;
     cout << "-n\t--numreads      <int> Number of reads to simulate from each subgraph." << endl;
     cout << "-m\t--muterr        <float, float...> Read mutation error. Default 0." << endl;
     cout << "-i\t--indelerr      <float, float...> Read indel error. Default 0." << endl;

@@ -35,11 +35,11 @@ bool vargas::ReadFile::update_read() {
     read.var_bases = -1;
     read.read_num = seq_to_num(line);
   } else {
-    split(line.substr(1, std::string::npos), ',', _split_meta);
+    split(line.substr(1, std::string::npos), READ_FASTA_META_DELIM, _split_meta);
     for (auto &s : _split_meta) {
       auto split_label = split(s, '=');
-      std::string tag = split_label[0];
-      std::string val = split_label[1];
+      std::string &tag = split_label[0];
+      std::string &val = split_label[1];
       if (tag == READ_META_END) {
         read.end_pos = std::stoi(val);
       }

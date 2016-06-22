@@ -27,6 +27,7 @@ namespace vargas {
   const std::string READ_META_VARNODE = "vnode";
   const std::string READ_META_VARBASE = "vbase";
   const std::string READ_META_DESC = "desc";
+  const char READ_FASTA_META_DELIM = ' ';
 
 /**
  * Struct to represent a Read.
@@ -72,11 +73,11 @@ namespace vargas {
   inline std::string to_fasta(const Read &r) {
       std::stringstream ss;
       ss << ">"
-          << READ_META_END << "=" << r.end_pos << ","
-          << READ_META_MUT << "=" << r.sub_err << ","
-          << READ_META_INDEL << "=" << r.indel_err << ","
-          << READ_META_VARNODE << "=" << r.var_nodes << ","
-          << READ_META_VARBASE << "=" << r.var_bases << ","
+          << READ_META_END << "=" << r.end_pos << READ_FASTA_META_DELIM
+          << READ_META_MUT << "=" << r.sub_err << READ_FASTA_META_DELIM
+          << READ_META_INDEL << "=" << r.indel_err << READ_FASTA_META_DELIM
+          << READ_META_VARNODE << "=" << r.var_nodes << READ_FASTA_META_DELIM
+          << READ_META_VARBASE << "=" << r.var_bases << READ_FASTA_META_DELIM
           << READ_META_DESC << "=" << r.desc
           << std::endl
           << r.read;

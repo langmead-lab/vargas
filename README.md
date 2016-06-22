@@ -1,101 +1,101 @@
-# Variant Genome ReadBatch/Simulator
-Vargas uses gssw to align reads to a partial order Graph without traceback. Alignment information is given as the ending position of the best score, as well as a suboptimal alignment score. There are four main modes of operation.
+# Variant Genome Aligner/Simulator
 
-###Basic Structure
-All objects are in the vargas namespace with the exception of `utils` functions.
+Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned using a SIMD vectorized version of Smith-Waterman, aligning multiple reads at once. The the aligner reports the best positions of reads without traceback to keep memory usage manageable. Additionally, vargas can be used to simulate reads from a DAG, and reads can be stratified by various parameters.
 
-`vcfstream.h` : vcfstream is a wrapper for a VCF file. It reads, parses, and filters the VCF file. Variants are provided
-in a VariantRecord struct. Individual variants not included in the ingroup are removed from the records. Associated allele
-frequency values are also provided.
+`-h` can be used in any mode to obtain menus.
 
-`readsim.h` : Inherits from `readsource.h`. Reads are simulated from a given `gssw_graph` or `Graph` object. Reads 
-can be provided indefinetly or may be written to a set of files as determined by regular expressions. Reads are provided
-in a Read struct.
+## Modes of operation
 
-`_read_file.h` : Inherits from `readsource.h`. Wrapper for a reads file (such as that produced from `readsim`). Provides reads in a Read struct.
-
-`Graph.h` : Contains facilities for building and aligning to a Graph. A buildfile is first exported from a `vcfstream` and
-a `readsource`. Graphs are built in memory from the buildfile. Graph parameters are defined in a GraphParams struct.
-Alignments to the Graph are done with `Graph.align(Read)` and returns with an Alignment struct.
-
-`xcoder.h` : Uses masked VByte compression and base64 encoding to reduce the size of the list of individuals for each variant in the buildfile. Lists of individuals are stored in nodes using VByte compression.
-
-
-###Modes of operation
- ```
----------------------- vargas, Apr 23 2016. rgaddip1@jhu.edu ----------------------
+```
+---------------------- vargas, Jun 21 2016. rgaddip1@jhu.edu ----------------------
 Operating modes 'vargas MODE':
-	build     Generate Graph build file from reference FASTA and VCF files.
-	sim       Simulate reads from a Graph.
-	align     Align reads to a Graph.
-	stat      Count nodes and edges of a given Graph.
-	export    Export Graph in DOT format.
+	define      Define a set of graphs for use with sim/align.
+	sim         Simulate reads from a graph.
+	align       Align reads to a graph.
+	test        Run doctests.
+	profile     Run profiles.
+```
 
- ```
- 
- ```
-------------------- vargas build, Apr 23 2016. rgaddip1@jhu.edu -------------------
--v	--vcf           <string> VCF file, uncompressed.
--r	--ref           <string> reference, single record FASTA
--l	--maxlen        <int> Maximum node length, default 50000
--R	--region        <<int>:<int>> Ref region, inclusive. Default is the entire Graph.
--m	--maxref        Generate a linear Graph using maximum allele frequency nodes.
--e	--exref         Exclude the list of individuals from the reference alleles.
--s	--set           <<int>,<int>,..,<int>> Generate a buildfile for a list of ingroup percents.
--c	--complement    <string> Generate a complement of all graphs in -s, or of provided Graph.
+### define
 
---maxref is applied after ingroup filter.
-Buildfile is output to [s][In Out].build
+```
+-------------------- vargas define, Jun 21 2016. rgaddip1@jhu.edu --------------------
+-f	--fasta         <string> Reference filename.
+-v	--var           <string> VCF/BCF filename.
+-t	--out           <string> Output filename.
+-g	--region        <string> Region of graph, format CHR:MIN-MAX.
+-l	--nodelen       <int> Max node length, default 1,000,000
+-b	--base          <int> Base graph ingroup. -i graphs derived from this. Default 100%.
+-i	--ingroup       <int, int...> Percent ingroup subgraphs.
+-n	--num           <int> Number of unique graphs to create for all -i, -x. Default 1.
+```
 
- ```
- 
- ```
--------------------- vargas sim, Apr 23 2016. rgaddip1@jhu.edu --------------------
--b	--buildfile     <string> Graph build file, generate with 'vargas build'
--n	--numreads      <int> Number of reads to simulate, default 10000
--m	--muterr        <float> Read mutation error rate, default 0
--i	--indelerr      <float> Read Indel error rate, default 0
--l	--readlen       <int> Read length, default 100
--e	--profile       <p1 p2 .. p3> Space delimited read profiles. Produces -n of each
--p	--prefix        Prefix to use for read files, default 'sim'
--r	--randwalk      Random walk, read may change individuals at branches
--a	--ambiguity     Max number of ambiguous bases to allow in reads, default 0
+`define` is used to create a graph specification (*.gdf) for `sim` and `align` modes. Various subgraphs deriving off of a base graph are described. With `-i` and `-n` multiple subgraphs based on population filters are made. Graph definition files are marked with `@gdef`. The original FASTA and variant files are needed in the same relative path when using the GDEF file.
 
-Outputs to '[prefix][n].reads' where [n] is the profile number.
-Read Profile format (use '*' for any): 
-	sub_err,indel_err,var_nodes,var_bases
-	Example: Any read with 1 substitution error and 1 variant node.
-		vargas sim -b BUILD -e "1,*,1,*"
-Read Format:
-	READ#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_INDEL_ERR,NUM_VAR_NODE,NUM_VAR_BASES
+For example:
 
- ```
- 
- ```
-------------------- vargas align, Apr 23 2016. rgaddip1@jhu.edu -------------------
--b	--buildfile     <string> Graph build file
+```
+vargas define -f hs37d5.fa -v chr22.bcf -g 22:1,000,000-2,000,000 -i 15,30 -n 2
+```
+
+Will uniquely identify (including implicit graphs) 10 graphs:
+
+2x 15% ingroup graphs
+
+2x 30% ingroup graphs
+
+2x 15% outgroup graphs
+
+2x 30% outgroup graphs
+
+Reference graph
+
+Maximum allele frequency graph
+
+### sim
+
+```
+-------------------- vargas sim, Jun 21 2016. rgaddip1@jhu.edu --------------------
+-g	--gdef          <string> Graph definition file.
+-t	--outfile       <string> Alignment output file.
+-s	--source        <string, string...> Simulate from specified subgraphs, default all.
+-n	--numreads      <int> Number of reads to simulate from each subgraph.
+-m	--muterr        <float, float...> Read mutation error. Default 0.
+-i	--indelerr      <float, float...> Read indel error. Default 0.
+-v	--vnodes        <int, int...> Number of variant nodes, default any (-1).
+-b	--vbases        <int, int...> Number of variant bases, default any (-1).
+-l	--rlen          <int> Read length, default 50.
+-a	--rate          Interpret -m, -i as rates, instead of exact number of errors.
+-e	--exclude       Exclude comments, include only FASTA lines
+-j	--threads       <int> Number of threads. 0 for maximum hardware concurrency.
+```
+
+`sim` uses a GDEF file and generates `-n` reads of each combination of `-m`, `-i`, `-v`, and `-b`. `-m` Introduces mutation errors, substituting n bases with an alternate base. Likewise, `-i` will delete a base or insert a random base. With `-a`, `-m` and `-i` are interpreted as rates (0 to 1). `-s` controls which subgraphs are used to generate reads. By default, all graphs in the GDEF file are used, and their complements (outgroup).
+
+### align
+
+```
+------------------- vargas align, Jun 21 2016. rgaddip1@jhu.edu -------------------
+-g	--gdef          <string> Graph definition file.
+-r	--reads         <string, string...> Read files to align
+-t	--outfile       <string> Alignment output file.
+-l	--rlen          <int> Max read length. Default 50.
+-R	                Align to reference graph.
+-X	                Align to maximum allele frequency graph.
+-I	                Align to ingroup graph.
+-O	                Align to outgroup graph.
 -m	--match         <int> Match score, default 2
--n	--mismatch      <int> Mismatch score, default 2
+-n	--mismatch      <int> Mismatch penalty, default 2
 -o	--gap_open      <int> Gap opening penalty, default 3
 -e	--gap_extend    <int> Gap extend penalty, default 1
--r	--reads         <string> Reads to align. Use stdin if not defined.
--f	--outfile       <string> Alignment output file. If not defined, use stdout.
-Lines beginning with '#' are ignored.
-Output format:
-	READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE,SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH
-
-ALIGNMENT_MATCH:
-	0- optimal match, 1- suboptimal match, 2- no match
-
+-j	--threads       <int> Number of threads. 0 for maximum hardware concurrency.
 ```
 
------------------- vargas export, Apr 23 2016. rgaddip1@jhu.edu -------------------
--b	--buildfile    <string> Graph to export to DOT.
--c	--context      <string> Export the local context Graph of these alignments.
+Reads are aligned to graphs specified in the GDEF file. `-R` Aligns the reads to the reference sequence, `-X` to the maximum allele frequency graph, `-I` to the graph the read was generated from, and `-O` to the complement of the origin graph. A `[RXIO]` tag at the beginning of the alignment record indicates which alignment was done. The output alignment format is:
 
-DOT file printed to stdout.
+`[RXIO], read origin ingroup, read origin graph number, read sequence, read origin pos, read sub errors, read indel errors, read variant nodes, read variant bases, best score, best pos, best count, sub score, sub pos, sub count, corflag`
 
-```
+Where `corflag` is 1 if the read origin position had the best score, 2 if it had the second best score, otherwise 0. 
 
 ### Cloning the vargas repo
 
@@ -107,108 +107,14 @@ git clone --recursive git@github.com:gaddra/vargas.git
 
 ### Building vargas
 
-vargas is built with cmake.
+vargas is built with cmake. `htslib` needs to be configured and built first.
 
 ```
+cd htslib
+autoconf && ./configure && make
+cd ..
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release .. && make
 cd ..
 export PATH=${PWD}/bin:$PATH
 ```
-
-### Generating a buildfile
- 
- A Graph is built from a buildfile. A Graph buildfile can be made using `vargas build`.
-  `-r` and `-v` specify the reference FASTA and VCF respectively. A region can be specified with `-R`.
-  The percentage of individuals to include in the Graph is specified with `-s` and a comma separated list of values.
-  `-c` will generate complements of each Graph.
-   For example to generate a buildfile and its complement from `REF` and `VAR` from position `a` to position `b` with 50% of individuals:
- 
- `vargas build -r REF.fa -v VAR.vcf -R a:b -s 50 -c > GRAPH.build`
- 
-### Simulating reads
- 
- Reads can be simulated with `vargas sim`. Mutation error and Indel errors can be introduced.
- Reads can take random paths through the Graph or from a random individual. To generate 1000 reads of length 100 and a 1% error rate from a Graph:
- 
- `vargas sim -b GRAPH -n 1000 -l 100 -m 0.01 -i 0.01`
- 
- To target certain kinds of reads, a list of space delimited profiles can be provided with `-e`. `-n` reads will be generated for each profile. Any reads that do not match the profile will be discarded.
- 
- Note: Simulating reads may consume a large amount of memory as it loads the (compressed) list of individuals into each variant node. `hs37d5 chr22 -R 22000000:52000000` was at ~10GB usage.
-
-### Aligning to the Graph
- 
-To process a reads file and write the output to a file:
- 
- `vargas align -b GRAPH -d READS > ALIGNMENTS`
- 
-If the read contains `#` (as in the simulated reads), everything after it is stripped for alignment but preserved in the output.
-
-If a tie for a best score is found, the alignment closer to the read origin is preserved.
-
-### File formats
-
-#### Aligns
-
-The format of an alignment result is
-
-```
-READ,OPTIMAL_SCORE,OPTIMAL_ALIGNMENT_END,NUM_OPTIMAL_ALIGNMENTS,SUBOPTIMAL_SCORE,SUBOPTIMAL_ALIGNMENT_END,NUM_SUBOPTIMAL_ALIGNMENTS,ALIGNMENT_MATCH
-```
-
-where `READ` is in the format described below. `AlIGNMENT_MATCH` is a flag that determines the best alignment relative to the simulated position. `0` indicates a match with the simulated origin, `1` is a second-best alignment match with the simulated origin, `2` is other. 
-
-#### Reads
-
-The beginning of a simulated reads file will contain a comment indicating the profile used to generate reads, where `-1` means anything. The second line includes the random seed used to generate the reads, as well as parameters passed to the simulator.
-
-```
-#indiv=-1,sub_err=0,var_nodes=2,var_bases=-1
-#Seed: 1451149022, Mut err: 0.02, Indel Err: 0, read Len: 64, max reads: 10000, random walk? 0
-```
-
-The format of a read is below, where `-1` in the `INDIVIDUAL` column indicates the entire read was from the reference.
-
-```
-READ_SEQUENCE#READ_END_POSITION,INDIVIDUAL,NUM_SUB_ERR,NUM_INDEL_ERR,NUM_VAR_NODE,NUM_VAR_BASES
-```
-
-#### Buildfile
-
-The first line of the buildfile lists the individuals included in the Graph, where each number represents the column of the individual. Each haplotype is its own column.
-
-Following lines beginning with `##` are comment lines and include information on the configuration used to make the buildfile.
-
-Each line consisting of 3 comma separated values represents a new node, with the format `End of node position, node number, node sequence`.
-
-Each line consisting of 2 comma separated values represents an edge relative to the nodes above it. E.g. `-2,-1` means there is an edge from the second to last node listed thus far in the buildfile to the most recently listed node.
-
-Each line beginning with a `:` is a base64 encoded, masked Vbyte compressed, list of numbers representing the individuals that possess the allele directly before it.
-
-Example:
-The reference `A` allele is in individual `9` and the `GA` allele belongs to individual `10`.
-```
-  G
- / \
-A   GA
- \ /
-  T
-```
-
-```
-#9,10,
-##<Comments>
-1,0,G
-2,1,A
-:9       <-- This would be encoded
-2,2,GA
-:10      <-- This would be encoded
--3,-2
--3,-1
-3,3,T
--3,-1
--2,-1
-```
-
-Currently only `CN` tags are supported. If a VCF record specifies a reference of `[seq]` and a variant of `<CNn>` where `n` is an integer, the variant node will copy `[seq]` `n` times. VCF records containing other tags (such as mobile elements) are ignored.

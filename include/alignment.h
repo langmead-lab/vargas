@@ -8,7 +8,7 @@
  * size determined by the optimal hardware support. The default template
  * parameters support an 8 bit score.
  *
- * alignment.h
+ * @file alignment.h
  */
 
 #ifndef VARGAS_ALIGNMENT_H
@@ -34,7 +34,6 @@ namespace vargas {
  * @param sub_score Second best alignment score
  * @param sub_align_end Second best alignment position
  * @param sub_count Number of second-best alignments
- * @param corflag 0 if alignment matches read origin, 1 of second best, 2 otherwise
  */
   struct Alignment {
       Read read;
@@ -51,26 +50,22 @@ namespace vargas {
 
       int8_t corflag;
 
-
       Alignment() : opt_score(0), opt_align_end(-1), opt_count(-1), sub_score(0),
-                    sub_align_end(-1), sub_count(-1), corflag(-1) { }
+                    sub_align_end(-1), sub_count(-1) { }
 
       Alignment(const Read &r,
                 uint16_t best_score, int32_t best_pos, int32_t best_count,
-                uint16_t sec_score, int32_t sec_pos, int32_t sec_count,
-                int8_t flag) : read(r),
-                               opt_score(best_score), opt_align_end(best_pos), opt_count(best_count),
-                               sub_score(sec_score), sub_align_end(sec_pos), sub_count(sec_count),
-                               corflag(flag) { }
+                uint16_t sec_score, int32_t sec_pos, int32_t sec_count) :
+          read(r),
+          opt_score(best_score), opt_align_end(best_pos), opt_count(best_count),
+          sub_score(sec_score), sub_align_end(sec_pos), sub_count(sec_count) { }
 
   };
 
 /**
  * Print the alignment to os. This ordering matches the way the alignment is parsed
  * from a string.
- * read_str,opt_score, opt_alignment_end, opt_cout, sub_score, sub_alignment_end, sub_count, corflag
- * Where corflag indicates if the best alignment matched the read origin position (if known) [0], subopt
- * score [1] or other [2].
+ * read_str,opt_score, opt_alignment_end, opt_cout, sub_score, sub_alignment_end, sub_count
  * @param os Output stream
  * @param an Alignment output
  */
@@ -82,7 +77,7 @@ namespace vargas {
           << ',' << a.sub_score
           << ',' << a.sub_align_end
           << ',' << a.sub_count
-          << ',' << int32_t(a.corflag);
+          << ',' << a.corflag;
       return os;
   }
 
@@ -96,8 +91,8 @@ namespace vargas {
    * @param num_reads max number of reads. If a non-default T is used, this should be set to
    *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
    *    SIMDPP_FAST_INT8_SIZE
-   * @param CellType element type. Determines max score range. Default simdp::uint8.
-   * @param NativeT Native version of CellType. Defaukt uint8_t
+   * @param CellType element type. Determines max score range. Default simdpp::uint8.
+   * @param NativeT Native version of CellType. Default uint8_t
    */
   template<unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
       template<unsigned int, typename=void> class CellType=simdpp::uint8,
@@ -122,6 +117,7 @@ namespace vargas {
           max_count(std::vector<uint32_t>(num_reads)),
           sub_pos(std::vector<uint32_t>(num_reads)),
           sub_count(std::vector<uint32_t>(num_reads)),
+          corflag(std::vector<int8_t>(num_reads, 0)),
           _max_node_len(max_node_len) { _alloc(); }
 
       /**
@@ -145,6 +141,7 @@ namespace vargas {
           max_count(std::vector<uint32_t>(num_reads)),
           sub_pos(std::vector<uint32_t>(num_reads)),
           sub_count(std::vector<uint32_t>(num_reads)),
+          corflag(std::vector<int8_t>(num_reads, 0)),
           _max_node_len(max_node_len) { _alloc(); }
 
       ~Aligner() {
@@ -221,16 +218,12 @@ namespace vargas {
 
           aligns.clear();
 
-          uint8_t cor = 2, max, sub;
+          uint8_t max, sub;
           for (int i = 0; i < num_reads; ++i) {
               max = extract(i, max_score);
               sub = extract(i, sub_score);
-              if ((reads.reads()[i].end_pos - read_len) < max && max<(reads.reads()[i].end_pos + read_len))
-                  cor = 0;
-              else if ((reads.reads()[i].end_pos - read_len) < sub && sub<(reads.reads()[i].end_pos + read_len))
-                  cor = 1;
               aligns.emplace(aligns.end(), reads.get_read(i), max, max_pos[i], max_count[i],
-                             sub, sub_pos[i], sub_count[i], cor);
+                             sub, sub_pos[i], sub_count[i]);
           }
 
 
@@ -290,8 +283,8 @@ namespace vargas {
                       seed->I_col[i] = max(seed->I_col[i], ns->I_col[i]);
                       seed->S_col[i] = max(seed->S_col[i], ns->S_col[i]);
                   }
-                  }
               }
+          }
           catch (std::exception &e) {
               throw std::logic_error("Unable to get seed, invalid node ordering.");
           }
@@ -374,12 +367,12 @@ namespace vargas {
 
           // top left corner
           _fill_cell_rzcz(read_ptr[0], node_seq[0], s);
-          _fill_cell_finish(0, 0, node_origin);
+          _fill_cell_finish(0, 0, node_origin, reads.reads());
 
           // top row
           for (uint32_t c = 1; c < seq_size; ++c) {
               _fill_cell_rz(read_ptr[0], node_seq[c], c);
-              _fill_cell_finish(0, c, node_origin);
+              _fill_cell_finish(0, c, node_origin, reads.reads());
           }
 
           nxt.S_col[0] = S_curr[seq_size - 1];
@@ -401,12 +394,12 @@ namespace vargas {
 
               // first col
               _fill_cell_cz(read_ptr[r], node_seq[0], r, s);
-              _fill_cell_finish(r, 0, node_origin);
+              _fill_cell_finish(r, 0, node_origin, reads.reads());
 
               // Inner grid
               for (uint32_t c = 1; c < seq_size; ++c) {
                   _fill_cell(read_ptr[r], node_seq[c], r, c);
-                  _fill_cell_finish(r, c, node_origin);
+                  _fill_cell_finish(r, c, node_origin, reads.reads());
               }
 
               nxt.S_col[r] = S_curr[seq_size - 1];
@@ -571,7 +564,8 @@ namespace vargas {
       __INLINE__
       void _fill_cell_finish(const uint32_t &row,
                              const uint32_t &col,
-                             const uint32_t &node_origin) {
+                             const uint32_t &node_origin,
+                             const std::vector<Read> &reads) {
           using namespace simdpp;
 
           uint32_t curr = node_origin + col + 1; // absolute position
@@ -597,6 +591,8 @@ namespace vargas {
                       }
                       max_pos[i] = curr;
                       max_count[i] = 0;
+                      // Invalidate previous best match
+                      if (corflag[i] == 1) corflag[i] = 0;
                   }
               }
           }
@@ -606,7 +602,10 @@ namespace vargas {
           if (reduce_or(tmp)) {
               for (uchar i = 0; i < num_reads; ++i) {
                   // Check if the i'th elements MSB is set
-                  if (extract(i, tmp)) ++max_count[i];
+                  if (extract(i, tmp)) {
+                      ++max_count[i];
+                      if (reads[i].end_pos == curr) corflag[i] = 1;
+                  }
               }
           }
 
@@ -614,15 +613,14 @@ namespace vargas {
           tmp = S_curr[col] > sub_score;
           if (reduce_or(tmp)) {
               for (uchar i = 0; i < num_reads; ++i) {
-                  // Check if the i'th elements MSB is set
-                  if (extract(i, tmp)) {
-                      // Check if far enough from current best
-                      if (max_pos[i] < curr - read_len) {
-                          //TODO add -(max_score/sub_score) term
-                          insert(extract(i, S_curr[col]), i, sub_score);
-                          sub_pos[i] = curr;
-                          sub_count[i] = 0;
-                      }
+                  // Check if the i'th elements MSB is set, and if far enough
+                  if (extract(i, tmp) && max_pos[i] < curr - read_len) {
+                      //TODO add -(max_score/sub_score) term
+                      insert(extract(i, S_curr[col]), i, sub_score);
+                      sub_pos[i] = curr;
+                      sub_count[i] = 0;
+                      // Invalidate previous second best match
+                      if (corflag[i] == 2) corflag[i] = 0;
                   }
               }
           }
@@ -632,7 +630,10 @@ namespace vargas {
           if (reduce_or(tmp)) {
               for (uchar i = 0; i < num_reads; ++i) {
                   // Check if the i'th elements MSB is set
-                  if (extract(i, tmp)) ++sub_count[i];
+                  if (extract(i, tmp)) {
+                      ++sub_count[i];
+                      if (reads[i].end_pos == curr && corflag[i] == 0) corflag[i] = 2;
+                  }
               }
           }
       }
@@ -718,6 +719,8 @@ namespace vargas {
       CellType<num_reads> sub_score;
       std::vector<uint32_t> sub_pos;
       std::vector<uint32_t> sub_count;
+
+      std::vector<int8_t> corflag;
 
       size_t _max_node_len;
 
@@ -868,30 +871,30 @@ TEST_CASE ("Alignment") {
 }
 
 void node_fill_profile() {
-        vargas::Graph::Node n;
-        {
-            std::stringstream ss;
-            for (size_t i = 0; i < 10000; ++i) {
-                ss << rand_base();
-            }
-            n.set_seq(ss.str());
+    vargas::Graph::Node n;
+    {
+        std::stringstream ss;
+        for (size_t i = 0; i < 10000; ++i) {
+            ss << rand_base();
         }
+        n.set_seq(ss.str());
+    }
 
-        std::vector<vargas::Read> reads;
-        for (size_t i = 0; i < 16; ++i) {
-            std::stringstream rd;
-            for (size_t r = 0; r < 50; ++r) rd << rand_base();
-            reads.push_back(vargas::Read(rd.str()));
-        }
+    std::vector<vargas::Read> reads;
+    for (size_t i = 0; i < 16; ++i) {
+        std::stringstream rd;
+        for (size_t r = 0; r < 50; ++r) rd << rand_base();
+        reads.push_back(vargas::Read(rd.str()));
+    }
 
     vargas::ReadBatch<> rb(reads, 50);
     vargas::Aligner<> a(10000, 50);
 
-        std::vector<uint32_t> pos;
+    std::vector<uint32_t> pos;
 
     std::cout << "\n10 Node Fill (" << SIMDPP_FAST_INT8_SIZE << "x 50rdlen x 10000bp):\n\t";
-        clock_t start = std::clock();
+    clock_t start = std::clock();
     for (int i = 0; i < 10; ++i) a._test_fill_node(n, rb, pos);
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s\n" << std::endl;
+    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s\n" << std::endl;
 }
 #endif //VARGAS_ALIGNMENT_H
