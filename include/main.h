@@ -1,49 +1,79 @@
 /**
  * Ravi Gaddipati
- * November 25, 2015
+ * June 26, 2016
  * rgaddip1@jhu.edu
  *
  * Interface for simulating and aligning reads from/to a DAG.
- * Uses a modified gssw from Erik Garrison.
  *
- * main.h
+ * @file main.h
  */
 
 #ifndef VARGAS_MAIN_H
 #define VARGAS_MAIN_H
 
-#define READ_LEN 50
-
 #include "alignment.h"
 #include "graph.h"
 #include "readfile.h"
+#include "sim.h"
 
-// Operational modes
-int build_main(const int argc, const char *argv[]);
-int export_main(const int argc, const char *argv[]);
-//int sim_main(const int argc, const char *argv[]);
+/**
+ * Simulate reads from given graph definitions.
+ * @param argc command line argument count
+ * @param argv command line arguments
+ */
+int sim_main(const int argc, const char *argv[]);
+
+/**
+ * Align given reads to specified target graphs.
+ * @param argc command line argument count
+ * @param argv command line arguments
+ */
 int align_main(const int argc, const char *argv[]);
-int stat_main(const int argc, const char *argv[]);
 
-// Program menus
+/**
+ * Define graphs from a FASTA and a VCF/BCF file. Allows graphs
+ * to remain consistent between simulating and aligning steps.
+ * @param argc command line argument count
+ * @param argv command line arguments
+ */
+int define_main(const int argc, const char *argv[]);
 
-void printBuildHelp();
-void printSimHelp();
-void printExportHelp();
-void printStatHelp();
+/**
+ * Profile aligner and graph construction.
+ * @param argc command line argument count
+ * @param argv command line arguments
+ */
+int profile(const int argc, const char *argv[]);
 
+/**
+ * Load a graph definition file.
+ * @param file_name gdef file name
+ * @param pset Map to populate label:Population filter pairs
+ * @return GraphBuilder to build specified base graph
+ */
+vargas::GraphBuilder load_gdef(std::string file_name,
+                               std::unordered_map<std::string, vargas::Graph::Population> &pset);
+
+/**
+ * Aligns the given vector of reads to the given graph,
+ * using the provided aligners.
+ * @param subgraph Graph to align to
+ * @param reads Reads to align
+ * @param aligners Use the given aligners. Size should be equal to number of threads
+ * @param threads number of execution threads.
+ */
+void align_to_graph(std::string label,
+                    const vargas::Graph &subgraph,
+                    const std::vector<vargas::Read> &reads,
+                    const std::vector<std::shared_ptr<vargas::Aligner<>>> &aligners,
+                    std::ostream &out,
+                    unsigned int threads);
+
+
+// Menus
 void main_help();
 void profile_help();
 void align_help();
-
-int profile(const int argc, const char *argv[]);
-
-void talign(const vargas::ReadBatch<READ_LEN> rb,
-            const vargas::Graph &g,
-            uint8_t match,
-            uint8_t mismatch,
-            uint8_t gopen,
-            uint8_t gext,
-            std::vector<vargas::Alignment> &aligns);
-
+void sim_help();
+void define_help();
 #endif //VARGAS_MAIN_H

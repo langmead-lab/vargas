@@ -24,9 +24,9 @@ bool vargas::ReadFile::update_read() {
     return update_read();
   }
 
-  unsigned long delim = line.find('#');
-  if (delim == std::string::npos) {
+  if (line.at(0) != '>') {
     read.read = line;
+    read.desc = "-";
     read.end_pos = 0;
     read.indiv = -1;
     read.sub_err = -1;
@@ -35,25 +35,33 @@ bool vargas::ReadFile::update_read() {
     read.var_bases = -1;
     read.read_num = seq_to_num(line);
   } else {
-    read.read = line.substr(0, delim);
-    split(line.substr(delim + 1), ',', _split_meta);
-    if (_split_meta.size() != 6) {
-      std::cerr << "Unexpected number of fields." << std::endl;
-      read.end_pos = 0;
-      read.indiv = -1;
-      read.sub_err = -1;
-      read.indel_err = -1;
-      read.var_nodes = -1;
-      read.var_bases = -1;
-      return false;
+    split(line.substr(1, std::string::npos), READ_FASTA_META_DELIM, _split_meta);
+    for (auto &s : _split_meta) {
+      auto split_label = split(s, '=');
+      std::string &tag = split_label[0];
+      std::string &val = split_label[1];
+      if (tag == READ_META_END) {
+        read.end_pos = std::stoi(val);
+      }
+      else if (tag == READ_META_MUT) {
+        read.sub_err = std::stoi(val);
+      }
+      else if (tag == READ_META_INDEL) {
+        read.indel_err = std::stoi(val);
+      }
+      else if (tag == READ_META_VARNODE) {
+        read.var_nodes = std::stoi(val);
+      }
+      else if (tag == READ_META_VARBASE) {
+        read.var_bases = std::stoi(val);
+      }
+      else if (tag == READ_META_DESC) {
+        read.desc = val;
+      }
     }
 
-    read.end_pos = uint32_t(std::stoi(_split_meta[0]));
-    read.indiv = std::stoi(_split_meta[1]);
-    read.sub_err = std::stoi(_split_meta[2]);
-    read.indel_err = std::stoi(_split_meta[3]);
-    read.var_nodes = std::stoi(_split_meta[4]);
-    read.var_bases = std::stoi(_split_meta[5]);
+    if (!std::getline(_read_file, line)) throw std::invalid_argument("No Read after FASTA read label.");
+    read.read = line;
     read.read_num = seq_to_num(read.read);
   }
   return true;

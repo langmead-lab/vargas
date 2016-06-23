@@ -6,7 +6,7 @@
  * Wrapper for a reads file that loads reads and meta information
  * into a Read structure.
  *
- * readfile.h
+ * @file readfile.h
  */
 
 #ifndef VARGAS_READFILE_H
@@ -20,24 +20,23 @@ class ReadFile: public ReadSource {
 
  public:
   ReadFile() { }
+
+    /**
+     * @param file filename of reads file
+     */
   ReadFile(std::string file) {
     _read_file.open(file);
-    if (!_read_file.good()) throw std::invalid_argument("Invalid read file.");
+    if (!_read_file.good()) throw std::invalid_argument("Invalid reads file \"" + file + "\"");
   }
+
   ~ReadFile() {
     if (_read_file) _read_file.close();
   }
 
-  /*
-   * Gets the current read.
-   * @return Read that has already been generated.
-   */
-  Read &get_read() override { return read; }
-
-  /*
-   * Updates the stored read.
-   * @return True if it was successful.
-   */
+    /*
+     * Updates the stored read.
+     * @return True if it was successful. False if end of file.
+     */
   bool update_read() override;
 
   /*

@@ -140,7 +140,7 @@ std::string vargas::Graph::to_DOT(std::string name) const {
   dot << "digraph " << name << " {\n";
   for (auto n : *_IDMap) {
     dot << n.second->id() << "[label=\"" << n.second->seq_str()
-        << "\nPOS:" << n.second->end() << ", AF:" << n.second->freq() << ", REF:" << n.second->is_ref()
+        << "\nP:" << n.second->end() << ", F:" << n.second->freq() << ", R:" << n.second->is_ref()
         << "\n[" << n.second->individuals().to_string() << "]"
         << "\"];\n";
   }
@@ -186,12 +186,13 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
     // Positions of variant nodes are referenced to ref node
     curr += _vf.ref().length();
 
-    // ref pos
+    // ref node
     {
       Graph::Node n;
       n.set_endpos(curr - 1);
       n.set_seq(_vf.ref());
       n.set_as_ref();
+      n.set_population(_vf.allele_pop(_vf.ref()));
       n.set_af(af[0]);
       curr_unconnected.insert(g.add_node(n));
     }
@@ -280,6 +281,7 @@ int vargas::GraphBuilder::_build_linear_ref(Graph &g,
   auto split_seq = _split_seq(_fa.subseq(_vf.region_chr(), pos, target - 1));
   for (auto s : split_seq) {
     Graph::Node n;
+    n.set_population(g.pop_size(), true);
     n.set_as_ref();
     n.set_seq(s);
     pos += s.length();

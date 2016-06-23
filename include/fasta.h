@@ -14,8 +14,8 @@
 
 #include <string>
 #include <fstream>
-#include "../doctest/doctest/doctest.h"
-#include <../htslib/htslib/faidx.h>
+#include "doctest/doctest.h"
+#include "htslib/faidx.h"
 
 
 namespace vargas {
