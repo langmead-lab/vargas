@@ -1,0 +1,7 @@
+language: c++
+compiler:
+- clang
+- gcc
+script:
+- cd htslib && autoconf && ./configure && make
+- mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make
