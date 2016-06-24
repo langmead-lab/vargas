@@ -1,7 +1,7 @@
 language: cpp
 compiler:
-  - gcc
-  - clang
+- gcc
+- clang
 install:
 - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
 addons:
@@ -12,13 +12,12 @@ addons:
     - gcc-4.8
     - g++-4.8
     - clang
-
 script:
-  - cd htslib && autoconf && ./configure && make && cd ../
-  - mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make && cd ../
-  - bin/vargas test
-
+- cd htslib && autoconf && ./configure && make && cd ../
+- mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make && cd ../
+- bin/vargas test
 notifications:
   email: false
-
+  slack:
+    secure: tPC+16jA/yTWMvq4mx3eA1Is6/V4PPZbBcTmtvmzx6BIjFzGLobDomDLjGgCYHV4fEc1DpqywplWChwsZ9ndb4iGGGxMubmQduRCklDTfAluPfOQQIa7HgT425YGaYVEM1CP+8Q4HMlgOtpbHbeg4U8Djk0g0Z/QMXbREwGbbMEr95LfTwn5YivoGMObssbqJAlw+AaWYYWBYBAeL6WLNB/I1Yl8ur22fXBicjvVScjyy0R8RmriHceZRIAZtTFb92xGQyB8Ca320mNibSI1Hk+qb1VSg7TN1sHFNT15HIzYb/wsWN11VdPOXGqNPLFTzs2a+GBcLTMZuzSfVeQqinQwGfu65UoHCtNGMKiNy6k7yx+oPUchzj+fD12V5TbnfzPlKlcZXshnewsHsPYhwOCH0+R6pXIm17IJwdCcXpsoSckeXrUSQpe4WLesqT2Mztz6Pw4r+VToaXREgaZk2tMMn+W7SOl21YTDHjvkVrs5qBbSou5wPaNS3NObsYkSoqNUOgn+I3dgYwpwscgiXa15xiXxd4rFu42qYUQVt6zJ2lsTdpd/yXckvU2ARHlhez8hTQzkQ7B76RKIQnCKvIJT26LvLWtcoA+y+QnorWiAQHUwPmJUjgSFVLkrDWjjMiBDkwOhiskjLBlVVBppvxUUVBwXXaQjthfaz1kTVhY=
 sudo: false
