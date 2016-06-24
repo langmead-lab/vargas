@@ -45,14 +45,6 @@ int define_main(const int argc, const char *argv[]);
  */
 int profile(const int argc, const char *argv[]);
 
-/**
- * Load a graph definition file.
- * @param file_name gdef file name
- * @param pset Map to populate label:Population filter pairs
- * @return GraphBuilder to build specified base graph
- */
-vargas::GraphBuilder load_gdef(std::string file_name,
-                               std::unordered_map<std::string, vargas::Graph::Population> &pset);
 
 /**
  * Aligns the given vector of reads to the given graph,

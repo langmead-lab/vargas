@@ -17,6 +17,7 @@
 #include "doctest/doctest.h"
 #include "utils.h"
 #include "simdpp/simd.h"
+#include "gdef.h"
 
 namespace vargas {
 
@@ -26,7 +27,7 @@ namespace vargas {
   const std::string READ_META_INDEL = "indel";
   const std::string READ_META_VARNODE = "vnode";
   const std::string READ_META_VARBASE = "vbase";
-  const std::string READ_META_DESC = "desc";
+  const std::string READ_META_SRC = "src";
   const char READ_FASTA_META_DELIM = ' ';
 
 /**
@@ -34,30 +35,30 @@ namespace vargas {
  * @param read_orig unmutated read sequence
  * @param read base sequence.
  * @param read_num Numeric read representation
- * @param desc Description, typically read origin graph
  * @param end_pos position of last base in seq.
  * @param indiv Individual the read was taken from.
  * @param sub_err Number of substitiution errors introduced.
  * @param var_nodes Number of variant nodes the read traverses.
  * @param var_bases Number of bases that are in variant nodes.
  * @param indel_err Number of insertions and deletions introduced.
+ * @param src Read origin graph, as defined in GDEF file
  */
   struct Read {
-      Read() : read_orig(""), read(""), desc("-"),
+      Read() : read_orig(""), read(""),
                end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1), indel_err(-1) { }
-      Read(std::string r) : read_orig(""), read(r), read_num(seq_to_num(r)), desc("-"),
+      Read(std::string r) : read_orig(""), read(r), read_num(seq_to_num(r)),
                             end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1), indel_err(-1) { }
 
       std::string read_orig;
       std::string read;
       std::vector<Base> read_num;
-      std::string desc;
       int32_t end_pos;
       int32_t indiv;
       int32_t sub_err;
       int32_t var_nodes;
       int32_t var_bases;
       int32_t indel_err;
+      GID src;
 
   };
 
@@ -78,7 +79,7 @@ namespace vargas {
           << READ_META_INDEL << "=" << r.indel_err << READ_FASTA_META_DELIM
           << READ_META_VARNODE << "=" << r.var_nodes << READ_FASTA_META_DELIM
           << READ_META_VARBASE << "=" << r.var_bases << READ_FASTA_META_DELIM
-          << READ_META_DESC << "=" << r.desc
+          << READ_META_SRC << "=" << r.src
           << std::endl
           << r.read;
       return ss.str();
@@ -86,13 +87,13 @@ namespace vargas {
 
   /**
    * Convert the read to single line CSV with the form:
-   * desc,read_seq,end_pos,sub_err,indel_err,var_nodes,var_bases
+   * src,read_seq,end_pos,sub_err,indel_err,var_nodes,var_bases
    * @param r Read to print
    * @return single line string
    */
   inline std::string to_csv(const Read &r) {
       std::stringstream ss;
-      ss << r.desc << ','
+      ss << r.src << ','
           << r.read << ','
           << r.end_pos << ','
           << r.sub_err << ','

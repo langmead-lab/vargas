@@ -205,6 +205,15 @@ namespace vargas {
            */
           void set_af(float af) { _af = af; }
 
+          /**
+           * Set as pinch node. If this node is removed, then each node before
+           * it does not have an edge to a node after this node. All paths traverse
+           * through this node.
+           */
+          void pinch() { _pinch = true; }
+          void unpinch() { _pinch = false; }
+          bool is_pinched() const { return _pinch; }
+
           static uint32_t _newID; // ID of the next instance to be created
 
         private:
@@ -212,6 +221,7 @@ namespace vargas {
           std::vector<Base> _seq; // sequence in numeric form
           Population _individuals; // Each bit marks an individual, 1 if they have this node
           bool _ref = false; // Part of the reference sequence if true
+          bool _pinch = false; // If this node is removed, the graph will split into two distinct subgraphs
           float _af = 1;
           uint32_t _id;
 

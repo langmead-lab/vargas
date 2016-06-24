@@ -281,6 +281,7 @@ int vargas::GraphBuilder::_build_linear_ref(Graph &g,
   auto split_seq = _split_seq(_fa.subseq(_vf.region_chr(), pos, target - 1));
   for (auto s : split_seq) {
     Graph::Node n;
+    n.pinch();
     n.set_population(g.pop_size(), true);
     n.set_as_ref();
     n.set_seq(s);

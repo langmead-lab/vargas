@@ -55,10 +55,10 @@ namespace vargas {
 
       Alignment(const Read &r,
                 uint16_t best_score, int32_t best_pos, int32_t best_count,
-                uint16_t sec_score, int32_t sec_pos, int32_t sec_count) :
+                uint16_t sec_score, int32_t sec_pos, int32_t sec_count, uint8_t cor) :
           read(r),
           opt_score(best_score), opt_align_end(best_pos), opt_count(best_count),
-          sub_score(sec_score), sub_align_end(sec_pos), sub_count(sec_count) { }
+          sub_score(sec_score), sub_align_end(sec_pos), sub_count(sec_count), corflag(cor) { }
 
   };
 
@@ -77,7 +77,7 @@ namespace vargas {
           << ',' << a.sub_score
           << ',' << a.sub_align_end
           << ',' << a.sub_count
-          << ',' << a.corflag;
+          << ',' << (int) a.corflag;
       return os;
   }
 
@@ -213,6 +213,7 @@ namespace vargas {
           std::unordered_map<uint32_t, _seed> seed_map;
           for (auto gi = begin; gi != end; ++gi) {
               _get_seed(gi.incoming(), seed_map, &seed);
+              if ((*gi).is_pinched()) seed_map.clear();
               seed_map.emplace((*gi).id(), _fill_node(*gi, reads, &seed));
           }
 
@@ -223,7 +224,7 @@ namespace vargas {
               max = extract(i, max_score);
               sub = extract(i, sub_score);
               aligns.emplace(aligns.end(), reads.get_read(i), max, max_pos[i], max_count[i],
-                             sub, sub_pos[i], sub_count[i]);
+                             sub, sub_pos[i], sub_count[i], corflag[i]);
           }
 
 

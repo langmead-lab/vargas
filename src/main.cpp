@@ -6,7 +6,7 @@
  * Interface for simulating and aligning reads from/to a DAG.
  * Uses a modified gssw from Erik Garrison.
  *
- * main.cpp
+ * @file main.cpp
  */
 
 #define DOCTEST_CONFIG_IMPLEMENT
@@ -56,295 +56,6 @@ int main(const int argc, const char *argv[]) {
     exit(1);
 
 }
-
-/**
-int stat_main(const int argc, const char *argv[]) {
-  std::string buildfile;
-
-  GetOpt::GetOpt_pp args(argc, argv);
-
-  if (args >> GetOpt::OptionPresent('h', "help")) {
-    printStatHelp();
-    return 0;
-  }
-
-  if (!(args >> GetOpt::Option('b', "buildfile", buildfile))) {
-    printStatHelp();
-    throw std::invalid_argument("No buildfile specified!");
-  }
-
-  std::ifstream bf(buildfile);
-  if (!bf.good()) {
-    throw std::invalid_argument("Error opening buildfile: " + buildfile);
-  }
-
-  uint32_t numTotalNodes = 0, var_nodes = 0, numEdges = 0;
-  std::string line;
-  std::vector<std::string> splitLine;
-
-  while (getline(bf, line)) {
-    if (line.at(0) == '#') std::cout << line << std::endl;
-    if (line.at(0) == ':') {
-      var_nodes++;
-      continue;
-    }
-
-    split(line, ',', splitLine);
-
-    switch (splitLine.size()) {
-      case 2:
-        numEdges++;
-        break;
-      case 3:
-        numTotalNodes++;
-        break;
-      default:
-        std::cerr << "Line split length of " << splitLine.size() << " unexpected." << std::endl << line << std::endl;
-        break;
-    }
-
-  }
-
-  std::cout << std::endl;
-  std::cout << buildfile << " counts:" << std::endl;
-  std::cout << "\tTotal number of nodes: " << numTotalNodes << std::endl;
-  std::cout << "\tNumber of variant nodes: " << var_nodes << std::endl;
-  std::cout << "\tTotal number of edges: " << numEdges << std::endl;
-  std::cout << std::endl;
-
-  return 0;
-}
-
-
-int build_main(const int argc, const char *argv[]) {
-  std::string VCF = "", REF = "";
-  std::string setString;
-  bool makeComplements = false;
-
-  vargas::Graph g;
-
-  GetOpt::GetOpt_pp args(argc, argv);
-
-  if (args >> GetOpt::OptionPresent('h', "help")) {
-    printBuildHelp();
-    return 0;
-  }
-
-  if (!(args >> GetOpt::Option('v', "vcf", VCF))
-      || !(args >> GetOpt::Option('r', "ref", REF))) {
-    printBuildHelp();
-    throw std::invalid_argument("No input files specified!");
-  }
-
-  vargas::Graph::GraphParams p;
-
-  args >> GetOpt::Option('l', "maxlen", p.maxNodeLen)
-      >> GetOpt::Option('R', "region", p.region)
-      >> GetOpt::OptionPresent('c', "complement", makeComplements)
-      >> GetOpt::Option('c', "complement", p.complementSource)
-      >> GetOpt::OptionPresent('m', "maxref", p.maxAF)
-      >> GetOpt::Option('e', "exref", p.includeRefIndivs);
-
-  g.setParams(p);
-
-  std::vector<std::string> setSplit(0);
-  if (args >> GetOpt::Option('s', "set", setString)) {
-    split(setString, ',', setSplit);
-  } else setSplit.push_back("100"); // Default includes everything
-
-  // Gen a set of ingroup build files
-  std::stringstream fileName;
-  for (auto ingrp : setSplit) {
-    // Generates a buildfile for all % ingroup specified, as well as the outgroup buildfiles
-    g.setIngroup(stoi(ingrp));
-
-    // Ingroup
-    fileName.str(std::string());
-    fileName << ingrp << "In.build";
-    g.exportBuildfile(REF, VCF, fileName.str());
-
-    // Outgroup
-    if (makeComplements) {
-      g.setComplementSource(fileName.str());
-      fileName.str(std::string());
-      fileName << ingrp << "Out.build";
-      g.setComplement(true);
-      g.exportBuildfile(REF, VCF, fileName.str());
-      g.setComplement(false);
-    }
-
-  }
-
-  return 0;
-}
-
-
-int export_main(const int argc, const char *argv[]) {
-
-  GetOpt::GetOpt_pp args(argc, argv);
-
-  if (args >> GetOpt::OptionPresent('h', "help")) {
-    printExportHelp();
-    return 0;
-  }
-
-  std::string buildfile;
-
-  vargas::Graph g;
-  if (args >> GetOpt::Option('b', "build", buildfile)) {
-    g.buildGraph(buildfile);
-  }
-  else {
-    printExportHelp();
-    throw std::invalid_argument("No buildfile defined.");
-  }
-
-  std::string inputAligns = "";
-  if (args >> GetOpt::Option('c', "context", inputAligns)) {
-    std::string line;
-    std::ifstream input(inputAligns);
-    if (!input.good()) {
-      throw std::invalid_argument("Invalid file: " + inputAligns);
-    }
-
-    while (std::getline(input, line)) {
-      if (line.length() == 0) continue;
-      vargas::Alignment a(line);
-      vargas::Graph contextGraph(g, a);
-      contextGraph.exportDOT(std::cout, line);
-    }
-  }
-
-    // Export whole Graph
-  else {
-    g.exportDOT(std::cout);
-  }
-
-  return 0;
-}
-
-
-int align_main(const int argc, const char *argv[]) {
-  vargas::Graph g;
-  GetOpt::GetOpt_pp args(argc, argv);
-
-  if (args >> GetOpt::OptionPresent('h', "help")) {
-    printAlignHelp();
-    return 0;
-  }
-
-  // Load parameters
-  vargas::Graph::GraphParams p;
-  std::string alignOutFile = "";
-  args >> GetOpt::Option('m', "match", p.match)
-      >> GetOpt::Option('n', "mismatch", p.mismatch)
-      >> GetOpt::Option('o', "gap_open", p.gap_open)
-      >> GetOpt::Option('e', "gap_extend", p.gap_extension)
-      >> GetOpt::Option('f', "outfile", alignOutFile);
-
-  // Set output
-  bool useFile = false;
-  std::ofstream aOutStream;
-  std::string rawRead = "";
-  if (alignOutFile.length() != 0) {
-  	// Find the last alignment
-    std::ifstream resume(alignOutFile);
-    if (resume.good()) {
-      std::string lastLine = getLastLine(resume);
-      if (lastLine.length() > 0) rawRead = split(lastLine, '#')[0];
-    }
-    resume.close();
-    aOutStream.open(alignOutFile, std::ios_base::app);
-    useFile = true;
-  }
-
-  g.setParams(p);
-
-  // Read file handler
-  std::string readsfile;
-  if (!(args >> GetOpt::Option('r', "reads", readsfile))) {
-    printAlignHelp();
-    throw std::invalid_argument("No reads file defined.");
-  }
-
-  // Check if we need to resume this alignment job.
-  vargas::ReadFile reads(readsfile);
-  if (rawRead.length() != 0) {
-  	reads.resume_from(rawRead);
-  }
-
-
-  std::string buildfile;
-  if (!(args >> GetOpt::Option('b', "build", buildfile))) {
-    printAlignHelp();
-    throw std::invalid_argument("No buildfile defined.");
-  }
-  g.buildGraph(buildfile);
-
-  // Align until there are no more reads
-  vargas::Alignment align;
-  while (reads.update_read()) {
-    g.align(reads.get_read(), align);
-    if (useFile) {
-      aOutStream << align << std::endl;
-    } else {
-      std::cout << align << std::endl;
-    }
-  }
-
-  if (useFile) {
-    aOutStream << reads.get_header() << std::endl;
-  } else {
-    std::cout << reads.get_header() << std::endl;
-  }
-
-  return 0;
-}
-
-void printBuildHelp() {
-  using std::cout;
-  using std::endl;
-  vargas::Graph g;
-  vargas::Graph::GraphParams p = g.getParams();
-
-  cout << endl
-      << "------------------- vargas build, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
-  cout << "-v\t--vcf           <string> VCF file, uncompressed." << endl;
-  cout << "-r\t--ref           <string> reference, single record FASTA" << endl;
-  cout << "-l\t--maxlen        <int> Maximum node length, default " << p.maxNodeLen << endl;
-  cout << "-R\t--region        <<int>:<int>> Ref region, inclusive. Default is the entire Graph." << endl;
-  cout << "-m\t--maxref        Generate a linear Graph using maximum allele frequency nodes." << endl;
-  cout << "-e\t--exref         Exclude the list of individuals from the reference alleles." << endl;
-  cout << "-s\t--set           <<int>,<int>,..,<int>> Generate a buildfile for a list of ingroup percents." << endl;
-  cout << "-c\t--complement    <string> Generate a complement of all graphs in -s, or of provided Graph." << endl;
-
-  cout << endl << "--maxref is applied after ingroup filter." << endl;
-  cout << "Buildfile is output to [s][In Out].build" << endl << endl;
-}
-
-
-void printExportHelp() {
-  using std::cout;
-  using std::endl;
-  cout << endl
-      << "------------------ vargas export, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
-  cout << "-b\t--buildfile    <string> Graph to export to DOT." << endl;
-  cout << "-c\t--context      <string> Export the local context Graph of these alignments." << endl;
-
-  cout << endl << "DOT file printed to stdout." << endl << endl;
-}
-
-void printStatHelp() {
-  using std::cout;
-  using std::endl;
-
-  cout << endl
-      << "------------------- vargas stat, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
-  cout << "-b\t--buildfile     <string> Graph build file." << endl << endl;
-
-}
-
-*/
 
 int profile(const int argc, const char *argv[]) {
     std::string bcf = "chr22.bcf", fasta = "hs37d5_22.fa";
@@ -519,7 +230,7 @@ int align_main(const int argc, const char *argv[]) {
     // Load parameters
     uint8_t match = 2, mismatch = 2, gopen = 3, gext = 1;
     unsigned int threads = 1, read_len = 50;
-    std::string outfile, readsfile, gdeffile;
+    std::string out_file, read_file, gdf_file;
     bool R = false, // Align to reference
         X = false, // Align to max-AF graph
         O = false, // Align to outgroup graph
@@ -529,9 +240,9 @@ int align_main(const int argc, const char *argv[]) {
         >> GetOpt::Option('n', "mismatch", mismatch)
         >> GetOpt::Option('o', "gap_open", gopen)
         >> GetOpt::Option('e', "gap_extend", gext)
-        >> GetOpt::Option('t', "outfile", outfile)
-        >> GetOpt::Option('r', "reads", readsfile)
-        >> GetOpt::Option('g', "gdef", gdeffile)
+        >> GetOpt::Option('t', "outfile", out_file)
+        >> GetOpt::Option('r', "reads", read_file)
+        >> GetOpt::Option('g', "gdef", gdf_file)
         >> GetOpt::Option('j', "threads", threads)
         >> GetOpt::Option('l', "rlen", read_len)
         >> GetOpt::OptionPresent('R', R)
@@ -539,16 +250,16 @@ int align_main(const int argc, const char *argv[]) {
         >> GetOpt::OptionPresent('O', O)
         >> GetOpt::OptionPresent('I', I);
 
+    if (!R && !X && !O && !I) throw std::invalid_argument("No alignment mode (R,X,I,O) selected.");
     if (threads == 0) threads = std::thread::hardware_concurrency();
 
-    std::ofstream out(outfile);
-    if (!out.good()) throw std::invalid_argument("Error opening output file " + outfile);
+    std::ofstream out(out_file);
+    if (!out.good()) throw std::invalid_argument("Error opening output file " + out_file);
 
-
-    std::unordered_map<std::string, vargas::Graph::Population> pop_defs;
-    auto gb = load_gdef(gdeffile, pop_defs);
+    vargas::Gdef gdf(gdf_file);
+    vargas::GraphBuilder gb(gdf.fasta(), gdf.var());
+    gb.region(gdf.region());
     vargas::Graph base_graph = gb.build();
-    out << base_graph.desc() << std::endl;
 
     std::vector<std::shared_ptr<vargas::Aligner<>>> aligners;
     for (uint8_t i = 0; i < threads; ++i)
@@ -560,34 +271,49 @@ int align_main(const int argc, const char *argv[]) {
                                                                gext));
 
     // Load reads. Maps graph origin label to a vector of reads
-    std::unordered_map<std::string, std::vector<vargas::Read>> read_origins;
-    auto readfile_split = split(readsfile, ',');
+    std::map<vargas::GID, std::vector<vargas::Read>> read_origins;
+    auto readfile_split = split(read_file, ',');
     for (auto &rfile : readfile_split) {
         vargas::ReadFile reads(rfile);
         while (reads.update_read()) {
             vargas::Read r = reads.get_read();
-            read_origins[r.desc].push_back(r);
+            read_origins[r.src].push_back(r);
         }
     }
 
+    auto &pops = gdf.populations();
+
     if (R) {
         vargas::Graph subgraph = vargas::Graph(base_graph, vargas::Graph::REF);
-        for (auto &reads : read_origins) align_to_graph("R", subgraph, reads.second, aligners, out, threads);
+        for (auto &reads : read_origins) align_to_graph("r", subgraph, reads.second, aligners, out, threads);
     }
     if (X) {
         vargas::Graph subgraph = vargas::Graph(base_graph, vargas::Graph::MAXAF);
-        for (auto &reads : read_origins) align_to_graph("X", subgraph, reads.second, aligners, out, threads);
+        for (auto &reads : read_origins) align_to_graph("x", subgraph, reads.second, aligners, out, threads);
     }
     if (I) {
         for (auto &reads : read_origins) {
-            vargas::Graph subgraph = vargas::Graph(base_graph, pop_defs.at(reads.first));
-            align_to_graph("I", subgraph, reads.second, aligners, out, threads);
+            /**
+             * Align to the same graph that the read came from, but enforce
+             * that it be the ingroup version.
+             */
+            vargas::GID g = reads.first;
+            g.outgroup = false;
+            vargas::Graph subgraph = vargas::Graph(base_graph, pops.at(g));
+            align_to_graph("i", subgraph, reads.second, aligners, out, threads);
         }
     }
     if (O) {
+        gdf.include_outgroups();
         for (auto &reads : read_origins) {
-            vargas::Graph subgraph = vargas::Graph(base_graph, ~(pop_defs.at(reads.first)));
-            align_to_graph("O", subgraph, reads.second, aligners, out, threads);
+            /**
+             * Align to the same graph that the read came from, but enforce
+             * that it be the outgroup version.
+             */
+            vargas::GID g = reads.first;
+            g.outgroup = true;
+            vargas::Graph subgraph = vargas::Graph(base_graph, pops.at(g));
+            align_to_graph("o", subgraph, reads.second, aligners, out, threads);
         }
     }
     return 0;
@@ -645,12 +371,12 @@ int sim_main(const int argc, const char *argv[]) {
     // Load parameters
     unsigned int threads = 1, read_len = 50, num_reads = 1000;
     std::string mut = "0", indel = "0", vnodes = "-1", vbases = "-1";
-    std::string outfile, gdeffile, sources = "";
-    bool use_rate = false, exclude_comment = false;
+    std::string out_file, gdf_file;
+    bool use_rate = false, outgroup = false;
 
-    args >> GetOpt::Option('t', "outfile", outfile)
-        >> GetOpt::Option('g', "gdef", gdeffile)
-        >> GetOpt::Option('s', "source", sources)
+    args >> GetOpt::Option('t', "outfile", out_file)
+        >> GetOpt::Option('g', "gdef", gdf_file)
+        >> GetOpt::OptionPresent('o', "outgroup", outgroup)
         >> GetOpt::Option('v', "vnodes", vnodes)
         >> GetOpt::Option('b', "vbases", vbases)
         >> GetOpt::Option('j', "threads", threads)
@@ -658,36 +384,43 @@ int sim_main(const int argc, const char *argv[]) {
         >> GetOpt::Option('n', "numreads", num_reads)
         >> GetOpt::Option('m', "mut", mut)
         >> GetOpt::Option('i', "indel", indel)
-        >> GetOpt::OptionPresent('a', "rate", use_rate)
-        >> GetOpt::OptionPresent('e', "exclude", exclude_comment);
+        >> GetOpt::OptionPresent('a', "rate", use_rate);
 
     if (threads == 0) threads = std::thread::hardware_concurrency();
 
-    std::ofstream out(outfile);
-    if (!out.good()) throw std::invalid_argument("Error opening output file " + outfile);
+    std::ofstream out(out_file);
+    if (!out.good()) throw std::invalid_argument("Error opening output file " + out_file);
 
-    std::unordered_map<std::string, vargas::Graph::Population> pop_defs, pops;
-    auto gb = load_gdef(gdeffile, pop_defs);
-
-    if (sources.length() == 0) pops = pop_defs;
-    else {
-        std::vector<std::string> source_split = split(sources, ';');
-        for (auto &i : source_split) {
-            if (pop_defs.find(i) == pop_defs.end())
-                throw std::invalid_argument("\"" + i + "\" not found in GDEF file.");
-            else pops[i] = pop_defs[i];
-        }
-    }
+    vargas::Gdef gdf(gdf_file);
+    if (outgroup) gdf.include_outgroups();
+    vargas::GraphBuilder gb(gdf.fasta(), gdf.var());
+    gb.region(gdf.region());
+    auto &pops = gdf.populations();
 
     vargas::Graph base_graph = gb.build();
-
-    if (!exclude_comment) out << base_graph.desc() << std::endl;
-    if (!exclude_comment) for (auto &p : pops) out << "#" << p.first << ":" << p.second.to_string() << std::endl;
 
     auto mut_split = split(mut, ',');
     auto indel_split = split(indel, ',');
     auto vnode_split = split(vnodes, ',');
     auto vbase_split = split(vbases, ',');
+
+    std::vector<vargas::ReadProfile> pending_sims;
+    for (auto &vbase : vbase_split) {
+        for (auto &vnode : vnode_split) {
+            for (auto &ind : indel_split) {
+                for (auto &m : mut_split) {
+                    vargas::ReadProfile prof;
+                    prof.len = read_len;
+                    prof.mut = std::stof(m);
+                    prof.indel = std::stof(ind);
+                    prof.rand = use_rate;
+                    prof.var_bases = std::stoi(vbase);
+                    prof.var_nodes = std::stoi(vnode);
+                    pending_sims.push_back(prof);
+                }
+            }
+        }
+    }
 
     // For each subgraph type
     for (auto &pop : pops) {
@@ -700,43 +433,27 @@ int sim_main(const int argc, const char *argv[]) {
         vargas::ReadSim rs_template(subgraph);
         for (unsigned int i = 0; i < threads; ++i) sims.push_back(std::make_shared<vargas::ReadSim>(rs_template));
 
-        for (auto &vbase : vbase_split) {
-            for (auto &vnode : vnode_split) {
-                for (auto &ind : indel_split) {
-                    for (auto &m : mut_split) {
-                        vargas::ReadProfile prof;
-                        prof.len = read_len;
-                        prof.mut = std::stof(m);
-                        prof.indel = std::stof(ind);
-                        prof.rand = use_rate;
-                        prof.var_bases = std::stoi(vbase);
-                        prof.var_nodes = std::stoi(vnode);
+        for (size_t p = 0; p < pending_sims.size(); ++p) {
+            auto &prof = pending_sims[p];
+            sims[jobs.size()]->set_prof(prof);
+            jobs.emplace(jobs.end(), &vargas::ReadSim::get_batch, sims[jobs.size()], num_reads);
 
-                        if (!exclude_comment) out << "#prof:" << prof << std::endl;
+            if (jobs.size() == threads) {
+                std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
+                jobs.clear();
+            }
 
-                        for (unsigned int i = 0; i < threads; ++i) {
-                            sims[i]->set_prof(prof);
-                            jobs.emplace(jobs.end(),
-                                         &vargas::ReadSim::get_batch,
-                                         sims[i],
-                                         num_reads / threads);
-                        }
+            for (auto &s : sims) {
+                for (auto r : s->batch()) {
+                    r.src = pop.first;
+                    out << r << std::endl;
 
-                        std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
-                        jobs.clear();
-
-                        for (auto &s : sims) {
-                            for (auto r : s->batch()) {
-                                r.desc = pop.first;
-                                out << r << std::endl;
-
-                            }
-                        }
                     }
                 }
             }
+        std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
+        jobs.clear();
         }
-    }
 
     return 0;
 }
@@ -749,102 +466,63 @@ int define_main(const int argc, const char *argv[]) {
         return 0;
     }
 
-    std::string fastafile = "", varfile = "", region = "", ingroups = "", outfile = "";
-    int base_ingroup = 100, num = 1, node_len = 1000000;
-    bool outgroup = true;
+    std::string fasta_file = "", varfile = "", region = "", ingroups = "", outfile = "";
+    int num = 1, node_len = 1000000;
 
-    args >> GetOpt::Option('f', "fasta", fastafile)
+    args >> GetOpt::Option('f', "fasta", fasta_file)
         >> GetOpt::Option('v', "var", varfile)
         >> GetOpt::Option('g', "region", region)
-        >> GetOpt::Option('b', "base", base_ingroup)
         >> GetOpt::Option('i', "ingroup", ingroups)
         >> GetOpt::Option('n', "num", num)
         >> GetOpt::Option('l', "nodelen", node_len)
         >> GetOpt::Option('t', "out", outfile);
 
-    std::ofstream out(outfile);
-    if (!out.good()) throw std::invalid_argument("Unable to open output file \"" + outfile + "\"");
-
-    // Check if files are valid, create fai if necessary
-    vargas::VarFile vf(varfile);
-    vargas::FASTAFile fa(fastafile);
-
-    out << "@gdef" << std::endl
-        << "ref=" << fastafile << ';'
-        << "var=" << varfile << ';'
-        << "base=" << base_ingroup << ';'
-        << "reg=" << region << ';'
-        << "nlen=" << node_len << ';'
-        << "outgroup=" << outgroup << std::endl;
+    vargas::Gdef gdef(fasta_file, varfile, region, node_len);
 
     std::vector<std::string> ingroup_split = split(ingroups, ',');
-
     for (auto &ingrp_str : ingroup_split) {
-        int ingrp = std::stoi(ingrp_str);
-        for (int n = 0; n < num; ++n) {
-            dyn_bitset<64> filter(vf.num_samples() * 2);
-            for (unsigned int i = 0; i < filter.size(); ++i) {
-                if (rand() % 100 < ingrp) filter.set(i);
+        if (ingrp_str.at(0) == 'c') {
+            // Explicit number of individuals
+            size_t ingrp = std::stoi(ingrp_str.substr(1));
+            for (int n = 0; n < num; ++n) {
+                std::unordered_set<size_t> picked;
+                vargas::Graph::Population filter(gdef.num_samples() * 2);
+                while (picked.size() < ingrp) {
+                    size_t ind = rand() % (gdef.num_samples() * 2);
+                    if (picked.insert(ind).second) {
+                        filter.set(ind);
+                    }
+                }
+                gdef.add_population(vargas::GID(ingrp, n, false), filter);
             }
-            out << std::to_string(ingrp) + "," + std::to_string(n) << ":" << filter.to_string() << std::endl;
+        } else {
+            // Percentage
+            int ingrp = std::stoi(ingrp_str);
+            for (int n = 0; n < num; ++n) {
+                vargas::Graph::Population filter(gdef.num_samples() * 2);
+                for (unsigned int i = 0; i < filter.size(); ++i) {
+                    if (rand() % 100 < ingrp) filter.set(i);
+                }
+                gdef.add_population(vargas::GID(ingrp, n, true), filter);
+            }
         }
     }
 
+    gdef.write(outfile);
     return 0;
 }
 
-vargas::GraphBuilder load_gdef(std::string file_name,
-                               std::unordered_map<std::string, vargas::Graph::Population> &pset) {
-    std::ifstream in(file_name);
-    if (!in.good()) throw std::invalid_argument("Unable to open file \"" + file_name + "\"");
-
-    std::string line;
-    std::getline(in, line);
-    if (line != "@gdef") throw std::invalid_argument("Expected a GDEF file.");
-
-    std::getline(in, line);
-    auto line_split = split(line, ';');
-
-    std::string ref, var, reg, base, nlen;
-
-    for (auto &tpair : line_split) {
-        auto tpair_split = split(tpair, '=');
-        auto tag = tpair_split[0];
-        auto val = tpair_split[1];
-
-        if (tag == "ref") {
-            ref = val;
-        }
-        else if (tag == "var") {
-            var = val;
-        }
-        else if (tag == "base") {
-            base = val;
-        }
-        else if (tag == "reg") {
-            reg = val;
-        }
-        else if (tag == "nlen") {
-            nlen = val;
-        }
-    }
-
-    vargas::GraphBuilder gb(ref, var);
-    gb.node_len(std::stoi(nlen));
-    gb.region(reg);
-    gb.ingroup(std::stoi(base));
-
-    pset.clear();
-    while (std::getline(in, line)) {
-        split(line, ':', line_split);
-        vargas::Graph::Population pop(line_split[1].size());
-        for (size_t i = 0; i < line_split[1].length(); ++i) {
-            if (line_split[1][i] == '1') pop.set(i);
-        }
-        pset[line_split[0]] = pop;
-    }
-
-    return gb;
+void main_help() {
+    using std::cout;
+    using std::endl;
+    cout << endl
+        << "---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------\n";
+    cout << "Operating modes \'vargas MODE\':" << endl;
+    cout << "\tdefine      Define a set of graphs for use with sim/align.\n";
+    cout << "\tsim         Simulate reads from a set of graphs.\n";
+    cout << "\talign       Align reads to a set of graphs.\n";
+    cout << "\ttest        Run doctests.\n";
+    cout << "\tprofile     Run profiles.\n" << endl;
 }
 
 void define_help() {
@@ -852,28 +530,15 @@ void define_help() {
     using std::endl;
 
     cout << endl
-        << "-------------------- vargas define, " << __DATE__ << ". rgaddip1@jhu.edu --------------------" << endl;
-    cout << "-f\t--fasta         <string> Reference filename." << endl;
-    cout << "-v\t--var           <string> VCF/BCF filename." << endl;
-    cout << "-t\t--out           <string> Output filename." << endl;
-    cout << "-g\t--region        <string> Region of graph, format CHR:MIN-MAX." << endl;
-    cout << "-l\t--nodelen       <int> Max node length, default 1,000,000" << endl;
-    cout << "-b\t--base          <int> Base graph ingroup. -i graphs derived from this. Default 100%." << endl;
-    cout << "-i\t--ingroup       <int, int...> Percent ingroup subgraphs." << endl;
-    cout << "-n\t--num           <int> Number of unique graphs to create for all -i, -x. Default 1." << endl;
-}
-
-void main_help() {
-    using std::cout;
-    using std::endl;
-    cout << endl
-        << "---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
-    cout << "Operating modes \'vargas MODE\':" << endl;
-    cout << "\tdefine      Define a set of graphs for use with sim/align." << endl;
-    cout << "\tsim         Simulate reads from a graph." << endl;
-    cout << "\talign       Align reads to a graph." << endl;
-    cout << "\ttest        Run doctests." << endl;
-    cout << "\tprofile     Run profiles." << endl << endl;
+        << "-------------------- vargas define, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
+    cout << "-f\t--fasta         *<string> Reference filename.\n";
+    cout << "-v\t--var           *<string> VCF/BCF filename.\n";
+    cout << "-t\t--out           *<string> Output filename.\n";
+    cout << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX.\n";
+    cout << "-l\t--nodelen       <int> Max node length, default 1,000,000\n";
+    cout << "-i\t--ingroup       <int, int...> Percent ingroup subgraphs.\n";
+    cout << "\t                  Prefix with \'c\' to interpret as number of individuals.\n";
+    cout << "-n\t--num           <int> Number of unique graphs to create for all -i. Default 1.\n" << endl;
 }
 
 void profile_help() {
@@ -893,22 +558,25 @@ void align_help() {
     using std::endl;
 
     cout << endl
-        << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------" << endl;
-    cout << "-g\t--gdef          <string> Graph definition file." << endl;
-    cout << "-r\t--reads         <string, string...> Read files to align" << endl;
-    cout << "-t\t--outfile       <string> Alignment output file." << endl;
-    cout << "-l\t--rlen          <int> Max read length. Default 50." << endl;
-    cout << "-R\t                Align to reference graph." << endl;
-    cout << "-X\t                Align to maximum allele frequency graph." << endl;
-    cout << "-I\t                Align to ingroup graph." << endl;
-    cout << "-O\t                Align to outgroup graph." << endl;
-    cout << "-m\t--match         <int> Match score, default 2" << endl;
-    cout << "-n\t--mismatch      <int> Mismatch penalty, default 2" << endl;
-    cout << "-o\t--gap_open      <int> Gap opening penalty, default 3" << endl;
-    cout << "-e\t--gap_extend    <int> Gap extend penalty, default 1" << endl;
-    cout << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency." << endl << endl;
+        << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------\n";;
+    cout << "-g\t--gdef          *<string> Graph definition file.\n";
+    cout << "-r\t--reads         *<string, string...> Read files to align.\n";
+    cout << "-t\t--outfile       *<string> Alignment output file.\n";
+    cout << "-l\t--rlen          <int> Max read length. Default 50.\n";
+    cout << "-R\t                Align to reference graph.\n";
+    cout << "-X\t                Align to maximum allele frequency graph.\n";
+    cout << "-I\t                Align to ingroup graph.\n";
+    cout << "-O\t                Align to outgroup graph.\n";
+    cout << "-m\t--match         <int> Match score, default 2.\n";
+    cout << "-n\t--mismatch      <int> Mismatch penalty, default 2.\n";
+    cout << "-o\t--gap_open      <int> Gap opening penalty, default 3.\n";
+    cout << "-e\t--gap_extend    <int> Gap extend penalty, default 1.\n";
+    cout << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
 
-    cout << "Lines beginning with \'#\' are ignored." << endl;
+    cout << "Lines beginning with \'#\' are ignored.\n";
+    cout << "Output format:\n\t[RXIO], read origin ingroup, read origin graph number, read sequence,\n"
+        << " read origin pos, read sub errors, read indel errors, read variant nodes, read variant bases,\n"
+        << " best score, best pos, best count, sub score, sub pos, sub count, corflag\n" << endl;
 }
 
 void sim_help() {
@@ -916,20 +584,19 @@ void sim_help() {
     using std::endl;
 
     cout << endl
-        << "-------------------- vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------" << endl;
-    cout << "-g\t--gdef          <string> Graph definition file." << endl;
-    cout << "-t\t--outfile       <string> Alignment output file." << endl;
-    cout << "-s\t--source        <string; string...> Simulate from specified subgraphs, default all." << endl;
-    cout << "-n\t--numreads      <int> Number of reads to simulate from each subgraph." << endl;
-    cout << "-m\t--muterr        <float, float...> Read mutation error. Default 0." << endl;
-    cout << "-i\t--indelerr      <float, float...> Read indel error. Default 0." << endl;
-    cout << "-v\t--vnodes        <int, int...> Number of variant nodes, default any (-1)." << endl;
-    cout << "-b\t--vbases        <int, int...> Number of variant bases, default any (-1)." << endl;
-    cout << "-l\t--rlen          <int> Read length, default 50." << endl;
-    cout << "-a\t--rate          Interpret -m, -i as rates, instead of exact number of errors." << endl;
-    cout << "-e\t--exclude       Exclude comments, include only FASTA lines" << endl;
-    cout << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency." << endl << endl;
+        << "-------------------- vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
+    cout << "-g\t--gdef          *<string> Graph definition file. Reads are simulated from Ingroups.\n";
+    cout << "-t\t--outfile       *<string> Alignment output file.\n";
+    cout << "-o\t--outgroup      Simulate from outgroup graphs.\n";
+    cout << "-n\t--numreads      <int> Number of reads to simulate from each subgraph, default 1000.\n";
+    cout << "-m\t--muterr        <float, float...> Read mutation error. Default 0.\n";
+    cout << "-i\t--indelerr      <float, float...> Read indel error. Default 0.\n";
+    cout << "-v\t--vnodes        <int, int...> Number of variant nodes, default any (-1).\n";
+    cout << "-b\t--vbases        <int, int...> Number of variant bases, default any (-1).\n";
+    cout << "-l\t--rlen          <int> Read length, default 50.\n";
+    cout << "-a\t--rate          Interpret -m, -i as rates, instead of exact number of errors.\n";
+    cout << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
 
-    cout << "Comments preceded by \'#\'." << endl;
+    cout << "Comments preceded by \'#\'.\n";
     cout << "-n reads are produced for each -s, -m, -i, -v combination." << endl << endl;
 }

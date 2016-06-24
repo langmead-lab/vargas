@@ -26,7 +26,6 @@ bool vargas::ReadFile::update_read() {
 
   if (line.at(0) != '>') {
     read.read = line;
-    read.desc = "-";
     read.end_pos = 0;
     read.indiv = -1;
     read.sub_err = -1;
@@ -55,8 +54,10 @@ bool vargas::ReadFile::update_read() {
       else if (tag == READ_META_VARBASE) {
         read.var_bases = std::stoi(val);
       }
-      else if (tag == READ_META_DESC) {
-        read.desc = val;
+      else if (tag == READ_META_SRC) {
+        std::vector<std::string> s = split(val, ',');
+        read.src = GID(std::stoi(s[1]), std::stoi(s[2]), s[3] == "1");
+        read.src.outgroup = s[0] == "o";
       }
     }
 
