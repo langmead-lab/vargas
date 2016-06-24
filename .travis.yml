@@ -3,6 +3,6 @@ compiler:
 - clang
 - gcc
 script:
-- cd htslib && autoconf && ./configure && make
-- mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make
+- cd htslib && autoconf && ./configure && make && cd ../
+- mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make && cd ../
 - bin/vargas test
