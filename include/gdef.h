@@ -69,6 +69,7 @@ namespace vargas {
   /**
    * Provides an interface for working with GDEF files.
    */
+
   class Gdef {
     public:
       /**
@@ -134,7 +135,7 @@ namespace vargas {
               for (size_t i = 0; i < p_pair[1].length(); ++i) {
                   if (p_pair[1][i] == '1') pop.set(i);
               }
-              GID g = GID(std::stoi(gid[1]), std::stoi(gid[2]), gid[3] == "1");
+              GID g(std::stoi(gid[1]), std::stoi(gid[2]), gid[3] == "1");
               g.outgroup = gid[0] == "o";
               add_population(g, pop);
           }

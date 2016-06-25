@@ -189,6 +189,12 @@ namespace vargas {
           }
 
 
+          // Have read reflect profile, mainly for when params are -1
+          read.var_nodes = _prof.var_nodes;
+          read.indel_err = _prof.indel;
+          read.sub_err = _prof.mut;
+          read.var_bases = _prof.var_bases;
+
           read.read_orig = read_str;
           read.read = read_mut;
           read.read_num = seq_to_num(read_mut);

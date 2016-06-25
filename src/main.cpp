@@ -284,37 +284,53 @@ int align_main(const int argc, const char *argv[]) {
     auto &pops = gdf.populations();
 
     if (R) {
+        std::cout << "Aligning to reference..." << std::endl;
         vargas::Graph subgraph = vargas::Graph(base_graph, vargas::Graph::REF);
-        for (auto &reads : read_origins) align_to_graph("r", subgraph, reads.second, aligners, out, threads);
+        for (auto &reads : read_origins) {
+            std::cout << "\tGID: " << reads.first << std::endl;
+            align_to_graph("r", subgraph, reads.second, aligners, out, threads);
+        }
+        std::cout << "Done." << std::endl;
     }
     if (X) {
+        std::cout << "Aligning to MAX AF..." << std::endl;
         vargas::Graph subgraph = vargas::Graph(base_graph, vargas::Graph::MAXAF);
-        for (auto &reads : read_origins) align_to_graph("x", subgraph, reads.second, aligners, out, threads);
+        for (auto &reads : read_origins) {
+            std::cout << "\tGID: " << reads.first << std::endl;
+            align_to_graph("x", subgraph, reads.second, aligners, out, threads);
+        }
+        std::cout << "Done." << std::endl;
     }
     if (I) {
+        std::cout << "Aligning to Ingroup..." << std::endl;
         for (auto &reads : read_origins) {
             /**
              * Align to the same graph that the read came from, but enforce
              * that it be the ingroup version.
              */
+            std::cout << "\tGID: " << reads.first << std::endl;
             vargas::GID g = reads.first;
             g.outgroup = false;
             vargas::Graph subgraph = vargas::Graph(base_graph, pops.at(g));
             align_to_graph("i", subgraph, reads.second, aligners, out, threads);
         }
+        std::cout << "Done." << std::endl;
     }
     if (O) {
+        std::cout << "Aligning to Outgroup..." << std::endl;
         gdf.include_outgroups();
         for (auto &reads : read_origins) {
             /**
              * Align to the same graph that the read came from, but enforce
              * that it be the outgroup version.
              */
+            std::cout << "\tGID: " << reads.first << std::endl;
             vargas::GID g = reads.first;
             g.outgroup = true;
             vargas::Graph subgraph = vargas::Graph(base_graph, pops.at(g));
             align_to_graph("o", subgraph, reads.second, aligners, out, threads);
         }
+        std::cout << "Done." << std::endl;
     }
     return 0;
 }
@@ -348,14 +364,16 @@ void align_to_graph(std::string label,
         // Once we use the allocated threads let them all finish.
         if (jobs.size() == threads || i == batches) {
             std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
-            jobs.clear();
 
             // Print alignments
-            for (auto &aset : aligns) {
+            for (size_t i = 0; i < jobs.size(); ++i) {
+                auto &aset = aligns[i];
                 for (auto &a : aset) {
                     out << label << ',' << a << std::endl;
                 }
             }
+
+            jobs.clear();
         }
     }
 }
@@ -424,6 +442,7 @@ int sim_main(const int argc, const char *argv[]) {
 
     // For each subgraph type
     for (auto &pop : pops) {
+        std::cout << "Subgraph: " << pop.first << std::endl;
         // Create subgraph
         vargas::Graph subgraph;
         subgraph = vargas::Graph(base_graph, pop.second);
@@ -431,29 +450,33 @@ int sim_main(const int argc, const char *argv[]) {
 
         std::vector<std::shared_ptr<vargas::ReadSim>> sims;
         vargas::ReadSim rs_template(subgraph);
-        for (unsigned int i = 0; i < threads; ++i) sims.push_back(std::make_shared<vargas::ReadSim>(rs_template));
+        for (unsigned int i = 0; i < threads; ++i) {
+            sims.push_back(std::make_shared<vargas::ReadSim>(rs_template));
+        }
 
         for (size_t p = 0; p < pending_sims.size(); ++p) {
             auto &prof = pending_sims[p];
+            std::cout << "\tProfile: (" << prof << ")" << std::endl;
             sims[jobs.size()]->set_prof(prof);
             jobs.emplace(jobs.end(), &vargas::ReadSim::get_batch, sims[jobs.size()], num_reads);
 
-            if (jobs.size() == threads) {
+            if (jobs.size() == threads || p == pending_sims.size() - 1) {
                 std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
-                jobs.clear();
-            }
 
-            for (auto &s : sims) {
-                for (auto r : s->batch()) {
-                    r.src = pop.first;
-                    out << r << std::endl;
+                for (size_t i = 0; i < jobs.size(); ++i) {
+                    auto &s = sims[i];
+                    for (auto r : s->batch()) {
+                        r.src = pop.first;
+                        out << r << std::endl;
 
                     }
                 }
+
+                jobs.clear();
             }
-        std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
-        jobs.clear();
+
         }
+    }
 
     return 0;
 }
@@ -509,6 +532,7 @@ int define_main(const int argc, const char *argv[]) {
     }
 
     gdef.write(outfile);
+    std::cout << gdef.populations().size() << " subgraph definitions created." << std::endl;
     return 0;
 }
 
