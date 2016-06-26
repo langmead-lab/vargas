@@ -313,3 +313,117 @@ void vargas::GraphBuilder::ingroup(int percent) {
   if (percent < 0 || percent > 100) return;
   _ingroup = percent;
 }
+
+vargas::Graph::Population vargas::Graph::subset(int ingroup) const {
+  vargas::Graph::Population p(_pop_size);
+  for (size_t i = 0; i < _pop_size; ++i) {
+    if (rand() % 100 < ingroup) p.set(i);
+  }
+  return p;
+}
+
+bool vargas::Graph::FilteringIter::operator==(const vargas::Graph::FilteringIter &other) const {
+  if (_type == END && other._type == END) return true; // All ends are equal
+  if (_type != other._type) return false; // Same type of iterator
+  if (&_graph != &other._graph) return false; // same base graph
+  return _currID == other._currID;
+}
+
+bool vargas::Graph::FilteringIter::operator!=(const vargas::Graph::FilteringIter &other) const {
+  if (_type == END && other._type == END) return false;
+  if (_type != other._type) return true;
+  if (&_graph != &other._graph) return true;
+  return _currID != other._currID;
+}
+
+vargas::Graph::FilteringIter &vargas::Graph::FilteringIter::operator++() {
+  // If end of graph has been reached
+  if (_type == END) return *this;
+
+  if (_type == TOPO) {
+    ++_currID;
+    if (_currID == _add_order_size) _type = END;
+    return *this;
+  }
+
+  if (_graph._next_map.count(_currID) == 0) {
+    _type = END;
+    return *this;
+  }
+
+  const auto &next_vec = _graph._next_map.at(_currID);
+  const auto &graph_map = *(_graph._IDMap);
+
+  switch (_type) {
+    case REF:
+      for (const uint32_t &nextID : next_vec) {
+        if (graph_map.at(nextID)->is_ref()) {
+          _insert_queue(nextID);
+          break; // Assuming there is only one REF node per branch
+        }
+      }
+          break;
+
+    case FILTER:
+      for (const uint32_t &nextID : next_vec) {
+        // Add all nodes that intersect with filter
+        if (graph_map.at(nextID)->belongs(_filter)) _insert_queue(nextID);
+      }
+          break;
+
+    case MAXAF: {
+      uint32_t max_id = graph_map.at(next_vec.at(0))->id();
+      float max_af = graph_map.at(next_vec.at(0))->freq();
+      float freq;
+      for (size_t i = 1; i < next_vec.size(); ++i) {
+        freq = graph_map.at(next_vec.at(i))->freq();
+        if (freq > max_af) {
+          max_af = freq;
+          max_id = graph_map.at(next_vec.at(i))->id();
+        }
+      }
+      _insert_queue(max_id);
+    }
+          break;
+
+    default:
+      throw std::logic_error("Invalid type.");
+  }
+
+
+  if (_queue.empty()) {
+    _type = END;
+    return *this;
+  }
+
+  _traversed.insert(_currID); // Insert previous iterator position (node id)
+  _currID = _queue.front();
+  _queue.pop();
+  _queue_unique.erase(_currID);
+  return *this;
+}
+
+const vargas::Graph::Node &vargas::Graph::FilteringIter::operator*() const {
+  if (_type == TOPO) return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
+  if (_type == END) return *(_graph._IDMap->at(*(_graph._add_order.end())));
+  return *(_graph._IDMap->at(_currID));
+}
+
+const std::vector<uint32_t> &vargas::Graph::FilteringIter::incoming() {
+  _incoming.clear();
+  if (_type == TOPO) {
+    const uint32_t nid = _graph._add_order.at(_currID);
+    if (_graph._prev_map.count(nid) == 0) return _incoming;
+    return _graph._prev_map.at(nid);
+  }
+  if (_graph._prev_map.count(_currID) == 0) return _incoming;
+  for (auto &id : _graph._prev_map.at(_currID)) {
+    if (_traversed.count(id)) _incoming.push_back(id);
+  }
+  return _incoming;
+}
+
+const std::vector<uint32_t> &vargas::Graph::FilteringIter::outgoing() {
+  if (_graph._prev_map.count(_currID) == 0) return _outgoing;
+  return _graph._next_map.at(_graph._add_order.at(_currID));
+}

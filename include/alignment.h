@@ -30,8 +30,8 @@
 namespace vargas {
 
 /**
- * @struct
- * @brief Read alignment storage struct.
+ * @brief
+ * Read alignment storage struct.
  * @details
  * Stores a Read and associated alignment information. Best alignment information as well
  * as second best alignment information is stored. The stored alignment does not necessarily match

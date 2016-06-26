@@ -4,4 +4,4 @@ Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned u
 
 # Documentation
 
-Full documentation can be found [here](http://gaddra.github.io/vargas/).
+Full documentation can be found [here](http://RaviGaddipati.github.io/vargas/).
