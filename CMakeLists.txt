@@ -14,7 +14,8 @@ set(MAIN_SOURCES
         src/graph.cpp
         src/utils.cpp
         src/readfile.cpp
-        src/varfile.cpp)
+        src/varfile.cpp
+        src/sim.cpp)
 
 
 #include(libsimdpp/cmake/SimdppMultiarch.cmake)

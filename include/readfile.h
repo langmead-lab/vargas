@@ -1,12 +1,13 @@
 /**
- * Ravi Gaddipati
- * November 24, 2015
+ * @author Ravi Gaddipati
+ * @date November 24, 2015
  * rgaddip1@jhu.edu
  *
+ * @brief
  * Wrapper for a reads file that loads reads and meta information
  * into a Read structure.
  *
- * @file readfile.h
+ * @file
  */
 
 #ifndef VARGAS_READFILE_H
@@ -16,6 +17,10 @@
 
 namespace vargas {
 
+  /**
+   * @brief
+   * Interface to a FASTA read file.
+   */
 class ReadFile: public ReadSource {
 
  public:
@@ -34,26 +39,30 @@ class ReadFile: public ReadSource {
   }
 
     /*
+     * @brief
      * Updates the stored read.
      * @return True if it was successful. False if end of file.
      */
   bool update_read() override;
 
-  /*
-   * Comment lines.
-   * @return Line delimited comment lines.
-   */
+    /*
+     * @brief
+     * Get comment lines.
+     * @return Line delimited comment lines.
+     */
   std::string get_header() const override { return header; }
 
-  /*
-   * fast forward reads until this line.
-   * @param read Raw sequence to resume from (does not return this read).
-   */
+    /*
+     * @brief
+     * fast forward reads until this line.
+     * @param read Raw sequence to resume from (does not return this read).
+     */
   void resume_from(std::string read);
 
 
  protected:
-  std::string line;
+    std::string line;
+    /**< Current line loaded from file */
   std::ifstream _read_file;
   std::vector<std::string> _split_meta;
 

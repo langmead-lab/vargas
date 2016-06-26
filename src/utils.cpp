@@ -1,11 +1,12 @@
 /**
- * Ravi Gaddipati
- * November 23, 2015
+ * @author Ravi Gaddipati
+ * @date November 23, 2015
  * rgaddip1@jhu.edu
  *
- *contains common functions.
+ * @brief
+ * Contains common functions.
  *
- * utils.cpp
+ * @file
  */
 
 

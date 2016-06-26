@@ -1,12 +1,12 @@
 /**
+ * @file
  * @author Ravi Gaddipati (rgaddip1@jhu.edu)
  * @date May 26, 2016
  *
- * Provides a C++ wrapper for htslib. FASTAFile provides an interface
- * to a FASTA formatted file. An index is created for the opened
- * file if it does not exist.
- *
- * @file fasta.h
+ * @brief
+ * FASTAFile provides an interface to a FASTA formatted file through htslib.
+ * @details
+ * An index is created for the opened file if it does not exist.
  */
 
 #ifndef VARGAS_FASTA_H
@@ -20,16 +20,18 @@
 
 namespace vargas {
 /**
+ * @brief
 * Provides an interface for a FASTA File. An index is built if one does not
 * already exist.
 */
 class FASTAFile {
 
  public:
-  /**
-   * Load a given FASTA and index, create if none exists.
-   * @param file filename
-   */
+    /**
+     * @brief
+     * Load a given FASTA and index, create if none exists.
+     * @param file filename
+     */
   FASTAFile(std::string file) : _file_name(file) { _init(); }
 
   FASTAFile() { }
@@ -43,29 +45,32 @@ class FASTAFile {
     _index = NULL;
     _file_name = "";
   }
-  /**
-   * Open a specified FASTA file and make an index.
-   * @param file filename
-   * @return -1 on index build error, -2 on open error, 0 otherwise
-   */
+    /**
+     * @brief
+     * Open a specified FASTA file and make an index.
+     * @param file filename
+     * @return -1 on index build error, -2 on open error, 0 otherwise
+     */
   int open(std::string file) {
     _file_name = file;
     return _init();
   }
 
-  /**
-   * Check the number of sequences in the index.
-   * @return number of sequences in the FASTA file
-   */
+    /**
+     * @brief
+     * Check the number of sequences in the index.
+     * @return number of sequences in the FASTA file
+     */
   int num_seq() const { return faidx_nseq(_index); }
 
-  /**
-   * Return a subsequence of the FASTA file, absolute 0 based indexing.
-   * The position is not relative to the min/max params.
-   * @param beg beginning index
-   * @param end ending index, inclusive
-   * @return subsequence string
-   */
+    /**
+     * @brief
+     * Return a subsequence of the FASTA file, absolute 0 based indexing.
+     * The position is not relative to the min/max params.
+     * @param beg beginning index
+     * @param end ending index, inclusive
+     * @return subsequence string
+     */
   std::string subseq(std::string chr, int beg, int end) const {
     int len;
     char *ss = faidx_fetch_seq(_index, chr.c_str(), beg, end, &len);
@@ -74,26 +79,29 @@ class FASTAFile {
     return ret;
   }
 
-  /**
-   * @param sequence name
-   * @return sequence length
-   */
+    /**
+     * @brief
+     * @param sequence name
+     * @return sequence length
+     */
   int seq_len(std::string seq) { return faidx_seq_len(_index, seq.c_str()); }
 
-  /**
-   * Sequence name given a sequence ID.
-   * @param ID of sequence
-   * @return sequence name
-   */
+    /**
+     * @brief
+     * Sequence name given a sequence ID.
+     * @param ID of sequence
+     * @return sequence name
+     */
   std::string seq_name(int i) const {
     if (i > num_seq()) return "";
     return std::string(faidx_iseq(_index, i));
   }
 
-  /**
-   * Get all sequences in the File
-   * @return vector of sequence names.
-   */
+    /**
+     * @brief
+     * Get all sequences in the File
+     * @return vector of sequence names.
+     */
   std::vector<std::string> sequences() const {
     std::vector<std::string> ret;
     for (int i = 0; i < num_seq(); ++i) {
@@ -102,16 +110,23 @@ class FASTAFile {
     return ret;
   }
 
+    /**
+     * @return true if FASTA index loaded
+     */
   bool good() const { return _index != nullptr; }
 
+    /**
+     * @return FASTA file name
+     */
   std::string file() const { return _file_name; }
 
 
  protected:
 
-  /**
-   * Loads a FASTA index. If the index does not exist, one is created.
-   */
+    /**
+     * @brief
+     * Loads a FASTA index. If the index does not exist, one is created.
+     */
   int _init() {
     // Check if a Fasta index exists. If it doesn't build it.
     bool exists;
@@ -136,7 +151,8 @@ class FASTAFile {
   std::string _file_name;
   faidx_t *_index = nullptr;
 };
-TEST_CASE ("FASTA Handler") {
+
+  TEST_CASE ("FASTA Handler") {
   using std::endl;
   std::string tmpfa = "tmp_tc.fa";
   {

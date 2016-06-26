@@ -3,6 +3,7 @@
  * June 22, 2016
  * rgaddip1@jhu.edu
  *
+ * @brief
  * Abstract class for objects that can be used as a
  * source of reads (i.e. ReadSim and ReadFile).
  *
@@ -31,17 +32,8 @@ namespace vargas {
   const char READ_FASTA_META_DELIM = ' ';
 
 /**
+ * @brief
  * Struct to represent a Read.
- * @param read_orig unmutated read sequence
- * @param read base sequence.
- * @param read_num Numeric read representation
- * @param end_pos position of last base in seq.
- * @param indiv Individual the read was taken from.
- * @param sub_err Number of substitiution errors introduced.
- * @param var_nodes Number of variant nodes the read traverses.
- * @param var_bases Number of bases that are in variant nodes.
- * @param indel_err Number of insertions and deletions introduced.
- * @param src Read origin graph, as defined in GDEF file
  */
   struct Read {
       Read() : read_orig(""), read(""),
@@ -50,24 +42,34 @@ namespace vargas {
                             end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1), indel_err(-1) { }
 
       std::string read_orig;
+      /**< unmutated read sequence */
       std::string read;
+      /**< base sequence. */
       std::vector<Base> read_num;
+      /**< Numeric read representation */
       int32_t end_pos;
+      /**< position of last base in seq. */
       int32_t indiv;
+      /**< Individual the read was taken from. */
       int32_t sub_err;
+      /**< Number of substitiution errors introduced. */
       int32_t var_nodes;
+      /**< Number of variant nodes the read traverses. */
       int32_t var_bases;
+      /**< Number of bases that are in variant nodes. */
       int32_t indel_err;
-      GID src;
+      /**< Number of insertions and deletions introduced. */
+      GID src; /**< Read origin graph, as defined in GDEF file. */
 
   };
 
   /**
-   * Output two lines given the form:
-   *
-   * > Meta information
-   * read_sequence
-   *
+   * @brief
+   * Output two lines in FASTA format.
+   * @details
+   * Output two lines given the form: \n
+   * > Meta information \n
+   * read_sequence \n
    * @param r Read to print
    * @return two-line string
    */
@@ -86,8 +88,11 @@ namespace vargas {
   }
 
   /**
-   * Convert the read to single line CSV with the form:
-   * src,read_seq,end_pos,sub_err,indel_err,var_nodes,var_bases
+   * @brief
+   * Convert the read to a single line CSV.
+   * @details
+   * Output form: \n
+   * src,read_seq,end_pos,sub_err,indel_err,var_nodes,var_bases \n
    * @param r Read to print
    * @return single line string
    */
@@ -115,7 +120,10 @@ namespace vargas {
   }
 
 /**
- * Class defining functions for read sources. A read source encapsulates
+ * @brief
+ * Class defining functions for read sources.
+ * @details
+ * A read source encapsulates
  * one read at a time. The stored read is updated with update_read(), and obtained
  * with get_read().
  */
@@ -127,6 +135,7 @@ namespace vargas {
       virtual ~ReadSource() { }
 
       /**
+       * @brief
        * Updates the stored and and returns the read.
        * @return String representation of Read, FASTA form
        */
@@ -138,6 +147,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Convert the read to the FASTA form.
        * @return two line string
        */
@@ -159,12 +169,14 @@ namespace vargas {
       virtual std::string get_header() const = 0;
 
       /**
+       * @brief
        * Update the current stored read.
        * @return true on success
        */
       virtual bool update_read() = 0;
 
       /**
+       * @brief
        * Get size reads. If more reads are not available, a undersized
        * batch is returned.
        * @param size nominal number of reads to get.
@@ -180,6 +192,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Get the stored batch of reads.
        * @return vector of Reads
        */
@@ -201,14 +214,17 @@ namespace vargas {
   };
 
   /**
-   * Container for a packaged batch of reads. Reads are interleaved so each SIMD vector
+   * @brief
+   * Container for a packaged batch of reads.
+   * @details
+   * Reads are interleaved so each SIMD vector
    * contains bases from all reads, respective to the base number. For example ReadBatch[0]
    * would contain the first bases of every read. Short reads or missing reads are padded
    * with Base::N.
-   * @param num_reads max number of reads. If a non-default T is used, this should be set to
+   * @tparam num_reads max number of reads. If a non-default T is used, this should be set to
    *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
    *    SIMDPP_FAST_INT8_SIZE
-   * @param T element type
+   * @tparam T element type
    */
 
   template<unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
@@ -216,15 +232,13 @@ namespace vargas {
   class ReadBatch {
     public:
 
-      // Optimal number of elements in the vector for the current architecture
-      //const static int num_reads = SIMDPP_FAST_INT8_SIZE;
-
       /**
        * @param len maximum read length
        */
       ReadBatch(int len) : read_len(len) { }
 
       /**
+       * @brief
        * Read length is set to first read size.
        * @param batch package the given vector of reads. Must be nonempty.
        */
@@ -235,6 +249,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Read length is set to first read size.
        * @param obtain a batch of reads from the Read source and package them.
        */
@@ -261,6 +276,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Load reads from a read source.
        * @param Read source to load a batch from.
        */
@@ -279,6 +295,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Return the i'th base of every read in a simdpp vector.
        * @param base index.
        */
@@ -288,6 +305,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Pointer to raw packaged read data.
        * @return T<num_reads> pointer
        */
@@ -296,6 +314,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Non const version of at(i).
        * @param base index
        */
@@ -309,6 +328,7 @@ namespace vargas {
       size_t max_len() const { return read_len; }
 
       /**
+       * @brief
        * Returns optimal number of reads in a batch based on SIMD architecture.
        * @return batch size.
        */
@@ -320,6 +340,7 @@ namespace vargas {
       const std::vector<Read> &reads() const { return _reads; }
 
       /**
+       * @brief
        * Get a read, empty read if out of range.
        * @param i index of read
        * @return Read at i
@@ -330,6 +351,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Get the utilization of the batch capacity. In effect how much
        * padding was used.
        * @return fill, between 0 and 1.

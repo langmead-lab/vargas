@@ -1,10 +1,10 @@
 /**
+ * @file
  * @author Ravi Gaddipati (rgaddip1@jhu.edu)
  * @date June 05, 2016
  *
+ * @brief
  * Emulates a dynamic bitset by utilizing a vector of fixed size bitsets.
- *
- * dyn_bitset.h
  */
 
 #include <vector>
@@ -16,6 +16,8 @@
 #define VARGAS_DYN_BITSET_H
 
 /**
+ * @brief Dynamic bitset backed by fixed bitsets.
+ * @details
  * Groups together multiple fixed bitsets to emulate a dynamic bitset.
  * A vector of std::bitset<core_size> maintains the information.
  */
@@ -25,6 +27,7 @@ class dyn_bitset {
   public:
     dyn_bitset() { }
     /**
+     * @brief
      * Initilize a bitset of length len, all set to val.
      * @param len bitset length
      * @param val true/false
@@ -39,6 +42,7 @@ class dyn_bitset {
     };
 
     /**
+     * @brief
      * Create a dyn_bitset from a vector. Each bit is
      * set according to the truth of each vector element.
      * @param vector<T>
@@ -49,6 +53,7 @@ class dyn_bitset {
     }
 
     /**
+     * @brief
      * Create a dyn_bitset from a vector. Each bit is
      * set according to the truth of each vector element.
      * @param vector<T>
@@ -69,6 +74,7 @@ class dyn_bitset {
     inline size_t size() const { return (_bitset.size() * core_size) - _right_pad; }
 
     /**
+     * @brief
      * Set all bits to true.
      */
     void set() {
@@ -76,6 +82,7 @@ class dyn_bitset {
     }
 
     /**
+     * @brief
      * Set all bits to false.
      */
     void reset() {
@@ -83,6 +90,7 @@ class dyn_bitset {
     }
 
     /**
+     * @brief
      * Set a single bit, default true
      * @param bit bit index
      * @param val value to set bit to.
@@ -104,6 +112,7 @@ class dyn_bitset {
     }
 
     /**
+     * @brief
      * Flips the specified bit.
      * @param bit bit index
      */
@@ -113,6 +122,7 @@ class dyn_bitset {
     }
 
     /**
+     * @brief
      * Value of a single bit
      * @param bit bit index
      */
@@ -122,6 +132,7 @@ class dyn_bitset {
     }
 
     /**
+     * @brief
      * Alias for at(). Does not allow setting.
      * @param idx index of bit to get
      */
@@ -130,6 +141,7 @@ class dyn_bitset {
     }
 
     /**
+     * @brief
      * Flips every bit (negation)
      * @return negated bitset
      */
@@ -142,6 +154,7 @@ class dyn_bitset {
     }
 
     /**
+     * @brief
      * Add a bit.
      * @param val 0/1 bit
      */
@@ -155,6 +168,7 @@ class dyn_bitset {
     }
 
     /**
+     * brief
      * Const ref to raw data container
      * @return vector of bitsets.
      */
@@ -173,10 +187,12 @@ class dyn_bitset {
     bool operator!=(const dyn_bitset &db) const { return !operator==(db); }
 
     /**
+     * @brief
      * operator returns true if there is a common bit set.
      * Returns false if there is a dimension mismatch.
-     * e.g:
-     * 0101 && 1010 = false
+     * @details
+     * e.g: \n
+     * 0101 && 1010 = false \n
      * 0010 && 1011 = true
      */
     bool operator&&(const dyn_bitset &db) const {
@@ -217,6 +233,7 @@ class dyn_bitset {
   protected:
 
     /**
+     * @brief
      * Sets a bit if the corresponding vector element tests true.
      * @param vec vector of values to test
      */

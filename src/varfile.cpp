@@ -1,6 +1,13 @@
-//
-// Created by gaddra on 6/8/16.
-//
+/**
+ * Ravi Gaddipati
+ * November 23, 2015
+ * rgaddip1@jhu.edu
+ *
+ * @brief
+ * Provides tools to interact with VCF/BCF files.
+ *
+ * @file
+ */
 
 #include "varfile.h"
 

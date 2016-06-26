@@ -1,12 +1,13 @@
 /**
- * Ravi Gaddipati
- * November 24, 2015
+ *@author Ravi Gaddipati
+ *@date November 24, 2015
  * rgaddip1@jhu.edu
  *
+ * @brief
  * Wrapper for a reads file that loads reads and meta information
  * into a Read structure.
  *
- * readfile.cpp
+ * @file
  */
 
 #include <string>

@@ -1,12 +1,13 @@
 /**
- * Ravi Gaddipati
- * June 24, 2016
+ * @author Ravi Gaddipati
+ * @date June 24, 2016
  * rgaddip1@jhu.edu
  *
+ * @brief
  * Defines a set of subgraphs from a given reference
  * and vcf file.
  *
- * @file gdef.h
+ * @file
  */
 
 #ifndef VARGAS_GDEF_H
@@ -20,23 +21,34 @@
 namespace vargas {
 
   /**
+   * @brief
    * Uniquely identifies a subgraph when mapped to a Population.
-   * @param num Percent or number of individuals included in the graph.
-   * @param id unique id if multiple graphs of num exist.
-   * @param pct if true, num is a percentage. Otherwise number of individuals.
-   * @param outgroup true if the origin was an outgroup graph.
+   * @param
+   * @param
+   * @param
+   * @param outgroup t
    */
   struct GID {
       GID() : num(100), id(0), pct(true), outgroup(false) { }
+      /**
+       * @brief
+       * @param num if percent, set pct=true. If number of individuals, set pct=false.
+       * @param id Unique ID for a given num
+       * @param pct True if num is a percentage
+       */
       GID(int num, int id, bool pct = false) : num(num), id(id), pct(pct), outgroup(false) { }
 
       int num;
+      /**< Percent or number of individuals included in the graph. */
       int id;
-      bool pct; // If true, is a percent. Otherwise # of indivs
-      bool outgroup; // From outgroup graph
+      /**< unique id if multiple graphs of num exist. */
+      bool pct;
+      /**< if true, num is a percentage. Otherwise number of individuals.*/
+      bool outgroup; /**< rue if the origin was an outgroup graph.*/
   };
 
   /**
+   * @brief
    * Operator used to map GID's.
    * @param a GID a
    * @param b GID b
@@ -49,6 +61,7 @@ namespace vargas {
   }
 
   /**
+   * @brief
    * Outputs the GID in a CSV format:\n
    * [o,i],num,id,pct\n
    * @param os Output stream
@@ -67,12 +80,13 @@ namespace vargas {
   }
 
   /**
+   * @brief
    * Provides an interface for working with GDEF files.
    */
-
   class Gdef {
     public:
       /**
+       * @brief
        * Create a new gdef using the given parameters.
        * @param fasta_file file name of reference seq
        * @param var_file file name of VCF or BCF file
@@ -86,12 +100,14 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Load an existing GDEF file
        * @param file_name GDEF to load
        */
       Gdef(std::string file_name) { load(file_name); }
 
       /**
+       * @brief
        * Load a given GDEF file.
        * @param file_name GDEF file to load
        */
@@ -142,6 +158,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * After params have been set, write the gdef to a file.
        * @param file_name output file name.
        */
@@ -168,7 +185,8 @@ namespace vargas {
       }
 
       /**
-       * Add a population to the gdef. All added graphs should
+       * @brief
+       * Add a Population to the gdef. All added graphs should
        * be ingroup graphs since outgroups are derived.
        * @param key GID
        * @param pop Population included in the graph
@@ -181,6 +199,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Creates outgroup versions of all graphs that exist.
        */
       void include_outgroups() {
@@ -193,12 +212,14 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Set the reference file.
        * @param fasta Relative path to fasta file.
        */
       void set_fasta(std::string fasta) { _fasta_file = fasta; }
 
       /**
+       * @brief
        * Set the variant file.
        * @param varfile Relative path to variant file.
        */
@@ -209,6 +230,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Set the region of the graph to build.
        * @param region format: CHR:XX,XXX-YY,YYY
        */
@@ -220,7 +242,8 @@ namespace vargas {
       void set_node_length(int node_len) { _node_len = node_len; }
 
       /**
-       * Get the number of samples present in the given varfile.
+       * @brief
+       * Get the number of samples present in the given VarFile.
        * @return number of samples, 0 if no var file.
        */
       size_t num_samples() const { return _num_samples; }
@@ -241,6 +264,7 @@ namespace vargas {
       std::string region() const { return _region; }
 
       /**
+       * @brief
        * Return a map of all subgraphs defined in the file/added.
        * Outgroup graphs are also included if include_outgroups() was called.
        */

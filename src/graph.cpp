@@ -2,13 +2,10 @@
  * @author Ravi Gaddipati (rgaddip1@jhu.edu)
  * @date November 20, 2015
  *
+ * @brief
  * vargas::Graph is a DAG representation of a reference and its variants.
- * The class wraps a gssw_graph from gssw and provides a way to construct
- * graphs from a FASTA and a VCF file with various options.
  *
- * GSSW was originally written by Erik Garrison and was moderately modified.
- *
- * graph.cpp
+ * @file
  */
 
 #include <string>

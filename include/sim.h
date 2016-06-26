@@ -1,11 +1,12 @@
 /**
- * Ravi Gaddipati
- * June 26, 2016
+ * @author Ravi Gaddipati
+ * @date June 26, 2016
  * rgaddip1@jhu.edu
  *
+ * @brief
  * Simulates random reads from a graph, returning reads that follow a specified ReadProfile.
  *
- * @file sim.h
+ * @file
  */
 
 #ifndef VARGAS_SIM_H
@@ -17,25 +18,28 @@
 namespace vargas {
 
   /**
+   * @brief
    * Parameter list controlling the types of reads created.
-   * @param len Nominal length of the read
-   * @param mut Number of mutation errors, or rate
-   * @param indel number of insertions/deletions, or rate
-   * @param rand Introduce mutations and indels at a random rate
-   * @param var_nodes Number of variant nodes
-   * @param var_bases number of total variant bases
    */
   struct ReadProfile {
       unsigned int len = 50;
+      /**< Nominal length of the read */
       bool rand = false;
+      /**< Number of mutation errors, or rate */
       float mut = 0;
+      /**< number of insertions/deletions, or rate */
       float indel = 0;
+      /**< Introduce mutations and indels at a random rate */
       int var_nodes = -1;
-      int var_bases = -1;
+      /**< Number of variant nodes */
+      int var_bases = -1; /**< number of total variant bases */
   };
 
   /**
-   * Output the profile in the form: \n
+   * @brief
+   * Output the profile.
+   * @details
+   * Form: \n
    * len=READ_LEN mut=NUM_MUT indel=NUM_INDEL vnode=NUM_VAR_NODES vbase=NUM_VAR_BASE rand=USE_RATES \n
    * @param os output stream
    * @param rp Read Profile
@@ -52,6 +56,7 @@ namespace vargas {
   }
 
   /**
+   * @brief
    * Generate reads from a graph using a given profile. srand() should be called externally.
    */
   class ReadSim: public ReadSource {
@@ -69,141 +74,14 @@ namespace vargas {
       ReadSim(const Graph &_graph, const ReadProfile &prof) : _graph(_graph), _prof(prof) { _init(); }
 
       /**
-       * generate and store an updated read.
+       * @brief
+       * Generate and store an updated read.
        * @return true if successful
        */
-      virtual bool update_read() override {
-          auto &nodes = *_graph.node_map();
-          auto &next = _graph.next_map();
-
-          size_t curr_node;
-          int curr_indiv = -1;
-          std::string read_str = "";
-
-          curr_node = next_keys[rand() % next_keys.size()]; // Random start node ID
-          size_t curr_pos = rand() % nodes[curr_node]->length(); // current pos relative to node origin
-
-          read.var_bases = 0;
-          read.var_nodes = 0;
-
-          while (true) {
-              // The first time a branch is hit, pick an individual to track
-              if (curr_indiv < 0 && !nodes[curr_node]->is_ref()) {
-                  do {
-                      curr_indiv = rand() % _graph.pop_size();
-                  } while (nodes[curr_node]->individuals()[curr_indiv] == 0);
-              }
-
-              // Extract len subseq
-              size_t len = _prof.len - read_str.length();
-              if (len > nodes.at(curr_node)->length() - curr_pos) len = nodes.at(curr_node)->length() - curr_pos;
-              read_str += nodes.at(curr_node)->seq_str().substr(curr_pos, len);
-              curr_pos += len;
-
-              if (!nodes[curr_node]->is_ref()) {
-                  ++read.var_nodes;
-                  read.var_bases += len;
-              }
-
-              if (read_str.length() >= _prof.len) break; // Done
-
-              // Pick random next node.
-              if (next.find(curr_node) == next.end()) return update_read(); // End of graph
-              std::vector<uint32_t> valid_next;
-              for (auto n : next.at(curr_node)) {
-                  if (curr_indiv < 0 || nodes[n]->belongs(curr_indiv)) valid_next.push_back(n);
-              }
-              if (valid_next.size() == 0) return update_read();
-              curr_node = valid_next[rand() % valid_next.size()];
-              curr_pos = 0;
-          }
-
-          if (std::count(read_str.begin(), read_str.end(), 'N') >= _prof.len / 2) return update_read();
-          if (_prof.var_nodes >= 0 && read.var_nodes != _prof.var_nodes) return update_read();
-          if (_prof.var_bases >= 0 && read.var_bases != _prof.var_bases) return update_read();
-
-          // Introduce errors
-          read.sub_err = 0;
-          read.indel_err = 0;
-          std::string read_mut = "";
-
-
-          // Rate based errors
-          if (_prof.rand) {
-              for (size_t i = 0; i < read_str.length(); ++i) {
-                  char m = read_str[i];
-                  // Mutation error
-                  if (rand() % 10000 < 10000 * _prof.mut) {
-                      do {
-                          m = rand_base();
-                      } while (m == read_str[i]);
-                      ++read.sub_err;
-                  }
-
-                  // Insertion
-                  if (rand() % 10000 < 5000 * _prof.indel) {
-                      read_mut += rand_base();
-                      ++read.indel_err;
-                  }
-
-                  // Deletion (if we don't enter)
-                  if (rand() % 10000 > 5000 * _prof.indel) {
-                      read_mut += m;
-                      ++read.indel_err;
-                  }
-              }
-          }
-          else {
-              // Fixed number of errors
-              read.sub_err = std::round(_prof.mut);
-              read.indel_err = std::round(_prof.indel);
-              std::vector<int> indel_pos;
-              for (int i = 0; i < read.indel_err;) {
-                  int r = rand() % read_str.length();
-                  if (std::find(indel_pos.begin(), indel_pos.end(), r) == indel_pos.end()) {
-                      indel_pos.push_back(r);
-                      ++i;
-                  }
-              }
-              std::sort(indel_pos.begin(), indel_pos.end());
-              int prev = 0;
-              for (int p : indel_pos) {
-                  read_mut += read_str.substr(prev, p);
-                  if (rand() % 2) {
-                      read_mut += rand_base();
-                      read_mut += read_str[p];
-                  }
-                  prev = p + 1;
-              }
-              read_mut += read_str.substr(prev, std::string::npos);
-
-              for (int i = 0; i < read.sub_err;) {
-                  int r = rand() % read_str.length();
-                  if (read_str[r] == read_mut[r]) { // Make sure we don't double mutate same base
-                      do {
-                          read_mut[r] = rand_base();
-                      } while (read_str[r] == read_mut[r]);
-                      ++i;
-                  }
-              }
-          }
-
-
-          // Have read reflect profile, mainly for when params are -1
-          read.var_nodes = _prof.var_nodes;
-          read.indel_err = _prof.indel;
-          read.sub_err = _prof.mut;
-          read.var_bases = _prof.var_bases;
-
-          read.read_orig = read_str;
-          read.read = read_mut;
-          read.read_num = seq_to_num(read_mut);
-          read.end_pos = nodes[curr_node]->end() - nodes[curr_node]->length() + curr_pos;
-
-          return true;
-      }
+      virtual bool update_read() override;
 
       /**
+       * @brief
        * Get the profile being used to generate reads (if use_prof)
        * @return ReadProfile
        */
@@ -212,6 +90,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Crete reads following prof as a template
        * @param prof Read Profile
        */

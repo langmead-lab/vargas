@@ -1,14 +1,18 @@
 /**
- * Ravi Gaddipati
- * June 21, 2016
+ * @author Ravi Gaddipati
+ * @date June 21, 2016
  * rgaddip1@jhu.edu
  *
- * Provides tools to interact with Alignments. Reads are aligned using
+ * @brief
+ * Provides tools to interact with Alignments.
+ *
+ * @details
+ * Reads are aligned using
  * SIMD vectorized smith-waterman. Reads are grouped into batches, with
  * size determined by the optimal hardware support. The default template
  * parameters support an 8 bit score.
  *
- * @file alignment.h
+ * @file
  */
 
 #ifndef VARGAS_ALIGNMENT_H
@@ -26,29 +30,34 @@
 namespace vargas {
 
 /**
- * Stores a Read and associated alignment information.
- * @param read Read that was aligned
- * @param opt_score Best alignment score
- * @param opt_align_end Best alignment position, indexed w.r.t the last base of read
- * @param opt_count Number of alignments that tied for the best score
- * @param sub_score Second best alignment score
- * @param sub_align_end Second best alignment position
- * @param sub_count Number of second-best alignments
+ * @struct
+ * @brief Read alignment storage struct.
+ * @details
+ * Stores a Read and associated alignment information. Best alignment information as well
+ * as second best alignment information is stored. The stored alignment does not necessarily match
+ * the alignment closest to the read, corflag indicates if there was a match. If < 0, the value
+ * was not set (i.e. not aligned yet).
  */
   struct Alignment {
       Read read;
 
       // Optimal score information
       uint16_t opt_score;
+      /**< Read that was aligned. */
       int32_t opt_align_end;
-      int32_t opt_count;
+      /**< Best alignment position, indexed w.r.t the last base of read.*/
+      int32_t opt_count; /**< Number of alignments that tied for the best score.*/
 
       // Second best score information
       uint16_t sub_score;
+      /**< Second best alignment score.*/
       int32_t sub_align_end;
+      /**< Second best alignment position, indexed w.r.t the last base of the read.*/
       int32_t sub_count;
+      /**< Number of second-best alignments.*/
 
       int8_t corflag;
+      /**< 1 if Read origin matched best score, 2 for sub score, 0 otherwise.*/
 
       Alignment() : opt_score(0), opt_align_end(-1), opt_count(-1), sub_score(0),
                     sub_align_end(-1), sub_count(-1) { }
@@ -63,9 +72,11 @@ namespace vargas {
   };
 
 /**
+ * @brief Print alignment in CSV form.
+ * @details
  * Print the alignment to os. This ordering matches the way the alignment is parsed
- * from a string.
- * read_str,opt_score, opt_alignment_end, opt_cout, sub_score, sub_alignment_end, sub_count
+ * from a string. \n
+ * read_str,opt_score, opt_alignment_end, opt_cout, sub_score, sub_alignment_end, sub_count \n
  * @param os Output stream
  * @param an Alignment output
  */
@@ -82,17 +93,18 @@ namespace vargas {
   }
 
   /**
+   * @brief Main SIMD SW Aligner.
+   * @details
    * Aligns a read batch to a reference sequence.
-   * All template arguments must match the ReadBatch type.
    * Note: "score" means something that is added, "penalty" refers to something
-   * that is subtracted. All scores/penalties are provided as positive ints.
-   * Most memory is allocated for the class so it can be reused during alignment.
-   * The state of the memory between function calls is unknown, and must be reset.
-   * @param num_reads max number of reads. If a non-default T is used, this should be set to
+   * that is subtracted. All scores/penalties are provided as positive integers.
+   * Most memory is allocated for the class so it can be reused during alignment. To reduce memory usage,
+   * the maximum node size can be reduced.
+   * @tparam num_reads max number of reads. If a non-default T is used, this should be set to
    *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
    *    SIMDPP_FAST_INT8_SIZE
-   * @param CellType element type. Determines max score range. Default simdpp::uint8.
-   * @param NativeT Native version of CellType. Default uint8_t
+   * @tparam CellType element type. Determines max score range. Default simdpp::uint8.
+   * @tparam NativeT Native version of CellType. Default uint8_t.
    */
   template<unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
       template<unsigned int, typename=void> class CellType=simdpp::uint8,
@@ -102,11 +114,12 @@ namespace vargas {
 
     public:
       /**
-       * Default constructor uses the following score values:
-       * Match : 2
-       * Mismatch : -2
-       * Gap Open : 3
-       * Gap Extend : 1
+       * @brief
+       * Default constructor uses the following score values: \n
+       * Match : 2 \n
+       * Mismatch : -2 \n
+       * Gap Open : 3 \n
+       * Gap Extend : 1 \n
        * @param max_node_len maximum node length
        * @param len maximum read length
        */
@@ -121,7 +134,8 @@ namespace vargas {
           _max_node_len(max_node_len) { _alloc(); }
 
       /**
-       * Set scoring parameters
+       * @brief
+       * Set scoring parameters.
        * @param max_node_len max node length
        * @param len max read length
        * @param match match score
@@ -166,10 +180,11 @@ namespace vargas {
       }
 
       /**
-       * Align a batch of reads to a topographical sorting of g.
+       * @brief
+       * Align a batch of reads to the given graph.
        * @param reads read batch
        * @param g Graph
-       * @return vector of alignments
+       * @return vector of Alignment structures.
        */
       std::vector<Alignment> align(const ReadBatch<num_reads, CellType> &reads,
                                    const Graph &g) {
@@ -177,12 +192,13 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Align a batch of reads to a graph range, return a vector of alignments
        * corresponding to the reads.
-       * @param reads batch of reads
+       * @param reads ReadBatch to align
        * @param begin iterator to beginning of graph
        * @param end iterator to end of graph
-       * @return vector of alignments
+       * @return vector of Alignment structures
        */
       std::vector<Alignment> align(const ReadBatch<num_reads, CellType> &reads,
                                    Graph::FilteringIter begin,
@@ -193,12 +209,13 @@ namespace vargas {
       }
 
       /**
+       * @brief
       * Align a batch of reads to a graph range, return a vector of alignments
       * corresponding to the reads.
-      * @param reads batch of reads
+      * @param reads ReadBatch to align
       * @param begin iterator to beginning of graph
       * @param end iterator to end of graph
-      * @param aligns vector of alignments
+      * @param aligns vector of Alignment structures to populate
       */
       void align_into(ReadBatch<num_reads, CellType> reads,
                       Graph::FilteringIter begin,
@@ -233,9 +250,10 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Only used for testing. returns the max score of the read alignment
        * to the node.
-       * @param n Graph::Node to align to
+       * @param n Node to align to
        * @param reads ReadBatch to align
        */
       CellType<num_reads> _test_fill_node(const Graph::Node &n,
@@ -252,17 +270,18 @@ namespace vargas {
     protected:
 
       /**
+       * @brief
        * Ending vectors from a previous node
-       * @param S_col last column of score matrix
-       * @param I_col last column of I vector
        */
       struct _seed {
           _seed(int read_len) : S_col(read_len), I_col(read_len) { }
           VecType S_col;
-          VecType I_col;
+          /**< Last column of score matrix.*/
+          VecType I_col;/**< Last column of I vector.*/
       };
 
       /**
+       * @brief
        * Returns the best seed from all previous nodes.
        * @param prev_ids All nodes preceding current node
        * @param seed_map ID->seed map for all previous nodes
@@ -293,6 +312,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * deletes allocated matrix filling vectors.
        */
       void _dealloc() {
@@ -319,6 +339,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Allocate S and D vectors. I is determined by template parameter.
        * @param seq length of S and D vectors, i.e. node length.
        */
@@ -339,6 +360,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Computes local alignment of the node, with no previous seed.
        * @param n Node to align to
        * @param reads ReadBatch to align
@@ -351,6 +373,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Computes local alignment to the node.
        * @param n Node to align to
        * @param reads ReadBatch to align
@@ -413,6 +436,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Fills the top left cell.
        * @param read_base ReadBatch vector
        * @param ref reference sequence base
@@ -428,6 +452,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Fills cells when row is 0.
        * @param read_base ReadBatch vector
        * @param ref reference sequence base
@@ -443,6 +468,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Fills cells when col is 0.
        * @param read_base ReadBatch vector
        * @param ref reference sequence base
@@ -460,6 +486,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Fills the current cell.
        * @param read_base ReadBatch vector
        * @param ref reference sequence base
@@ -479,6 +506,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Score if there is a deletion
        * @param col current column
        * @param Dp Previous D value at current col.
@@ -501,6 +529,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Score if there is an insertion
        * @param row current row
        * @param Sc Previous S value (cell to the left)
@@ -519,6 +548,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Best score if there is a match/mismatch. Uses S_prev.
        * @param col current column
        * @param read read base vector
@@ -556,6 +586,7 @@ namespace vargas {
 
 
       /**
+       * @brief
        * Takes the max of D,I, and M vectors and stores the current best score/position
        * Currently does not support non-deafault template args
        * @param row current row
@@ -640,6 +671,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Extract the i'th element from a vector. No range checking is done.
        * @param i index of element
        * @param vec vector to extract from
@@ -652,6 +684,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Insert into the i'th element from a vector. No range checking is done.
        * @param ins element to insert
        * @param i index of element
@@ -666,16 +699,16 @@ namespace vargas {
 
     private:
 
-      int read_len; // Maximum read length
+      int read_len; /**< Maximum read length. */
 
       // Zero vector
       const CellType<num_reads> ZERO_CT = simdpp::splat(0);
 
       uint8_t
-          _match = 2,       // Match score, is added
-          _mismatch = 2,    // mismatch penalty, is subtracted
-          _gap_open = 3,    // gap open penalty, subtracted
-          _gap_extend = 1;  // gap extension penalty, subtracted
+          _match = 2,       /**< Match score, is added */
+          _mismatch = 2,    /**< mismatch penalty, is subtracted */
+          _gap_open = 3,    /**< gap open penalty, subtracted */
+          _gap_extend = 1;  /**< gap extension penalty, subtracted */
 
       /**
        * Each vector has an 'a' and a 'b' version. Through each row of the
@@ -684,32 +717,26 @@ namespace vargas {
        * S and D are padded 1 to provide a left column buffer.
        */
       VecType
-          *Sa = nullptr, // Matrix row
+          *Sa = nullptr, /**< Matrix row */
           *Sb = nullptr,
-          *Da = nullptr, // Deletion vector
+          *Da = nullptr, /**< Deletion vector */
           *Db = nullptr,
-          *Ia = nullptr, // Insertion vector
+          *Ia = nullptr, /**< Insertion vector */
           *Ib = nullptr;
 
-      /**
-       * S_prev[n] => S(i-1, n)
-       * D_prev[n] => D(i-1, n)
-       * I_prev[r] => I(r, j-1)
-       * where (i,j) is the current cell
-       */
       CellType<num_reads>
-          *S_prev = nullptr,
+          *S_prev = nullptr,/**< S_prev[n] => S(i-1, n) */
           *S_curr = nullptr,
-          *D_prev = nullptr,
+          *D_prev = nullptr, /**< D_prev[n] => D(i-1, n) */
           *D_curr = nullptr,
-          *I_prev = nullptr,
+          *I_prev = nullptr, /**< I_prev[r] => I(r, j-1) */
           *I_curr = nullptr,
           *swp_tmp;
 
       CellType<num_reads>
-          Ceq, // Match score when read_base == ref_base
-          Cneq, // mismatch penalty
-          tmp; // temporary for use within functions
+          Ceq, /**< Match score when read_base == ref_base */
+          Cneq, /**< mismatch penalty */
+          tmp; /**< temporary for use within functions */
 
       // Optimal alignment info
       CellType<num_reads> max_score;

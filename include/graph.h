@@ -2,11 +2,14 @@
  * @author Ravi Gaddipati (rgaddip1@jhu.edu)
  * @date June 26, 2016
  *
- * Implementation of a directed graph. Each node stores a sequence and relevant
+ * @brief
+ * Implementation of a directed graph.
+ * @details
+ * Each node stores a sequence and relevant
  * information. Graphs can be derived from other graphs with a filter, allowing
  * the extraction of population subsets.
  *
- * @file graph.h
+ * @file
  */
 
 #ifndef VARGAS_GRAPH_H
@@ -30,8 +33,11 @@
 namespace vargas {
 
 /**
- * Represents a Graph of the genome. The Graph is backed by a map of Graph::Nodes, and edges
- * are backed by a map of node ID's. If a graoh is built using a previous graph, the underlying
+ * @brief
+ * Represents a Graph of the genome.
+ * @details
+ * The Graph is backed by a map of Graph::Node, and edges
+ * are backed by a map of node ID's. If a Graph is built using a previous graph, the underlying
  * nodes of the origin graph are used by the derived graph. shared_ptr's are used to preserve
  * lifetimes.
  */
@@ -39,25 +45,38 @@ namespace vargas {
 
     public:
 
-      // Alias for a dyn_bitset
+      /** Alias for a dyn_bitset */
       typedef VarFile::Population Population;
 
       /**
+       * @enum Type
        * When a normal population filter is not used, a flag can be used. REF includes
        * only reference alleles, MAXAF picks the allele with the highest frequency.
        * Both result in linear graphs.
        * Filter used as a placeholder, it should never be passed as a param.
        */
-      enum Type { TOPO, REF, MAXAF, FILTER, END };
+      enum Type {
+          TOPO, /**< Use a topographical ordering.*/
+              REF, /**< Only include reference nodes. */
+              MAXAF, /**< Keep the node with the highest AF at each branch. */
+              FILTER, /**< Use a given Population filter. */
+              END  /**< End iterator. */
+      };
 
       /**
-       * Represents a node in the directed graphs. Sequences are stored numerically.
-       * populations are stored as bitsets, where 1 indicates that individual possessess
+       * @brief
+       * Represents a node in the directed graphs.
+       * @details
+       * Sequences are stored numerically.
+       * populations are stored as bitsets, where 1 indicates that individual posesses
        * the given allele.
        */
       class Node {
         public:
-          // Assign a unique ID to each node
+          /**
+           * @brief
+           * Make new node, and assign a unique ID.
+           */
           Node() : _id(_newID++) { }
 
           Node(int pos,
@@ -78,6 +97,7 @@ namespace vargas {
           int end() const { return _endPos; } // Sequence end position in genome
 
           /**
+           * @brief
            * Return true if the node is a ref node, or if the bit is set.
            * @param idx bit index
            * @return belongs
@@ -87,6 +107,7 @@ namespace vargas {
           }
 
           /**
+           * @brief
            * Returns true if the node is a ref node or if the population intersects the node population.
            * @param pop Population filter
            * @return belongs
@@ -96,48 +117,56 @@ namespace vargas {
           }
 
           /**
+           * @brief
            * Sequence as a vector of unsigned chars.
            * @return seq
            */
           const std::vector<Base> &seq() const { return _seq; }
 
           /**
+           * @brief
            * Sequence is stored numerically. Return as a string.
            * @return seq
            */
           std::string seq_str() const { return num_to_seq(_seq); }
 
           /**
+           * @brief
            * Size of the Population of the node. This should be consistant throughout the graph.
            * @return pop_size
            */
           size_t pop_size() const { return _individuals.size(); }
 
           /**
+           * @brief
            * Node id.
            * @return unique node ID
            */
           uint32_t id() const { return _id; }
 
           /**
+           * @brief
            * True if node common to all individuals, or REF.
            * @return is_ref
            */
           bool is_ref() const { return _ref; }
 
           /**
+           * @brief
            * Allele frequency.
            * @return af
            */
           float freq() const { return _af; }
 
           /**
+           * @brief
            * Reference to the raw Population data member.
            * @return individuals
            */
           const Population &individuals() const { return _individuals; }
 
           /**
+           * @brief
            * Set the id of the node, should rarely be used as unique ID's are generated.
            * @param id
            */
@@ -149,18 +178,21 @@ namespace vargas {
           }
 
           /**
+           * @brief
            * Set the position of the last base in the sequence.
            * @param pos 0-indexed
            */
           void set_endpos(int pos) { this->_endPos = pos; }
 
           /**
+           * @brief
            * Set the population from an existing Population
            * @param pop
            */
           void set_population(const Population &pop) { _individuals = pop; }
 
           /**
+           * @brief
            * Set the population from a vector. Each individual is set if pop[i] evaluates true.
            * @param pop
            */
@@ -168,6 +200,7 @@ namespace vargas {
           void set_population(const std::vector<T> &pop) { _individuals = pop; }
 
           /**
+           * @brief
            * Set the population.
            * @param len number of genotypes
            * @param val true/false for each individual
@@ -175,18 +208,21 @@ namespace vargas {
           void set_population(size_t len, bool val) { _individuals = Population(len, val); }
 
           /**
+           * @brief
            * Set the stored node sequence. Sequence is converted to numeric form.
            * @param seq
            */
           void set_seq(std::string seq) { _seq = seq_to_num(seq); }
 
           /**
+           * @brief
            * Set the stored node sequence
            * @param seq
            */
           void set_seq(std::vector<Base> &seq) { this->_seq = seq; }
 
           /**
+           * @brief
            * Sets the node as a reference node, and sets all bits in the population.
            */
           void set_as_ref() {
@@ -195,26 +231,35 @@ namespace vargas {
           }
 
           /**
+           * @brief
            * Deselects node as a referene node, does not modify population.
            */
           void set_not_ref() { _ref = false; }
 
           /**
+           * @brief
            * Set the allele frequency of the node. Used for MAXAF filtering.
            * @param af float frequency, between 0 and 1
            */
           void set_af(float af) { _af = af; }
 
           /**
+           * @brief
            * Set as pinch node. If this node is removed, then each node before
            * it does not have an edge to a node after this node. All paths traverse
            * through this node.
            */
           void pinch() { _pinch = true; }
           void unpinch() { _pinch = false; }
+          /**
+           * @brief
+           * If true, then previous alignment seeds can be cleared as no nodes after the current
+           * one depends on nodes before current one,in a topographical ordering.
+           * @return true if pinched
+           */
           bool is_pinched() const { return _pinch; }
 
-          static uint32_t _newID; // ID of the next instance to be created
+          static uint32_t _newID; /**< ID of the next instance to be created */
 
         private:
           int _endPos; // End position of the sequence
@@ -230,13 +275,17 @@ namespace vargas {
       typedef std::shared_ptr<Node> nodeptr;
 
       /**
+       * @brief
        * Default constructor inits a new Graph, including a new node map.
        */
       Graph() : _IDMap(std::make_shared<std::unordered_map<uint32_t, nodeptr>>(std::unordered_map<uint32_t,
                                                                                                   nodeptr>())) { }
 
       /**
-       * Create a Graph with another Graph and a population filter. The new Graph will only
+       * @brief
+       * Create a Graph with another Graph and a population filter.
+       * @details
+       * The new Graph will only
        * contain nodes if any of the individuals in filter possess the node. The actual nodes
        * are shared_ptr's to the parent Graph, as to prevent duplication of Nodes.
        * @param g Graph to derive the new Graph from
@@ -246,6 +295,9 @@ namespace vargas {
             const Population &filter);
 
       /**
+       * @brief
+       * Construct a graph using a base graph and a filter.
+       * @details
        * Constructs a graph using filter tags, one of:
        * Graph::REF, or Graph::MAXAF
        * The former keeps reference nodes, the later picks the node with the highest allele
@@ -257,14 +309,18 @@ namespace vargas {
             Type t);
 
       /**
-       * Add a new node to the Graph. A new node is created so the original can be destroyed.
+       * @brief
+       * Add a new node to the Graph.
+       * @details
+       * A new node is created so the original can be destroyed.
        * The first node added is set as the Graph root. Nodes must be added in topographical order.
-       * @param n node to add, ID is preserved.
+       * @param n node to add, ID of original node is preserved.
        */
       uint32_t add_node(Node &n);
 
       /**
-       * Create an edge linking two nodes. Previous and Next edges are added.
+       * @brief
+       * Create an edge linking two nodes. Previous and Next edges are added.\n
        * n1->n2
        * @param n1 Node one ID
        * @param n2 Node two ID
@@ -273,6 +329,7 @@ namespace vargas {
                     uint32_t n2);
 
       /**
+       * @brief
        * Sets the root of the Graph.
        * @param id ID of root node
        */
@@ -281,36 +338,42 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Set the graph description.
        * @param description
        */
       void set_desc(std::string description) { _desc = description; }
 
       /**
+       * @brief
        * Return root node ID
        * @return root
        */
       uint32_t root() const { return _root; }
 
       /**
+       * @brief
        * Maps a ndoe ID to a shared node object
        * @return map of ID, shared_ptr<Node> pairs
        */
       const std::shared_ptr<std::unordered_map<uint32_t, nodeptr>> &node_map() const { return _IDMap; }
 
       /**
+       * @brief
        * Maps a node ID to a vector of all next nodes (outgoing edges)
        * @return map of ID, outgoing edge vectors
        */
       const std::unordered_map<uint32_t, std::vector<uint32_t>> &next_map() const { return _next_map; }
 
       /**
+       * @brief
        *  Maps a node ID to a vector of all incoming edge nodes
        *  @return map of ID, incoming edges
        */
       const std::unordered_map<uint32_t, std::vector<uint32_t>> &prev_map() const { return _prev_map; }
 
       /**
+       * @brief
        * Const reference to a node
        * @param ID of the node
        * @return shared node object
@@ -326,12 +389,14 @@ namespace vargas {
       std::string desc() const { return _desc; }
 
       /**
+       * @brief
        * Exports the graph in DOT format.
        * @param graph name
        */
       std::string to_DOT(std::string name = "g") const;
 
       /**
+       * @brief
        * Export the graph in DOT format
        * @param filename to export to
        * @param name of the graph
@@ -343,6 +408,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Define the graph population size.
        * @param popsize, number of genotypes
        */
@@ -354,6 +420,7 @@ namespace vargas {
       size_t pop_size() const { return _pop_size; }
 
       /**
+       * @brief
        * Return a Population of a subset of the graph.
        * @return Population with ingroup % indivduals set.
        */
@@ -366,18 +433,21 @@ namespace vargas {
       }
 
       /**
-       * const forward iterator to traverse the graph while applying a filter.
+       * @brief
+       * const forward iterator to traverse the Graph while applying a filter.
+       * @details
        * When incrementing the iterator, only nodes that match a condition will
        * return.
-       * Options include:
-       * Filtering: Provided a population, a node is returned if there is an intersection
-       * REF: Only return reference nodes
-       * MAXAF: Return the node with the highest allele frequency.
+       * Options include: \n
+       * Filtering: Provided a population, a node is returned if there is an intersection \n
+       * REF: Only return reference nodes \n
+       * MAXAF: Return the node with the highest allele frequency. \n
        */
       class FilteringIter {
         public:
 
           /**
+           * @brief
            * Accept all nodes.
            * @ param g Graph
            */
@@ -385,16 +455,18 @@ namespace vargas {
               _graph(g), _type(TOPO), _currID(0) { }
 
           /**
+           * @brief
            * Traverse nodes when filter has at least one individual in common with the
-           * node population.
+           * Node Population.
            * @param g graph
            * @param filter Population the node is checked against. If there is an intersection,
-           * the node is returned.
+           * the Node is returned.
            */
           explicit FilteringIter(const Graph &g, const Population &filter) :
               _graph(g), _filter(filter), _type(FILTER), _currID(g._root) { }
 
           /**
+           * @brief
            * Traverse a linear subgraph.
            * @param g graph
            * @param type one of Graph::MAXAF, Graph::REF
@@ -405,13 +477,14 @@ namespace vargas {
           }
 
           /**
-           * Reference to the underlying graph.
+           * @brief
+           * Reference to the underlying Graph.
            * @return const ref to graph
            */
           const Graph &graph() const { return _graph; }
 
           /**
-           * @return true when underlying graph address is the same and current node ID's
+           * @return true when underlying Graph address is the same and current Node ID's
            * are the same. Two end iterators always compare equal.
            */
           bool operator==(const FilteringIter &other) const {
@@ -422,7 +495,7 @@ namespace vargas {
           }
 
           /**
-           * @return true when current node ID's are not the same or if the
+           * @return true when current Node ID's are not the same or if the
            * underlying graph is not the same. Two end iterators always compare
            * false.
            */
@@ -434,9 +507,10 @@ namespace vargas {
           }
 
           /**
-           * Goes to next node. Nodes are only included if it satisfies the filter.
+           * @brief
+           * Goes to next Node. Nodes are only included if it satisfies the filter.
            * Once the end of the graph is reached, _end is set.
-           * @return iterator to the next node.
+           * @return iterator to the next Node.
            */
           FilteringIter &operator++() {
               // If end of graph has been reached
@@ -505,9 +579,13 @@ namespace vargas {
               return *this;
           }
 
+          /**
+           * @return iterator filtering Type
+           */
           Type type() const { return _type; }
 
           /**
+           * @brief
            * Inserts the ID into the queue if it's unique.
            * @param id node id to insert
            */
@@ -520,6 +598,7 @@ namespace vargas {
           }
 
           /**
+           * @brief
            * Const reference to the current node.
            * @return Node
            */
@@ -530,6 +609,7 @@ namespace vargas {
           }
 
           /**
+           * @brief
            * All nodes that we've traversed that have incoming edges to the current node.
            * @return vector of previous nodes
            */
@@ -571,6 +651,7 @@ namespace vargas {
       };
 
       /**
+       * @brief
        * Provides an iterator to the whole graph.
        * @return reference to the root node.
        */
@@ -580,6 +661,7 @@ namespace vargas {
 
 
       /**
+       * @brief
        * Iterator when conditions are applied.
        * @param filter population to compare nodes to
        */
@@ -588,6 +670,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Linear subgraph interator.
        * @param type one of Graph::REF, Graph::MAXAF
        */
@@ -603,6 +686,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * Set the maximum node length of the graph.
        * @param len max node length
        */
@@ -639,7 +723,10 @@ namespace vargas {
   };
 
   /**
-   * Takes a reference sequence and a variant file and builds a graph. The base graph can
+   * @brief
+   * Takes a reference sequence and a variant file and builds a graph.
+   * @details
+   * The base graph can
    * include a subset of samples, or a full graph can be built and subsequent graphs derived
    * from the base graph.
    */

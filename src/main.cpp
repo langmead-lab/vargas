@@ -3,10 +3,10 @@
  * November 25, 2015
  * rgaddip1@jhu.edu
  *
+ * @brief
  * Interface for simulating and aligning reads from/to a DAG.
- * Uses a modified gssw from Erik Garrison.
  *
- * @file main.cpp
+ * @file
  */
 
 #define DOCTEST_CONFIG_IMPLEMENT
@@ -29,31 +29,31 @@ int main(const int argc, const char *argv[]) {
             doc.setOption("no-breaks", true);
             doc.setOption("abort-after", 5);
             doc.setOption("sort", "name");
-            exit(doc.run());
+            return doc.run();
         }
         else if (!strcmp(argv[1], "profile")) {
-            exit(profile(argc, argv));
+            return profile(argc, argv);
         }
         else if (!strcmp(argv[1], "define")) {
-            exit(define_main(argc, argv));
+            return define_main(argc, argv);
         }
         else if (!strcmp(argv[1], "sim")) {
-            exit(sim_main(argc, argv));
+            return sim_main(argc, argv);
         }
         else if (!strcmp(argv[1], "align")) {
-            exit(align_main(argc, argv));
+            return align_main(argc, argv);
         }
     }
 
     GetOpt::GetOpt_pp args(argc, argv);
     if (args >> GetOpt::OptionPresent('h', "help")) {
         main_help();
-        exit(0);
+        return 0;
     }
 
     std::cerr << "Define a valid mode of operation." << std::endl;
     main_help();
-    exit(1);
+    return 1;
 
 }
 
@@ -259,6 +259,7 @@ int align_main(const int argc, const char *argv[]) {
     vargas::Gdef gdf(gdf_file);
     vargas::GraphBuilder gb(gdf.fasta(), gdf.var());
     gb.region(gdf.region());
+    std::cout << "Loading graph..." << std::endl;
     vargas::Graph base_graph = gb.build();
 
     std::vector<std::shared_ptr<vargas::Aligner<>>> aligners;
@@ -271,6 +272,7 @@ int align_main(const int argc, const char *argv[]) {
                                                                gext));
 
     // Load reads. Maps graph origin label to a vector of reads
+    std::cout << "Loading reads..." << std::endl;
     std::map<vargas::GID, std::vector<vargas::Read>> read_origins;
     auto readfile_split = split(read_file, ',');
     for (auto &rfile : readfile_split) {
@@ -415,6 +417,7 @@ int sim_main(const int argc, const char *argv[]) {
     gb.region(gdf.region());
     auto &pops = gdf.populations();
 
+    std::cout << "Loading graph..." << std::endl;
     vargas::Graph base_graph = gb.build();
 
     auto mut_split = split(mut, ',');
@@ -422,6 +425,7 @@ int sim_main(const int argc, const char *argv[]) {
     auto vnode_split = split(vnodes, ',');
     auto vbase_split = split(vbases, ',');
 
+    std::cout << "Building profiles..." << std::endl;
     std::vector<vargas::ReadProfile> pending_sims;
     for (auto &vbase : vbase_split) {
         for (auto &vnode : vnode_split) {
@@ -439,10 +443,11 @@ int sim_main(const int argc, const char *argv[]) {
             }
         }
     }
+    std::cout << pending_sims.size() << " profiles, " << pops.size() << " subgraphs." << std::endl;
 
     // For each subgraph type
     for (auto &pop : pops) {
-        std::cout << "Subgraph: " << pop.first << std::endl;
+        std::cout << "\nSubgraph: " << pop.first << std::endl;
         // Create subgraph
         vargas::Graph subgraph;
         subgraph = vargas::Graph(base_graph, pop.second);
@@ -456,7 +461,7 @@ int sim_main(const int argc, const char *argv[]) {
 
         for (size_t p = 0; p < pending_sims.size(); ++p) {
             auto &prof = pending_sims[p];
-            std::cout << "\tProfile: (" << prof << ")" << std::endl;
+            std::cout << "; (" << prof << ")" << std::flush;
             sims[jobs.size()]->set_prof(prof);
             jobs.emplace(jobs.end(), &vargas::ReadSim::get_batch, sims[jobs.size()], num_reads);
 
@@ -532,7 +537,7 @@ int define_main(const int argc, const char *argv[]) {
     }
 
     gdef.write(outfile);
-    std::cout << gdef.populations().size() << " subgraph definitions created." << std::endl;
+    std::cout << gdef.populations().size() << " subgraph definitions generated." << std::endl;
     return 0;
 }
 

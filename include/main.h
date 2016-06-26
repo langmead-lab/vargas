@@ -1,11 +1,12 @@
 /**
- * Ravi Gaddipati
- * June 26, 2016
+ * @author Ravi Gaddipati
+ * @date June 26, 2016
  * rgaddip1@jhu.edu
  *
+ * @brief
  * Interface for simulating and aligning reads from/to a DAG.
  *
- * @file main.h
+ * @file
  */
 
 #ifndef VARGAS_MAIN_H

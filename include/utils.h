@@ -3,9 +3,10 @@
  * June 26, 2016
  * rgaddip1@jhu.edu
  *
+ * @brief
  * Contains common functions.
  *
- * @file utils.h
+ * @file
  */
 
 #ifndef VARGAS_UTILS_H
@@ -32,9 +33,16 @@
 #include "doctest/doctest.h"
 
 typedef unsigned char uchar;
+
+/**
+ * @enum
+ * @brief
+ * Maps Base characters to integers.
+ */
 enum Base: uchar { A = 0, C = 1, G = 2, T = 3, N = 4 };
 
 /**
+ * @brief
  * Converts a character to a numeral representation.
  * @param c character
  * @return numeral representation
@@ -60,8 +68,9 @@ Base base_to_num(char c) {
 }
 
 /**
+ * @brief
  * Convert a numeric form to a char, upper case.
- * All ambiguous bases are represented as 'N'
+ * All ambiguous bases are represented as 'N'.
  * @param num numeric form
  * @return char in [A,C,G,T,N]
  */
@@ -82,7 +91,8 @@ char num_to_base(Base num) {
 }
 
 /**
- * Convert a character sequence in a numeric sequence
+ * @brief
+ * Convert a character sequence in a numeric sequence.
  * @param seq Sequence string
  * @return vector of numerals
  */
@@ -94,6 +104,7 @@ std::vector<Base> seq_to_num(const std::string &seq) {
 }
 
 /**
+ * @brief
  * Convert a numeric vector to a sequence of bases.
  * @param num Numeric vector
  * @return sequence string, Sigma={A,G,T,C,N}
@@ -109,6 +120,7 @@ std::string num_to_seq(const std::vector<Base> &num) {
 
 
 /**
+ * @brief
  * Splits a string into a vector given some character delimiter.
  * @param s string to split
  * @param delim split string at delim, discarding the delim
@@ -117,6 +129,7 @@ std::string num_to_seq(const std::vector<Base> &num) {
 std::vector<std::string> split(const std::string &s, char delim);
 
 /**
+ * @brief
  * Splits a string into a vector given some character delimiter.
  * @param s string to split
  * @param delim split string at delim, discarding the delim
@@ -126,6 +139,7 @@ void split(const std::string &s, char delim, std::vector<std::string> &vec);
 
 
 /**
+ * @brief
  * Opens a file and checks if its valid.
  * @param filename File to check if valid.
  */
@@ -134,6 +148,9 @@ inline bool file_exists(std::string filename) {
   return f.good();
 }
 
+/**
+ * @return random base character in [ACGTN].
+ */
 __INLINE__
 char rand_base() {
   switch (rand() % 5) {
@@ -151,7 +168,8 @@ char rand_base() {
 }
 
 /**
- * Edit distance between strings. Taken from:
+ * @brief
+ * Edit distance between strings. Taken from: \n
  * https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#C.2B.2B
  * @param s1 sequence a
  * @param s2 sequence b
