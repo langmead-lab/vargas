@@ -36,7 +36,7 @@ vargas is built with cmake.
 
 `vargas -h`
 
-	---------------------- vargas, Jun 24 2016. rgaddip1@jhu.edu ----------------------
+	---------------------- vargas, Jun 27 2016. rgaddip1@jhu.edu ----------------------
 	Operating modes 'vargas MODE':
 		define      Define a set of graphs for use with sim/align.
 		sim         Simulate reads from a set of graphs.
@@ -48,14 +48,14 @@ vargas is built with cmake.
 
 `vargas define -h`
 
-	-------------------- vargas define, Jun 24 2016. rgaddip1@jhu.edu --------------------
+	-------------------- vargas define, Jun 27 2016. rgaddip1@jhu.edu --------------------
 	-f	--fasta         *<string> Reference filename.
 	-v	--var           *<string> VCF/BCF filename.
 	-t	--out           *<string> Output filename.
 	-g	--region        *<string> Region of graph, format CHR:MIN-MAX.
 	-l	--nodelen       <int> Max node length, default 1,000,000
 	-i	--ingroup       <int, int...> Percent ingroup subgraphs.
-		                Prefix with 'c' to interpret as number of individuals.
+		                  Prefix with 'c' to interpret as number of individuals.
 	-n	--num           <int> Number of unique graphs to create for all -i. Default 1.
 
 `define` is used to create a graph specification (*.gdf) for `sim` and `align` modes. Various subgraphs deriving off of a base graph are described. With `-i` and `-n` multiple subgraphs based on population filters are made. The original FASTA and variant files are needed in the same relative path when using the GDEF file.
@@ -79,21 +79,21 @@ The ingroup determines which samples are included in the graph. If a VCF file ha
 
 `vargas sim -h`
 
-	-------------------- vargas sim, Jun 24 2016. rgaddip1@jhu.edu --------------------
+	-------------------- vargas sim, Jun 27 2016. rgaddip1@jhu.edu --------------------
 	-g	--gdef          *<string> Graph definition file. Reads are simulated from Ingroups.
 	-t	--outfile       *<string> Alignment output file.
 	-o	--outgroup      Simulate from outgroup graphs.
 	-n	--numreads      <int> Number of reads to simulate from each subgraph, default 1000.
 	-m	--muterr        <float, float...> Read mutation error. Default 0.
 	-i	--indelerr      <float, float...> Read indel error. Default 0.
-	-v	--vnodes        <int, int...> Number of variant nodes, default any (-1).
-	-b	--vbases        <int, int...> Number of variant bases, default any (-1).
+	-v	--vnodes        <int, int...> Number of variant nodes, default any (*).
+	-b	--vbases        <int, int...> Number of variant bases, default any (*).
 	-l	--rlen          <int> Read length, default 50.
 	-a	--rate          Interpret -m, -i as rates, instead of exact number of errors.
 	-j	--threads       <int> Number of threads. 0 for maximum hardware concurrency.
 
 	Comments preceded by '#'.
-	-n reads are produced for each -b, -m, -i, -v combination.
+	-n reads are produced for each -m, -i, -v, -b combination. If set to '*', any value is accepted.
 
 
 `sim` uses a GDEF file and generates `-n` reads of each combination of `-m`, `-i`, `-v`, and `-b`. `-m` Introduces mutation errors, substituting n bases with an alternate base. Likewise, `-i` will delete a base or insert a random base. With `-a`, `-m` and `-i` are interpreted as rates (0 to 1). `-s` controls which subgraphs are used to generate reads. By default, all graphs in the GDEF file are used, and their complements (outgroup).
@@ -108,7 +108,7 @@ will generate 1000 reads for each combination of `-m`, `-v`, for each graph in `
 
 `vargas align -h`
 
-	------------------- vargas align, Jun 24 2016. rgaddip1@jhu.edu -------------------
+	------------------- vargas align, Jun 27 2016. rgaddip1@jhu.edu -------------------
 	-g	--gdef          *<string> Graph definition file.
 	-r	--reads         *<string, string...> Read files to align.
 	-t	--outfile       *<string> Alignment output file.

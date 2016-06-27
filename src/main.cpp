@@ -356,27 +356,38 @@ void align_to_graph(std::string label,
         auto end_iter = ((i + 1) * SIMDPP_FAST_INT8_SIZE) > reads.size() ?
                         reads.end() : reads.begin() + ((i + 1) * SIMDPP_FAST_INT8_SIZE);
 
-        jobs.emplace(jobs.end(),
-                     &vargas::Aligner<>::align_into,
-                     aligners[jobs.size()],
-                     std::vector<vargas::Read>(reads.begin() + (i * SIMDPP_FAST_INT8_SIZE), end_iter),
-                     subgraph.begin(),
-                     subgraph.end(),
-                     std::ref(aligns[jobs.size()]));
+        if (threads > 1) {
+            jobs.emplace(jobs.end(),
+                         &vargas::Aligner<>::align_into,
+                         aligners[jobs.size()],
+                         std::vector<vargas::Read>(reads.begin() + (i * SIMDPP_FAST_INT8_SIZE), end_iter),
+                         subgraph.begin(),
+                         subgraph.end(),
+                         std::ref(aligns[jobs.size()]));
 
-        // Once we use the allocated threads let them all finish.
-        if (jobs.size() == threads || i == batches) {
-            std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
+            // Once we use the allocated threads let them all finish.
+            if (jobs.size() == threads || i == batches) {
+                std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
 
-            // Print alignments
-            for (size_t i = 0; i < jobs.size(); ++i) {
-                auto &aset = aligns[i];
-                for (auto &a : aset) {
-                    out << label << ',' << a << std::endl;
+                // Print alignments
+                for (size_t i = 0; i < jobs.size(); ++i) {
+                    auto &aset = aligns[i];
+                    for (auto &a : aset) {
+                        out << label << ',' << a << std::endl;
+                    }
                 }
-            }
 
-            jobs.clear();
+                jobs.clear();
+            }
+        } else {
+            // Single threaded
+            aligners[0]->align_into(std::vector<vargas::Read>(reads.begin() + (i * SIMDPP_FAST_INT8_SIZE), end_iter),
+                                    subgraph.begin(),
+                                    subgraph.end(),
+                                    aligns[0]);
+            for (auto &a : aligns[0]) {
+                out << label << ',' << a << std::endl;
+            }
         }
     }
 }
@@ -391,7 +402,7 @@ int sim_main(const int argc, const char *argv[]) {
 
     // Load parameters
     unsigned int threads = 1, read_len = 50, num_reads = 1000;
-    std::string mut = "0", indel = "0", vnodes = "-1", vbases = "-1";
+    std::string mut = "0", indel = "0", vnodes = "*", vbases = "*";
     std::string out_file, gdf_file;
     bool use_rate = false, outgroup = false;
 
@@ -434,11 +445,11 @@ int sim_main(const int argc, const char *argv[]) {
                 for (auto &m : mut_split) {
                     vargas::ReadProfile prof;
                     prof.len = read_len;
-                    prof.mut = std::stof(m);
-                    prof.indel = std::stof(ind);
+                    prof.mut = m == "*" ? -1 : std::stof(m);
+                    prof.indel = ind == "*" ? -1 : std::stof(ind);
                     prof.rand = use_rate;
-                    prof.var_bases = std::stoi(vbase);
-                    prof.var_nodes = std::stoi(vnode);
+                    prof.var_bases = vbase == "*" ? -1 : std::stoi(vbase);
+                    prof.var_nodes = vnode == "*" ? -1 : std::stoi(vnode);
                     pending_sims.push_back(prof);
                 }
             }
@@ -463,22 +474,30 @@ int sim_main(const int argc, const char *argv[]) {
         for (size_t p = 0; p < pending_sims.size(); ++p) {
             auto &prof = pending_sims[p];
             std::cout << "; (" << prof << ")" << std::flush;
-            sims[jobs.size()]->set_prof(prof);
-            jobs.emplace(jobs.end(), &vargas::ReadSim::get_batch, sims[jobs.size()], num_reads);
+            if (threads > 1) {
+                sims[jobs.size()]->set_prof(prof);
+                jobs.emplace(jobs.end(), &vargas::ReadSim::get_batch, sims[jobs.size()], num_reads);
 
-            if (jobs.size() == threads || p == pending_sims.size() - 1) {
-                std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
+                if (jobs.size() == threads || p == pending_sims.size() - 1) {
+                    std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
 
-                for (size_t i = 0; i < jobs.size(); ++i) {
-                    auto &s = sims[i];
-                    for (auto r : s->batch()) {
-                        r.src = pop.first;
-                        out << r << std::endl;
-
+                    for (size_t i = 0; i < jobs.size(); ++i) {
+                        auto &s = sims[i];
+                        for (auto r : s->batch()) {
+                            r.src = pop.first;
+                            out << r << std::endl;
+                        }
                     }
+                    jobs.clear();
                 }
-
-                jobs.clear();
+            } else {
+                // Single thread
+                sims[0]->set_prof(prof);
+                sims[0]->get_batch(num_reads);
+                for (auto r : sims[0]->batch()) {
+                    r.src = pop.first;
+                    out << r << std::endl;
+                }
             }
 
         }
@@ -576,10 +595,10 @@ void profile_help() {
     using std::endl;
     cout << endl
         << "---------------------- vargas profile, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
-    cout << "-f\t--fasta         <string> Reference filename." << endl;
-    cout << "-v\t--var           <string> VCF/BCF filename." << endl;
-    cout << "-g\t--region        <string> Region of graph, format CHR:MIN-MAX." << endl;
-    cout << "-i\t--ingroup       <int> Percent of genotypes to include in alignment" << endl;
+    cout << "-f\t--fasta         *<string> Reference filename." << endl;
+    cout << "-v\t--var           *<string> VCF/BCF filename." << endl;
+    cout << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX." << endl;
+    cout << "-i\t--ingroup       *<int> Percent of genotypes to include in alignment." << endl;
     cout << "-s\t--string        <string,string..> Include reads in alignment. Rest will be random." << endl << endl;
 }
 
@@ -621,12 +640,13 @@ void sim_help() {
     cout << "-n\t--numreads      <int> Number of reads to simulate from each subgraph, default 1000.\n";
     cout << "-m\t--muterr        <float, float...> Read mutation error. Default 0.\n";
     cout << "-i\t--indelerr      <float, float...> Read indel error. Default 0.\n";
-    cout << "-v\t--vnodes        <int, int...> Number of variant nodes, default any (-1).\n";
-    cout << "-b\t--vbases        <int, int...> Number of variant bases, default any (-1).\n";
+    cout << "-v\t--vnodes        <int, int...> Number of variant nodes, default any (*).\n";
+    cout << "-b\t--vbases        <int, int...> Number of variant bases, default any (*).\n";
     cout << "-l\t--rlen          <int> Read length, default 50.\n";
     cout << "-a\t--rate          Interpret -m, -i as rates, instead of exact number of errors.\n";
     cout << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
 
     cout << "Comments preceded by \'#\'.\n";
-    cout << "-n reads are produced for each -m, -i, -v, -b combination." << endl << endl;
+    cout << "-n reads are produced for each -m, -i, -v, -b combination. If set to \'*\', any value is accepted."
+        << endl << endl;
 }
