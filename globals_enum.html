@@ -47,8 +47,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   <div id="navrow1" class="tabs">
     <ul class="tablist">
       <li><a href="index.html"><span>Main&#160;Page</span></a></li>
-      <li class="current"><a href="annotated.html"><span>Classes</span></a></li>
-      <li><a href="files.html"><span>Files</span></a></li>
+      <li><a href="annotated.html"><span>Classes</span></a></li>
+      <li class="current"><a href="files.html"><span>Files</span></a></li>
       <li>
         <div id="MSearchBox" class="MSearchBoxInactive">
         <span class="left">
@@ -69,12 +69,18 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
   <div id="navrow2" class="tabs2">
     <ul class="tablist">
-      <li><a href="annotated.html"><span>Class&#160;List</span></a></li>
-      <li><a href="classes.html"><span>Class&#160;Index</span></a></li>
-      <li><a href="hierarchy.html"><span>Class&#160;Hierarchy</span></a></li>
-      <li><a href="functions.html"><span>Class&#160;Members</span></a></li>
+      <li><a href="files.html"><span>File&#160;List</span></a></li>
+      <li class="current"><a href="globals.html"><span>File&#160;Members</span></a></li>
     </ul>
   </div>
+  <div id="navrow3" class="tabs2">
+    <ul class="tablist">
+      <li><a href="globals.html"><span>All</span></a></li>
+      <li><a href="globals_func.html"><span>Functions</span></a></li>
+      <li class="current"><a href="globals_enum.html"><span>Enumerations</span></a></li>
+    </ul>
+  </div>
+</div><!-- top -->
 <!-- window showing the filter options -->
 <div id="MSearchSelectWindow"
      onmouseover="return searchBox.OnSearchSelectShow()"
@@ -89,33 +95,13 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </iframe>
 </div>
 
-<div id="nav-path" class="navpath">
-  <ul>
-<li class="navelem"><b>vargas</b></li><li class="navelem"><a class="el" href="classvargas_1_1FASTAFile.html">FASTAFile</a></li>  </ul>
-</div>
-</div><!-- top -->
-<div class="header">
-  <div class="headertitle">
-<div class="title">vargas::FASTAFile Member List</div>  </div>
-</div><!--header-->
 <div class="contents">
-
-<p>This is the complete list of members for <a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a>, including all inherited members.</p>
-<table class="directory">
-  <tr class="even"><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html#a1fea7a042951caa26a2308df639c0035">_init</a>()</td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span><span class="mlabel">protected</span></td></tr>
-  <tr bgcolor="#f0f0f0"><td class="entry"><b>close</b>() (defined in <a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a>)</td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr class="even"><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html#a014e0c0c12321b828af81d4d3bbff2be">FASTAFile</a>(std::string file)</td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0"><td class="entry"><b>FASTAFile</b>() (defined in <a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a>)</td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr class="even"><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html#ad62a8bcb88336e7c09df50855711f623">file</a>() const </td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html#a9fc99841602c7902c2a136076fb9465c">good</a>() const </td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr class="even"><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html#a647b81868e5f3cdf64c5ef03aae7087f">num_seq</a>() const </td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html#a676d34ce7472dcb868e02f5b390f665d">open</a>(std::string file)</td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr class="even"><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html#ad9f3f6d2d316adc9bd3357268452d2a1">seq_len</a>(std::string seq)</td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html#a524e37276e7d25181a12f8f898aa7999">seq_name</a>(int i) const </td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr class="even"><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html#aa47eafc6b10ff4463b06f1082715f558">sequences</a>() const </td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html#a4f4f734acbadf53a8ceda87803e0dfa2">subseq</a>(std::string chr, int beg, int end) const </td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-  <tr bgcolor="#f0f0f0" class="even"><td class="entry"><b>~FASTAFile</b>() (defined in <a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a>)</td><td class="entry"><a class="el" href="classvargas_1_1FASTAFile.html">vargas::FASTAFile</a></td><td class="entry"><span class="mlabel">inline</span></td></tr>
-</table></div><!-- contents -->
+&#160;<ul>
+<li>Base
+: <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">utils.h</a>
+</li>
+</ul>
+</div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.8-->
 <!-- start footer part -->
 </div>

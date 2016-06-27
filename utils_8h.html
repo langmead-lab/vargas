@@ -9,7 +9,7 @@
     <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
     <meta name="generator" content="Doxygen 1.8.6"/>
     <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
-    <title>Vargas: include/utils.h File Reference</title>
+    <title>Vargas</title>
     <!--<link href="tabs.css" rel="stylesheet" type="text/css"/>-->
     <script type="text/javascript" src="dynsections.js"></script>
     <link href="search/search.css" rel="stylesheet" type="text/css"/>
@@ -27,7 +27,9 @@
 <nav class="navbar navbar-default" role="navigation">
     <div class="container">
         <div class="navbar-header">
-            <a class="navbar-brand">Vargas 1.0</a>
+            <a class="navbar-brand">Vargas 1.0 <a class="navbar-brand"
+                                                                   href="https://github.com/RaviGaddipati/vargas"><font
+                    size="1">Github</font></a></a>
         </div>
     </div>
 </nav>
@@ -107,7 +109,6 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <code>#include &lt;fstream&gt;</code><br/>
 <code>#include &lt;algorithm&gt;</code><br/>
 <code>#include &lt;sstream&gt;</code><br/>
-<code>#include &quot;doctest/doctest.h&quot;</code><br/>
 </div>
 <p><a href="utils_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -131,7 +132,7 @@ typedef unsigned char&#160;</td><td class="memItemRight" valign="bottom"><b>ucha
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
 Enumerations</h2></td></tr>
-<tr class="memitem:a57ee1b07920818268aba535878b0537b"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><b>Base</b> : uchar { <br/>
+<tr class="memitem:a57ee1b07920818268aba535878b0537b"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> : uchar { <br/>
 &#160;&#160;<b>A</b> = 0, 
 <b>C</b> = 1, 
 <b>G</b> = 2, 
@@ -140,20 +141,21 @@ Enumerations</h2></td></tr>
 &#160;&#160;<b>N</b> = 4
 <br/>
  }</td></tr>
+<tr class="memdesc:a57ee1b07920818268aba535878b0537b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maps Base characters to integers. <br/></td></tr>
 <tr class="separator:a57ee1b07920818268aba535878b0537b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a31fd2b9518e1b829d3c2899504b67c79"><td class="memItemLeft" align="right" valign="top">__INLINE__ Base&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="utils_8h.html#a31fd2b9518e1b829d3c2899504b67c79">base_to_num</a> (char c)</td></tr>
+<tr class="memitem:a31fd2b9518e1b829d3c2899504b67c79"><td class="memItemLeft" align="right" valign="top">__INLINE__ <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="utils_8h.html#a31fd2b9518e1b829d3c2899504b67c79">base_to_num</a> (char c)</td></tr>
 <tr class="memdesc:a31fd2b9518e1b829d3c2899504b67c79"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts a character to a numeral representation.  <a href="#a31fd2b9518e1b829d3c2899504b67c79">More...</a><br/></td></tr>
 <tr class="separator:a31fd2b9518e1b829d3c2899504b67c79"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af5e47cf09a8981f95522616f5581f0b8"><td class="memItemLeft" align="right" valign="top">__INLINE__ char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="utils_8h.html#af5e47cf09a8981f95522616f5581f0b8">num_to_base</a> (Base num)</td></tr>
+<tr class="memitem:af5e47cf09a8981f95522616f5581f0b8"><td class="memItemLeft" align="right" valign="top">__INLINE__ char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="utils_8h.html#af5e47cf09a8981f95522616f5581f0b8">num_to_base</a> (<a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> num)</td></tr>
 <tr class="memdesc:af5e47cf09a8981f95522616f5581f0b8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a numeric form to a char, upper case. All ambiguous bases are represented as 'N'.  <a href="#af5e47cf09a8981f95522616f5581f0b8">More...</a><br/></td></tr>
 <tr class="separator:af5e47cf09a8981f95522616f5581f0b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a11b417f40447c88844290ab75b71e1c1"><td class="memItemLeft" align="right" valign="top">__INLINE__ std::vector&lt; Base &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="utils_8h.html#a11b417f40447c88844290ab75b71e1c1">seq_to_num</a> (const std::string &amp;seq)</td></tr>
+<tr class="memitem:a11b417f40447c88844290ab75b71e1c1"><td class="memItemLeft" align="right" valign="top">__INLINE__ std::vector&lt; <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="utils_8h.html#a11b417f40447c88844290ab75b71e1c1">seq_to_num</a> (const std::string &amp;seq)</td></tr>
 <tr class="memdesc:a11b417f40447c88844290ab75b71e1c1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a character sequence in a numeric sequence.  <a href="#a11b417f40447c88844290ab75b71e1c1">More...</a><br/></td></tr>
 <tr class="separator:a11b417f40447c88844290ab75b71e1c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2b8fb4633e83e1805f8267042e53526f"><td class="memItemLeft" align="right" valign="top">__INLINE__ std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="utils_8h.html#a2b8fb4633e83e1805f8267042e53526f">num_to_seq</a> (const std::vector&lt; Base &gt; &amp;num)</td></tr>
+<tr class="memitem:a2b8fb4633e83e1805f8267042e53526f"><td class="memItemLeft" align="right" valign="top">__INLINE__ std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="utils_8h.html#a2b8fb4633e83e1805f8267042e53526f">num_to_seq</a> (const std::vector&lt; <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &gt; &amp;num)</td></tr>
 <tr class="memdesc:a2b8fb4633e83e1805f8267042e53526f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a numeric vector to a sequence of bases.  <a href="#a2b8fb4633e83e1805f8267042e53526f">More...</a><br/></td></tr>
 <tr class="separator:a2b8fb4633e83e1805f8267042e53526f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae924c9b43cd7b086945003c09c294d2b"><td class="memItemLeft" align="right" valign="top">std::vector&lt; std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="utils_8h.html#ae924c9b43cd7b086945003c09c294d2b">split</a> (const std::string &amp;s, char delim)</td></tr>
@@ -181,7 +183,7 @@ Functions</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">__INLINE__ Base base_to_num </td>
+          <td class="memname">__INLINE__ <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> base_to_num </td>
           <td>(</td>
           <td class="paramtype">char&#160;</td>
           <td class="paramname"><em>c</em></td><td>)</td>
@@ -276,7 +278,7 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname">__INLINE__ char num_to_base </td>
           <td>(</td>
-          <td class="paramtype">Base&#160;</td>
+          <td class="paramtype"><a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a>&#160;</td>
           <td class="paramname"><em>num</em></td><td>)</td>
           <td></td>
         </tr>
@@ -301,7 +303,7 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname">__INLINE__ std::string num_to_seq </td>
           <td>(</td>
-          <td class="paramtype">const std::vector&lt; Base &gt; &amp;&#160;</td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>num</em></td><td>)</td>
           <td></td>
         </tr>
@@ -340,7 +342,7 @@ Functions</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">__INLINE__ std::vector&lt;Base&gt; seq_to_num </td>
+          <td class="memname">__INLINE__ std::vector&lt;<a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a>&gt; seq_to_num </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>seq</em></td><td>)</td>
@@ -458,10 +460,13 @@ Functions</h2></td></tr>
 </div>
 <hr class="footer"/>
 <address class="footer">
+    <center>
+        Ravi Gaddipati. <a href="mailto:rgaddip1@jhu.edu"> rgaddip1@jhu.edu</a>
+    </center>
     <small>
-        Generated on Sun Jun 26 2016 14:53:48 for Vargas by &#160;<a href="http://www.doxygen.org/index.html">
+        <a href="http://www.doxygen.org/index.html">
         <img class="footer" src="doxygen.png" alt="doxygen"/>
-    </a> 1.8.6
+        </a>
     </small>
 </address>
 </body>

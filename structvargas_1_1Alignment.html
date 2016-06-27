@@ -9,7 +9,7 @@
     <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
     <meta name="generator" content="Doxygen 1.8.6"/>
     <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
-    <title>Vargas: vargas::Alignment Struct Reference</title>
+    <title>Vargas</title>
     <!--<link href="tabs.css" rel="stylesheet" type="text/css"/>-->
     <script type="text/javascript" src="dynsections.js"></script>
     <link href="search/search.css" rel="stylesheet" type="text/css"/>
@@ -27,7 +27,9 @@
 <nav class="navbar navbar-default" role="navigation">
     <div class="container">
         <div class="navbar-header">
-            <a class="navbar-brand">Vargas 1.0</a>
+            <a class="navbar-brand">Vargas 1.0 <a class="navbar-brand"
+                                                                   href="https://github.com/RaviGaddipati/vargas"><font
+                    size="1">Github</font></a></a>
         </div>
     </div>
 </nav>
@@ -101,6 +103,11 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <div class="title">vargas::Alignment Struct Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
+
+<p><a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a> alignment storage struct.  
+ <a href="structvargas_1_1Alignment.html#details">More...</a></p>
+
+<p><code>#include &lt;<a class="el" href="alignment_8h_source.html">alignment.h</a>&gt;</code></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
@@ -128,7 +135,10 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a86c27fe97ea2945489f105e39b37d626"><td class="memItemLeft" align="right" valign="top">int8_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvargas_1_1Alignment.html#a86c27fe97ea2945489f105e39b37d626">corflag</a></td></tr>
 <tr class="separator:a86c27fe97ea2945489f105e39b37d626"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Member Data Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p><a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a> alignment storage struct. </p>
+<p>Stores a <a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a> and associated alignment information. Best alignment information as well as second best alignment information is stored. The stored alignment does not necessarily match the alignment closest to the read, corflag indicates if there was a match. If &lt; 0, the value was not set (i.e. not aligned yet). </p>
+</div><h2 class="groupheader">Member Data Documentation</h2>
 <a class="anchor" id="a86c27fe97ea2945489f105e39b37d626"></a>
 <div class="memitem">
 <div class="memproto">
@@ -233,10 +243,13 @@ Public Attributes</h2></td></tr>
 </div>
 <hr class="footer"/>
 <address class="footer">
+    <center>
+        Ravi Gaddipati. <a href="mailto:rgaddip1@jhu.edu"> rgaddip1@jhu.edu</a>
+    </center>
     <small>
-        Generated on Sun Jun 26 2016 14:53:48 for Vargas by &#160;<a href="http://www.doxygen.org/index.html">
+        <a href="http://www.doxygen.org/index.html">
         <img class="footer" src="doxygen.png" alt="doxygen"/>
-    </a> 1.8.6
+        </a>
     </small>
 </address>
 </body>

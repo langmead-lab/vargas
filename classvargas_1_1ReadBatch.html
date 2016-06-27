@@ -9,7 +9,7 @@
     <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
     <meta name="generator" content="Doxygen 1.8.6"/>
     <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
-    <title>Vargas: vargas::ReadBatch&lt; num_reads, T &gt; Class Template Reference</title>
+    <title>Vargas</title>
     <!--<link href="tabs.css" rel="stylesheet" type="text/css"/>-->
     <script type="text/javascript" src="dynsections.js"></script>
     <link href="search/search.css" rel="stylesheet" type="text/css"/>
@@ -27,7 +27,9 @@
 <nav class="navbar navbar-default" role="navigation">
     <div class="container">
         <div class="navbar-header">
-            <a class="navbar-brand">Vargas 1.0</a>
+            <a class="navbar-brand">Vargas 1.0 <a class="navbar-brand"
+                                                                   href="https://github.com/RaviGaddipati/vargas"><font
+                    size="1">Github</font></a></a>
         </div>
     </div>
 </nav>
@@ -119,6 +121,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:af5a6df9cbef6db18307c1312da7490a7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1ReadBatch.html#af5a6df9cbef6db18307c1312da7490a7">ReadBatch</a> (const std::vector&lt; <a class="el" href="structvargas_1_1Read.html">Read</a> &gt; &amp;batch, int len)</td></tr>
 <tr class="separator:af5a6df9cbef6db18307c1312da7490a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a80534d2360479a21fd09cfc31d32f210"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1ReadBatch.html#a80534d2360479a21fd09cfc31d32f210">ReadBatch</a> (<a class="el" href="classvargas_1_1ReadSource.html">ReadSource</a> &amp;rs, int len)</td></tr>
+<tr class="memdesc:a80534d2360479a21fd09cfc31d32f210"><td class="mdescLeft">&#160;</td><td class="mdescRight">obtain a batch of reads from the <a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a> source and package them.  <a href="#a80534d2360479a21fd09cfc31d32f210">More...</a><br/></td></tr>
 <tr class="separator:a80534d2360479a21fd09cfc31d32f210"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9b86298458069d808d2ed4e8a2c885a6"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1ReadBatch.html#a9b86298458069d808d2ed4e8a2c885a6">load_reads</a> (<a class="el" href="classvargas_1_1ReadSource.html">ReadSource</a> &amp;rs)</td></tr>
 <tr class="memdesc:a9b86298458069d808d2ed4e8a2c885a6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Load reads from a read source.  <a href="#a9b86298458069d808d2ed4e8a2c885a6">More...</a><br/></td></tr>
@@ -263,7 +266,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
 <p><a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a> length is set to first read size. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">obtain</td><td>a batch of reads from the <a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a> source and package them. </td></tr>
+    <tr><td class="paramname">rs</td><td>obtain a batch of reads from the <a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a> source and package them. </td></tr>
   </table>
   </dd>
 </dl>
@@ -346,9 +349,11 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
   </tr>
 </table>
 </div><div class="memdoc">
+
+<p>obtain a batch of reads from the <a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a> source and package them. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">obtain</td><td>a batch of reads from the <a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a> source and package them. </td></tr>
+    <tr><td class="paramname">rs</td><td><a class="el" href="classvargas_1_1ReadSource.html" title="Class defining functions for read sources. ">ReadSource</a> to pull reads from </td></tr>
     <tr><td class="paramname">len</td><td>max read length </td></tr>
   </table>
   </dd>
@@ -384,7 +389,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
 <p>Return the i'th base of every read in a simdpp vector. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">base</td><td>index. </td></tr>
+    <tr><td class="paramname">i</td><td>base index. </td></tr>
   </table>
   </dd>
 </dl>
@@ -537,7 +542,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
 <p>Load reads from a read source. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname"><a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a></td><td>source to load a batch from. </td></tr>
+    <tr><td class="paramname">rs</td><td><a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a> source to load a batch from. </td></tr>
   </table>
   </dd>
 </dl>
@@ -569,7 +574,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
 </div><div class="memdoc">
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">bath</td><td>load the given vector of reads. </td></tr>
+    <tr><td class="paramname">batch</td><td>load the given vector of reads. </td></tr>
   </table>
   </dd>
 </dl>
@@ -629,7 +634,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
 <p>Non const version of at(i). </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">base</td><td>index </td></tr>
+    <tr><td class="paramname">i</td><td>base index </td></tr>
   </table>
   </dd>
 </dl>
@@ -675,10 +680,13 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
 </div>
 <hr class="footer"/>
 <address class="footer">
+    <center>
+        Ravi Gaddipati. <a href="mailto:rgaddip1@jhu.edu"> rgaddip1@jhu.edu</a>
+    </center>
     <small>
-        Generated on Sun Jun 26 2016 14:53:48 for Vargas by &#160;<a href="http://www.doxygen.org/index.html">
+        <a href="http://www.doxygen.org/index.html">
         <img class="footer" src="doxygen.png" alt="doxygen"/>
-    </a> 1.8.6
+        </a>
     </small>
 </address>
 </body>

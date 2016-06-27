@@ -9,7 +9,7 @@
     <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
     <meta name="generator" content="Doxygen 1.8.6"/>
     <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
-    <title>Vargas: include/main.h File Reference</title>
+    <title>Vargas</title>
     <!--<link href="tabs.css" rel="stylesheet" type="text/css"/>-->
     <script type="text/javascript" src="dynsections.js"></script>
     <link href="search/search.css" rel="stylesheet" type="text/css"/>
@@ -27,7 +27,9 @@
 <nav class="navbar navbar-default" role="navigation">
     <div class="container">
         <div class="navbar-header">
-            <a class="navbar-brand">Vargas 1.0</a>
+            <a class="navbar-brand">Vargas 1.0 <a class="navbar-brand"
+                                                                   href="https://github.com/RaviGaddipati/vargas"><font
+                    size="1">Github</font></a></a>
         </div>
     </div>
 </nav>
@@ -226,9 +228,11 @@ void&#160;</td><td class="memItemRight" valign="bottom"><b>define_help</b> ()</t
 <p>Aligns the given vector of reads to the given graph, using the provided aligners. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
+    <tr><td class="paramname">label</td><td>Label to prepend to output </td></tr>
     <tr><td class="paramname">subgraph</td><td>Graph to align to </td></tr>
     <tr><td class="paramname">reads</td><td>Reads to align </td></tr>
     <tr><td class="paramname">aligners</td><td>Use the given aligners. Size should be equal to number of threads </td></tr>
+    <tr><td class="paramname">out</td><td>Stream to output result to </td></tr>
     <tr><td class="paramname">threads</td><td>number of execution threads. </td></tr>
   </table>
   </dd>
@@ -348,10 +352,13 @@ void&#160;</td><td class="memItemRight" valign="bottom"><b>define_help</b> ()</t
 </div>
 <hr class="footer"/>
 <address class="footer">
+    <center>
+        Ravi Gaddipati. <a href="mailto:rgaddip1@jhu.edu"> rgaddip1@jhu.edu</a>
+    </center>
     <small>
-        Generated on Sun Jun 26 2016 14:53:48 for Vargas by &#160;<a href="http://www.doxygen.org/index.html">
+        <a href="http://www.doxygen.org/index.html">
         <img class="footer" src="doxygen.png" alt="doxygen"/>
-    </a> 1.8.6
+        </a>
     </small>
 </address>
 </body>

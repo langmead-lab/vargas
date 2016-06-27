@@ -29,5 +29,5 @@ var searchData=
   ['size',['size',['../classdyn__bitset.html#a288e3eca7112efb838f47b68e7b8f28d',1,'dyn_bitset']]],
   ['split',['split',['../utils_8cpp.html#ae924c9b43cd7b086945003c09c294d2b',1,'split(const std::string &amp;s, char delim):&#160;utils.cpp'],['../utils_8cpp.html#ad36e421f6c2b3943ab8576aad58bd353',1,'split(const std::string &amp;s, char delim, std::vector&lt; std::string &gt; &amp;vec):&#160;utils.cpp'],['../utils_8h.html#ae924c9b43cd7b086945003c09c294d2b',1,'split(const std::string &amp;s, char delim):&#160;utils.cpp'],['../utils_8h.html#ad36e421f6c2b3943ab8576aad58bd353',1,'split(const std::string &amp;s, char delim, std::vector&lt; std::string &gt; &amp;vec):&#160;utils.cpp']]],
   ['subseq',['subseq',['../classvargas_1_1FASTAFile.html#a4f4f734acbadf53a8ceda87803e0dfa2',1,'vargas::FASTAFile']]],
-  ['subset',['subset',['../classvargas_1_1Graph.html#a04e8a7e2fb271e9962289945c8cbfd13',1,'vargas::Graph']]]
+  ['subset',['subset',['../classvargas_1_1Graph.html#a01ee0301301c8da9566d4271cc3c64a4',1,'vargas::Graph']]]
 ];

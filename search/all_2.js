@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['base',['Base',['../utils_8h.html#a57ee1b07920818268aba535878b0537b',1,'utils.h']]],
   ['base_5fto_5fnum',['base_to_num',['../utils_8h.html#a31fd2b9518e1b829d3c2899504b67c79',1,'utils.h']]],
   ['batch',['batch',['../classvargas_1_1ReadSource.html#ac9e1bea5fbc0878b82233f3d45d87d95',1,'vargas::ReadSource']]],
   ['batch_5fsize',['batch_size',['../classvargas_1_1ReadBatch.html#a69bb5092631095b5c465d3bf3aea6d77',1,'vargas::ReadBatch']]],

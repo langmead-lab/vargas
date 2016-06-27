@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['type',['Type',['../classvargas_1_1Graph.html#a1257a07882b0042b29dc497a0d7949bb',1,'vargas::Graph']]]
+  ['base',['Base',['../utils_8h.html#a57ee1b07920818268aba535878b0537b',1,'utils.h']]]
 ];

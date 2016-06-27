@@ -37,5 +37,5 @@ var searchData=
   ['sub_5ferr',['sub_err',['../structvargas_1_1Read.html#ac1f88fa50d83b2068c45df22d0a35960',1,'vargas::Read']]],
   ['sub_5fscore',['sub_score',['../structvargas_1_1Alignment.html#a1299af350eef4d8c2c2548f56b94f824',1,'vargas::Alignment']]],
   ['subseq',['subseq',['../classvargas_1_1FASTAFile.html#a4f4f734acbadf53a8ceda87803e0dfa2',1,'vargas::FASTAFile']]],
-  ['subset',['subset',['../classvargas_1_1Graph.html#a04e8a7e2fb271e9962289945c8cbfd13',1,'vargas::Graph']]]
+  ['subset',['subset',['../classvargas_1_1Graph.html#a01ee0301301c8da9566d4271cc3c64a4',1,'vargas::Graph']]]
 ];

@@ -9,7 +9,7 @@
     <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
     <meta name="generator" content="Doxygen 1.8.6"/>
     <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
-    <title>Vargas: vargas::Aligner&lt; num_reads, CellType, NativeT &gt; Class Template Reference</title>
+    <title>Vargas</title>
     <!--<link href="tabs.css" rel="stylesheet" type="text/css"/>-->
     <script type="text/javascript" src="dynsections.js"></script>
     <link href="search/search.css" rel="stylesheet" type="text/css"/>
@@ -27,7 +27,9 @@
 <nav class="navbar navbar-default" role="navigation">
     <div class="container">
         <div class="navbar-header">
-            <a class="navbar-brand">Vargas 1.0</a>
+            <a class="navbar-brand">Vargas 1.0 <a class="navbar-brand"
+                                                                   href="https://github.com/RaviGaddipati/vargas"><font
+                    size="1">Github</font></a></a>
         </div>
     </div>
 </nav>
@@ -151,8 +153,9 @@ Protected Member Functions</h2></td></tr>
 void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#a55de238c8fbc554bc1dc8c4966dfb183">_dealloc</a> ()</td></tr>
 <tr class="memdesc:a55de238c8fbc554bc1dc8c4966dfb183"><td class="mdescLeft">&#160;</td><td class="mdescRight">deletes allocated matrix filling vectors. <br/></td></tr>
 <tr class="separator:a55de238c8fbc554bc1dc8c4966dfb183"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae46166f395397a1ee040e12ebc0e9118"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#ae46166f395397a1ee040e12ebc0e9118">_alloc</a> ()</td></tr>
-<tr class="memdesc:ae46166f395397a1ee040e12ebc0e9118"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allocate S and D vectors. I is determined by template parameter.  <a href="#ae46166f395397a1ee040e12ebc0e9118">More...</a><br/></td></tr>
+<tr class="memitem:ae46166f395397a1ee040e12ebc0e9118"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="ae46166f395397a1ee040e12ebc0e9118"></a>
+void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#ae46166f395397a1ee040e12ebc0e9118">_alloc</a> ()</td></tr>
+<tr class="memdesc:ae46166f395397a1ee040e12ebc0e9118"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allocate S and D vectors. I is determined by template parameter. <br/></td></tr>
 <tr class="separator:ae46166f395397a1ee040e12ebc0e9118"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4cc21a0086e4af48513765c6a05619b7"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvargas_1_1Aligner_1_1__seed.html">_seed</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#a4cc21a0086e4af48513765c6a05619b7">_fill_node</a> (const <a class="el" href="classvargas_1_1Graph_1_1Node.html">Graph::Node</a> &amp;n, const <a class="el" href="classvargas_1_1ReadBatch.html">ReadBatch</a>&lt; num_reads, CellType &gt; &amp;reads)</td></tr>
 <tr class="memdesc:a4cc21a0086e4af48513765c6a05619b7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Computes local alignment of the node, with no previous seed.  <a href="#a4cc21a0086e4af48513765c6a05619b7">More...</a><br/></td></tr>
@@ -160,16 +163,16 @@ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="clas
 <tr class="memitem:aa81fb77f08e81940547cbc6a4408997f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvargas_1_1Aligner_1_1__seed.html">_seed</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#aa81fb77f08e81940547cbc6a4408997f">_fill_node</a> (const <a class="el" href="classvargas_1_1Graph_1_1Node.html">Graph::Node</a> &amp;n, const <a class="el" href="classvargas_1_1ReadBatch.html">ReadBatch</a>&lt; num_reads, CellType &gt; &amp;reads, const <a class="el" href="structvargas_1_1Aligner_1_1__seed.html">_seed</a> *s)</td></tr>
 <tr class="memdesc:aa81fb77f08e81940547cbc6a4408997f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Computes local alignment to the node.  <a href="#aa81fb77f08e81940547cbc6a4408997f">More...</a><br/></td></tr>
 <tr class="separator:aa81fb77f08e81940547cbc6a4408997f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac0e1f0ff869d864ad0c7ca668410de7c"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#ac0e1f0ff869d864ad0c7ca668410de7c">_fill_cell_rzcz</a> (const CellType&lt; num_reads &gt; &amp;read_base, const Base &amp;ref, const <a class="el" href="structvargas_1_1Aligner_1_1__seed.html">_seed</a> *s)</td></tr>
+<tr class="memitem:ac0e1f0ff869d864ad0c7ca668410de7c"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#ac0e1f0ff869d864ad0c7ca668410de7c">_fill_cell_rzcz</a> (const CellType&lt; num_reads &gt; &amp;read_base, const <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &amp;ref, const <a class="el" href="structvargas_1_1Aligner_1_1__seed.html">_seed</a> *s)</td></tr>
 <tr class="memdesc:ac0e1f0ff869d864ad0c7ca668410de7c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fills the top left cell.  <a href="#ac0e1f0ff869d864ad0c7ca668410de7c">More...</a><br/></td></tr>
 <tr class="separator:ac0e1f0ff869d864ad0c7ca668410de7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2808cc2e6092b59837193e96e2cd7faf"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#a2808cc2e6092b59837193e96e2cd7faf">_fill_cell_rz</a> (const CellType&lt; num_reads &gt; &amp;read_base, const Base &amp;ref, const uint32_t &amp;col)</td></tr>
+<tr class="memitem:a2808cc2e6092b59837193e96e2cd7faf"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#a2808cc2e6092b59837193e96e2cd7faf">_fill_cell_rz</a> (const CellType&lt; num_reads &gt; &amp;read_base, const <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &amp;ref, const uint32_t &amp;col)</td></tr>
 <tr class="memdesc:a2808cc2e6092b59837193e96e2cd7faf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fills cells when row is 0.  <a href="#a2808cc2e6092b59837193e96e2cd7faf">More...</a><br/></td></tr>
 <tr class="separator:a2808cc2e6092b59837193e96e2cd7faf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a54a80365e1c358bdc48ec605055d78a0"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#a54a80365e1c358bdc48ec605055d78a0">_fill_cell_cz</a> (const CellType&lt; num_reads &gt; &amp;read_base, const Base &amp;ref, const uint32_t &amp;row, const <a class="el" href="structvargas_1_1Aligner_1_1__seed.html">_seed</a> *s)</td></tr>
+<tr class="memitem:a54a80365e1c358bdc48ec605055d78a0"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#a54a80365e1c358bdc48ec605055d78a0">_fill_cell_cz</a> (const CellType&lt; num_reads &gt; &amp;read_base, const <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &amp;ref, const uint32_t &amp;row, const <a class="el" href="structvargas_1_1Aligner_1_1__seed.html">_seed</a> *s)</td></tr>
 <tr class="memdesc:a54a80365e1c358bdc48ec605055d78a0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fills cells when col is 0.  <a href="#a54a80365e1c358bdc48ec605055d78a0">More...</a><br/></td></tr>
 <tr class="separator:a54a80365e1c358bdc48ec605055d78a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a317bb25ff1d54b7b337818dc225ad0e2"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#a317bb25ff1d54b7b337818dc225ad0e2">_fill_cell</a> (const CellType&lt; num_reads &gt; &amp;read_base, const Base &amp;ref, const uint32_t &amp;row, const uint32_t &amp;col)</td></tr>
+<tr class="memitem:a317bb25ff1d54b7b337818dc225ad0e2"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#a317bb25ff1d54b7b337818dc225ad0e2">_fill_cell</a> (const CellType&lt; num_reads &gt; &amp;read_base, const <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &amp;ref, const uint32_t &amp;row, const uint32_t &amp;col)</td></tr>
 <tr class="memdesc:a317bb25ff1d54b7b337818dc225ad0e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fills the current cell.  <a href="#a317bb25ff1d54b7b337818dc225ad0e2">More...</a><br/></td></tr>
 <tr class="separator:a317bb25ff1d54b7b337818dc225ad0e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2bfe36953e5922ff3e23046c5d88a729"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#a2bfe36953e5922ff3e23046c5d88a729">_D</a> (const uint32_t &amp;col, const CellType&lt; num_reads &gt; &amp;Dp, const CellType&lt; num_reads &gt; &amp;Sp)</td></tr>
@@ -178,7 +181,7 @@ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="clas
 <tr class="memitem:a341ab04359aa31d621901a9d102309e9"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#a341ab04359aa31d621901a9d102309e9">_I</a> (const uint32_t &amp;row, const CellType&lt; num_reads &gt; &amp;Sc)</td></tr>
 <tr class="memdesc:a341ab04359aa31d621901a9d102309e9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Score if there is an insertion.  <a href="#a341ab04359aa31d621901a9d102309e9">More...</a><br/></td></tr>
 <tr class="separator:a341ab04359aa31d621901a9d102309e9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac33f578e06f1a28aea15b63abb9c51f2"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#ac33f578e06f1a28aea15b63abb9c51f2">_M</a> (uint32_t col, const CellType&lt; num_reads &gt; &amp;read, const Base &amp;ref, const CellType&lt; num_reads &gt; &amp;Sp)</td></tr>
+<tr class="memitem:ac33f578e06f1a28aea15b63abb9c51f2"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#ac33f578e06f1a28aea15b63abb9c51f2">_M</a> (uint32_t col, const CellType&lt; num_reads &gt; &amp;read, const <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &amp;ref, const CellType&lt; num_reads &gt; &amp;Sp)</td></tr>
 <tr class="memdesc:ac33f578e06f1a28aea15b63abb9c51f2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Best score if there is a match/mismatch. Uses S_prev.  <a href="#ac33f578e06f1a28aea15b63abb9c51f2">More...</a><br/></td></tr>
 <tr class="separator:ac33f578e06f1a28aea15b63abb9c51f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a83206eb92ef7ad67bd4a8a029f33fe05"><td class="memItemLeft" align="right" valign="top">__INLINE__ void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1Aligner.html#a83206eb92ef7ad67bd4a8a029f33fe05">_fill_cell_finish</a> (const uint32_t &amp;row, const uint32_t &amp;col, const uint32_t &amp;node_origin, const std::vector&lt; <a class="el" href="structvargas_1_1Read.html">Read</a> &gt; &amp;reads)</td></tr>
@@ -330,39 +333,6 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="ae46166f395397a1ee040e12ebc0e9118"></a>
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigned int, typename=void &gt; class CellType = simdpp::uint8, typename NativeT = uint8_t&gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void <a class="el" href="classvargas_1_1Aligner.html">vargas::Aligner</a>&lt; num_reads, CellType, NativeT &gt;::_alloc </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Allocate S and D vectors. I is determined by template parameter. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">seq</td><td>length of S and D vectors, i.e. node length. </td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
 <a class="anchor" id="a2bfe36953e5922ff3e23046c5d88a729"></a>
 <div class="memitem">
 <div class="memproto">
@@ -433,7 +403,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const Base &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &amp;&#160;</td>
           <td class="paramname"><em>ref</em>, </td>
         </tr>
         <tr>
@@ -492,7 +462,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const Base &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &amp;&#160;</td>
           <td class="paramname"><em>ref</em>, </td>
         </tr>
         <tr>
@@ -526,7 +496,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
     <tr><td class="paramname">read_base</td><td><a class="el" href="classvargas_1_1ReadBatch.html" title="Container for a packaged batch of reads. ">ReadBatch</a> vector </td></tr>
     <tr><td class="paramname">ref</td><td>reference sequence base </td></tr>
     <tr><td class="paramname">row</td><td>current row in matrix </td></tr>
-    <tr><td class="paramname">seed</td><td>alignment seed from previous node </td></tr>
+    <tr><td class="paramname">s</td><td>alignment seed from previous node </td></tr>
   </table>
   </dd>
 </dl>
@@ -584,7 +554,8 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
   <table class="params">
     <tr><td class="paramname">row</td><td>current row </td></tr>
     <tr><td class="paramname">col</td><td>current column </td></tr>
-    <tr><td class="paramname">n</td><td>Current node, used to get absolute alignment position </td></tr>
+    <tr><td class="paramname">node_origin</td><td>Current position, used to get absolute alignment position </td></tr>
+    <tr><td class="paramname">reads</td><td>Vector of reads that are being aligned </td></tr>
   </table>
   </dd>
 </dl>
@@ -609,7 +580,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const Base &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &amp;&#160;</td>
           <td class="paramname"><em>ref</em>, </td>
         </tr>
         <tr>
@@ -661,7 +632,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const Base &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &amp;&#160;</td>
           <td class="paramname"><em>ref</em>, </td>
         </tr>
         <tr>
@@ -688,7 +659,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
   <table class="params">
     <tr><td class="paramname">read_base</td><td><a class="el" href="classvargas_1_1ReadBatch.html" title="Container for a packaged batch of reads. ">ReadBatch</a> vector </td></tr>
     <tr><td class="paramname">ref</td><td>reference sequence base </td></tr>
-    <tr><td class="paramname">seed</td><td>alignment seed from previous node </td></tr>
+    <tr><td class="paramname">s</td><td>alignment seed from previous node </td></tr>
   </table>
   </dd>
 </dl>
@@ -785,7 +756,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
   <table class="params">
     <tr><td class="paramname">n</td><td>Node to align to </td></tr>
     <tr><td class="paramname">reads</td><td><a class="el" href="classvargas_1_1ReadBatch.html" title="Container for a packaged batch of reads. ">ReadBatch</a> to align </td></tr>
-    <tr><td class="paramname">seeds</td><td>seeds from previous nodes </td></tr>
+    <tr><td class="paramname">s</td><td>seeds from previous nodes </td></tr>
   </table>
   </dd>
 </dl>
@@ -837,7 +808,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
   <table class="params">
     <tr><td class="paramname">prev_ids</td><td>All nodes preceding current node </td></tr>
     <tr><td class="paramname">seed_map</td><td>ID-&gt;seed map for all previous nodes </td></tr>
-    <tr><td class="paramname"><a class="el" href="structvargas_1_1Aligner_1_1__seed.html" title="Ending vectors from a previous node. ">_seed</a></td><td>best seed to populate </td></tr>
+    <tr><td class="paramname">seed</td><td>best seed to populate </td></tr>
   </table>
   </dd>
 </dl>
@@ -913,7 +884,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const Base &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="utils_8h.html#a57ee1b07920818268aba535878b0537b">Base</a> &amp;&#160;</td>
           <td class="paramname"><em>ref</em>, </td>
         </tr>
         <tr>
@@ -993,6 +964,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
   <table class="params">
     <tr><td class="paramname">n</td><td>Node to align to </td></tr>
     <tr><td class="paramname">reads</td><td><a class="el" href="classvargas_1_1ReadBatch.html" title="Container for a packaged batch of reads. ">ReadBatch</a> to align </td></tr>
+    <tr><td class="paramname">pos</td><td>positions of the max score </td></tr>
   </table>
   </dd>
 </dl>
@@ -1041,7 +1013,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>vector of <a class="el" href="structvargas_1_1Alignment.html">Alignment</a> structures. </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>vector of <a class="el" href="structvargas_1_1Alignment.html" title="Read alignment storage struct. ">Alignment</a> structures. </dd></dl>
 
 </div>
 </div>
@@ -1094,7 +1066,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>vector of <a class="el" href="structvargas_1_1Alignment.html">Alignment</a> structures </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>vector of <a class="el" href="structvargas_1_1Alignment.html" title="Read alignment storage struct. ">Alignment</a> structures </dd></dl>
 
 </div>
 </div>
@@ -1150,7 +1122,7 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
     <tr><td class="paramname">reads</td><td><a class="el" href="classvargas_1_1ReadBatch.html" title="Container for a packaged batch of reads. ">ReadBatch</a> to align </td></tr>
     <tr><td class="paramname">begin</td><td>iterator to beginning of graph </td></tr>
     <tr><td class="paramname">end</td><td>iterator to end of graph </td></tr>
-    <tr><td class="paramname">aligns</td><td>vector of <a class="el" href="structvargas_1_1Alignment.html">Alignment</a> structures to populate </td></tr>
+    <tr><td class="paramname">aligns</td><td>vector of <a class="el" href="structvargas_1_1Alignment.html" title="Read alignment storage struct. ">Alignment</a> structures to populate </td></tr>
   </table>
   </dd>
 </dl>
@@ -1325,10 +1297,13 @@ template&lt;unsigned int num_reads = SIMDPP_FAST_INT8_SIZE, template&lt; unsigne
 </div>
 <hr class="footer"/>
 <address class="footer">
+    <center>
+        Ravi Gaddipati. <a href="mailto:rgaddip1@jhu.edu"> rgaddip1@jhu.edu</a>
+    </center>
     <small>
-        Generated on Sun Jun 26 2016 14:53:48 for Vargas by &#160;<a href="http://www.doxygen.org/index.html">
+        <a href="http://www.doxygen.org/index.html">
         <img class="footer" src="doxygen.png" alt="doxygen"/>
-    </a> 1.8.6
+        </a>
     </small>
 </address>
 </body>
