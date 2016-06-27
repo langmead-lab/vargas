@@ -56,7 +56,7 @@ class VarFile {
     FormatField(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag) : tag(tag) {
       if (!hdr || !rec || tag.length() == 0) throw std::invalid_argument("Invalid header, rec, or tag.");
 
-      T *dst = NULL;
+      T *dst = nullptr;
       int n_arr = 0;
 
       int n = _get_vals(hdr, rec, tag, &dst, n_arr);
@@ -106,7 +106,7 @@ class VarFile {
     InfoField(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag) : tag(tag) {
       if (!hdr || !rec || tag.length() == 0) throw std::invalid_argument("Invalid header, rec, or tag.");
 
-      T *dst = NULL;
+        T *dst = nullptr;
       int n_arr = 0;
 
       int n = _bcf_get_info_values(hdr, rec, tag, &dst, n_arr);
@@ -162,10 +162,10 @@ class VarFile {
     if (_header) bcf_hdr_destroy(_header);
     if (_curr_rec) bcf_destroy(_curr_rec);
     if (_ingroup_cstr) free(_ingroup_cstr);
-    _bcf = NULL;
-    _header = NULL;
-    _curr_rec = NULL;
-    _ingroup_cstr = NULL;
+    _bcf = nullptr;
+    _header = nullptr;
+    _curr_rec = nullptr;
+    _ingroup_cstr = nullptr;
   }
 
     /**
@@ -369,22 +369,6 @@ class VarFile {
      */
   std::string file() const { return _file_name; }
 
-    /**
-     * @brief
-     * Random seed used for ingroup generation.
-     * @return seed
-     */
-  time_t seed() const { return _seed; }
-
-    /**
-     * @brief
-     * Set the random seed.
-     * @param seed random generator seed.
-     */
-  void seed(time_t seed) {
-    _seed = seed;
-    srand(seed);
-  }
 
     /**
      * @brief
@@ -432,13 +416,12 @@ class VarFile {
 
 
  private:
-  time_t _seed = time(NULL);
   std::string _file_name, // VCF/BCF file name
       _chr; // Sequence restriction (CHROM)
   int _min_pos = -1, _max_pos = -1; // Region of _chr restriction
 
-  htsFile *_bcf = NULL;
-  bcf_hdr_t *_header = NULL;
+    htsFile *_bcf = nullptr;
+    bcf_hdr_t *_header = nullptr;
   bcf1_t *_curr_rec = bcf_init();
 
   std::vector<std::string> _genotypes; // restricted to _ingroup
@@ -447,7 +430,7 @@ class VarFile {
   std::vector<std::string> _alleles;
   std::vector<std::string> _samples;
   std::vector<std::string> _ingroup; // subset of _samples
-  char *_ingroup_cstr = NULL;
+    char *_ingroup_cstr = nullptr;
 
 };
 TEST_CASE ("VCF File handler") {
@@ -558,7 +541,7 @@ TEST_CASE ("VCF File handler") {
 
       SUBCASE("Ingroup generation") {
     VarFile vcf;
-    vcf.seed(12345);
+      srand(12345);
     vcf.open(tmpvcf);
     vcf.create_ingroup(50);
 

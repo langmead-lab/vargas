@@ -18,6 +18,7 @@
 #include <algorithm>
 #include "main.h"
 #include "getopt_pp.h"
+#include "sam.h"
 
 
 int main(const int argc, const char *argv[]) {

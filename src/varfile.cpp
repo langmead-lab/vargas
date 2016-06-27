@@ -120,8 +120,6 @@ void vargas::VarFile::create_ingroup(int percent) {
 
 
 int vargas::VarFile::_init() {
-    srand(_seed);
-
     _bcf = bcf_open(_file_name.c_str(), "r");
     if (!_bcf) return -1;
 
