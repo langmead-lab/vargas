@@ -30,12 +30,11 @@
 #include <fstream>
 #include <algorithm>
 #include <sstream>
-#include "doctest/doctest.h"
 
 typedef unsigned char uchar;
 
 /**
- * @enum
+ * @enum Base
  * @brief
  * Maps Base characters to integers.
  */
@@ -175,25 +174,5 @@ char rand_base() {
  * @param s2 sequence b
  */
 int levenshtein_distance(const std::string &s1, const std::string &s2);
-
-TEST_CASE ("Sequence to Numeric") {
-  std::vector<Base> a = seq_to_num("ACGTN");
-      REQUIRE(a.size() == 5);
-      CHECK(a[0] == Base::A);
-      CHECK(a[1] == Base::C);
-      CHECK(a[2] == Base::G);
-      CHECK(a[3] == Base::T);
-      CHECK(a[4] == Base::N);
-}
-
-TEST_CASE ("Numeric to Sequence") {
-  std::string a = num_to_seq({Base::A, Base::C, Base::G, Base::T, Base::N});
-      REQUIRE(a.length() == 5);
-      CHECK(a[0] == 'A');
-      CHECK(a[1] == 'C');
-      CHECK(a[2] == 'G');
-      CHECK(a[3] == 'T');
-      CHECK(a[4] == 'N');
-}
 
 #endif //VARGAS_UTILS_H

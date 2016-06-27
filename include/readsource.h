@@ -15,7 +15,7 @@
 
 #include <string>
 #include <sstream>
-#include "doctest/doctest.h"
+#include "doctest.h"
 #include "utils.h"
 #include "simdpp/simd.h"
 #include "gdef.h"
@@ -251,7 +251,7 @@ namespace vargas {
       /**
        * @brief
        * Read length is set to first read size.
-       * @param obtain a batch of reads from the Read source and package them.
+       * @param rs obtain a batch of reads from the Read source and package them.
        */
       ReadBatch(ReadSource &rs) : _reads(rs.get_batch(num_reads)) {
           if (_reads.size() == 0) throw std::invalid_argument("Unable to get reads.");
@@ -268,7 +268,9 @@ namespace vargas {
       }
 
       /**
-       * @param obtain a batch of reads from the Read source and package them.
+       * @brief
+       * obtain a batch of reads from the Read source and package them.
+       * @param rs ReadSource to pull reads from
        * @param len max read length
        */
       ReadBatch(ReadSource &rs, int len) : _reads(rs.get_batch(num_reads)), read_len(len) {
@@ -278,14 +280,14 @@ namespace vargas {
       /**
        * @brief
        * Load reads from a read source.
-       * @param Read source to load a batch from.
+       * @param rs Read source to load a batch from.
        */
       bool load_reads(ReadSource &rs) {
           return load_reads(rs.get_batch(num_reads));
       }
 
       /**
-       * @param bath load the given vector of reads.
+       * @param batch load the given vector of reads.
        */
       bool load_reads(const std::vector<Read> &batch) {
           if (batch.size() == 0) return false;
@@ -297,7 +299,7 @@ namespace vargas {
       /**
        * @brief
        * Return the i'th base of every read in a simdpp vector.
-       * @param base index.
+       * @param i base index.
        */
       const T<num_reads> &at(int i) const {
           // let vector handle out of range errors
@@ -316,7 +318,7 @@ namespace vargas {
       /**
        * @brief
        * Non const version of at(i).
-       * @param base index
+       * @param i base index
        */
       T<num_reads> &operator[](int i) {
           return _packaged_reads.at(i);

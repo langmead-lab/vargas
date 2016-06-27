@@ -5,7 +5,7 @@ project("vargas")
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-include_directories(libsimdpp doctest include htslib)
+include_directories(libsimdpp doctest/doctest include htslib)
 link_directories(${PROJECT_SOURCE_DIR}/htslib)
 
 set(MAIN_SOURCES

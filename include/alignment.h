@@ -20,12 +20,13 @@
 
 #include <vector>
 #include <algorithm>
+#include <iostream>
 #include "readsource.h"
 #include "utils.h"
 #include "simdpp/simd.h"
 #include "readfile.h"
 #include "graph.h"
-#include "doctest/doctest.h"
+//#include "doctest/doctest.h"
 
 namespace vargas {
 
@@ -255,6 +256,7 @@ namespace vargas {
        * to the node.
        * @param n Node to align to
        * @param reads ReadBatch to align
+       * @param pos positions of the max score
        */
       CellType<num_reads> _test_fill_node(const Graph::Node &n,
                                           const ReadBatch<num_reads, CellType> &reads,
@@ -285,7 +287,7 @@ namespace vargas {
        * Returns the best seed from all previous nodes.
        * @param prev_ids All nodes preceding current node
        * @param seed_map ID->seed map for all previous nodes
-       * @param _seed best seed to populate
+       * @param seed best seed to populate
        */
       void _get_seed(const std::vector<uint32_t> &prev_ids,
                      const std::unordered_map<uint32_t, _seed> &seed_map,
@@ -341,7 +343,6 @@ namespace vargas {
       /**
        * @brief
        * Allocate S and D vectors. I is determined by template parameter.
-       * @param seq length of S and D vectors, i.e. node length.
        */
       void _alloc() {
           Sa = new VecType(_max_node_len);
@@ -377,7 +378,7 @@ namespace vargas {
        * Computes local alignment to the node.
        * @param n Node to align to
        * @param reads ReadBatch to align
-       * @param seeds seeds from previous nodes
+       * @param s seeds from previous nodes
        */
       _seed _fill_node(const Graph::Node &n,
                        const ReadBatch<num_reads, CellType> &reads,
@@ -440,7 +441,7 @@ namespace vargas {
        * Fills the top left cell.
        * @param read_base ReadBatch vector
        * @param ref reference sequence base
-       * @param seed alignment seed from previous node
+       * @param s alignment seed from previous node
        */
       __INLINE__
       void _fill_cell_rzcz(const CellType<num_reads> &read_base,
@@ -473,7 +474,7 @@ namespace vargas {
        * @param read_base ReadBatch vector
        * @param ref reference sequence base
        * @param row current row in matrix
-       * @param seed alignment seed from previous node
+       * @param s alignment seed from previous node
        */
       __INLINE__
       void _fill_cell_cz(const CellType<num_reads> &read_base,
@@ -591,7 +592,8 @@ namespace vargas {
        * Currently does not support non-deafault template args
        * @param row current row
        * @param col current column
-       * @param n Current node, used to get absolute alignment position
+       * @param node_origin Current position, used to get absolute alignment position
+       * @param reads Vector of reads that are being aligned
        */
       __INLINE__
       void _fill_cell_finish(const uint32_t &row,

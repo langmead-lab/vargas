@@ -17,7 +17,7 @@ $( document ).ready(function() {
     $('img[src="ftv2ns.png"]').replaceWith('<span class="label label-danger">N</span> ');
     $('img[src="ftv2cl.png"]').replaceWith('<span class="label label-danger">C</span> ');
 
-    $("ul.tablist").addClass("nav nav-pills nav-justified");
+    $("ul.tablist").addClass("nav nav-tabs nav-justified");
     $("ul.tablist").css("margin-top", "0.5em");
     $("ul.tablist").css("margin-bottom", "0.5em");
     $("li.current").addClass("active");
@@ -96,13 +96,13 @@ $( document ).ready(function() {
   var nav_container = $('<div class="row"></div>');
   $('#navrow1').parent().prepend(nav_container);
 
-  var left_nav = $('<div class="col-md-9"></div>');
+  var left_nav = $('<div class="col-md-12"></div>');
   for (i = 0; i < 6; i++) {
     var navrow = $('#navrow' + i + ' > ul.tablist').detach();
     left_nav.append(navrow);
     $('#navrow' + i).remove();
   }
-  var right_nav = $('<div class="col-md-3"></div>').append('\
+  var right_nav = $('<div class="col-md-12"></div>').append('\
     <div id="search-box" class="input-group">\
       <div class="input-group-btn">\
         <button aria-expanded="false" type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">\
@@ -115,7 +115,7 @@ $( document ).ready(function() {
       <input id="search-field" class="form-control" accesskey="S" onkeydown="searchBox.OnSearchFieldChange(event);" placeholder="Search ..." type="text">\
     </div>');
   $(nav_container).append(left_nav);
-  $(nav_container).append(right_nav);
+  $(nav_container).prepend(right_nav);
 
   $('#MSearchSelectWindow .SelectionMark').remove();
   var search_selectors = $('#MSearchSelectWindow .SelectItem');

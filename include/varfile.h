@@ -27,7 +27,7 @@
 #include "utils.h"
 #include "htslib/vcfutils.h"
 #include "htslib/hts.h"
-#include "doctest/doctest.h"
+#include "doctest.h"
 
 namespace vargas {
 
@@ -335,7 +335,8 @@ class VarFile {
     /**
      * @brief
     * Get values of an arbitrary FORMAT tag.
-     * @param T Field format
+    * @tparam T Field format
+     * @param tag tag to extract
     * @return vector of values.
     */
   template<typename T>
@@ -395,7 +396,7 @@ class VarFile {
     /**
      * @brief
      * Include only the provided sample names in the Graph.
-     * @param vector of sample names
+     * @param samples vector of sample names
      */
   void create_ingroup(const std::vector<std::string> &samples) {
     _ingroup = samples;

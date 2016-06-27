@@ -10,7 +10,7 @@
 #include <vector>
 #include <bitset>
 #include <sstream>
-#include "doctest/doctest.h"
+#include "doctest.h"
 
 #ifndef VARGAS_DYN_BITSET_H
 #define VARGAS_DYN_BITSET_H
@@ -45,7 +45,7 @@ class dyn_bitset {
      * @brief
      * Create a dyn_bitset from a vector. Each bit is
      * set according to the truth of each vector element.
-     * @param vector<T>
+     * @param vec vector<T>
      */
     template<typename T>
     dyn_bitset(const std::vector<T> &vec) {
@@ -56,7 +56,7 @@ class dyn_bitset {
      * @brief
      * Create a dyn_bitset from a vector. Each bit is
      * set according to the truth of each vector element.
-     * @param vector<T>
+     * @param vec vector<T>
      */
     template<typename T>
     void set(const std::vector<T> &vec) {
@@ -134,7 +134,7 @@ class dyn_bitset {
     /**
      * @brief
      * Alias for at(). Does not allow setting.
-     * @param idx index of bit to get
+     * @param bit index of bit to get
      */
     bool operator[](const int bit) const {
         return at(bit);

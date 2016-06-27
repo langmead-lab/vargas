@@ -9,12 +9,13 @@
  * @file
  */
 
+
 #define DOCTEST_CONFIG_IMPLEMENT
+#include "doctest.h"
 
 #include <iostream>
 #include <thread>
 #include <algorithm>
-#include "doctest/doctest.h"
 #include "main.h"
 #include "getopt_pp.h"
 
@@ -627,5 +628,5 @@ void sim_help() {
     cout << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
 
     cout << "Comments preceded by \'#\'.\n";
-    cout << "-n reads are produced for each -s, -m, -i, -v combination." << endl << endl;
+    cout << "-n reads are produced for each -m, -i, -v, -b combination." << endl << endl;
 }

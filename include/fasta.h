@@ -14,7 +14,7 @@
 
 #include <string>
 #include <fstream>
-#include "doctest/doctest.h"
+#include "doctest.h"
 #include "htslib/faidx.h"
 
 
@@ -67,6 +67,7 @@ class FASTAFile {
      * @brief
      * Return a subsequence of the FASTA file, absolute 0 based indexing.
      * The position is not relative to the min/max params.
+     * @param chr contig ID to extract seq from
      * @param beg beginning index
      * @param end ending index, inclusive
      * @return subsequence string
@@ -81,7 +82,7 @@ class FASTAFile {
 
     /**
      * @brief
-     * @param sequence name
+     * @param seq name
      * @return sequence length
      */
   int seq_len(std::string seq) { return faidx_seq_len(_index, seq.c_str()); }
@@ -89,7 +90,7 @@ class FASTAFile {
     /**
      * @brief
      * Sequence name given a sequence ID.
-     * @param ID of sequence
+     * @param i ID of sequence
      * @return sequence name
      */
   std::string seq_name(int i) const {

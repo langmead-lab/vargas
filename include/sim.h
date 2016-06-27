@@ -68,7 +68,7 @@ namespace vargas {
       ReadSim(const Graph &g) : _graph(g) { _init(); }
 
       /**
-       * @param g Graph to simulate from
+       * @param _graph Graph to simulate from
        * @param prof accept reads following this profile
        */
       ReadSim(const Graph &_graph, const ReadProfile &prof) : _graph(_graph), _prof(prof) { _init(); }

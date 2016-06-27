@@ -12,6 +12,7 @@
 #ifndef VARGAS_MAIN_H
 #define VARGAS_MAIN_H
 
+
 #include "alignment.h"
 #include "graph.h"
 #include "readfile.h"
@@ -50,9 +51,11 @@ int profile(const int argc, const char *argv[]);
 /**
  * Aligns the given vector of reads to the given graph,
  * using the provided aligners.
+ * @param label Label to prepend to output
  * @param subgraph Graph to align to
  * @param reads Reads to align
  * @param aligners Use the given aligners. Size should be equal to number of threads
+ * @param out Stream to output result to
  * @param threads number of execution threads.
  */
 void align_to_graph(std::string label,

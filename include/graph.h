@@ -26,7 +26,7 @@
 #include <thread>
 #include "fasta.h"
 #include "varfile.h"
-#include "doctest/doctest.h"
+#include "doctest.h"
 #include "utils.h"
 #include "dyn_bitset.h"
 
@@ -303,7 +303,7 @@ namespace vargas {
        * The former keeps reference nodes, the later picks the node with the highest allele
        * frequency. Both result in linear graphs.
        * @param g Graph to derive from
-       * @aram t one of Graph::REF, Graph::MAXAF
+       * @param t one of Graph::REF, Graph::MAXAF
        */
       Graph(const Graph &g,
             Type t);
@@ -375,7 +375,7 @@ namespace vargas {
       /**
        * @brief
        * Const reference to a node
-       * @param ID of the node
+       * @param id ID of the node
        * @return shared node object
        */
       const Node &node(uint32_t id) const {
@@ -391,7 +391,7 @@ namespace vargas {
       /**
        * @brief
        * Exports the graph in DOT format.
-       * @param graph name
+       * @param name graph name
        */
       std::string to_DOT(std::string name = "g") const;
 
@@ -410,7 +410,7 @@ namespace vargas {
       /**
        * @brief
        * Define the graph population size.
-       * @param popsize, number of genotypes
+       * @param popsize number of genotypes
        */
       void set_popsize(int popsize) { _pop_size = popsize; }
 
@@ -686,7 +686,7 @@ namespace vargas {
 
       /**
        * Use a certain percentage of individuals. Reference nodes are always included.
-       * @param percent, 0 - 100
+       * @param percent 0 - 100
        */
       void ingroup(int percent);
 
@@ -716,17 +716,20 @@ namespace vargas {
       /**
        * Builds edges between pending previous nodes and the current level. Each
        * prev is connected to each curr, and curr becomes the new prev.
+       * @param g build edges for Graph g
        * @param prev previous unconnected nodes (linked to main graph already)
        * @param curr current unconnected nodes
        * @param chain if a single linear node is split, map the beginning of the sequence to the end.
        */
       __INLINE__
-      void _build_edges(Graph &g, std::unordered_set<uint32_t> &prev,
-                               std::unordered_set<uint32_t> &curr,
-                               std::unordered_map<uint32_t, uint32_t> *chain = NULL);
+      void _build_edges(Graph &g,
+                        std::unordered_set<uint32_t> &prev,
+                        std::unordered_set<uint32_t> &curr,
+                        std::unordered_map<uint32_t, uint32_t> *chain = NULL);
 
       /**
        * Builds a linear sequence of nodes set as reference nodes.
+       * @param g Graph to build linear ref in
        * @param prev previous unconnected nodes (linked to main graph already)
        * @param curr current unconnected nodes
        * @param pos current position
@@ -734,10 +737,11 @@ namespace vargas {
        * @return ending position
        */
       __INLINE__
-      int _build_linear_ref(Graph &g, std::unordered_set<uint32_t> &prev,
-                                   std::unordered_set<uint32_t> &curr,
-                                   uint32_t pos,
-                                   uint32_t target);
+      int _build_linear_ref(Graph &g,
+                            std::unordered_set<uint32_t> &prev,
+                            std::unordered_set<uint32_t> &curr,
+                            uint32_t pos,
+                            uint32_t target);
 
       /**
        * Splits a sequence into multiple sequences if neccessary to conform to the
