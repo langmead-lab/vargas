@@ -459,7 +459,7 @@ int sim_main(const int argc, const char *argv[]) {
 
     // For each subgraph type
     for (auto &pop : pops) {
-        std::cout << "\nSubgraph: " << pop.first << std::endl;
+        std::cout << "\nSubgraph: " << pop.first;
         // Create subgraph
         vargas::Graph subgraph;
         subgraph = vargas::Graph(base_graph, pop.second);
