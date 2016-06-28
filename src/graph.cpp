@@ -162,7 +162,7 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
 
   // If no region is specified, the default is the first sequence in the FASTA file
   if (_vf.region_chr().length() == 0) {
-    _vf.set_region(_fa.sequences()[0] + ":0-0");
+    _vf.set_region(_fa.sequence_names()[0] + ":0-0");
   }
 
   int curr = _vf.region_lower(); // The Graph has been built up to this position, exclusive

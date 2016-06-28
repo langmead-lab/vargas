@@ -1,6 +1,15 @@
-//
-// Created by gaddra on 6/27/16.
-//
+/**
+ * @author Ravi Gaddipati (rgaddip1@jhu.edu)
+ * @date May 26, 2016
+ *
+ * @brief
+ * Provides a C++ wrapper for htslib handling SAM/BAM files.
+ * @details
+ * Both file types are handled transparently by htslib. Records
+ * are loaded into Reads.
+ *
+ * @file
+ */
 
 #ifndef VARGAS_SAM_H
 #define VARGAS_SAM_H
@@ -11,6 +20,10 @@
 
 namespace vargas {
 
+  /**
+   * @brief
+   * Provides an interface for a SAM/BAM File.
+   */
   class SAMFile: public ReadSource {
     public:
       SAMFile() { }
