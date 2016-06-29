@@ -124,7 +124,7 @@ namespace vargas {
 
               /**
                * @brief print the header line into the string.
-               * @param string string to populate
+               * @param line string to populate
                */
               void operator>>(std::string &line) const { line = to_string(); }
           };
@@ -139,7 +139,7 @@ namespace vargas {
               /**
                * @brief
                * Construct a read group from a RG header line.
-               * @param line @RG line
+               * @param line RG line
                */
               ReadGroup(std::string line) { parse(line); }
 
@@ -255,7 +255,7 @@ namespace vargas {
 
               /**
                * @brief print the header line into the string.
-               * @param string string to populate
+               * @param line string to populate
                */
               void operator>>(std::string &line) const { line = to_string(); }
           };
@@ -337,7 +337,7 @@ namespace vargas {
 
               /**
                * @brief print the header line into the string.
-               * @param string string to populate
+               * @param line string to populate
                */
               void operator>>(std::string &line) const { line = to_string(); }
           };
@@ -348,21 +348,21 @@ namespace vargas {
           /**
            * @brief
            * Add a new sequence line.
-           * @param Sequence
+           * @param s Sequence
            */
           void add(const Sequence &s) { sequences.push_back(s); }
 
           /**
            * @brief
            * Add a new ReadGroup line.
-           * @param ReadGroup
+           * @param rg ReadGroup
            */
           void add(const ReadGroup &rg) { read_groups.push_back(rg); }
 
           /**
            * @brief
            * Add a new Program line.
-           * @param Program
+           * @param pg Program
            */
           void add(const Program &pg) { programs.push_back(pg); }
 
@@ -393,7 +393,7 @@ namespace vargas {
           /**
            * @brief
            * Parse a header and populate tags.
-           * @param line space delimited tag-pairs, colon delimited pairs
+           * @param hdr space delimited tag-pairs, colon delimited pairs
            */
           void parse(std::string hdr) {
               sorting_order = "";
@@ -433,13 +433,13 @@ namespace vargas {
           /**
            * @brief
            * Parse the header.
-           * @param header to parse.
+           * @param hdr header to parse.
            */
           void operator<<(std::string hdr) { parse(hdr); }
 
           /**
            * @brief print the header into the string.
-           * @param string string to populate
+           * @param hdr string to populate
            */
           void operator>>(std::string &hdr) const { hdr = to_string(); }
 
@@ -787,7 +787,11 @@ namespace vargas {
   };
 
   /**
+   * @brief
    * Provides an interface to read a SAM file.
+   * @details
+   * Minimal error checking is done, no error will be raised if there is a mismatch (e.g. a ref name
+   * that is not defined in the header).
    */
   class isam {
     public:
@@ -882,7 +886,10 @@ namespace vargas {
   };
 
   /**
+   * @brief
    * Provides an interface to write a SAM file.
+   * @details
+   * Outputs are not checked to see if they conform with the standard format.
    */
   class osam {
     public:
@@ -948,26 +955,30 @@ namespace vargas {
 TEST_CASE ("SAM File") {
     {
         std::ofstream ss("tmp_s.sam");
-        ss << "@HD\tVN:1.0\tSO:coordinate\n";
-        ss
-            << "@SQ\tSN:1\tLN:249250621\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta\tM5:1b22b98cdeb4a9304cb5d48026a85128\n";
-        ss
-            << "@SQ\tSN:2S\tLN:243199373\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta\tM5:a0d9851da00400dec1098a9255ac712e\n";
-        ss
-            << "@SQ\tSN:3Q\tLN:198022430\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta\tM5:fdfd811849cc2fadebc929bb925902e5\n";
-        ss
-            << "@RG\tID:UM0098:1\tPL:ILLUMINA\tPU:HWUSI-EAS1707-615LHAAXX-L001\tLB:80\tDT:2010-05-05T20:00:00-0400\tSM:SD37743\tCN:UMCORE\n";
-        ss
-            << "@RG\tID:UM0098:2\tPL:ILLUMINA\tPU:HWUSI-EAS1707-615LHAAXX-L002\tLB:80\tDT:2010-05-05T20:00:00-0400\tSM:SD37743\tCN:UMCORE\n";
-        ss << "@PG\tID:bwa\tVN:0.5.4\n";
-        ss
-            << "1:497:R:-272+13M17D24M\t113\t1\t497\t37\t37M\t15\t100338662\t0\tCGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG\t0;==-==9;>>>>>=>>>>>>>>>>>=>>>>>>>>>>\tXT:A:U\tNM:i:0\tSM:i:37\tAM:i:0\tX0:i:1\tX1:i:0\tXM:i:0\tXO:i:0\tXG:i:0\tMD:Z:37\n";
-        ss
-            << "19:20389:F:275+18M2D19M\t99\t1\t17644\t0\t37M\t=\t17919\t314\tTATGACTGCTAATAATACCTACACATGTTAGAACCAT\t>>>>>>>>>>>>>>>>>>>><<>>><<>>4::>>:<9\tRG:Z:UM0098:1\tXT:A:R\tNM:i:0\tSM:i:0\tAM:i:0\tX0:i:4\tX1:i:0\tXM:i:0\tXO:i:0\tXG:i:0\tMD:Z:37\n";
-        ss
-            << "19:20389:F:275+18M2D19M\t147\t1\t17919\t0\t18M2D19M\t=\t17644\t-314\tGTAGTACCAACTGTAAGTCCTTATCTTCATACTTTGT\t;44999;499<8<8<<<8<<><<<<><7<;<<<>><<\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:4\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:18^CA19\n";
-        ss
-            << "9:21597+10M2I25M:R:-209\t83\t1\t21678\t0\t8M2I27M\t=\t21469\t-244\tCACCACATCACATATACCAAGCCTGGCTGTGTCTTCT\t<;9<<5><<<<><<<>><<><>><9>><>>>9>>><>\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:5\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:35\n";
+        ss << "@HD\tVN:1.0\tSO:coordinate\n"
+            << "@SQ\tSN:1\tLN:249250621\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
+            << "\tM5:1b22b98cdeb4a9304cb5d48026a85128\n"
+            << "@SQ\tSN:2S\tLN:243199373\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
+            << "\tM5:a0d9851da00400dec1098a9255ac712e\n"
+            << "@SQ\tSN:3Q\tLN:198022430\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
+            << "\tM5:fdfd811849cc2fadebc929bb925902e5\n"
+            << "@RG\tID:UM0098:1\tPL:ILLUMINA\tPU:HWUSI-EAS1707-615LHAAXX-L001\tLB:80\tDT:2010-05-05T20:00:00-0400"
+            << "\tSM:SD37743\tCN:UMCORE\n"
+            << "@RG\tID:UM0098:2\tPL:ILLUMINA\tPU:HWUSI-EAS1707-615LHAAXX-L002\tLB:80\tDT:2010-05-05T20:00:00-0400"
+            << "\tSM:SD37743\tCN:UMCORE\n"
+            << "@PG\tID:bwa\tVN:0.5.4\n"
+            << "1:497:R:-272+13M17D24M\t113\t1\t497\t37\t37M\t15\t100338662\t0"
+            << "\tCGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG\t0;==-==9;>>>>>=>>>>>>>>>>>=>>>>>>>>>>"
+            << "\tXT:A:U\tNM:i:0\tSM:i:37\tAM:i:0\tX0:i:1\tX1:i:0\tXM:i:0\tXO:i:0\tXG:i:0\tMD:Z:37\n"
+            << "19:20389:F:275+18M2D19M\t99\t1\t17644\t0\t37M\t=\t17919\t314"
+            << "\tTATGACTGCTAATAATACCTACACATGTTAGAACCAT\t>>>>>>>>>>>>>>>>>>>><<>>><<>>4::>>:<9"
+            << "\tRG:Z:UM0098:1\tXT:A:R\tNM:i:0\tSM:i:0\tAM:i:0\tX0:i:4\tX1:i:0\tXM:i:0\tXO:i:0\tXG:i:0\tMD:Z:37\n"
+            << "19:20389:F:275+18M2D19M\t147\t1\t17919\t0\t18M2D19M\t=\t17644\t-314"
+            << "\tGTAGTACCAACTGTAAGTCCTTATCTTCATACTTTGT\t;44999;499<8<8<<<8<<><<<<><7<;<<<>><<"
+            << "\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:4\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:18^CA19\n"
+            << "9:21597+10M2I25M:R:-209\t83\t1\t21678\t0\t8M2I27M\t=\t21469\t-244"
+            << "\tCACCACATCACATATACCAAGCCTGGCTGTGTCTTCT\t<;9<<5><<<<><<<>><<><>><9>><>>>9>>><>"
+            << "\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:5\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:35\n";
     }
 
     {
