@@ -59,7 +59,7 @@ namespace Vargas {
       /**< Number of bases that are in variant nodes. */
       int32_t indel_err;
       /**< Number of insertions and deletions introduced. */
-      GID src; /**< Read origin graph, as defined in GDEF file. */
+      Graph::GID src; /**< Read origin graph, as defined in GDEF file. */
 
   };
 

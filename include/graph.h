@@ -45,6 +45,30 @@ namespace Vargas {
 
     public:
 
+      /**
+       * @brief
+       * Uniquely identifies a subgraph when mapped to a Population.
+       */
+      struct GID {
+          GID() : num(100), id(0), pct(true), outgroup(false) { }
+
+          /**
+           * @brief
+           * @param num if percent, set pct=true. If number of individuals, set pct=false.
+           * @param id Unique ID for a given num
+           * @param pct True if num is a percentage
+           */
+          GID(int num, int id, bool pct = false) : num(num), id(id), pct(pct), outgroup(false) { }
+
+          int num;
+          /**< Percent or number of individuals included in the graph. */
+          int id;
+          /**< unique id if multiple graphs of num exist. */
+          bool pct;
+          /**< if true, num is a percentage. Otherwise number of individuals.*/
+          bool outgroup; /**< rue if the origin was an outgroup graph.*/
+      };
+
       /** Alias for a dyn_bitset */
       typedef VCF::Population Population;
 
@@ -761,6 +785,42 @@ namespace Vargas {
       int _ingroup = 100; // percent of individuals to use. Ref nodes always included
       unsigned int _max_node_len = 10000000; // If a node is longer, split into multiple nodes
   };
+
+  /**
+ * @brief
+ * Operator used to map Graph::GID's.
+ * @param a Graph::GID a
+ * @param b Graph::GID b
+ */
+  inline bool operator<(const Graph::GID &a, const Graph::GID &b) {
+      if (a.outgroup != b.outgroup) return a.outgroup < b.outgroup;
+      if (a.pct != b.pct) return a.pct < b.pct;
+      if (a.num != b.num) return a.num < b.num;
+      return a.id < b.id;
+  }
+
+  /**
+   * @brief
+   * Outputs the Graph::GID in a CSV format:\n
+   * [o,i],num,id,pct\n
+   * @param os Output stream
+   * @param gid gid to print
+   */
+  inline std::ostream &operator<<(std::ostream &os, const Graph::GID &gid) {
+      os << (gid.outgroup ? 'o' : 'i') << ',' << gid.num << ',' << gid.id << ',' << gid.pct;
+      return os;
+  }
+
+  /**
+   * @brief
+   * Check if two GID's are equal.
+   */
+  inline bool operator==(const Graph::GID &a, const Graph::GID &b) {
+      if (a.outgroup != b.outgroup) return false;
+      if (a.pct != b.pct) return false;
+      if (a.num != b.num) return false;
+      return a.id == b.id;
+  }
 
 }
 

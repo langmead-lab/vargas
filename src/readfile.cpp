@@ -61,7 +61,7 @@ bool Vargas::ReadFile::update_read() {
       }
       else if (tag == READ_META_SRC) {
         std::vector<std::string> s = split(val, ',');
-        read.src = GID(std::stoi(s[1]), std::stoi(s[2]), s[3] == "1");
+        read.src = Graph::GID(std::stoi(s[1]), std::stoi(s[2]), s[3] == "1");
         read.src.outgroup = s[0] == "o";
       }
     }

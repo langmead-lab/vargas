@@ -273,7 +273,7 @@ int align_main(const int argc, const char *argv[]) {
 
     // Load reads. Maps graph origin label to a vector of reads
     std::cerr << "Loading reads..." << std::endl;
-    std::map<Vargas::GID, std::vector<Vargas::Read>> read_origins;
+    std::map<Vargas::Graph::GID, std::vector<Vargas::Read>> read_origins;
     if (read_file.length() == 0) {
         // Use stdin
         Vargas::ReadFile reads;
@@ -299,7 +299,7 @@ int align_main(const int argc, const char *argv[]) {
         std::cerr << "Aligning to reference..." << std::endl;
         Vargas::Graph subgraph = Vargas::Graph(base_graph, Vargas::Graph::REF);
         for (auto &reads : read_origins) {
-            std::cerr << "\tGID: " << reads.first << std::endl;
+            std::cerr << "\tGraph::GID: " << reads.first << std::endl;
             align_to_graph("r", subgraph, reads.second, aligners, out, threads);
         }
         std::cerr << "Done." << std::endl;
@@ -308,7 +308,7 @@ int align_main(const int argc, const char *argv[]) {
         std::cerr << "Aligning to MAX AF..." << std::endl;
         Vargas::Graph subgraph = Vargas::Graph(base_graph, Vargas::Graph::MAXAF);
         for (auto &reads : read_origins) {
-            std::cerr << "\tGID: " << reads.first << std::endl;
+            std::cerr << "\tGraph::GID: " << reads.first << std::endl;
             align_to_graph("x", subgraph, reads.second, aligners, out, threads);
         }
         std::cerr << "Done." << std::endl;
@@ -320,8 +320,8 @@ int align_main(const int argc, const char *argv[]) {
              * Align to the same graph that the read came from, but enforce
              * that it be the ingroup version.
              */
-            std::cerr << "\tGID: " << reads.first << std::endl;
-            Vargas::GID g = reads.first;
+            std::cerr << "\tGraph::GID: " << reads.first << std::endl;
+            Vargas::Graph::GID g = reads.first;
             g.outgroup = false;
             Vargas::Graph subgraph = Vargas::Graph(base_graph, pops.at(g));
             align_to_graph("i", subgraph, reads.second, aligners, out, threads);
@@ -336,8 +336,8 @@ int align_main(const int argc, const char *argv[]) {
              * Align to the same graph that the read came from, but enforce
              * that it be the outgroup version.
              */
-            std::cerr << "\tGID: " << reads.first << std::endl;
-            Vargas::GID g = reads.first;
+            std::cerr << "\tGraph::GID: " << reads.first << std::endl;
+            Vargas::Graph::GID g = reads.first;
             g.outgroup = true;
             Vargas::Graph subgraph = Vargas::Graph(base_graph, pops.at(g));
             align_to_graph("o", subgraph, reads.second, aligners, out, threads);
@@ -547,7 +547,7 @@ int define_main(const int argc, const char *argv[]) {
                         filter.set(ind);
                     }
                 }
-                gdef.add_population(Vargas::GID(ingrp, n, false), filter);
+                gdef.add_population(Vargas::Graph::GID(ingrp, n, false), filter);
             }
         } else {
             // Percentage
@@ -557,7 +557,7 @@ int define_main(const int argc, const char *argv[]) {
                 for (unsigned int i = 0; i < filter.size(); ++i) {
                     if (rand() % 100 < ingrp) filter.set(i);
                 }
-                gdef.add_population(Vargas::GID(ingrp, n, true), filter);
+                gdef.add_population(Vargas::Graph::GID(ingrp, n, true), filter);
             }
         }
     }

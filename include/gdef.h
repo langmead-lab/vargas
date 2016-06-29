@@ -19,70 +19,10 @@
 #include "graph.h"
 
 namespace Vargas {
-
   /**
-   * @brief
-   * Uniquely identifies a subgraph when mapped to a Population.
-   * @param
-   * @param
-   * @param
-   * @param outgroup t
-   */
-  struct GID {
-      GID() : num(100), id(0), pct(true), outgroup(false) { }
-      /**
-       * @brief
-       * @param num if percent, set pct=true. If number of individuals, set pct=false.
-       * @param id Unique ID for a given num
-       * @param pct True if num is a percentage
-       */
-      GID(int num, int id, bool pct = false) : num(num), id(id), pct(pct), outgroup(false) { }
-
-      int num;
-      /**< Percent or number of individuals included in the graph. */
-      int id;
-      /**< unique id if multiple graphs of num exist. */
-      bool pct;
-      /**< if true, num is a percentage. Otherwise number of individuals.*/
-      bool outgroup; /**< rue if the origin was an outgroup graph.*/
-  };
-
-  /**
-   * @brief
-   * Operator used to map GID's.
-   * @param a GID a
-   * @param b GID b
-   */
-  inline bool operator<(const GID &a, const GID &b) {
-      if (a.outgroup != b.outgroup) return a.outgroup < b.outgroup;
-      if (a.pct != b.pct) return a.pct < b.pct;
-      if (a.num != b.num) return a.num < b.num;
-      return a.id < b.id;
-  }
-
-  /**
-   * @brief
-   * Outputs the GID in a CSV format:\n
-   * [o,i],num,id,pct\n
-   * @param os Output stream
-   * @param gid gid to print
-   */
-  inline std::ostream &operator<<(std::ostream &os, const GID &gid) {
-      os << (gid.outgroup ? 'o' : 'i') << ',' << gid.num << ',' << gid.id << ',' << gid.pct;
-      return os;
-  }
-
-  inline bool operator==(const GID &a, const GID &b) {
-      if (a.outgroup != b.outgroup) return false;
-      if (a.pct != b.pct) return false;
-      if (a.num != b.num) return false;
-      return a.id == b.id;
-  }
-
-  /**
-   * @brief
-   * Provides an interface for working with GDEF files.
-   */
+ * @brief
+ * Provides an interface for working with GDEF files.
+ */
   class GDEF {
     public:
       /**
@@ -144,14 +84,14 @@ namespace Vargas {
           _pops.clear();
           while (std::getline(in, line)) {
               std::vector<std::string> p_pair = split(line, GDEF_POP_DELIM);
-              if (p_pair.size() != 2) throw std::invalid_argument("Invalid GID:Population formation");
+              if (p_pair.size() != 2) throw std::invalid_argument("Invalid Graph::GID:Population formation");
               std::vector<std::string> gid = split(p_pair[0], ',');
-              if (gid.size() != 4) throw std::invalid_argument("Invalid GID format");
+              if (gid.size() != 4) throw std::invalid_argument("Invalid Graph::GID format");
               Graph::Population pop(p_pair[1].length());
               for (size_t i = 0; i < p_pair[1].length(); ++i) {
                   if (p_pair[1][i] == '1') pop.set(i);
               }
-              GID g(std::stoi(gid[1]), std::stoi(gid[2]), gid[3] == "1");
+              Graph::GID g(std::stoi(gid[1]), std::stoi(gid[2]), gid[3] == "1");
               g.outgroup = gid[0] == "o";
               add_population(g, pop);
           }
@@ -196,10 +136,10 @@ namespace Vargas {
        * @brief
        * Add a Population to the gdef. All added graphs should
        * be ingroup graphs since outgroups are derived.
-       * @param key GID
+       * @param key Graph::GID
        * @param pop Population included in the graph
        */
-      bool add_population(const GID &key, const Graph::Population &pop) {
+      bool add_population(const Graph::GID &key, const Graph::Population &pop) {
           if (key.outgroup) throw std::invalid_argument("Only ingroup graphs can be explicitly added.");
           if (_pops.find(key) == _pops.end()) _pops[key] = pop;
           else return false;
@@ -213,7 +153,7 @@ namespace Vargas {
       void include_outgroups() {
           auto pop_cpy = _pops;
           for (auto &p : pop_cpy) {
-              GID g = p.first;
+              Graph::GID g = p.first;
               g.outgroup = true;
               _pops[g] = ~p.second;
           }
@@ -276,7 +216,7 @@ namespace Vargas {
        * Return a map of all subgraphs defined in the file/added.
        * Outgroup graphs are also included if include_outgroups() was called.
        */
-      const std::map<GID, Graph::Population> &populations() const { return _pops; }
+      const std::map<Graph::GID, Graph::Population> &populations() const { return _pops; }
 
 
     protected:
@@ -293,7 +233,7 @@ namespace Vargas {
       std::string _fasta_file, _var_file;
       std::string _region;
       size_t _node_len = 1000000;
-      std::map<GID, Graph::Population> _pops;
+      std::map<Graph::GID, Graph::Population> _pops;
       size_t _num_samples = 0;
   };
 
