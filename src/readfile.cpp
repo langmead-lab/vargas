@@ -19,7 +19,11 @@
 #include "readfile.h"
 
 bool vargas::ReadFile::update_read() {
-  if (!_read_file || !std::getline(_read_file, line)) return false;
+  if (_read_file.is_open()) {
+    if (!std::getline(_read_file, line)) return false;
+  } else {
+    if (!std::getline(std::cin, line)) return false;
+  }
   if (line.at(0) == '#') {
     header += "\n" + line;
     return update_read();
@@ -37,7 +41,7 @@ bool vargas::ReadFile::update_read() {
   } else {
     split(line.substr(1, std::string::npos), READ_FASTA_META_DELIM, _split_meta);
     for (auto &s : _split_meta) {
-      auto split_label = split(s, '=');
+      auto split_label = split(s, ':');
       std::string &tag = split_label[0];
       std::string &val = split_label[1];
       if (tag == READ_META_END) {
@@ -62,7 +66,12 @@ bool vargas::ReadFile::update_read() {
       }
     }
 
-    if (!std::getline(_read_file, line)) throw std::invalid_argument("No Read after FASTA read label.");
+    if (_read_file.is_open()) {
+      if (!std::getline(_read_file, line)) throw std::invalid_argument("No Read after FASTA read label.");
+    } else {
+      if (!std::getline(std::cin, line)) throw std::invalid_argument("No Read after FASTA read label.");
+    }
+
     read.read = line;
     read.read_num = seq_to_num(read.read);
   }

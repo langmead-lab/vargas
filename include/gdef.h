@@ -172,16 +172,24 @@ namespace vargas {
 
           std::ofstream out(file_name);
           if (!out.good()) throw std::invalid_argument("Error opening output file\"" + file_name + "\"");
-          out << "@gdef\n"
+          write(out);
+      }
+
+      /**
+       * @brief
+       * Output to a stream.
+       * @param os Output stream.
+       */
+      void write(std::ostream &os) {
+          os << "@gdef\n"
               << REF_FILE_TAG << GDEF_TAG_VAL_DELIM << _fasta_file << GDEF_META_DELIM
               << VAR_FILE_TAG << GDEF_TAG_VAL_DELIM << _var_file << GDEF_META_DELIM
               << REGION_TAG << GDEF_TAG_VAL_DELIM << _region << GDEF_META_DELIM
               << NODE_LEN_TAG << GDEF_TAG_VAL_DELIM << _node_len << std::endl;
 
           for (auto &tv : _pops) {
-              out << tv.first << GDEF_POP_DELIM << tv.second.to_string() << std::endl;
+              os << tv.first << GDEF_POP_DELIM << tv.second.to_string() << std::endl;
           }
-
       }
 
       /**

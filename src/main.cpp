@@ -90,87 +90,87 @@ int profile(const int argc, const char *argv[]) {
 
     std::clock_t start = std::clock();
 
-    std::cout << "Initial Build:\n\t";
+    std::cerr << "Initial Build:\n\t";
     vargas::Graph g;
     gb.build(g);
     std::vector<bool> filter;
     for (size_t i = 0; i < g.pop_size(); ++i) filter.push_back(rand() % 100 > 95);
-    std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << g.node_map()->size()
+    std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << g.node_map()->size()
         << std::endl;
 
     size_t num = 0;
 
     {
-        std::cout << "Insertion order traversal:\n\t";
+        std::cerr << "Insertion order traversal:\n\t";
         start = std::clock();
         for (auto i = g.begin(); i != g.end(); ++i) {
             ++num;
         }
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
     {
         num = 0;
-        std::cout << "Filtering traversal, 100% in:\n\t";
+        std::cerr << "Filtering traversal, 100% in:\n\t";
         start = std::clock();
 
         for (auto i = g.begin(g.subset(100)); i != g.end(); ++i) {
             ++num;
         }
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
     {
         num = 0;
-        std::cout << "Filtering traversal, 5% in:\n\t";
+        std::cerr << "Filtering traversal, 5% in:\n\t";
         vargas::Graph::Population filt(filter);
         start = std::clock();
 
         for (auto i = g.begin(filt); i != g.end(); ++i) {
             ++num;
         }
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
+        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
     }
 
     {
         num = 0;
-        std::cout << "REF traversal:\n\t";
+        std::cerr << "REF traversal:\n\t";
         start = std::clock();
         for (auto i = g.begin(vargas::Graph::REF); i != g.end(); ++i) {
             ++num;
         }
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
     {
         num = 0;
-        std::cout << "MAXAF traversal:\n\t";
+        std::cerr << "MAXAF traversal:\n\t";
         start = std::clock();
         for (auto i = g.begin(vargas::Graph::MAXAF); i != g.end(); ++i) { ;
         }
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
     {
-        std::cout << "Filter constructor:\n\t";
+        std::cerr << "Filter constructor:\n\t";
         auto pop_filt = g.subset(ingroup);
         start = std::clock();
         vargas::Graph g2(g, pop_filt);
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
     {
-        std::cout << "REF constructor:\n\t";
+        std::cerr << "REF constructor:\n\t";
         start = std::clock();
         vargas::Graph g2(g, vargas::Graph::REF);
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
     {
-        std::cout << "MAXAF constructor:\n\t";
+        std::cerr << "MAXAF constructor:\n\t";
         start = std::clock();
         vargas::Graph g2(g, vargas::Graph::MAXAF);
-        std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
 
@@ -196,25 +196,25 @@ int profile(const int argc, const char *argv[]) {
         vargas::ReadBatch<> rb(reads, 50);
         vargas::Aligner<> a(g.max_node_len(), 50);
 
-        std::cout << SIMDPP_FAST_INT8_SIZE << " read alignment:\n\t";
-        std::cout << "Filtering iterator:\n\t";
+        std::cerr << SIMDPP_FAST_INT8_SIZE << " read alignment:\n\t";
+        std::cerr << "Filtering iterator:\n\t";
         auto pop_filt = g.subset(ingroup);
 
         {
             start = std::clock();
             std::vector<vargas::Alignment> aligns = a.align(rb, g.begin(pop_filt), g.end());
-            std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-            for (size_t i = 0; i < split_str.size(); ++i) std::cout << aligns[i] << std::endl;
+            std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+            for (size_t i = 0; i < split_str.size(); ++i) std::cerr << aligns[i] << std::endl;
         }
 
         {
             start = std::clock();
             vargas::Graph g2(g, g.subset(ingroup));
-            std::cout << "\tDerived Graph (" << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s)\n\t";
+            std::cerr << "\tDerived Graph (" << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s)\n\t";
             start = std::clock();
             std::vector<vargas::Alignment> aligns = a.align(rb, g2);
-            std::cout << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-            for (size_t i = 0; i < split_str.size(); ++i) std::cout << aligns[i] << std::endl;
+            std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
+            for (size_t i = 0; i < split_str.size(); ++i) std::cerr << aligns[i] << std::endl;
         }
 
     }
@@ -232,7 +232,7 @@ int align_main(const int argc, const char *argv[]) {
     // Load parameters
     uint8_t match = 2, mismatch = 2, gopen = 3, gext = 1;
     unsigned int threads = 1, read_len = 50;
-    std::string out_file, read_file, gdf_file;
+    std::string read_file, gdf_file;
     bool R = false, // Align to reference
         X = false, // Align to max-AF graph
         O = false, // Align to outgroup graph
@@ -242,7 +242,6 @@ int align_main(const int argc, const char *argv[]) {
         >> GetOpt::Option('n', "mismatch", mismatch)
         >> GetOpt::Option('o', "gap_open", gopen)
         >> GetOpt::Option('e', "gap_extend", gext)
-        >> GetOpt::Option('t', "outfile", out_file)
         >> GetOpt::Option('r', "reads", read_file)
         >> GetOpt::Option('g', "gdef", gdf_file)
         >> GetOpt::Option('j', "threads", threads)
@@ -255,13 +254,12 @@ int align_main(const int argc, const char *argv[]) {
     if (!R && !X && !O && !I) throw std::invalid_argument("No alignment mode (R,X,I,O) selected.");
     if (threads == 0) threads = std::thread::hardware_concurrency();
 
-    std::ofstream out(out_file);
-    if (!out.good()) throw std::invalid_argument("Error opening output file " + out_file);
+    std::ostream &out = std::cout;
 
     vargas::Gdef gdf(gdf_file);
     vargas::GraphBuilder gb(gdf.fasta(), gdf.var());
     gb.region(gdf.region());
-    std::cout << "Loading graph..." << std::endl;
+    std::cerr << "Loading graph..." << std::endl;
     vargas::Graph base_graph = gb.build();
 
     std::vector<std::shared_ptr<vargas::Aligner<>>> aligners;
@@ -274,67 +272,77 @@ int align_main(const int argc, const char *argv[]) {
                                                                gext));
 
     // Load reads. Maps graph origin label to a vector of reads
-    std::cout << "Loading reads..." << std::endl;
+    std::cerr << "Loading reads..." << std::endl;
     std::map<vargas::GID, std::vector<vargas::Read>> read_origins;
-    auto readfile_split = split(read_file, ',');
-    for (auto &rfile : readfile_split) {
-        vargas::ReadFile reads(rfile);
+    if (read_file.length() == 0) {
+        // Use stdin
+        vargas::ReadFile reads;
         while (reads.update_read()) {
             vargas::Read r = reads.get_read();
             read_origins[r.src].push_back(r);
+        }
+    }
+    else {
+        auto readfile_split = split(read_file, ',');
+        for (auto &rfile : readfile_split) {
+            vargas::ReadFile reads(rfile);
+            while (reads.update_read()) {
+                vargas::Read r = reads.get_read();
+                read_origins[r.src].push_back(r);
+            }
         }
     }
 
     auto &pops = gdf.populations();
 
     if (R) {
-        std::cout << "Aligning to reference..." << std::endl;
+        std::cerr << "Aligning to reference..." << std::endl;
         vargas::Graph subgraph = vargas::Graph(base_graph, vargas::Graph::REF);
         for (auto &reads : read_origins) {
-            std::cout << "\tGID: " << reads.first << std::endl;
+            std::cerr << "\tGID: " << reads.first << std::endl;
             align_to_graph("r", subgraph, reads.second, aligners, out, threads);
         }
-        std::cout << "Done." << std::endl;
+        std::cerr << "Done." << std::endl;
     }
     if (X) {
-        std::cout << "Aligning to MAX AF..." << std::endl;
+        std::cerr << "Aligning to MAX AF..." << std::endl;
         vargas::Graph subgraph = vargas::Graph(base_graph, vargas::Graph::MAXAF);
         for (auto &reads : read_origins) {
-            std::cout << "\tGID: " << reads.first << std::endl;
+            std::cerr << "\tGID: " << reads.first << std::endl;
             align_to_graph("x", subgraph, reads.second, aligners, out, threads);
         }
-        std::cout << "Done." << std::endl;
+        std::cerr << "Done." << std::endl;
     }
     if (I) {
-        std::cout << "Aligning to Ingroup..." << std::endl;
+        std::cerr << "Aligning to Ingroup..." << std::endl;
         for (auto &reads : read_origins) {
             /**
              * Align to the same graph that the read came from, but enforce
              * that it be the ingroup version.
              */
-            std::cout << "\tGID: " << reads.first << std::endl;
+            std::cerr << "\tGID: " << reads.first << std::endl;
             vargas::GID g = reads.first;
             g.outgroup = false;
             vargas::Graph subgraph = vargas::Graph(base_graph, pops.at(g));
             align_to_graph("i", subgraph, reads.second, aligners, out, threads);
         }
-        std::cout << "Done." << std::endl;
+        std::cerr << "Done." << std::endl;
     }
     if (O) {
-        std::cout << "Aligning to Outgroup..." << std::endl;
+        std::cerr << "Aligning to Outgroup..." << std::endl;
         gdf.include_outgroups();
         for (auto &reads : read_origins) {
             /**
              * Align to the same graph that the read came from, but enforce
              * that it be the outgroup version.
              */
-            std::cout << "\tGID: " << reads.first << std::endl;
+            std::cerr << "\tGID: " << reads.first << std::endl;
             vargas::GID g = reads.first;
             g.outgroup = true;
             vargas::Graph subgraph = vargas::Graph(base_graph, pops.at(g));
             align_to_graph("o", subgraph, reads.second, aligners, out, threads);
         }
-        std::cout << "Done." << std::endl;
+        std::cerr << "Done." << std::endl;
     }
     return 0;
 }
@@ -404,11 +412,10 @@ int sim_main(const int argc, const char *argv[]) {
     // Load parameters
     unsigned int threads = 1, read_len = 50, num_reads = 1000;
     std::string mut = "0", indel = "0", vnodes = "*", vbases = "*";
-    std::string out_file, gdf_file;
+    std::string gdf_file;
     bool use_rate = false, outgroup = false;
 
-    args >> GetOpt::Option('t', "outfile", out_file)
-        >> GetOpt::Option('g', "gdef", gdf_file)
+    args >> GetOpt::Option('g', "gdef", gdf_file)
         >> GetOpt::OptionPresent('o', "outgroup", outgroup)
         >> GetOpt::Option('v', "vnodes", vnodes)
         >> GetOpt::Option('b', "vbases", vbases)
@@ -421,8 +428,7 @@ int sim_main(const int argc, const char *argv[]) {
 
     if (threads == 0) threads = std::thread::hardware_concurrency();
 
-    std::ofstream out(out_file);
-    if (!out.good()) throw std::invalid_argument("Error opening output file " + out_file);
+    std::ostream &out = std::cout;
 
     vargas::Gdef gdf(gdf_file);
     if (outgroup) gdf.include_outgroups();
@@ -430,7 +436,7 @@ int sim_main(const int argc, const char *argv[]) {
     gb.region(gdf.region());
     auto &pops = gdf.populations();
 
-    std::cout << "Loading graph..." << std::endl;
+    std::cerr << "Loading graph..." << std::endl;
     vargas::Graph base_graph = gb.build();
 
     auto mut_split = split(mut, ',');
@@ -438,7 +444,7 @@ int sim_main(const int argc, const char *argv[]) {
     auto vnode_split = split(vnodes, ',');
     auto vbase_split = split(vbases, ',');
 
-    std::cout << "Building profiles..." << std::endl;
+    std::cerr << "Building profiles..." << std::endl;
     std::vector<vargas::ReadProfile> pending_sims;
     for (auto &vbase : vbase_split) {
         for (auto &vnode : vnode_split) {
@@ -456,11 +462,11 @@ int sim_main(const int argc, const char *argv[]) {
             }
         }
     }
-    std::cout << pending_sims.size() << " profiles, " << pops.size() << " subgraphs." << std::endl;
+    std::cerr << pending_sims.size() << " profile(s), " << pops.size() << " subgraphs." << std::endl;
 
     // For each subgraph type
     for (auto &pop : pops) {
-        std::cout << "\nSubgraph: " << pop.first;
+        std::cerr << "\nSubgraph: " << pop.first;
         // Create subgraph
         vargas::Graph subgraph;
         subgraph = vargas::Graph(base_graph, pop.second);
@@ -474,7 +480,7 @@ int sim_main(const int argc, const char *argv[]) {
 
         for (size_t p = 0; p < pending_sims.size(); ++p) {
             auto &prof = pending_sims[p];
-            std::cout << "; (" << prof << ")" << std::flush;
+            std::cerr << "; (" << prof << ")" << std::flush;
             if (threads > 1) {
                 sims[jobs.size()]->set_prof(prof);
                 jobs.emplace(jobs.end(), &vargas::ReadSim::get_batch, sims[jobs.size()], num_reads);
@@ -503,7 +509,7 @@ int sim_main(const int argc, const char *argv[]) {
 
         }
     }
-
+    std::cerr << std::endl;
     return 0;
 }
 
@@ -515,7 +521,7 @@ int define_main(const int argc, const char *argv[]) {
         return 0;
     }
 
-    std::string fasta_file = "", varfile = "", region = "", ingroups = "", outfile = "";
+    std::string fasta_file = "", varfile = "", region = "", ingroups = "";
     int num = 1, node_len = 1000000;
 
     args >> GetOpt::Option('f', "fasta", fasta_file)
@@ -523,8 +529,7 @@ int define_main(const int argc, const char *argv[]) {
         >> GetOpt::Option('g', "region", region)
         >> GetOpt::Option('i', "ingroup", ingroups)
         >> GetOpt::Option('n', "num", num)
-        >> GetOpt::Option('l', "nodelen", node_len)
-        >> GetOpt::Option('t', "out", outfile);
+        >> GetOpt::Option('l', "nodelen", node_len);
 
     vargas::Gdef gdef(fasta_file, varfile, region, node_len);
 
@@ -557,97 +562,97 @@ int define_main(const int argc, const char *argv[]) {
         }
     }
 
-    gdef.write(outfile);
-    std::cout << gdef.populations().size() << " subgraph definitions generated." << std::endl;
+    gdef.write(std::cout);
+    std::cerr << gdef.populations().size() << " subgraph definitions generated." << std::endl;
     return 0;
 }
 
 void main_help() {
-    using std::cout;
+    using std::cerr;
     using std::endl;
-    cout << endl
+    cerr << endl
         << "---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------\n";
-    cout << "Operating modes \'vargas MODE\':" << endl;
-    cout << "\tdefine      Define a set of graphs for use with sim/align.\n";
-    cout << "\tsim         Simulate reads from a set of graphs.\n";
-    cout << "\talign       Align reads to a set of graphs.\n";
-    cout << "\ttest        Run doctests.\n";
-    cout << "\tprofile     Run profiles.\n" << endl;
+    cerr << "Operating modes \'vargas MODE\':" << endl;
+    cerr << "\tdefine      Define a set of graphs for use with sim/align.\n";
+    cerr << "\tsim         Simulate reads from a set of graphs.\n";
+    cerr << "\talign       Align reads to a set of graphs.\n";
+    cerr << "\ttest        Run doctests.\n";
+    cerr << "\tprofile     Run profiles.\n" << endl;
 }
 
 void define_help() {
-    using std::cout;
+    using std::cerr;
     using std::endl;
 
-    cout << endl
+    cerr << endl
         << "-------------------- vargas define, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
-    cout << "-f\t--fasta         *<string> Reference filename.\n";
-    cout << "-v\t--var           *<string> VCF/BCF filename.\n";
-    cout << "-t\t--out           *<string> Output filename.\n";
-    cout << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX.\n";
-    cout << "-l\t--nodelen       <int> Max node length, default 1,000,000\n";
-    cout << "-i\t--ingroup       <int, int...> Percent ingroup subgraphs.\n";
-    cout << "\t                  Prefix with \'c\' to interpret as number of individuals.\n";
-    cout << "-n\t--num           <int> Number of unique graphs to create for all -i. Default 1.\n" << endl;
+    cerr << "-f\t--fasta         *<string> Reference filename.\n";
+    cerr << "-v\t--var           *<string> VCF/BCF filename.\n";
+    cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX.\n";
+    cerr << "-l\t--nodelen       <int> Max node length, default 1,000,000\n";
+    cerr << "-i\t--ingroup       <int, int...> Percent ingroup subgraphs.\n";
+    cerr << "\t                  Prefix with \'c\' to interpret as number of individuals.\n";
+    cerr << "-n\t--num           <int> Number of unique graphs to create for all -i. Default 1.\n" << endl;
+
+    cerr << "Definition output to stdout.\n" << endl;
 }
 
 void profile_help() {
-    using std::cout;
+    using std::cerr;
     using std::endl;
-    cout << endl
+    cerr << endl
         << "---------------------- vargas profile, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------" << endl;
-    cout << "-f\t--fasta         *<string> Reference filename." << endl;
-    cout << "-v\t--var           *<string> VCF/BCF filename." << endl;
-    cout << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX." << endl;
-    cout << "-i\t--ingroup       *<int> Percent of genotypes to include in alignment." << endl;
-    cout << "-s\t--string        <string,string..> Include reads in alignment. Rest will be random." << endl << endl;
+    cerr << "-f\t--fasta         *<string> Reference filename." << endl;
+    cerr << "-v\t--var           *<string> VCF/BCF filename." << endl;
+    cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX." << endl;
+    cerr << "-i\t--ingroup       *<int> Percent of genotypes to include in alignment." << endl;
+    cerr << "-s\t--string        <string,string..> Include reads in alignment. Rest will be random." << endl << endl;
 }
 
 void align_help() {
-    using std::cout;
+    using std::cerr;
     using std::endl;
 
-    cout << endl
+    cerr << endl
         << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------\n";;
-    cout << "-g\t--gdef          *<string> Graph definition file.\n";
-    cout << "-r\t--reads         *<string, string...> Read files to align.\n";
-    cout << "-t\t--outfile       *<string> Alignment output file.\n";
-    cout << "-l\t--rlen          <int> Max read length. Default 50.\n";
-    cout << "-R\t                Align to reference graph.\n";
-    cout << "-X\t                Align to maximum allele frequency graph.\n";
-    cout << "-I\t                Align to ingroup graph.\n";
-    cout << "-O\t                Align to outgroup graph.\n";
-    cout << "-m\t--match         <int> Match score, default 2.\n";
-    cout << "-n\t--mismatch      <int> Mismatch penalty, default 2.\n";
-    cout << "-o\t--gap_open      <int> Gap opening penalty, default 3.\n";
-    cout << "-e\t--gap_extend    <int> Gap extend penalty, default 1.\n";
-    cout << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
+    cerr << "-g\t--gdef          *<string> Graph definition file.\n";
+    cerr << "-r\t--reads         <string, string...> Read files to align. Default stdin.\n";
+    cerr << "-l\t--rlen          <int> Max read length. Default 50.\n";
+    cerr << "-R\t                Align to reference graph.\n";
+    cerr << "-X\t                Align to maximum allele frequency graph.\n";
+    cerr << "-I\t                Align to ingroup graph.\n";
+    cerr << "-O\t                Align to outgroup graph.\n";
+    cerr << "-m\t--match         <int> Match score, default 2.\n";
+    cerr << "-n\t--mismatch      <int> Mismatch penalty, default 2.\n";
+    cerr << "-o\t--gap_open      <int> Gap opening penalty, default 3.\n";
+    cerr << "-e\t--gap_extend    <int> Gap extend penalty, default 1.\n";
+    cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
 
-    cout << "Lines beginning with \'#\' are ignored.\n";
-    cout << "Output format:\n\t[RXIO], read origin ingroup, read origin graph number, read sequence,\n"
+    cerr << "Lines beginning with \'#\' are ignored. Alignments output to stdout, reads input from stdin\n";
+    cerr << "if no -r specified.\n";
+    cerr << "Output format:\n\t[RXIO], read origin ingroup, read origin graph number, read sequence,\n"
         << " read origin pos, read sub errors, read indel errors, read variant nodes, read variant bases,\n"
         << " best score, best pos, best count, sub score, sub pos, sub count, corflag\n" << endl;
 }
 
 void sim_help() {
-    using std::cout;
+    using std::cerr;
     using std::endl;
 
-    cout << endl
+    cerr << endl
         << "-------------------- vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
-    cout << "-g\t--gdef          *<string> Graph definition file. Reads are simulated from Ingroups.\n";
-    cout << "-t\t--outfile       *<string> Alignment output file.\n";
-    cout << "-o\t--outgroup      Simulate from outgroup graphs.\n";
-    cout << "-n\t--numreads      <int> Number of reads to simulate from each subgraph, default 1000.\n";
-    cout << "-m\t--muterr        <float, float...> Read mutation error. Default 0.\n";
-    cout << "-i\t--indelerr      <float, float...> Read indel error. Default 0.\n";
-    cout << "-v\t--vnodes        <int, int...> Number of variant nodes, default any (*).\n";
-    cout << "-b\t--vbases        <int, int...> Number of variant bases, default any (*).\n";
-    cout << "-l\t--rlen          <int> Read length, default 50.\n";
-    cout << "-a\t--rate          Interpret -m, -i as rates, instead of exact number of errors.\n";
-    cout << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
+    cerr << "-g\t--gdef          *<string> Graph definition file. Reads are simulated from Ingroups.\n";
+    cerr << "-o\t--outgroup      Simulate from outgroup graphs.\n";
+    cerr << "-n\t--numreads      <int> Number of reads to simulate from each subgraph, default 1000.\n";
+    cerr << "-m\t--muterr        <float, float...> Read mutation error. Default 0.\n";
+    cerr << "-i\t--indelerr      <float, float...> Read indel error. Default 0.\n";
+    cerr << "-v\t--vnodes        <int, int...> Number of variant nodes, default any (*).\n";
+    cerr << "-b\t--vbases        <int, int...> Number of variant bases, default any (*).\n";
+    cerr << "-l\t--rlen          <int> Read length, default 50.\n";
+    cerr << "-a\t--rate          Interpret -m, -i as rates, instead of exact number of errors.\n";
+    cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
 
-    cout << "Comments preceded by \'#\'.\n";
-    cout << "-n reads are produced for each -m, -i, -v, -b combination. If set to \'*\', any value is accepted."
+    cerr << "Comments preceded by \'#\'. Reads are output to stdout.\n";
+    cerr << "-n reads are produced for each -m, -i, -v, -b combination. If set to \'*\', any value is accepted."
         << endl << endl;
 }

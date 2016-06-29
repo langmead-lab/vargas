@@ -23,13 +23,13 @@
 namespace vargas {
 
   // Tags defining meta information in FASTA read names
-  const std::string READ_META_END = "end";
-  const std::string READ_META_MUT = "mut";
+  const std::string READ_META_END = "pos";
+  const std::string READ_META_MUT = "sub";
   const std::string READ_META_INDEL = "ind";
   const std::string READ_META_VARNODE = "vnd";
   const std::string READ_META_VARBASE = "vbs";
   const std::string READ_META_SRC = "src";
-  const char READ_FASTA_META_DELIM = '_';
+  const char READ_FASTA_META_DELIM = ';';
 
 /**
  * @brief
@@ -76,12 +76,12 @@ namespace vargas {
   inline std::string to_fasta(const Read &r) {
       std::stringstream ss;
       ss << ">"
-          << READ_META_END << "=" << r.end_pos << READ_FASTA_META_DELIM
-          << READ_META_MUT << "=" << r.sub_err << READ_FASTA_META_DELIM
-          << READ_META_INDEL << "=" << r.indel_err << READ_FASTA_META_DELIM
-          << READ_META_VARNODE << "=" << r.var_nodes << READ_FASTA_META_DELIM
-          << READ_META_VARBASE << "=" << r.var_bases << READ_FASTA_META_DELIM
-          << READ_META_SRC << "=" << r.src
+          << READ_META_END << ":" << r.end_pos << READ_FASTA_META_DELIM
+          << READ_META_MUT << ":" << r.sub_err << READ_FASTA_META_DELIM
+          << READ_META_INDEL << ":" << r.indel_err << READ_FASTA_META_DELIM
+          << READ_META_VARNODE << ":" << r.var_nodes << READ_FASTA_META_DELIM
+          << READ_META_VARBASE << ":" << r.var_bases << READ_FASTA_META_DELIM
+          << READ_META_SRC << ":" << r.src
           << std::endl
           << r.read;
       return ss.str();

@@ -24,6 +24,10 @@ namespace vargas {
 class ReadFile: public ReadSource {
 
  public:
+    /**
+     * @brief
+     * If no file is specified, use stdin.
+     */
   ReadFile() { }
 
     /**
@@ -35,7 +39,7 @@ class ReadFile: public ReadSource {
   }
 
   ~ReadFile() {
-    if (_read_file) _read_file.close();
+    if (_read_file.is_open()) _read_file.close();
   }
 
     /*
