@@ -20,11 +20,9 @@ namespace vargas {
 
   /**
    * @brief
-   * Provides an interface for a SAM/BAM File.
+   * Provides structures representing SAM data.
    */
-  class SAM {
-    public:
-
+  struct SAM {
       /**
  * @brief
  * Represents all stored information in a SAM/BAM header.
@@ -47,6 +45,13 @@ namespace vargas {
            */
           struct Sequence {
 
+              Sequence() { }
+
+              /**
+               * @brief
+               * Construct a sequence from a sequence header line.
+               * @param line seq header line to parse
+               */
               Sequence(std::string line) { parse(line); }
 
               int len;
@@ -65,12 +70,12 @@ namespace vargas {
               std::string to_string() const {
                   std::stringstream ss;
                   ss << "@SQ" <<
-                      " SN:" << name <<
-                      " LN:" << std::to_string(len) <<
-                      ((genome_assembly.length() > 0) ? std::string(" AS:") + genome_assembly : "") <<
-                      ((md5.length() > 0) ? std::string(" M5:" + md5) : "") <<
-                      ((species.length() > 0) ? std::string(" SP:" + species) : "") <<
-                      ((URI.length() > 0) ? std::string(" UR:" + URI) : "");
+                      "\tSN:" << name <<
+                      "\tLN:" << std::to_string(len) <<
+                      (genome_assembly.length() > 0 ? "\tAS:" + genome_assembly : "") <<
+                      (md5.length() > 0 ? "\tM5:" + md5 : "") <<
+                      (species.length() > 0 ? "\tSP:" + species : "") <<
+                      (URI.length() > 0 ? "\tUR:" + URI : "");
                   return ss.str();
               }
 
@@ -80,28 +85,32 @@ namespace vargas {
                * @param line space delimited tag-pairs, colon delimited pairs
                */
               void parse(std::string line) {
+                  genome_assembly = "";
+                  md5 = "";
+                  species = "";
+                  URI = "";
+
                   std::vector<std::string> tags = split(line, '\t');
                   for (auto &p : tags) {
-                      std::vector<std::string> pair(2);
-                      pair[0] = p.substr(0, 2);
-                      pair[1] = p.substr(3);
-                      if (pair[0] == "SN") {
-                          name = pair[1];
+                      std::string tag = p.substr(0, 2);
+                      std::string val = p.substr(3);
+                      if (tag == "SN") {
+                          name = val;
                       }
-                      else if (pair[0] == "LN") {
-                          len = std::stoi(pair[1]);
+                      else if (tag == "LN") {
+                          len = std::stoi(val);
                       }
-                      else if (pair[0] == "AS") {
-                          genome_assembly = pair[1];
+                      else if (tag == "AS") {
+                          genome_assembly = val;
                       }
-                      else if (pair[0] == "M5") {
-                          md5 = pair[1];
+                      else if (tag == "M5") {
+                          md5 = val;
                       }
-                      else if (pair[0] == "SP") {
-                          species = pair[1];
+                      else if (tag == "SP") {
+                          species = val;
                       }
-                      else if (pair[0] == "UR") {
-                          URI = pair[1];
+                      else if (tag == "UR") {
+                          URI = val;
                       }
                   }
               }
@@ -125,21 +134,28 @@ namespace vargas {
            * Defines a grouping of reads.
            */
           struct ReadGroup {
+              ReadGroup() { }
+
+              /**
+               * @brief
+               * Construct a read group from a RG header line.
+               * @param line @RG line
+               */
               ReadGroup(std::string line) { parse(line); }
 
-              std::string seq_center = "",
-                  desc = "",
-                  date = "",
-                  flow_order = "",
-                  key_seq = "",
-                  library = "",
-                  programs = "",
-                  insert_size = "",
-                  platform = "",
-                  platform_model = "",
-                  platform_unit = "",
-                  sample = "",
-                  id = "";
+              std::string seq_center = "", /**< Name of sequencing center producing the read */
+                  desc = "", /**< Description */
+                  date = "", /**< Date run was produced */
+                  flow_order = "", /**< Array of bases that corresponds to flow of each read */
+                  key_seq = "", /**< bases that correspond to the key sequence of the read */
+                  library = "", /**< Library */
+                  programs = "", /**< Programs used to process read group */
+                  insert_size = "", /**< Predicted median insert size */
+                  platform = "", /**< Platform used to produce reads */
+                  platform_model = "", /**< Platform desc */
+                  platform_unit = "", /**< Unique unit ID */
+                  sample = "", /**< Sample, or pool name */
+                  id = ""; /**< Unique ID */
 
               /**
      * @brief
@@ -149,19 +165,19 @@ namespace vargas {
               std::string to_string() const {
                   std::stringstream ss;
                   ss << "@RG" <<
-                      " ID:" << id <<
-                      ((seq_center.length() > 0) ? std::string(" CN:") + seq_center : "") <<
-                      ((desc.length() > 0) ? std::string(" DS:") + desc : "") <<
-                      ((date.length() > 0) ? std::string(" DT:") + date : "") <<
-                      ((flow_order.length() > 0) ? std::string(" FO:") + flow_order : "") <<
-                      ((key_seq.length() > 0) ? std::string(" KS:") + key_seq : "") <<
-                      ((library.length() > 0) ? std::string(" LB:") + library : "") <<
-                      ((programs.length() > 0) ? std::string(" PG:") + programs : "") <<
-                      ((insert_size.length() > 0) ? std::string(" PI:") + insert_size : "") <<
-                      ((platform.length() > 0) ? std::string(" PL:") + platform : "") <<
-                      ((platform_model.length() > 0) ? std::string(" PM:") + platform_model : "") <<
-                      ((platform_unit.length() > 0) ? std::string(" PU:") + platform_unit : "") <<
-                      ((sample.length() > 0) ? std::string(" SM:") + sample : "");
+                      "\tID:" << id <<
+                      (seq_center.length() > 0 ? "\tCN:" + seq_center : "") <<
+                      (desc.length() > 0 ? "\tDS:" + desc : "") <<
+                      (date.length() > 0 ? "\tDT:" + date : "") <<
+                      (flow_order.length() > 0 ? "\tFO:" + flow_order : "") <<
+                      (key_seq.length() > 0 ? "\tKS:" + key_seq : "") <<
+                      (library.length() > 0 ? "\tLB:" + library : "") <<
+                      (programs.length() > 0 ? "\tPG:" + programs : "") <<
+                      (insert_size.length() > 0 ? "\tPI:" + insert_size : "") <<
+                      (platform.length() > 0 ? "\tPL:" + platform : "") <<
+                      (platform_model.length() > 0 ? "\tPM:" + platform_model : "") <<
+                      (platform_unit.length() > 0 ? "\tPU:" + platform_unit : "") <<
+                      (sample.length() > 0 ? "\tSM:" + sample : "");
                   return ss.str();
               }
 
@@ -171,49 +187,61 @@ namespace vargas {
                * @param line space delimited tag-pairs, colon delimited pairs
                */
               void parse(std::string line) {
+                  seq_center = "";
+                  desc = "";
+                  date = "";
+                  flow_order = "";
+                  key_seq = "";
+                  library = "";
+                  programs = "";
+                  insert_size = "";
+                  platform = "";
+                  platform_model = "";
+                  platform_unit = "";
+                  sample = "";
+
                   std::vector<std::string> tags = split(line, '\t');
                   for (auto &p : tags) {
-                      std::vector<std::string> pair(2);
-                      pair[0] = p.substr(0, 2);
-                      pair[1] = p.substr(3);
-                      if (pair[0] == "ID") {
-                          id = pair[1];
+                      std::string tag = p.substr(0, 2);
+                      std::string val = p.substr(3);
+                      if (tag == "ID") {
+                          id = val;
                       }
-                      else if (pair[0] == "CN") {
-                          seq_center = pair[1];
+                      else if (tag == "CN") {
+                          seq_center = val;
                       }
-                      else if (pair[0] == "DS") {
-                          desc = pair[1];
+                      else if (tag == "DS") {
+                          desc = val;
                       }
-                      else if (pair[0] == "DT") {
-                          date = pair[1];
+                      else if (tag == "DT") {
+                          date = val;
                       }
-                      else if (pair[0] == "FO") {
-                          flow_order = pair[1];
+                      else if (tag == "FO") {
+                          flow_order = val;
                       }
-                      else if (pair[0] == "KS") {
-                          key_seq = pair[1];
+                      else if (tag == "KS") {
+                          key_seq = val;
                       }
-                      else if (pair[0] == "LB") {
-                          library = pair[1];
+                      else if (tag == "LB") {
+                          library = val;
                       }
-                      else if (pair[0] == "PG") {
-                          programs = pair[1];
+                      else if (tag == "PG") {
+                          programs = val;
                       }
-                      else if (pair[0] == "PI") {
-                          insert_size = pair[1];
+                      else if (tag == "PI") {
+                          insert_size = val;
                       }
-                      else if (pair[0] == "PL") {
-                          platform = pair[1];
+                      else if (tag == "PL") {
+                          platform = val;
                       }
-                      else if (pair[0] == "PM") {
-                          platform_model = pair[1];
+                      else if (tag == "PM") {
+                          platform_model = val;
                       }
-                      else if (pair[0] == "PU") {
-                          platform_unit = pair[1];
+                      else if (tag == "PU") {
+                          platform_unit = val;
                       }
-                      else if (pair[0] == "SM") {
-                          sample = pair[1];
+                      else if (tag == "SM") {
+                          sample = val;
                       }
                   }
               }
@@ -254,12 +282,12 @@ namespace vargas {
               std::string to_string() const {
                   std::stringstream ss;
                   ss << "@PG" <<
-                      " ID:" << id <<
-                      ((name.length() > 0) ? std::string(" PN:") + name : "") <<
-                      ((command_line.length() > 0) ? std::string(" CL:") + command_line : "") <<
-                      ((prev_pg.length() > 0) ? std::string(" PP:") + prev_pg : "") <<
-                      ((desc.length() > 0) ? std::string(" DS:") + desc : "") <<
-                      ((version.length() > 0) ? std::string(" VN:") + version : "");
+                      "\tID:" << id <<
+                      (name.length() > 0 ? "\tPN:" + name : "") <<
+                      (command_line.length() > 0 ? "\tCL:" + command_line : "") <<
+                      (prev_pg.length() > 0 ? "\tPP:" + prev_pg : "") <<
+                      (desc.length() > 0 ? "\tDS:" + desc : "") <<
+                      (version.length() > 0 ? "\tVN:" + version : "");
                   return ss.str();
               }
 
@@ -269,28 +297,33 @@ namespace vargas {
                * @param line space delimited tag-pairs, colon delimited pairs
                */
               void parse(std::string line) {
+                  name = "";
+                  command_line = "";
+                  prev_pg = "";
+                  desc = "";
+                  version = "";
+
                   std::vector<std::string> tags = split(line, '\t');
                   for (auto &p : tags) {
-                      std::vector<std::string> pair(2);
-                      pair[0] = p.substr(0, 2);
-                      pair[1] = p.substr(3);
-                      if (pair[0] == "ID") {
-                          id = pair[1];
+                      std::string tag = p.substr(0, 2);
+                      std::string val = p.substr(3);
+                      if (tag == "ID") {
+                          id = val;
                       }
-                      else if (pair[0] == "PN") {
-                          name = std::stoi(pair[1]);
+                      else if (tag == "PN") {
+                          name = std::stoi(val);
                       }
-                      else if (pair[0] == "CL") {
-                          command_line = pair[1];
+                      else if (tag == "CL") {
+                          command_line = val;
                       }
-                      else if (pair[0] == "PP") {
-                          prev_pg = pair[1];
+                      else if (tag == "PP") {
+                          prev_pg = val;
                       }
-                      else if (pair[0] == "DS") {
-                          desc = pair[1];
+                      else if (tag == "DS") {
+                          desc = val;
                       }
-                      else if (pair[0] == "VN") {
-                          version = pair[1];
+                      else if (tag == "VN") {
+                          version = val;
                       }
                   }
               }
@@ -335,15 +368,15 @@ namespace vargas {
 
           /**
             * @brief
-            * Output a multi-line header containing all tags.
+            * Output a multi-line header containing all tags. Terminated with newline.
             * @return formatted line
             */
           std::string to_string() const {
               std::stringstream ret;
               ret << "@HD" <<
-                  " VN:" << version <<
-                  ((sorting_order.length() > 0) ? std::string(" SO:") + sorting_order : "") <<
-                  ((grouping.length() > 0) ? std::string(" GO:") + grouping : "") <<
+                  "\tVN:" << version <<
+                  ((sorting_order.length() > 0) ? std::string("\tSO:") + sorting_order : "") <<
+                  ((grouping.length() > 0) ? std::string("\tGO:") + grouping : "") <<
                   "\n";
               for (auto &seq : sequences) {
                   ret << seq.to_string() << "\n";
@@ -363,23 +396,28 @@ namespace vargas {
            * @param line space delimited tag-pairs, colon delimited pairs
            */
           void parse(std::string hdr) {
+              sorting_order = "";
+              grouping = "";
+              sequences.clear();
+              read_groups.clear();
+              programs.clear();
+
               std::vector<std::string> lines = split(hdr, '\n');
 
               // @HD line
               std::vector<std::string> tags = split(lines[0], '\t');
               if (tags[0] != "@HD") throw std::invalid_argument("First line must start with \"@HD\"");
               for (auto &p : tags) {
-                  std::vector<std::string> pair(2);
-                  pair[0] = p.substr(0, 2);
-                  pair[1] = p.substr(3);
-                  if (pair[0] == "VN") {
-                      version = pair[1];
+                  std::string tag = p.substr(0, 2);
+                  std::string val = p.substr(3);
+                  if (tag == "VN") {
+                      version = val;
                   }
-                  else if (pair[0] == "SO") {
-                      sorting_order = pair[1];
+                  else if (tag == "SO") {
+                      sorting_order = val;
                   }
-                  else if (pair[0] == "GO") {
-                      grouping = pair[1];
+                  else if (tag == "GO") {
+                      grouping = val;
                   }
               }
 
@@ -435,6 +473,13 @@ namespace vargas {
           Record() { }
 
           /**
+           * @brief
+           * Parse the given alignment line.
+           * @param line
+           */
+          Record(std::string line) { parse(line); }
+
+          /**
            * @param
            * Represents a bitwise flag of an alignment.
            */
@@ -447,18 +492,18 @@ namespace vargas {
                * Decode bitwise flag.
                * @param f bitwise flag
                */
-              Flag(int f) : multiple(f & 0x001),
-                            aligned(f & 0x002),
-                            unmapped(f & 0x004),
-                            next_unmapped(f & 0x008),
-                            rev_complement(f & 0x010),
-                            next_rev_complement(f & 0x020),
-                            first(f & 0x040),
-                            last(f & 0x080),
-                            secondary(f & 0x100),
-                            pass_fail(f & 0x200),
-                            duplicate(f & 0x400),
-                            supplementary(f & 0x800) { }
+              Flag(unsigned int f) : multiple(f & 0x001),
+                                     aligned(f & 0x002),
+                                     unmapped(f & 0x004),
+                                     next_unmapped(f & 0x008),
+                                     rev_complement(f & 0x010),
+                                     next_rev_complement(f & 0x020),
+                                     first(f & 0x040),
+                                     last(f & 0x080),
+                                     secondary(f & 0x100),
+                                     pass_fail(f & 0x200),
+                                     duplicate(f & 0x400),
+                                     supplementary(f & 0x800) { }
 
               bool multiple = false, /**< template having multiple segments in sequencing */
                   aligned = false, /**< each segment properly aligned according to the aligner */
@@ -478,19 +523,18 @@ namespace vargas {
                * @return integer representation of flags.
                */
               int encode() const {
-                  return
-                      (multiple & 0x1) +
-                          (aligned & 0x2) +
-                          (unmapped & 0x4) +
-                          (next_unmapped & 0x8) +
-                          (rev_complement & 0x10) +
-                          (next_rev_complement & 0x20) +
-                          (first & 0x40) +
-                          (last & 0x80) +
-                          (secondary & 0x100) +
-                          (pass_fail & 0x200) +
-                          (duplicate & 0x400) +
-                          (supplementary & 0x800);
+                  return (multiple ? 0x001 : 0) +
+                      (aligned ? 0x002 : 0) +
+                      (unmapped ? 0x004 : 0) +
+                      (next_unmapped ? 0x008 : 0) +
+                      (rev_complement ? 0x010 : 0) +
+                      (next_rev_complement ? 0x020 : 0) +
+                      (first ? 0x040 : 0) +
+                      (last ? 0x080 : 0) +
+                      (secondary ? 0x100 : 0) +
+                      (pass_fail ? 0x200 : 0) +
+                      (duplicate ? 0x400 : 0) +
+                      (supplementary ? 0x800 : 0);
               }
 
               /**
@@ -498,7 +542,7 @@ namespace vargas {
                * Decode bit flags
                * @param f bit flags
                */
-              void decode(int f) {
+              void decode(unsigned int f) {
                   multiple = f & 0x001;
                   aligned = f & 0x002;
                   unmapped = f & 0x004;
@@ -518,20 +562,20 @@ namespace vargas {
                * Encode flags into an int
                * @param i int to store in.
                */
-              void operator>>(int &i) const { i = encode(); }
+              void operator>>(unsigned int &i) const { i = encode(); }
 
               /**
                * Decode bit flag into the struct.
                * @param i bits to decode.
                */
-              void operator<<(int i) { decode(i); }
+              void operator<<(unsigned int i) { decode(i); }
 
               /**
                * @brief
                * Decode the integer into the struct.
                * @param i int to decode.
                */
-              void operator=(int i) { decode(i); }
+              void operator=(unsigned int i) { decode(i); }
           };
 
           // Mandatory fields
@@ -542,6 +586,7 @@ namespace vargas {
               seq = "*", /**< segment sequence */
               qual = "*";
           /**< Phred Qual+33 */
+
           int pos = 0, /**< 1 baset leftmost mapping position */
               mapq = 255, /**< mapping quality */
               pos_next = 0, /**< position of next mate/read */
@@ -562,10 +607,11 @@ namespace vargas {
            * @param a aux field
            */
           void add(std::string a) {
-              std::vector<std::string> s = split(a, ':');
-              if (s.size() != 3) throw std::invalid_argument("Invalid aux field \"" + a + "\"");
-              aux[s[0]] = s[2];
-              aux_fmt[s[0]] = s[1].at(0);
+              if (a.at(2) != ':') throw std::invalid_argument("Expected \':\' after 2 character tag in \"" + a + "\"");
+              if (a.at(4) != ':') throw std::invalid_argument("Expected \':\' after format tag in \"" + a + "\"");
+              std::string tag = a.substr(0, 2);
+              aux[tag] = a.substr(5);
+              aux_fmt[tag] = a.at(3);
           }
 
           /**
@@ -706,6 +752,8 @@ namespace vargas {
               qual = cols[10];
 
               // Aux fields
+              aux.clear();
+              aux_fmt.clear();
               for (size_t i = 11; i < cols.size(); ++i) {
                   add(cols[i]);
               }
@@ -738,18 +786,30 @@ namespace vargas {
       };
   };
 
-  class isam: public SAM {
+  /**
+   * Provides an interface to read a SAM file.
+   */
+  class isam {
     public:
       isam() { }
       isam(std::string file_name) : _file_name(file_name) { _init(); }
       ~isam() { _deinit(); }
 
+      /**
+       * @brief
+       * Close any open file and open the given file.
+       * @param file_name SAM file to open
+       */
       void open(std::string file_name) {
           _deinit();
           _file_name = file_name;
           _init();
       }
 
+      /**
+       * @brief
+       * Clear data and close any open handles.
+       */
       void close() { _deinit(); }
 
       /**
@@ -769,7 +829,7 @@ namespace vargas {
        */
       bool next() {
           if (!std::getline(in, _curr_line)) return false;
-          _pprec << _curr_line;
+          _pprec.parse(_curr_line);
           return true;
       }
 
@@ -778,9 +838,19 @@ namespace vargas {
        * First record is available after opening the file.
        * @return current Record
        */
-      const Record &record() const { return _pprec; }
+      const SAM::Record &record() const { return _pprec; }
+
+      /**
+       * Get the SAM Header.
+       * @return SAM::Header
+       */
+      const SAM::Header &header() const { return _pphdr; }
 
     protected:
+      /**
+       * @brief
+       * open the SAM file, load the header, and the first record.
+       */
       void _init() {
           in.open(_file_name);
           if (!in.good()) throw std::invalid_argument("Error opening file \"" + _file_name + "\"");
@@ -792,10 +862,14 @@ namespace vargas {
           _pprec << _curr_line;
       }
 
+      /**
+       * @brief
+       * Clear data and close any open handles.
+       */
       void _deinit() {
           in.close();
-          _pphdr = Header();
-          _pprec = Record();
+          _pphdr = SAM::Header();
+          _pprec = SAM::Record();
           _file_name = "";
       }
 
@@ -803,8 +877,70 @@ namespace vargas {
       std::string _file_name = "", _curr_line;
       std::ifstream in;
 
-      Header _pphdr;
-      Record _pprec;
+      SAM::Header _pphdr;
+      SAM::Record _pprec;
+  };
+
+  /**
+   * Provides an interface to write a SAM file.
+   */
+  class osam {
+    public:
+      /**
+       * @brief
+       * Create a SAM file with the given header and file name.
+       * @details
+       * To allow streaming operation, the SAM::Header must be specified
+       * at file open. This also allows for added alignments to be validated
+       * against header information.
+       * @param file_name file to write
+       * @param hdr SAM::Header of the file
+       */
+      osam(std::string file_name, const SAM::Header &hdr) : _hdr(hdr) {
+          open(file_name);
+      }
+      ~osam() {
+          close();
+      }
+
+      /**
+       * @brief
+       * Open a new file.
+       * @details
+       * Any added alignments are flushed to the previous file (if any). The header
+       * is written to the new file.
+       * @param file_name file to open
+       */
+      void open(std::string file_name) {
+          close();
+          out.open(file_name);
+          if (!out.good()) throw std::invalid_argument("Error opening output file \"" + file_name + "\"");
+          out << _hdr.to_string();
+      }
+
+      /**
+       * @brief
+       * Flush any data, and close the output file.
+       */
+      void close() {
+          if (out.is_open()) {
+              out.close();
+          }
+      }
+
+      /**
+       * @return true of output open.
+       */
+      bool good() const { return out.good(); }
+
+      void add_record(const SAM::Record &r) {
+          if (!good()) throw std::invalid_argument("No valid file open.");
+          out << r.to_string() << '\n';
+      }
+
+    private:
+      std::ofstream out;
+      const SAM::Header _hdr;
   };
 
 }
@@ -834,7 +970,23 @@ TEST_CASE ("SAM File") {
             << "9:21597+10M2I25M:R:-209\t83\t1\t21678\t0\t8M2I27M\t=\t21469\t-244\tCACCACATCACATATACCAAGCCTGGCTGTGTCTTCT\t<;9<<5><<<<><<<>><<><>><9>><>>>9>>><>\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:5\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:35\n";
     }
 
-    vargas::isam sf("tmp_s.sam");
-    int x;
+    {
+        vargas::isam sf("tmp_s.sam");
+        vargas::osam os("osam.sam", sf.header());
+        do {
+            os.add_record(sf.record());
+        } while (sf.next());
+        int x;
+    }
+
+    std::ifstream a("tmp_s.sam");
+    std::ifstream b("osam.sam");
+    std::string A, B;
+
+    // Orderings of tags might be different.
+    while (std::getline(a, A) && std::getline(b, B)) CHECK (A.length() == B.length());
+
+    remove("tmp_s.sam");
+    remove("osam.sam");
 }
 #endif //VARGAS_SAM_H
