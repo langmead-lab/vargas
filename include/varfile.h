@@ -29,14 +29,14 @@
 #include "htslib/hts.h"
 #include "doctest.h"
 
-namespace vargas {
+namespace Vargas {
 
 /**
  * @brief
  * Provides an interface to a VCF/BCF file. Core processing
  * provided by htslib.
  */
-class VarFile {
+  class VCF {
  public:
     typedef dyn_bitset<64> Population;
     /**
@@ -138,11 +138,11 @@ class VarFile {
     }
   };
 
-  VarFile() { }
-  VarFile(std::string file) : _file_name(file) { _init(); }
-  VarFile(std::string file, std::string chr, int min, int max) :
+      VCF() { }
+      VCF(std::string file) : _file_name(file) { _init(); }
+      VCF(std::string file, std::string chr, int min, int max) :
       _file_name(file), _chr(chr), _min_pos(min), _max_pos(max) { _init(); }
-  ~VarFile() {
+      ~VCF() {
     close();
   }
 
@@ -461,7 +461,7 @@ TEST_CASE ("VCF File handler") {
   }
 
       SUBCASE("Unfiltered") {
-    VarFile vcf(tmpvcf);
+      VCF vcf(tmpvcf);
     vcf.next();
         CHECK(vcf.num_samples() == 2);
         CHECK(vcf.sequences().size() == 2);
@@ -514,7 +514,7 @@ TEST_CASE ("VCF File handler") {
   }
 
       SUBCASE("CHROM Filtering") {
-    VarFile vcf;
+      VCF vcf;
     vcf.set_region("y:0-0");
     vcf.open(tmpvcf);
 
@@ -526,7 +526,7 @@ TEST_CASE ("VCF File handler") {
   }
 
       SUBCASE("Region filtering") {
-    VarFile vcf;
+      VCF vcf;
     vcf.set_region("x:0-14");
     vcf.open(tmpvcf);
 
@@ -540,7 +540,7 @@ TEST_CASE ("VCF File handler") {
   }
 
       SUBCASE("Ingroup generation") {
-    VarFile vcf;
+      VCF vcf;
       srand(12345);
     vcf.open(tmpvcf);
     vcf.create_ingroup(50);
@@ -564,7 +564,7 @@ TEST_CASE ("VCF File handler") {
   }
 
       SUBCASE("Allele populations") {
-    VarFile vcf;
+      VCF vcf;
     vcf.open(tmpvcf);
     vcf.next();
     vcf.genotypes();
@@ -596,7 +596,7 @@ TEST_CASE ("VCF File handler") {
   }
 
       SUBCASE("Filtered allele populations") {
-    VarFile vcf;
+      VCF vcf;
     vcf.open(tmpvcf);
     vcf.create_ingroup({"s1"});
     vcf.next();
@@ -620,7 +620,7 @@ TEST_CASE ("VCF File handler") {
   }
 
       SUBCASE("Allele frequencies") {
-    VarFile vcf;
+      VCF vcf;
     vcf.open(tmpvcf);
     vcf.next();
 

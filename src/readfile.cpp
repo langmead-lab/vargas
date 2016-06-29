@@ -18,7 +18,7 @@
 #include "utils.h"
 #include "readfile.h"
 
-bool vargas::ReadFile::update_read() {
+bool Vargas::ReadFile::update_read() {
   if (_read_file.is_open()) {
     if (!std::getline(_read_file, line)) return false;
   } else {
@@ -78,7 +78,7 @@ bool vargas::ReadFile::update_read() {
   return true;
 }
 
-void vargas::ReadFile::resume_from(std::string read) {
+void Vargas::ReadFile::resume_from(std::string read) {
   do {
     if (!update_read()) {
       std::cerr << "Warning: read not found in reads file. Starting from beginning." << std::endl;

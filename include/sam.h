@@ -16,7 +16,7 @@
 
 #include "doctest.h"
 
-namespace vargas {
+namespace Vargas {
 
   /**
    * @brief
@@ -982,8 +982,8 @@ TEST_CASE ("SAM File") {
     }
 
     {
-        vargas::isam sf("tmp_s.sam");
-        vargas::osam os("osam.sam", sf.header());
+        Vargas::isam sf("tmp_s.sam");
+        Vargas::osam os("osam.sam", sf.header());
         do {
             os.add_record(sf.record());
         } while (sf.next());

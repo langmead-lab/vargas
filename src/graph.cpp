@@ -3,7 +3,7 @@
  * @date November 20, 2015
  *
  * @brief
- * vargas::Graph is a DAG representation of a reference and its variants.
+ * Vargas::Graph is a DAG representation of a reference and its variants.
  *
  * @file
  */
@@ -15,10 +15,10 @@
 #include "../include/graph.h"
 
 
-uint32_t vargas::Graph::Node::_newID = 0;
+uint32_t Vargas::Graph::Node::_newID = 0;
 
 
-vargas::Graph::Graph(const vargas::Graph &g,
+Vargas::Graph::Graph(const Vargas::Graph &g,
                      const Population &filter) {
 
   _IDMap = g._IDMap;
@@ -43,7 +43,7 @@ vargas::Graph::Graph(const vargas::Graph &g,
 }
 
 
-vargas::Graph::Graph(const Graph &g,
+Vargas::Graph::Graph(const Graph &g,
                      Type type) {
   _IDMap = g._IDMap;
   _pop_size = g.pop_size();
@@ -85,7 +85,7 @@ vargas::Graph::Graph(const Graph &g,
 }
 
 
-void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
+void Vargas::Graph::_build_derived_edges(const Vargas::Graph &g,
                                          const std::unordered_map<uint32_t, nodeptr> &includedNodes) {
   // Add all edges for included nodes
   for (auto &n : includedNodes) {
@@ -104,7 +104,7 @@ void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
   _root = g.root();
 }
 
-uint32_t vargas::Graph::add_node(Node &n) {
+uint32_t Vargas::Graph::add_node(Node &n) {
   if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
   if (_IDMap->size() == 0) _root = n.id(); // first node added is default root
 
@@ -114,7 +114,7 @@ uint32_t vargas::Graph::add_node(Node &n) {
 }
 
 
-bool vargas::Graph::add_edge(uint32_t n1,
+bool Vargas::Graph::add_edge(uint32_t n1,
                              uint32_t n2) {
   // Check if the nodes exist
   if (_IDMap->count(n1) == 0 || _IDMap->count(n2) == 0) return false;
@@ -131,7 +131,7 @@ bool vargas::Graph::add_edge(uint32_t n1,
   return true;
 }
 
-std::string vargas::Graph::to_DOT(std::string name) const {
+std::string Vargas::Graph::to_DOT(std::string name) const {
   std::stringstream dot;
   dot << "// Each node has the sequence, followed by end_pos,allele_freq\n";
   dot << "digraph " << name << " {\n";
@@ -151,8 +151,8 @@ std::string vargas::Graph::to_DOT(std::string name) const {
 }
 
 
-void vargas::GraphBuilder::build(vargas::Graph &g) {
-  g = vargas::Graph();
+void Vargas::GraphBuilder::build(Vargas::Graph &g) {
+  g = Vargas::Graph();
   _fa.open(_fa_file);
   _vf.open(_vf_file);
   if (!_fa.good()) throw std::invalid_argument("Invalid FASTA file: " + _fa.file());
@@ -246,7 +246,7 @@ void vargas::GraphBuilder::build(vargas::Graph &g) {
   _vf.close();
 }
 
-void vargas::GraphBuilder::_build_edges(vargas::Graph &g,
+void Vargas::GraphBuilder::_build_edges(Vargas::Graph &g,
                                         std::unordered_set<uint32_t> &prev,
                                         std::unordered_set<uint32_t> &curr,
                                         std::unordered_map<uint32_t, uint32_t> *chain) {
@@ -267,7 +267,7 @@ void vargas::GraphBuilder::_build_edges(vargas::Graph &g,
 }
 
 
-int vargas::GraphBuilder::_build_linear_ref(Graph &g,
+int Vargas::GraphBuilder::_build_linear_ref(Graph &g,
                                             std::unordered_set<uint32_t> &prev,
                                             std::unordered_set<uint32_t> &curr,
                                             uint32_t pos,
@@ -290,7 +290,7 @@ int vargas::GraphBuilder::_build_linear_ref(Graph &g,
   return target;
 }
 
-std::vector<std::string> vargas::GraphBuilder::_split_seq(std::string seq) {
+std::vector<std::string> Vargas::GraphBuilder::_split_seq(std::string seq) {
   std::vector<std::string> split;
   if (seq.length() <= _max_node_len && seq.size() > 0) {
     split.push_back(seq);
@@ -309,34 +309,34 @@ std::vector<std::string> vargas::GraphBuilder::_split_seq(std::string seq) {
 }
 
 
-void vargas::GraphBuilder::ingroup(int percent) {
+void Vargas::GraphBuilder::ingroup(int percent) {
   if (percent < 0 || percent > 100) return;
   _ingroup = percent;
 }
 
-vargas::Graph::Population vargas::Graph::subset(int ingroup) const {
-  vargas::Graph::Population p(_pop_size);
+Vargas::Graph::Population Vargas::Graph::subset(int ingroup) const {
+  Vargas::Graph::Population p(_pop_size);
   for (size_t i = 0; i < _pop_size; ++i) {
     if (rand() % 100 < ingroup) p.set(i);
   }
   return p;
 }
 
-bool vargas::Graph::FilteringIter::operator==(const vargas::Graph::FilteringIter &other) const {
+bool Vargas::Graph::FilteringIter::operator==(const Vargas::Graph::FilteringIter &other) const {
   if (_type == END && other._type == END) return true; // All ends are equal
   if (_type != other._type) return false; // Same type of iterator
   if (&_graph != &other._graph) return false; // same base graph
   return _currID == other._currID;
 }
 
-bool vargas::Graph::FilteringIter::operator!=(const vargas::Graph::FilteringIter &other) const {
+bool Vargas::Graph::FilteringIter::operator!=(const Vargas::Graph::FilteringIter &other) const {
   if (_type == END && other._type == END) return false;
   if (_type != other._type) return true;
   if (&_graph != &other._graph) return true;
   return _currID != other._currID;
 }
 
-vargas::Graph::FilteringIter &vargas::Graph::FilteringIter::operator++() {
+Vargas::Graph::FilteringIter &Vargas::Graph::FilteringIter::operator++() {
   // If end of graph has been reached
   if (_type == END) return *this;
 
@@ -403,13 +403,13 @@ vargas::Graph::FilteringIter &vargas::Graph::FilteringIter::operator++() {
   return *this;
 }
 
-const vargas::Graph::Node &vargas::Graph::FilteringIter::operator*() const {
+const Vargas::Graph::Node &Vargas::Graph::FilteringIter::operator*() const {
   if (_type == TOPO) return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
   if (_type == END) return *(_graph._IDMap->at(*(_graph._add_order.end())));
   return *(_graph._IDMap->at(_currID));
 }
 
-const std::vector<uint32_t> &vargas::Graph::FilteringIter::incoming() {
+const std::vector<uint32_t> &Vargas::Graph::FilteringIter::incoming() {
   _incoming.clear();
   if (_type == TOPO) {
     const uint32_t nid = _graph._add_order.at(_currID);
@@ -423,7 +423,7 @@ const std::vector<uint32_t> &vargas::Graph::FilteringIter::incoming() {
   return _incoming;
 }
 
-const std::vector<uint32_t> &vargas::Graph::FilteringIter::outgoing() {
+const std::vector<uint32_t> &Vargas::Graph::FilteringIter::outgoing() {
   if (_graph._prev_map.count(_currID) == 0) return _outgoing;
   return _graph._next_map.at(_graph._add_order.at(_currID));
 }

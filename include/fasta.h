@@ -19,7 +19,7 @@
 #include "htslib/faidx.h"
 
 
-namespace vargas {
+namespace Vargas {
 /**
  * @brief
 * Provides an interface for a FASTA File. An index is built if one does not
@@ -301,7 +301,7 @@ TEST_CASE ("FASTA Reading") {
         << ">y" << endl
         << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
   }
-  vargas::FASTAFile fa(tmpfa);
+    Vargas::FASTAFile fa(tmpfa);
 
       CHECK(fa.num_seq() == 2);
       REQUIRE(fa.sequence_names().size() == 2);
@@ -319,7 +319,7 @@ TEST_CASE ("FASTA Reading") {
 TEST_CASE ("FASTA Writing") {
       SUBCASE("open constructor") {
     {
-      vargas::FASTAFile fa("tmp_tc_wr.fa", vargas::FASTAFile::MODE::WRITE);
+        Vargas::FASTAFile fa("tmp_tc_wr.fa", Vargas::FASTAFile::MODE::WRITE);
       fa.char_per_line(5);
       fa.add("a", "AAAAA");
       fa.add("b", "TT");

@@ -4,14 +4,14 @@
  * rgaddip1@jhu.edu
  *
  * @brief
- * Simulates random reads from a graph, returning reads that follow a specified ReadProfile.
+ * Simulates random reads from a graph, returning reads that follow a specified Sim::Profile.
  *
  * @file
  */
 
 #include "sim.h"
 
-bool vargas::ReadSim::update_read() {
+bool Vargas::Sim::update_read() {
     auto &nodes = *_graph.node_map();
     auto &next = _graph.next_map();
 

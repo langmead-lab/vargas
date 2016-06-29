@@ -4,7 +4,7 @@
  * rgaddip1@jhu.edu
  *
  * @brief
- * Simulates random reads from a graph, returning reads that follow a specified ReadProfile.
+ * Simulates random reads from a graph, returning reads that follow a specified Sim::Profile.
  *
  * @file
  */
@@ -15,63 +15,44 @@
 #include "readsource.h"
 #include "graph.h"
 
-namespace vargas {
+namespace Vargas {
 
   /**
-   * @brief
-   * Parameter list controlling the types of reads created.
-   */
-  struct ReadProfile {
-      unsigned int len = 50;
-      /**< Nominal length of the read */
-      bool rand = false;
-      /**< Number of mutation errors, or rate */
-      float mut = 0;
-      /**< number of insertions/deletions, or rate */
-      float indel = 0;
-      /**< Introduce mutations and indels at a random rate */
-      int var_nodes = -1;
-      /**< Number of variant nodes */
-      int var_bases = -1; /**< number of total variant bases */
-  };
-
-  /**
-   * @brief
-   * Output the profile.
-   * @details
-   * Form: \n
-   * len=READ_LEN mut=NUM_MUT indel=NUM_INDEL vnode=NUM_VAR_NODES vbase=NUM_VAR_BASE rand=USE_RATES \n
-   * @param os output stream
-   * @param rp Read Profile
-   * @return output stream
-   */
-  inline std::ostream &operator<<(std::ostream &os, const ReadProfile &rp) {
-      os << "len=" << rp.len
-          << " mut=" << rp.mut
-          << " indel=" << rp.indel
-          << " vnode=" << rp.var_nodes
-          << " vbase=" << rp.var_bases
-          << " rand=" << rp.rand;
-      return os;
-  }
-
-  /**
-   * @brief
-   * Generate reads from a graph using a given profile. srand() should be called externally.
-   */
-  class ReadSim: public ReadSource {
+  * @brief
+  * Generate reads from a graph using a given profile. srand() should be called externally.
+  */
+  class Sim: public ReadSource {
 
     public:
+
+      /**
+       * @brief
+       * Parameter list controlling the types of reads created.
+       */
+      struct Profile {
+          unsigned int len = 50;
+          /**< Nominal length of the read */
+          bool rand = false;
+          /**< Number of mutation errors, or rate */
+          float mut = 0;
+          /**< number of insertions/deletions, or rate */
+          float indel = 0;
+          /**< Introduce mutations and indels at a random rate */
+          int var_nodes = -1;
+          /**< Number of variant nodes */
+          int var_bases = -1; /**< number of total variant bases */
+      };
+
       /**
        * @param g Graph to simulate from
        */
-      ReadSim(const Graph &g) : _graph(g) { _init(); }
+      Sim(const Graph &g) : _graph(g) { _init(); }
 
       /**
        * @param _graph Graph to simulate from
        * @param prof accept reads following this profile
        */
-      ReadSim(const Graph &_graph, const ReadProfile &prof) : _graph(_graph), _prof(prof) { _init(); }
+      Sim(const Graph &_graph, const Profile &prof) : _graph(_graph), _prof(prof) { _init(); }
 
       /**
        * @brief
@@ -83,9 +64,9 @@ namespace vargas {
       /**
        * @brief
        * Get the profile being used to generate reads (if use_prof)
-       * @return ReadProfile
+       * @return Sim::Profile
        */
-      const ReadProfile &prof() const {
+      const Profile &prof() const {
           return _prof;
       }
 
@@ -94,7 +75,7 @@ namespace vargas {
        * Crete reads following prof as a template
        * @param prof Read Profile
        */
-      void set_prof(const ReadProfile &prof) {
+      void set_prof(const Profile &prof) {
           _prof = prof;
       }
 
@@ -103,20 +84,19 @@ namespace vargas {
        */
       virtual std::string get_header() const override {
           std::stringstream ss;
-          ss << _prof;
           return ss.str();
       }
 
       /**
        * @return current profile being used to filter reads.
        */
-      ReadProfile get_profile() const { return _prof; }
+      Profile get_profile() const { return _prof; }
 
 
     private:
-      const vargas::Graph &_graph;
+      const Vargas::Graph &_graph;
       std::vector<uint32_t> next_keys;
-      ReadProfile _prof;
+      Profile _prof;
 
       /**
        * Creates a vector of keys of all outgoing edges. Allows for random node selection
@@ -129,11 +109,32 @@ namespace vargas {
       }
 
   };
+
+  /**
+   * @brief
+   * Output the profile.
+   * @details
+   * Form: \n
+   * len=READ_LEN mut=NUM_MUT indel=NUM_INDEL vnode=NUM_VAR_NODES vbase=NUM_VAR_BASE rand=USE_RATES \n
+   * @param os output stream
+   * @param rp Read Profile
+   * @return output stream
+   */
+  inline std::ostream &operator<<(std::ostream &os, const Sim::Profile &rp) {
+      os << "len=" << rp.len
+          << " mut=" << rp.mut
+          << " indel=" << rp.indel
+          << " vnode=" << rp.var_nodes
+          << " vbase=" << rp.var_bases
+          << " rand=" << rp.rand;
+      return os;
+  }
+
 }
 
 TEST_CASE ("Read sim") {
     srand(1);
-    vargas::Graph::Node::_newID = 0;
+    Vargas::Graph::Node::_newID = 0;
     using std::endl;
     std::string tmpfa = "tmp_tc.fa";
     {
@@ -174,18 +175,18 @@ TEST_CASE ("Read sim") {
             << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
     }
 
-    vargas::GraphBuilder gb(tmpfa, tmpvcf);
+    Vargas::GraphBuilder gb(tmpfa, tmpvcf);
     gb.node_len(5);
     gb.ingroup(100);
     gb.region("x:0-20");
-    vargas::Graph g = gb.build();
+    Vargas::Graph g = gb.build();
 
         SUBCASE("Mutations") {
         for (int i = 0; i < 3; ++i) {
-            vargas::ReadProfile prof;
+            Vargas::Sim::Profile prof;
             prof.len = 5;
             prof.mut = i;
-            vargas::ReadSim rs(g, prof);
+            Vargas::Sim rs(g, prof);
             rs.update_read();
             auto read = rs.get_read();
             // CHECK(levenshtein_distance(read.read_orig, read.read) <= i + 1);
@@ -194,10 +195,10 @@ TEST_CASE ("Read sim") {
 
         SUBCASE("Indels") {
         for (int i = 0; i < 3; ++i) {
-            vargas::ReadProfile prof;
+            Vargas::Sim::Profile prof;
             prof.len = 5;
             prof.indel = i;
-            vargas::ReadSim rs(g, prof);
+            Vargas::Sim rs(g, prof);
             rs.update_read();
             auto read = rs.get_read();
             // CHECK(levenshtein_distance(read.read_orig, read.read) <= i + 1);

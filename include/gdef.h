@@ -18,7 +18,7 @@
 #include <fstream>
 #include "graph.h"
 
-namespace vargas {
+namespace Vargas {
 
   /**
    * @brief
@@ -83,7 +83,7 @@ namespace vargas {
    * @brief
    * Provides an interface for working with GDEF files.
    */
-  class Gdef {
+  class GDEF {
     public:
       /**
        * @brief
@@ -93,9 +93,9 @@ namespace vargas {
        * @param region region of graph, CHR:XX,XXX-YY,YYY
        * @param node_len maximum node length
        */
-      Gdef(std::string fasta_file, std::string var_file, std::string region, int node_len) :
+      GDEF(std::string fasta_file, std::string var_file, std::string region, int node_len) :
           _fasta_file(fasta_file), _var_file(var_file), _region(region), _node_len(node_len) {
-          vargas::VarFile vf(var_file);
+          Vargas::VCF vf(var_file);
           _num_samples = vf.num_samples();
       }
 
@@ -104,7 +104,7 @@ namespace vargas {
        * Load an existing GDEF file
        * @param file_name GDEF to load
        */
-      Gdef(std::string file_name) { load(file_name); }
+      GDEF(std::string file_name) { load(file_name); }
 
       /**
        * @brief
@@ -233,7 +233,7 @@ namespace vargas {
        */
       void set_variant(std::string varfile) {
           _var_file = varfile;
-          vargas::VarFile vf(_var_file);
+          Vargas::VCF vf(_var_file);
           _num_samples = vf.num_samples();
       }
 
@@ -251,7 +251,7 @@ namespace vargas {
 
       /**
        * @brief
-       * Get the number of samples present in the given VarFile.
+       * Get the number of samples present in the given VCF.
        * @return number of samples, 0 if no var file.
        */
       size_t num_samples() const { return _num_samples; }

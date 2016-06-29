@@ -28,7 +28,7 @@
 #include "graph.h"
 //#include "doctest/doctest.h"
 
-namespace vargas {
+namespace Vargas {
 
 /**
  * @brief
@@ -763,18 +763,18 @@ TEST_CASE ("Alignment") {
     srand(12345);
 
         SUBCASE("Node Fill scores") {
-        std::vector<vargas::Read> reads;
-        reads.push_back(vargas::Read("CGT")); // Score 6, Match
-        reads.push_back(vargas::Read("ATAGCCA")); // Score 10, del
-        reads.push_back(vargas::Read("ATAACGCCA")); // Score 12, Ins
-        reads.push_back(vargas::Read("TACCCCA")); // Score 10, mismatch
+        std::vector<Vargas::Read> reads;
+        reads.push_back(Vargas::Read("CGT")); // Score 6, Match
+        reads.push_back(Vargas::Read("ATAGCCA")); // Score 10, del
+        reads.push_back(Vargas::Read("ATAACGCCA")); // Score 12, Ins
+        reads.push_back(Vargas::Read("TACCCCA")); // Score 10, mismatch
 
-        vargas::Graph::Node n;
+        Vargas::Graph::Node n;
         n.set_endpos(13);
         n.set_seq("ACGTNATACGCCA");
 
-        vargas::ReadBatch<> rb(reads, 16);
-        vargas::Aligner<> a(15, 16);
+        Vargas::ReadBatch<> rb(reads, 16);
+        Vargas::Aligner<> a(15, 16);
         std::vector<uint32_t> pos;
 
         auto maxscore = a._test_fill_node(n, rb, pos);
@@ -791,8 +791,8 @@ TEST_CASE ("Alignment") {
     }
 
         SUBCASE("Graph Alignment") {
-        vargas::Graph::Node::_newID = 0;
-        vargas::Graph g;
+        Vargas::Graph::Node::_newID = 0;
+        Vargas::Graph g;
 
         /**   GGG
         *    /   \
@@ -802,7 +802,7 @@ TEST_CASE ("Alignment") {
         */
 
         {
-            vargas::Graph::Node n;
+            Vargas::Graph::Node n;
             n.set_endpos(3);
             n.set_as_ref();
             std::vector<bool> a = {0, 1, 1};
@@ -812,7 +812,7 @@ TEST_CASE ("Alignment") {
         }
 
         {
-            vargas::Graph::Node n;
+            Vargas::Graph::Node n;
             n.set_endpos(6);
             n.set_as_ref();
             std::vector<bool> a = {0, 0, 1};
@@ -823,7 +823,7 @@ TEST_CASE ("Alignment") {
         }
 
         {
-            vargas::Graph::Node n;
+            Vargas::Graph::Node n;
             n.set_endpos(6);
             n.set_not_ref();
             std::vector<bool> a = {0, 1, 0};
@@ -834,7 +834,7 @@ TEST_CASE ("Alignment") {
         }
 
         {
-            vargas::Graph::Node n;
+            Vargas::Graph::Node n;
             n.set_endpos(10);
             n.set_as_ref();
             std::vector<bool> a = {0, 1, 1};
@@ -850,20 +850,20 @@ TEST_CASE ("Alignment") {
         g.add_edge(2, 3);
         g.set_popsize(3);
 
-        std::vector<vargas::Read> reads;
-        reads.push_back(vargas::Read("CCTT"));
-        reads.push_back(vargas::Read("GGTT"));
-        reads.push_back(vargas::Read("AAGG"));
-        reads.push_back(vargas::Read("AACC"));
-        reads.push_back(vargas::Read("AGGGT"));
-        reads.push_back(vargas::Read("GG"));
-        reads.push_back(vargas::Read("AAATTTA"));
-        reads.push_back(vargas::Read("AAAGCCC"));
+        std::vector<Vargas::Read> reads;
+        reads.push_back(Vargas::Read("CCTT"));
+        reads.push_back(Vargas::Read("GGTT"));
+        reads.push_back(Vargas::Read("AAGG"));
+        reads.push_back(Vargas::Read("AACC"));
+        reads.push_back(Vargas::Read("AGGGT"));
+        reads.push_back(Vargas::Read("GG"));
+        reads.push_back(Vargas::Read("AAATTTA"));
+        reads.push_back(Vargas::Read("AAAGCCC"));
 
-        vargas::ReadBatch<> rb(reads, 8);
-        vargas::Aligner<> a(5, 8);
+        Vargas::ReadBatch<> rb(reads, 8);
+        Vargas::Aligner<> a(5, 8);
 
-        std::vector<vargas::Alignment> aligns = a.align(rb, g);
+        std::vector<Vargas::Alignment> aligns = a.align(rb, g);
             REQUIRE(aligns.size() == 8);
 
             CHECK(aligns[0].read.read == "CCTT");
@@ -901,7 +901,7 @@ TEST_CASE ("Alignment") {
 }
 
 void node_fill_profile() {
-    vargas::Graph::Node n;
+    Vargas::Graph::Node n;
     {
         std::stringstream ss;
         for (size_t i = 0; i < 10000; ++i) {
@@ -910,15 +910,15 @@ void node_fill_profile() {
         n.set_seq(ss.str());
     }
 
-    std::vector<vargas::Read> reads;
+    std::vector<Vargas::Read> reads;
     for (size_t i = 0; i < 16; ++i) {
         std::stringstream rd;
         for (size_t r = 0; r < 50; ++r) rd << rand_base();
-        reads.push_back(vargas::Read(rd.str()));
+        reads.push_back(Vargas::Read(rd.str()));
     }
 
-    vargas::ReadBatch<> rb(reads, 50);
-    vargas::Aligner<> a(10000, 50);
+    Vargas::ReadBatch<> rb(reads, 50);
+    Vargas::Aligner<> a(10000, 50);
 
     std::vector<uint32_t> pos;
 

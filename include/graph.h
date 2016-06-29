@@ -30,7 +30,7 @@
 #include "utils.h"
 #include "dyn_bitset.h"
 
-namespace vargas {
+namespace Vargas {
 
 /**
  * @brief
@@ -46,7 +46,7 @@ namespace vargas {
     public:
 
       /** Alias for a dyn_bitset */
-      typedef VarFile::Population Population;
+      typedef VCF::Population Population;
 
       /**
        * @enum Type
@@ -753,7 +753,7 @@ namespace vargas {
 
     private:
       std::string _fa_file, _vf_file;
-      VarFile _vf;
+      VCF _vf;
       FASTAFile _fa;
       Graph g;
 
@@ -765,9 +765,9 @@ namespace vargas {
 }
 
 TEST_CASE ("Node class") {
-    vargas::Graph::Node::_newID = 0;
-    vargas::Graph::Node n1;
-    vargas::Graph::Node n2;
+    Vargas::Graph::Node::_newID = 0;
+    Vargas::Graph::Node n1;
+    Vargas::Graph::Node n2;
         CHECK(n1.id() == 0);
         CHECK(n2.id() == 1);
 
@@ -808,8 +808,8 @@ TEST_CASE ("Node class") {
 }
 
 TEST_CASE ("Graph class") {
-    vargas::Graph::Node::_newID = 0;
-    vargas::Graph g;
+    Vargas::Graph::Node::_newID = 0;
+    Vargas::Graph g;
 
     /**   GGG
     *    /   \
@@ -819,7 +819,7 @@ TEST_CASE ("Graph class") {
     */
 
     {
-        vargas::Graph::Node n;
+        Vargas::Graph::Node n;
         n.set_endpos(3);
         n.set_as_ref();
         std::vector<bool> a = {0, 1, 1};
@@ -829,7 +829,7 @@ TEST_CASE ("Graph class") {
     }
 
     {
-        vargas::Graph::Node n;
+        Vargas::Graph::Node n;
         n.set_endpos(6);
         n.set_as_ref();
         std::vector<bool> a = {0, 0, 1};
@@ -840,7 +840,7 @@ TEST_CASE ("Graph class") {
     }
 
     {
-        vargas::Graph::Node n;
+        Vargas::Graph::Node n;
         n.set_endpos(6);
         n.set_not_ref();
         std::vector<bool> a = {0, 1, 0};
@@ -851,7 +851,7 @@ TEST_CASE ("Graph class") {
     }
 
     {
-        vargas::Graph::Node n;
+        Vargas::Graph::Node n;
         n.set_endpos(9);
         n.set_as_ref();
         std::vector<bool> a = {0, 1, 1};
@@ -899,7 +899,7 @@ TEST_CASE ("Graph class") {
          *    (ref)
          */
         {
-            vargas::Graph::Node n;
+            Vargas::Graph::Node n;
             std::vector<bool> pop = {1, 0, 0};
             n.set_population(pop);
             n.set_af(0.7);
@@ -911,7 +911,7 @@ TEST_CASE ("Graph class") {
             g.add_edge(2, 4);
         }
         {
-            vargas::Graph::Node n;
+            Vargas::Graph::Node n;
             std::vector<bool> pop = {1, 1, 1};
             n.set_population(pop);
             n.set_af(1);
@@ -924,9 +924,9 @@ TEST_CASE ("Graph class") {
         }
 
             SUBCASE("Filtering Iterator") {
-            vargas::Graph::Population filter(3, false);
+            Vargas::Graph::Population filter(3, false);
             filter.set(2);
-            vargas::Graph::FilteringIter i = g.begin(filter);
+            Vargas::Graph::FilteringIter i = g.begin(filter);
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "CCC");
@@ -939,10 +939,10 @@ TEST_CASE ("Graph class") {
         }
 
             SUBCASE("Filtering Ierator #2") {
-            vargas::Graph::Population filter(3, false);
+            Vargas::Graph::Population filter(3, false);
             filter.set(2);
             filter.set(1);
-            vargas::Graph::FilteringIter i = g.begin(filter);
+            Vargas::Graph::FilteringIter i = g.begin(filter);
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
             // Order of these two don't matter
@@ -961,7 +961,7 @@ TEST_CASE ("Graph class") {
         }
 
             SUBCASE("Filtering Ierator: REF") {
-            vargas::Graph::FilteringIter i = g.begin(vargas::Graph::REF);
+            Vargas::Graph::FilteringIter i = g.begin(Vargas::Graph::REF);
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "CCC");
@@ -974,7 +974,7 @@ TEST_CASE ("Graph class") {
         }
 
             SUBCASE("Filtering Ierator: MAXAF") {
-            vargas::Graph::FilteringIter i = g.begin(vargas::Graph::MAXAF);
+            Vargas::Graph::FilteringIter i = g.begin(Vargas::Graph::MAXAF);
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "GGG");
@@ -990,7 +990,7 @@ TEST_CASE ("Graph class") {
 
         SUBCASE("Graph iterator") {
         // Node visit order should be topological
-        vargas::Graph::FilteringIter i = g.begin();
+        Vargas::Graph::FilteringIter i = g.begin();
 
             CHECK(num_to_seq((*i).seq()) == "AAA");
         ++i;
@@ -1012,7 +1012,7 @@ TEST_CASE ("Graph class") {
 
         SUBCASE("Derived Graph") {
         std::vector<bool> filter = {0, 0, 1};
-        vargas::Graph g2(g, filter);
+        Vargas::Graph g2(g, filter);
 
             CHECK(g2.node_map()->size() == 4);
             CHECK(&(*g.node_map()) == &(*g2.node_map())); // Underlying node map unchanged
@@ -1029,8 +1029,8 @@ TEST_CASE ("Graph class") {
     }
 
         SUBCASE("REF graph") {
-        vargas::Graph g2(g, vargas::Graph::REF);
-        vargas::Graph::FilteringIter iter(g2);
+        Vargas::Graph g2(g, Vargas::Graph::REF);
+        Vargas::Graph::FilteringIter iter(g2);
 
             CHECK((*iter).seq_str() == "AAA");
         ++iter;
@@ -1042,8 +1042,8 @@ TEST_CASE ("Graph class") {
     }
 
         SUBCASE("MAXAF graph") {
-        vargas::Graph g2(g, vargas::Graph::MAXAF);
-        vargas::Graph::FilteringIter iter(g2);
+        Vargas::Graph g2(g, Vargas::Graph::MAXAF);
+        Vargas::Graph::FilteringIter iter(g2);
 
             CHECK((*iter).seq_str() == "AAA");
         ++iter;
@@ -1100,12 +1100,12 @@ TEST_CASE ("Graph Builder") {
     }
 
         SUBCASE("Basic Graph") {
-        vargas::GraphBuilder gb(tmpfa, tmpvcf);
+        Vargas::GraphBuilder gb(tmpfa, tmpvcf);
         gb.node_len(5);
         gb.ingroup(100);
         gb.region("x:0-15");
 
-        vargas::Graph g;
+        Vargas::Graph g;
         gb.build(g);
 
         auto giter = g.begin();
@@ -1139,16 +1139,16 @@ TEST_CASE ("Graph Builder") {
     }
 
         SUBCASE("Deriving a Graph") {
-        vargas::GraphBuilder gb(tmpfa, tmpvcf);
+        Vargas::GraphBuilder gb(tmpfa, tmpvcf);
         gb.node_len(5);
         gb.ingroup(100);
         gb.region("x:0-15");
 
-        vargas::Graph g;
+        Vargas::Graph g;
         gb.build(g);
 
         std::vector<bool> filter = {0, 0, 0, 1};
-        vargas::Graph g2(g, filter);
+        Vargas::Graph g2(g, filter);
         auto iter = g2.begin();
 
             CHECK((*iter).seq_str() == "CAAAT");

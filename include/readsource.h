@@ -5,7 +5,7 @@
  *
  * @brief
  * Abstract class for objects that can be used as a
- * source of reads (i.e. ReadSim and ReadFile).
+ * source of reads (i.e. Sim and ReadFile).
  *
  * @file readsource.h
  */
@@ -20,7 +20,7 @@
 #include "simdpp/simd.h"
 #include "gdef.h"
 
-namespace vargas {
+namespace Vargas {
 
   // Tags defining meta information in FASTA read names
   const std::string READ_META_END = "pos";
@@ -437,13 +437,13 @@ namespace vargas {
 }
 
 TEST_CASE ("Read Batch") {
-    std::vector<vargas::Read> reads;
+    std::vector<Vargas::Read> reads;
     for (int i = 0; i < 15; ++i) {
-        reads.push_back(vargas::Read("ACGTACGTCAGCCNNNCTAGTANCGTACTNGGCTAGAACGTACGTCAGCC"));
+        reads.push_back(Vargas::Read("ACGTACGTCAGCCNNNCTAGTANCGTACTNGGCTAGAACGTACGTCAGCC"));
         }
 
         SUBCASE ("packaging") {
-        vargas::ReadBatch<> rb(reads, 64);
+        Vargas::ReadBatch<> rb(reads, 64);
 
             CHECK(rb.batch_size() == SIMDPP_FAST_INT8_SIZE);
             CHECK(rb.max_len() == 64);

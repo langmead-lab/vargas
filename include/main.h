@@ -59,9 +59,9 @@ int profile(const int argc, const char *argv[]);
  * @param threads number of execution threads.
  */
 void align_to_graph(std::string label,
-                    const vargas::Graph &subgraph,
-                    const std::vector<vargas::Read> &reads,
-                    const std::vector<std::shared_ptr<vargas::Aligner<>>> &aligners,
+                    const Vargas::Graph &subgraph,
+                    const std::vector<Vargas::Read> &reads,
+                    const std::vector<std::shared_ptr<Vargas::Aligner<>>> &aligners,
                     std::ostream &out,
                     unsigned int threads);
 

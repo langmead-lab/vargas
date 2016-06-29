@@ -15,7 +15,7 @@
 
 #include "readsource.h"
 
-namespace vargas {
+namespace Vargas {
 
   /**
    * @brief
