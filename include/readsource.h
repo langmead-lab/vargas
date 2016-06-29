@@ -74,7 +74,7 @@ namespace Vargas {
    * @return two-line string
    */
   inline std::string to_fasta(const Read &r) {
-      std::stringstream ss;
+      std::ostringstream ss;
       ss << ">"
           << READ_META_END << ":" << r.end_pos << READ_FASTA_META_DELIM
           << READ_META_MUT << ":" << r.sub_err << READ_FASTA_META_DELIM
@@ -97,7 +97,7 @@ namespace Vargas {
    * @return single line string
    */
   inline std::string to_csv(const Read &r) {
-      std::stringstream ss;
+      std::ostringstream ss;
       ss << r.src << ','
           << r.read << ','
           << r.end_pos << ','
@@ -152,7 +152,7 @@ namespace Vargas {
        * @return two line string
        */
       virtual std::string to_string() {
-          std::stringstream ss;
+          std::ostringstream ss;
           Read r = get_read();
           ss << r;
           return ss.str();

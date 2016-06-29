@@ -181,7 +181,7 @@ int profile(const int argc, const char *argv[]) {
         std::vector<Vargas::Read> reads;
 
         for (int i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
-            std::stringstream rd;
+            std::ostringstream rd;
             for (int r = 0; r < 50; ++r) rd << rand_base();
             reads.push_back(rd.str());
         }

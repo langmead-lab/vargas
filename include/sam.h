@@ -24,9 +24,9 @@ namespace Vargas {
    */
   struct SAM {
       /**
- * @brief
- * Represents all stored information in a SAM/BAM header.
- */
+       * @brief
+       * Represents all stored information in a SAM/BAM header.
+      */
       struct Header {
 
           /**
@@ -68,7 +68,7 @@ namespace Vargas {
                * @return formatted line
                */
               std::string to_string() const {
-                  std::stringstream ss;
+                  std::ostringstream ss;
                   ss << "@SQ" <<
                       "\tSN:" << name <<
                       "\tLN:" << std::to_string(len) <<
@@ -163,7 +163,7 @@ namespace Vargas {
      * @return formatted line
      */
               std::string to_string() const {
-                  std::stringstream ss;
+                  std::ostringstream ss;
                   ss << "@RG" <<
                       "\tID:" << id <<
                       (seq_center.length() > 0 ? "\tCN:" + seq_center : "") <<
@@ -280,7 +280,7 @@ namespace Vargas {
      * @return formatted line
      */
               std::string to_string() const {
-                  std::stringstream ss;
+                  std::ostringstream ss;
                   ss << "@PG" <<
                       "\tID:" << id <<
                       (name.length() > 0 ? "\tPN:" + name : "") <<
@@ -372,7 +372,7 @@ namespace Vargas {
             * @return formatted line
             */
           std::string to_string() const {
-              std::stringstream ret;
+              std::ostringstream ret;
               ret << "@HD" <<
                   "\tVN:" << version <<
                   ((sorting_order.length() > 0) ? std::string("\tSO:") + sorting_order : "") <<
@@ -712,7 +712,7 @@ namespace Vargas {
            * @return single line string
            */
           std::string to_string() const {
-              std::stringstream ss;
+              std::ostringstream ss;
               ss << query_name << '\t'
                   << flag.encode() << '\t'
                   << ref_name << '\t'
@@ -858,7 +858,7 @@ namespace Vargas {
       void _init() {
           in.open(_file_name);
           if (!in.good()) throw std::invalid_argument("Error opening file \"" + _file_name + "\"");
-          std::stringstream hdr;
+          std::ostringstream hdr;
           while (std::getline(in, _curr_line) && _curr_line.at(0) == '@') {
               hdr << _curr_line << '\n';
           }

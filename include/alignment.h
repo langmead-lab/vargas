@@ -903,7 +903,7 @@ TEST_CASE ("Alignment") {
 void node_fill_profile() {
     Vargas::Graph::Node n;
     {
-        std::stringstream ss;
+        std::ostringstream ss;
         for (size_t i = 0; i < 10000; ++i) {
             ss << rand_base();
         }
@@ -912,7 +912,7 @@ void node_fill_profile() {
 
     std::vector<Vargas::Read> reads;
     for (size_t i = 0; i < 16; ++i) {
-        std::stringstream rd;
+        std::ostringstream rd;
         for (size_t r = 0; r < 50; ++r) rd << rand_base();
         reads.push_back(Vargas::Read(rd.str()));
     }

@@ -23,7 +23,7 @@ std::vector<std::string> split(const std::string &s, char delim) {
 
 inline void split(const std::string &s, char delim, std::vector<std::string> &vec) {
   /** Split string with delim, return a vector **/
-  std::stringstream ss(s);
+  std::istringstream ss(s);
   std::string item;
   vec.clear();
 

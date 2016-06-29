@@ -174,7 +174,7 @@ void Vargas::VCF::_apply_ingroup_filter() {
     }
 
     else {
-        std::stringstream ss;
+        std::ostringstream ss;
         for (auto s : _ingroup) ss << s << ',';
         std::string smps = ss.str().substr(0, ss.str().length() - 1);
         if (_ingroup_cstr) free(_ingroup_cstr);

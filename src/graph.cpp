@@ -132,7 +132,7 @@ bool Vargas::Graph::add_edge(uint32_t n1,
 }
 
 std::string Vargas::Graph::to_DOT(std::string name) const {
-  std::stringstream dot;
+  std::ostringstream dot;
   dot << "// Each node has the sequence, followed by end_pos,allele_freq\n";
   dot << "digraph " << name << " {\n";
   for (auto n : *_IDMap) {

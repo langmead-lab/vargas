@@ -83,7 +83,7 @@ namespace Vargas {
        * @return the profile used to generate the reads
        */
       virtual std::string get_header() const override {
-          std::stringstream ss;
+          std::ostringstream ss;
           return ss.str();
       }
 

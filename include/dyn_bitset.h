@@ -219,7 +219,7 @@ class dyn_bitset {
      * @return string of 0's and 1's
      */
     std::string to_string() const {
-        std::stringstream ss;
+        std::ostringstream ss;
         for (size_t c = 0; c < _bitset.size(); ++c) {
             for (size_t i = 0; i < core_size; ++i) {
                 if (c != _bitset.size() - 1 || i < core_size - _right_pad) {
@@ -297,7 +297,7 @@ TEST_CASE ("Dynamic Bitset") {
         CHECK(a.size() == 65);
         CHECK(a.at(64) == 0);
 
-    std::stringstream ss;
+    std::ostringstream ss;
     std::vector<bool> p_bool = {0, 1, 0, 1, 1, 1, 1};
     dyn_bitset<8> p(p_bool);
         CHECK(p.to_string() == "0101111");

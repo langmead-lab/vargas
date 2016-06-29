@@ -110,7 +110,7 @@ std::vector<Base> seq_to_num(const std::string &seq) {
  */
 __INLINE__
 std::string num_to_seq(const std::vector<Base> &num) {
-  std::stringstream builder;
+  std::ostringstream builder;
   for (auto &n : num) {
     builder << num_to_base(n);
   }
