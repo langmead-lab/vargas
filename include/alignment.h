@@ -18,15 +18,20 @@
 #ifndef VARGAS_ALIGNMENT_H
 #define VARGAS_ALIGNMENT_H
 
+
+#define DEBUG_PRINT_SW 1 // Print the full SW matrix for each node aligned
+#define DEBUG_PRINT_SW_NUM 0 // Print the matrix for this read number in the alignment group
+
 #include <vector>
 #include <algorithm>
 #include <iostream>
+#include <cstdlib>
 #include "readsource.h"
 #include "utils.h"
 #include "simdpp/simd.h"
 #include "readfile.h"
 #include "graph.h"
-//#include "doctest/doctest.h"
+#include "doctest.h"
 
 namespace Vargas {
 
@@ -35,9 +40,7 @@ namespace Vargas {
  * Read alignment storage struct.
  * @details
  * Stores a Read and associated alignment information. Best alignment information as well
- * as second best alignment information is stored. The stored alignment does not necessarily match
- * the alignment closest to the read, corflag indicates if there was a match. If < 0, the value
- * was not set (i.e. not aligned yet).
+ * as the second best alignment information is stored. The alignment closest to the target is kept.
  */
   struct Alignment {
       Read read;
@@ -71,27 +74,6 @@ namespace Vargas {
           sub_score(sec_score), sub_align_end(sec_pos), sub_count(sec_count), corflag(cor) { }
 
   };
-
-/**
- * @brief Print alignment in CSV form.
- * @details
- * Print the alignment to os. This ordering matches the way the alignment is parsed
- * from a string. \n
- * read_str,opt_score, opt_alignment_end, opt_cout, sub_score, sub_alignment_end, sub_count \n
- * @param os Output stream
- * @param an Alignment output
- */
-  inline std::ostream &operator<<(std::ostream &os, const Alignment &a) {
-      os << to_csv(a.read)
-          << ',' << a.opt_score
-          << ',' << a.opt_align_end
-          << ',' << a.opt_count
-          << ',' << a.sub_score
-          << ',' << a.sub_align_end
-          << ',' << a.sub_count
-          << ',' << (int) a.corflag;
-      return os;
-  }
 
   /**
    * @brief Main SIMD SW Aligner.
@@ -131,7 +113,6 @@ namespace Vargas {
           max_count(std::vector<uint32_t>(num_reads)),
           sub_pos(std::vector<uint32_t>(num_reads)),
           sub_count(std::vector<uint32_t>(num_reads)),
-          corflag(std::vector<int8_t>(num_reads, 0)),
           _max_node_len(max_node_len) { _alloc(); }
 
       /**
@@ -156,12 +137,250 @@ namespace Vargas {
           max_count(std::vector<uint32_t>(num_reads)),
           sub_pos(std::vector<uint32_t>(num_reads)),
           sub_count(std::vector<uint32_t>(num_reads)),
-          corflag(std::vector<int8_t>(num_reads, 0)),
           _max_node_len(max_node_len) { _alloc(); }
 
       ~Aligner() {
           _dealloc();
       }
+
+      /**
+ * @brief
+ * Container for a packaged batch of reads.
+ * @details
+ * Reads are interleaved so each SIMD vector
+ * contains bases from all reads, respective to the base number. For example AlignmentGroup[0]
+ * would contain the first bases of every read. Short reads or missing reads are padded
+ * with Base::N.
+ * @tparam num_reads max number of reads. If a non-default T is used, this should be set to
+ *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
+ *    SIMDPP_FAST_INT8_SIZE
+ * @tparam T element type
+ */
+      class AlignmentGroup {
+        public:
+
+          /**
+           * @param len maximum read length
+           */
+          AlignmentGroup(int len) : read_len(len) { }
+
+          /**
+           * @brief
+           * Read length is set to first read size.
+           * @param batch package the given vector of reads. Must be nonempty.
+           */
+          AlignmentGroup(const std::vector<std::vector<Base>> &batch) : _reads(batch) {
+              if (batch.size() == 0) throw std::invalid_argument("Vector of reads must be non-empty.");
+              read_len = batch[0].size();
+              _package_reads();
+          }
+
+          /**
+           * @param batch package the given vector of reads. Must be nonempty.
+           * @param len max read length
+           */
+          AlignmentGroup(const std::vector<std::vector<Base>> &batch, int len) : read_len(len), _reads(batch) {
+              _package_reads();
+          }
+
+          /**
+           * @brief
+           * Read length is set to first read size.
+           * @param batch package the given vector of reads. Must be nonempty.
+           */
+          AlignmentGroup(const std::vector<std::string> &batch) {
+              if (batch.size() == 0) throw std::invalid_argument("Vector of reads must be non-empty.");
+              _reads.clear();
+              for (auto &seq : batch) _reads.push_back(seq_to_num(seq));
+              read_len = batch[0].length();
+              _package_reads();
+          }
+
+          /**
+           * @param batch package the given vector of reads. Must be nonempty.
+           * @param len max read length
+           */
+          AlignmentGroup(const std::vector<std::string> &batch, int len) : read_len(len) {
+              _reads.clear();
+              for (auto &seq : batch) _reads.push_back(seq_to_num(seq));
+              _package_reads();
+          }
+
+          /**
+           * @param batch load the given vector of reads.
+           */
+          bool load_reads(const std::vector<std::string> &batch) {
+              if (batch.size() == 0) return false;
+              _reads.clear();
+              for (auto &seq : batch) {
+                  _reads.push_back(seq_to_num(seq));
+              }
+              _package_reads();
+              return true;
+          }
+
+          /**
+           * @param batch load the given vector of reads.
+           */
+          bool load_reads(const std::vector<std::vector<Base>> &batch) {
+              if (batch.size() == 0) return false;
+              _reads = batch;
+              _package_reads();
+              return true;
+          }
+
+          /**
+           * @brief
+           * Return the i'th base of every read in a simdpp vector.
+           * @param i base index.
+           */
+          const CellType<num_reads> &at(int i) const {
+              // let vector handle out of range errors
+              return _packaged_reads.at(i);
+          }
+
+          /**
+           * @brief
+           * Pointer to raw packaged read data.
+           * @return CellType<num_reads> pointer
+           */
+          const CellType<num_reads> *data() const {
+              return _packaged_reads.data();
+          }
+
+          /**
+           * @brief
+           * Non const version of at(i).
+           * @param i base index
+           */
+          CellType<num_reads> &operator[](int i) {
+              return _packaged_reads.at(i);
+          }
+
+          /**
+           * @return max read length. Echos template arg
+           */
+          size_t max_len() const { return read_len; }
+
+          /**
+           * @brief
+           * Returns optimal number of reads in a batch based on SIMD architecture.
+           * @return batch size.
+           */
+          size_t batch_size() const { return num_reads; }
+
+          /**
+           * @return Reads used to build the batch.
+           */
+          const std::vector<std::vector<Base>> &reads() const { return _reads; }
+
+          /**
+           * @brief
+           * Get a read, empty read if out of range.
+           * @param i index of read
+           * @return Read at i
+           */
+          std::vector<Base> get_read(int i) const {
+              return _reads.at(i);
+          }
+
+          /**
+           * @brief
+           * Get the utilization of the batch capacity. In effect how much
+           * padding was used.
+           * @return fill, between 0 and 1.
+           */
+          float fill() const {
+              float f = 0;
+              for (auto &r : _reads) f += r.size();
+              return f / (num_reads * read_len);
+          }
+
+          typename std::vector<CellType<num_reads>>::const_iterator begin() const { return _packaged_reads.begin(); }
+          typename std::vector<CellType<num_reads>>::const_iterator end() const { return _packaged_reads.end(); }
+
+        private:
+
+          int read_len;
+
+          /**
+           * _packaged_reads[i] contains all i'th bases.
+           * The length of _packaged_reads is the length of the read,
+           * where as the length of _packaged_reads[i] is the number
+           * of reads.
+           */
+          std::vector<CellType<num_reads>> _packaged_reads;
+
+          // Unpackaged reads
+          std::vector<std::vector<Base>> _reads;
+
+          /**
+           * Interleaves reads so all same-index base positions are in one
+           * vector. Empty spaces are padded with Base::N.
+           */
+          inline void _package_reads() {
+              _packaged_reads.resize(read_len);
+              if (_reads.size() > num_reads) throw std::range_error("Too many reads for batch size.");
+
+              // allocate memory
+              uchar **pckg = (uchar **) malloc(read_len * sizeof(uchar *));
+              for (int i = 0; i < read_len; ++i) {
+                  pckg[i] = (uchar *) malloc(num_reads * sizeof(uchar));
+              }
+
+              // Interleave reads
+              // For each read (read[i] is in _packaged_reads[0..n][i]
+              for (size_t r = 0; r < _reads.size(); ++r) {
+
+                  if (_reads.at(r).size() > read_len) throw std::range_error("Read too long for batch size.");
+
+                  // Put each base in the appropriate vector element
+                  for (size_t p = 0; p < _reads[r].size(); ++p) {
+                      pckg[p][r] = _reads[r][p];
+                  }
+
+                  // Pad the shorter reads
+                  for (size_t p = _reads[r].size(); p < read_len; ++p) {
+                      pckg[p][r] = Base::N;
+                  }
+              }
+
+              // Pad underful batches
+              for (size_t r = _reads.size(); r < num_reads; ++r) {
+                  for (size_t p = 0; p < read_len; ++p) {
+                      pckg[p][r] = Base::N;
+                  }
+              }
+
+              // Load into vectors
+              for (int i = 0; i < read_len; ++i) {
+                  _packaged_reads[i] = simdpp::load(pckg[i]);
+              }
+
+              // Free memory
+              for (int i = 0; i < read_len; ++i) {
+                  free(pckg[i]);
+              }
+              free(pckg);
+
+          }
+
+      };
+
+      /**
+       * @brief
+       * Struct to return the alignment results
+       */
+      struct Results {
+          Results() : best_pos(num_reads), sub_pos(num_reads), best_score(num_reads), sub_score(num_reads) { }
+          std::vector<uint32_t> best_pos;
+          /**< Best positions */
+          std::vector<uint32_t> sub_pos;
+          /**< Second best positions */
+          std::vector<uint8_t> best_score;
+          /**< Best scores */
+          std::vector<uint8_t> sub_score; /**< Second best scores */
+      };
 
       /**
        * Set the scoring scheme used for the alignments.
@@ -183,71 +402,121 @@ namespace Vargas {
       /**
        * @brief
        * Align a batch of reads to the given graph.
-       * @param reads read batch
+       * @param read_group AlignmentGroup to align
+       * @param targets correct positions for reads in read_group
        * @param g Graph
-       * @return vector of Alignment structures.
+       * @return Results packet
        */
-      std::vector<Alignment> align(const ReadBatch<num_reads, CellType> &reads,
-                                   const Graph &g) {
-          return align(reads, g.begin(), g.end());
+      Results align(const AlignmentGroup &read_group,
+                    const std::vector<uint32_t> &targets,
+                    const Graph &g) {
+          return align(read_group, targets, g.begin(), g.end());
+      }
+
+      /**
+       * @brief
+       * Align a batch of reads to the given graph.
+       * @param read_group AlignmentGroup to align
+       * @param g Graph
+       * @return Results packet
+       */
+      Results align(const AlignmentGroup &read_group,
+                    const Graph &g) {
+          std::vector<uint32_t> targets(num_reads);
+          return align(read_group, targets, g.begin(), g.end());
       }
 
       /**
        * @brief
        * Align a batch of reads to a graph range, return a vector of alignments
        * corresponding to the reads.
-       * @param reads ReadBatch to align
+       * @param read_group AlignmentGroup to align
+       * @param targets correct positions for reads in read_group
        * @param begin iterator to beginning of graph
        * @param end iterator to end of graph
-       * @return vector of Alignment structures
+       * @return Results packet
        */
-      std::vector<Alignment> align(const ReadBatch<num_reads, CellType> &reads,
-                                   Graph::FilteringIter begin,
-                                   Graph::FilteringIter end) {
-          std::vector<Alignment> aligns;
-          align_into(reads, begin, end, aligns);
+      Results align(const AlignmentGroup &read_group,
+                    const std::vector<uint32_t> &targets,
+                    Graph::FilteringIter begin,
+                    Graph::FilteringIter end) {
+          Results aligns;
+          align_into(read_group, targets, begin, end, aligns);
           return aligns;
       }
 
       /**
        * @brief
-      * Align a batch of reads to a graph range, return a vector of alignments
-      * corresponding to the reads.
-      * @param reads ReadBatch to align
-      * @param begin iterator to beginning of graph
-      * @param end iterator to end of graph
-      * @param aligns vector of Alignment structures to populate
-      */
-      void align_into(ReadBatch<num_reads, CellType> reads,
+       * Align a batch of reads to a graph range, return a vector of alignments
+       * corresponding to the reads.
+       * @param read_group AlignmentGroup to align
+       * @param begin iterator to beginning of graph
+       * @param end iterator to end of graph
+       * @return Results packet
+       */
+      Results align(const AlignmentGroup &read_group,
+                    Graph::FilteringIter begin,
+                    Graph::FilteringIter end) {
+          Results aligns;
+          std::vector<uint32_t> targets(num_reads);
+          align_into(read_group, targets, begin, end, aligns);
+          return aligns;
+      }
+
+      /**
+       * @brief
+       * Align a batch of reads to a graph range, return a vector of alignments
+       * corresponding to the reads.
+       * @param read_group AlignmentGroup to align
+       * @param begin iterator to beginning of graph
+       * @param end iterator to end of graph
+       * @param aligns Results packet to populate
+     */
+      void align_into(const AlignmentGroup &read_group,
                       Graph::FilteringIter begin,
                       Graph::FilteringIter end,
-                      std::vector<Alignment> &aligns) {
+                      Results &aligns) {
+          std::vector<uint32_t> targets(num_reads);
+          align_into(read_group, targets, begin, end, aligns);
+      }
+
+      /**
+       * @brief
+       * Align a batch of reads to a graph range, return a vector of alignments
+       * corresponding to the reads.
+       * @param read_group AlignmentGroup to align
+       * @param targets correct positions for reads in read_group
+       * @param begin iterator to beginning of graph
+       * @param end iterator to end of graph
+       * @param aligns Results packet to populate
+       */
+      void align_into(const AlignmentGroup &read_group,
+                      const std::vector<uint32_t> &targets,
+                      Graph::FilteringIter begin,
+                      Graph::FilteringIter end,
+                      Results &aligns) {
           using namespace simdpp;
 
+          // Reset old info
           max_score = ZERO_CT;
           sub_score = ZERO_CT;
           max_pos = std::vector<uint32_t>(num_reads);
+          sub_pos = std::vector<uint32_t>(num_reads);
           _seed seed(read_len);
+
           std::unordered_map<uint32_t, _seed> seed_map;
           for (auto gi = begin; gi != end; ++gi) {
               _get_seed(gi.incoming(), seed_map, &seed);
               if ((*gi).is_pinched()) seed_map.clear();
-              seed_map.emplace((*gi).id(), _fill_node(*gi, reads, &seed));
+              seed_map.emplace((*gi).id(), _fill_node(*gi, read_group, targets, &seed));
           }
 
-          aligns.clear();
-
-          uint8_t max, sub;
           for (int i = 0; i < num_reads; ++i) {
-              max = extract(i, max_score);
-              sub = extract(i, sub_score);
-              aligns.emplace(aligns.end(), reads.get_read(i), max, max_pos[i], max_count[i],
-                             sub, sub_pos[i], sub_count[i], corflag[i]);
+              aligns.best_score[i] = extract(i, max_score);
+              aligns.sub_score[i] = extract(i, sub_score);
+              aligns.best_pos[i] = max_pos[i];
+              aligns.sub_pos[i] = sub_pos[i];
           }
-
-
-          // pop off padded reads
-          for (size_t i = num_reads; i > reads.reads().size(); --i) aligns.pop_back();
       }
 
       /**
@@ -255,16 +524,17 @@ namespace Vargas {
        * Only used for testing. returns the max score of the read alignment
        * to the node.
        * @param n Node to align to
-       * @param reads ReadBatch to align
+       * @param read_group AlignmentGroup to align
        * @param pos positions of the max score
        */
       CellType<num_reads> _test_fill_node(const Graph::Node &n,
-                                          const ReadBatch<num_reads, CellType> &reads,
+                                          const AlignmentGroup &read_group,
                                           std::vector<uint32_t> &pos) {
           max_score = ZERO_CT;
           sub_score = ZERO_CT;
+          std::vector<uint32_t> targets(num_reads);
           max_pos = std::vector<uint32_t>(num_reads);
-          _fill_node(n, reads);
+          _fill_node(n, read_group, targets);
           pos = max_pos;
           return max_score;
       }
@@ -364,12 +634,14 @@ namespace Vargas {
        * @brief
        * Computes local alignment of the node, with no previous seed.
        * @param n Node to align to
-       * @param reads ReadBatch to align
+       * @param read_group AlignmentGroup to align
+       * @param targets correct positions for reads in read_group
        */
       _seed _fill_node(const Graph::Node &n,
-                       const ReadBatch<num_reads, CellType> &reads) {
+                       const AlignmentGroup &read_group,
+                       const std::vector<uint32_t> &targets) {
           _seed s(read_len);
-          s = _fill_node(n, reads, &s);
+          s = _fill_node(n, read_group, targets, &s);
           return s;
       }
 
@@ -377,28 +649,43 @@ namespace Vargas {
        * @brief
        * Computes local alignment to the node.
        * @param n Node to align to
-       * @param reads ReadBatch to align
+       * @param read_group AlignmentGroup to align
+       * @param targets correct positions for reads in read_group
        * @param s seeds from previous nodes
        */
       _seed _fill_node(const Graph::Node &n,
-                       const ReadBatch<num_reads, CellType> &reads,
+                       const AlignmentGroup &read_group,
+                       const std::vector<uint32_t> &targets,
                        const _seed *s) {
 
           _seed nxt(read_len); // Seed for next node
-          auto node_seq = n.seq().data(); // Raw pointer faster than at()
-          const CellType<num_reads> *read_ptr = reads.data();
+          auto node_seq = n.seq().data();
+          const CellType<num_reads> *read_ptr = read_group.data();
           size_t seq_size = n.seq().size();
           uint32_t node_origin = n.end() - seq_size;
 
+          #if DEBUG_PRINT_SW
+          std::cout << std::endl << "-\t";
+          for (auto c : n.seq_str()) std::cout << c << '\t';
+          std::cout << std::endl;
+          #endif
+
           // top left corner
           _fill_cell_rzcz(read_ptr[0], node_seq[0], s);
-          _fill_cell_finish(0, 0, node_origin, reads.reads());
+          _fill_cell_finish(0, 0, node_origin, targets);
 
           // top row
           for (uint32_t c = 1; c < seq_size; ++c) {
               _fill_cell_rz(read_ptr[0], node_seq[c], c);
-              _fill_cell_finish(0, c, node_origin, reads.reads());
+              _fill_cell_finish(0, c, node_origin, targets);
           }
+
+          #if DEBUG_PRINT_SW
+          std::cout << num_to_base((Base) simdpp::extract<DEBUG_PRINT_SW_NUM>(read_ptr[0])) << '\t';
+          for (size_t i = 0; i < n.seq().size(); ++i)
+              std::cout << (int) simdpp::extract<DEBUG_PRINT_SW_NUM>(S_curr[i]) << '\t';
+          std::cout << std::endl;
+          #endif
 
           nxt.S_col[0] = S_curr[seq_size - 1];
 
@@ -419,15 +706,22 @@ namespace Vargas {
 
               // first col
               _fill_cell_cz(read_ptr[r], node_seq[0], r, s);
-              _fill_cell_finish(r, 0, node_origin, reads.reads());
+              _fill_cell_finish(r, 0, node_origin, targets);
 
               // Inner grid
               for (uint32_t c = 1; c < seq_size; ++c) {
                   _fill_cell(read_ptr[r], node_seq[c], r, c);
-                  _fill_cell_finish(r, c, node_origin, reads.reads());
+                  _fill_cell_finish(r, c, node_origin, targets);
               }
 
               nxt.S_col[r] = S_curr[seq_size - 1];
+
+              #if DEBUG_PRINT_SW
+              std::cout << num_to_base((Base) simdpp::extract<DEBUG_PRINT_SW_NUM>(read_ptr[r])) << '\t';
+              for (size_t i = 0; i < n.seq().size(); ++i)
+                  std::cout << (int) simdpp::extract<DEBUG_PRINT_SW_NUM>(S_curr[i]) << '\t';
+              std::cout << std::endl;
+              #endif
 
           }
 
@@ -593,13 +887,13 @@ namespace Vargas {
        * @param row current row
        * @param col current column
        * @param node_origin Current position, used to get absolute alignment position
-       * @param reads Vector of reads that are being aligned
+       * @param targets Used to mark corflag, indicates 'correct' alignments
        */
       __INLINE__
       void _fill_cell_finish(const uint32_t &row,
                              const uint32_t &col,
                              const uint32_t &node_origin,
-                             const std::vector<Read> &reads) {
+                             const std::vector<uint32_t> &targets) {
           using namespace simdpp;
 
           uint32_t curr = node_origin + col + 1; // absolute position
@@ -625,8 +919,6 @@ namespace Vargas {
                       }
                       max_pos[i] = curr;
                       max_count[i] = 0;
-                      // Invalidate previous best match
-                      if (corflag[i] == 1) corflag[i] = 0;
                   }
               }
           }
@@ -638,7 +930,7 @@ namespace Vargas {
                   // Check if the i'th elements MSB is set
                   if (extract(i, tmp)) {
                       ++max_count[i];
-                      if (reads[i].end_pos == curr) corflag[i] = 1;
+                      max_pos[i] = closer<uint32_t>(curr, max_pos[i], targets[i]);
                   }
               }
           }
@@ -653,8 +945,6 @@ namespace Vargas {
                       insert(extract(i, S_curr[col]), i, sub_score);
                       sub_pos[i] = curr;
                       sub_count[i] = 0;
-                      // Invalidate previous second best match
-                      if (corflag[i] == 2) corflag[i] = 0;
                   }
               }
           }
@@ -666,7 +956,7 @@ namespace Vargas {
                   // Check if the i'th elements MSB is set
                   if (extract(i, tmp)) {
                       ++sub_count[i];
-                      if (reads[i].end_pos == curr && corflag[i] == 0) corflag[i] = 2;
+                      sub_pos[i] = closer<uint32_t>(curr, sub_pos[i], targets[i]);
                   }
               }
           }
@@ -750,11 +1040,30 @@ namespace Vargas {
       std::vector<uint32_t> sub_pos;
       std::vector<uint32_t> sub_count;
 
-      std::vector<int8_t> corflag;
-
       size_t _max_node_len;
 
   };
+
+  /**
+ * @brief Print alignment in CSV form.
+ * @details
+ * Print the alignment to os. This ordering matches the way the alignment is parsed
+ * from a string. \n
+ * read_str,opt_score, opt_alignment_end, opt_cout, sub_score, sub_alignment_end, sub_count \n
+ * @param os Output stream
+ * @param an Alignment output
+ */
+  inline std::ostream &operator<<(std::ostream &os, const Alignment &a) {
+      os << to_csv(a.read)
+          << ',' << a.opt_score
+          << ',' << a.opt_align_end
+          << ',' << a.opt_count
+          << ',' << a.sub_score
+          << ',' << a.sub_align_end
+          << ',' << a.sub_count
+          << ',' << (int) a.corflag;
+      return os;
+  }
 
 }
 
@@ -763,17 +1072,17 @@ TEST_CASE ("Alignment") {
     srand(12345);
 
         SUBCASE("Node Fill scores") {
-        std::vector<Vargas::Read> reads;
-        reads.push_back(Vargas::Read("CGT")); // Score 6, Match
-        reads.push_back(Vargas::Read("ATAGCCA")); // Score 10, del
-        reads.push_back(Vargas::Read("ATAACGCCA")); // Score 12, Ins
-        reads.push_back(Vargas::Read("TACCCCA")); // Score 10, mismatch
+        std::vector<std::string> reads;
+        reads.push_back("CGT"); // Score 6, Match
+        reads.push_back("ATAGCCA"); // Score 10, del
+        reads.push_back("ATAACGCCA"); // Score 12, Ins
+        reads.push_back("TACCCCA"); // Score 10, mismatch
 
         Vargas::Graph::Node n;
         n.set_endpos(13);
         n.set_seq("ACGTNATACGCCA");
 
-        Vargas::ReadBatch<> rb(reads, 16);
+        Vargas::Aligner<>::AlignmentGroup rb(reads, 16);
         Vargas::Aligner<> a(15, 16);
         std::vector<uint32_t> pos;
 
@@ -850,53 +1159,43 @@ TEST_CASE ("Alignment") {
         g.add_edge(2, 3);
         g.set_popsize(3);
 
-        std::vector<Vargas::Read> reads;
-        reads.push_back(Vargas::Read("CCTT"));
-        reads.push_back(Vargas::Read("GGTT"));
-        reads.push_back(Vargas::Read("AAGG"));
-        reads.push_back(Vargas::Read("AACC"));
-        reads.push_back(Vargas::Read("AGGGT"));
-        reads.push_back(Vargas::Read("GG"));
-        reads.push_back(Vargas::Read("AAATTTA"));
-        reads.push_back(Vargas::Read("AAAGCCC"));
+        std::vector<std::string> reads;
+        reads.push_back("CCTT");
+        reads.push_back("GGTT");
+        reads.push_back("AAGG");
+        reads.push_back("AACC");
+        reads.push_back("AGGGT");
+        reads.push_back("GG");
+        reads.push_back("AAATTTA");
+        reads.push_back("AAAGCCC");
 
-        Vargas::ReadBatch<> rb(reads, 8);
+        Vargas::Aligner<>::AlignmentGroup rb(reads, 8);
         Vargas::Aligner<> a(5, 8);
 
-        std::vector<Vargas::Alignment> aligns = a.align(rb, g);
-            REQUIRE(aligns.size() == 8);
+        Vargas::Aligner<>::Results aligns = a.align(rb, g);
+            CHECK(aligns.best_score[0] == 8);
+            CHECK(aligns.best_pos[0] == 8);
 
-            CHECK(aligns[0].read.read == "CCTT");
-            CHECK(aligns[0].opt_score == 8);
-            CHECK(aligns[0].opt_align_end == 8);
+            CHECK(aligns.best_score[1] == 8);
+            CHECK(aligns.best_pos[1] == 8);
 
-            CHECK(aligns[1].read.read == "GGTT");
-            CHECK(aligns[1].opt_score == 8);
-            CHECK(aligns[1].opt_align_end == 8);
+            CHECK(aligns.best_score[2] == 8);
+            CHECK(aligns.best_pos[2] == 5);
 
-            CHECK(aligns[2].read.read == "AAGG");
-            CHECK(aligns[2].opt_score == 8);
-            CHECK(aligns[2].opt_align_end == 5);
+            CHECK(aligns.best_score[3] == 8);
+            CHECK(aligns.best_pos[3] == 5);
 
-            CHECK(aligns[3].read.read == "AACC");
-            CHECK(aligns[3].opt_score == 8);
-            CHECK(aligns[3].opt_align_end == 5);
+            CHECK(aligns.best_score[4] == 10);
+            CHECK(aligns.best_pos[4] == 7);
 
-            CHECK(aligns[4].read.read == "AGGGT");
-            CHECK(aligns[4].opt_score == 10);
-            CHECK(aligns[4].opt_align_end == 7);
+            CHECK(aligns.best_score[5] == 4);
+            CHECK(aligns.best_pos[5] == 5);
 
-            CHECK(aligns[5].read.read == "GG");
-            CHECK(aligns[5].opt_score == 4);
-            CHECK(aligns[5].opt_align_end == 5);
+            CHECK(aligns.best_score[6] == 8);
+            CHECK(aligns.best_pos[6] == 10);
 
-            CHECK(aligns[6].read.read == "AAATTTA");
-            CHECK(aligns[6].opt_score == 8);
-            CHECK(aligns[6].opt_align_end == 10);
-
-            CHECK(aligns[7].read.read == "AAAGCCC");
-            CHECK(aligns[7].opt_score == 8);
-            CHECK(aligns[7].opt_align_end == 6);
+            CHECK(aligns.best_score[7] == 8);
+            CHECK(aligns.best_pos[7] == 6);
     }
 }
 
@@ -910,14 +1209,14 @@ void node_fill_profile() {
         n.set_seq(ss.str());
     }
 
-    std::vector<Vargas::Read> reads;
+    std::vector<std::string> reads;
     for (size_t i = 0; i < 16; ++i) {
         std::ostringstream rd;
         for (size_t r = 0; r < 50; ++r) rd << rand_base();
-        reads.push_back(Vargas::Read(rd.str()));
+        reads.push_back(rd.str());
     }
 
-    Vargas::ReadBatch<> rb(reads, 50);
+    Vargas::Aligner<>::AlignmentGroup rb(reads, 50);
     Vargas::Aligner<> a(10000, 50);
 
     std::vector<uint32_t> pos;

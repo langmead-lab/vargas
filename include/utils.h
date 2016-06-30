@@ -175,4 +175,16 @@ char rand_base() {
  */
 int levenshtein_distance(const std::string &s1, const std::string &s2);
 
+/**
+* @brief
+* Returns the value thats closer to the target
+* @param x
+* @param y
+* @param target
+* @return x if it is closer to target than y, otherwise y.
+*/
+template<typename T>
+__INLINE__
+T closer(T x, T y, T target) { return std::abs(target - x) < std::abs(target - y) ? x : y; }
+
 #endif //VARGAS_UTILS_H

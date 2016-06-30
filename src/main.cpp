@@ -29,7 +29,7 @@ int main(const int argc, const char *argv[]) {
         if (!strcmp(argv[1], "test")) {
             doctest::Context doc(argc, argv);
             doc.setOption("no-breaks", true);
-            doc.setOption("abort-after", 5);
+            doc.setOption("abort-after", 10);
             doc.setOption("sort", "name");
             return doc.run();
         }
@@ -178,7 +178,7 @@ int profile(const int argc, const char *argv[]) {
 
 
     {
-        std::vector<Vargas::Read> reads;
+        std::vector<std::string> reads;
 
         for (int i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
             std::ostringstream rd;
@@ -190,10 +190,10 @@ int profile(const int argc, const char *argv[]) {
         if (read.length() > 0) {
             split(read, ',', split_str);
             if (split_str.size() > SIMDPP_FAST_INT8_SIZE) split_str.resize(SIMDPP_FAST_INT8_SIZE);
-            for (size_t i = 0; i < split_str.size(); ++i) reads[i] = Vargas::Read(split_str[i]);
+            for (size_t i = 0; i < split_str.size(); ++i) reads[i] = split_str[i];
         }
 
-        Vargas::ReadBatch<> rb(reads, 50);
+        Vargas::Aligner<>::AlignmentGroup rb(reads, 50);
         Vargas::Aligner<> a(g.max_node_len(), 50);
 
         std::cerr << SIMDPP_FAST_INT8_SIZE << " read alignment:\n\t";
@@ -202,9 +202,8 @@ int profile(const int argc, const char *argv[]) {
 
         {
             start = std::clock();
-            std::vector<Vargas::Alignment> aligns = a.align(rb, g.begin(pop_filt), g.end());
+            Vargas::Aligner<>::Results aligns = a.align(rb, g.begin(pop_filt), g.end());
             std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-            for (size_t i = 0; i < split_str.size(); ++i) std::cerr << aligns[i] << std::endl;
         }
 
         {
@@ -212,9 +211,8 @@ int profile(const int argc, const char *argv[]) {
             Vargas::Graph g2(g, g.subset(ingroup));
             std::cerr << "\tDerived Graph (" << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s)\n\t";
             start = std::clock();
-            std::vector<Vargas::Alignment> aligns = a.align(rb, g2);
+            Vargas::Aligner<>::Results aligns = a.align(rb, g2);
             std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-            for (size_t i = 0; i < split_str.size(); ++i) std::cerr << aligns[i] << std::endl;
         }
 
     }
@@ -354,51 +352,51 @@ void align_to_graph(std::string label,
                     std::ostream &out,
                     unsigned int threads) {
 
-    // Number of full parallel batches
-    size_t batches = reads.size() / SIMDPP_FAST_INT8_SIZE;
-
-    std::vector<std::thread> jobs;
-    std::vector<std::vector<Vargas::Alignment>> aligns(threads);
-
-    // <= to catch remainder reads
-    for (size_t i = 0; i <= batches; ++i) {
-        auto end_iter = ((i + 1) * SIMDPP_FAST_INT8_SIZE) > reads.size() ?
-                        reads.end() : reads.begin() + ((i + 1) * SIMDPP_FAST_INT8_SIZE);
-
-        if (threads > 1) {
-            jobs.emplace(jobs.end(),
-                         &Vargas::Aligner<>::align_into,
-                         aligners[jobs.size()],
-                         std::vector<Vargas::Read>(reads.begin() + (i * SIMDPP_FAST_INT8_SIZE), end_iter),
-                         subgraph.begin(),
-                         subgraph.end(),
-                         std::ref(aligns[jobs.size()]));
-
-            // Once we use the allocated threads let them all finish.
-            if (jobs.size() == threads || i == batches) {
-                std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
-
-                // Print alignments
-                for (size_t i = 0; i < jobs.size(); ++i) {
-                    auto &aset = aligns[i];
-                    for (auto &a : aset) {
-                        out << label << ',' << a << std::endl;
-                    }
-                }
-
-                jobs.clear();
-            }
-        } else {
-            // Single threaded
-            aligners[0]->align_into(std::vector<Vargas::Read>(reads.begin() + (i * SIMDPP_FAST_INT8_SIZE), end_iter),
-                                    subgraph.begin(),
-                                    subgraph.end(),
-                                    aligns[0]);
-            for (auto &a : aligns[0]) {
-                out << label << ',' << a << std::endl;
-            }
-        }
-    }
+//    // Number of full parallel batches
+//    size_t batches = reads.size() / SIMDPP_FAST_INT8_SIZE;
+//
+//    std::vector<std::thread> jobs;
+//    std::vector<std::vector<Vargas::Alignment>> aligns(threads);
+//
+//    // <= to catch remainder reads
+//    for (size_t i = 0; i <= batches; ++i) {
+//        auto end_iter = ((i + 1) * SIMDPP_FAST_INT8_SIZE) > reads.size() ?
+//                        reads.end() : reads.begin() + ((i + 1) * SIMDPP_FAST_INT8_SIZE);
+//
+//        if (threads > 1) {
+//            jobs.emplace(jobs.end(),
+//                         &Vargas::Aligner<>::align_into,
+//                         aligners[jobs.size()],
+//                         std::vector<Vargas::Read>(reads.begin() + (i * SIMDPP_FAST_INT8_SIZE), end_iter),
+//                         subgraph.begin(),
+//                         subgraph.end(),
+//                         std::ref(aligns[jobs.size()]));
+//
+//            // Once we use the allocated threads let them all finish.
+//            if (jobs.size() == threads || i == batches) {
+//                std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
+//
+//                // Print alignments
+//                for (size_t i = 0; i < jobs.size(); ++i) {
+//                    auto &aset = aligns[i];
+//                    for (auto &a : aset) {
+//                        out << label << ',' << a << std::endl;
+//                    }
+//                }
+//
+//                jobs.clear();
+//            }
+//        } else {
+//            // Single threaded
+//            aligners[0]->align_into(std::vector<Vargas::Read>(reads.begin() + (i * SIMDPP_FAST_INT8_SIZE), end_iter),
+//                                    subgraph.begin(),
+//                                    subgraph.end(),
+//                                    aligns[0]);
+//            for (auto &a : aligns[0]) {
+//                out << label << ',' << a << std::endl;
+//            }
+//        }
+//    }
 }
 
 int sim_main(const int argc, const char *argv[]) {
