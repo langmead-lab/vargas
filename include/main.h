@@ -15,7 +15,6 @@
 
 #include "alignment.h"
 #include "graph.h"
-#include "readfile.h"
 #include "sim.h"
 
 /**
@@ -60,7 +59,7 @@ int profile(const int argc, const char *argv[]);
  */
 void align_to_graph(std::string label,
                     const Vargas::Graph &subgraph,
-                    const std::vector<Vargas::Read> &reads,
+                    const std::vector<std::string> &reads,
                     const std::vector<std::shared_ptr<Vargas::Aligner<>>> &aligners,
                     std::ostream &out,
                     unsigned int threads);

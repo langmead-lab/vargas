@@ -21,8 +21,161 @@ namespace Vargas {
   /**
    * @brief
    * Provides structures representing SAM data.
+   * @details
+   * SAM files can be either read with isam, or written with osam. Both use
+   * the same core structures to store data. Each SAM file consists of:\n
+   * 1 Header \n
+   * \t Any number of ReadGroup \n
+   * \t Any number of Sequence \n
+   * \t Any number of Program \n
+   * Any number of Record\n
+   * Tags defined in the spec can be directly accessed. Other tags are stored in an
+   * aux Optional struct. \n
+   * No conflict management is done.
    */
   struct SAM {
+
+      /**
+       * @brief
+       * Represents optional data fields for any Header or Record type row.
+       */
+      struct Optional {
+          std::unordered_map<std::string, std::string> aux;
+          /**< Map the two char tag to value */
+          std::unordered_map<std::string, char> aux_fmt; /**< Map the two char tag to format */
+
+          /**
+           * @brief
+           * Clear all tags.
+           */
+          void clear() {
+              aux.clear();
+              aux_fmt.clear();
+          }
+
+          /**
+           * @brief
+           * Add a aux field of form X:Y:Z, where X is the tag
+           * Y is the format, Z is the value. If the format is not correct, it is ignored.
+           * @param a aux field
+           */
+          void add(std::string a) {
+              if (a.at(2) != ':') return;
+              if (a.at(4) != ':') return;
+              std::string tag = a.substr(0, 2);
+              aux[tag] = a.substr(5);
+              aux_fmt[tag] = a.at(3);
+          }
+
+          /**
+           * @brief
+           * Add a char type aux tag.
+           * @param tag key
+           * @param val value
+           */
+          void add(std::string tag, char val) {
+              aux[tag] = std::string(1, val);
+              aux_fmt[tag] = 'A';
+          }
+
+          /**
+           * @brief
+           * Add a int type aux tag.
+           * @param tag key
+           * @param val value
+           */
+          void add(std::string tag, int val) {
+              aux[tag] = std::to_string(val);
+              aux_fmt[tag] = 'i';
+          }
+
+          /**
+           * @brief
+           * Add a float type aux tag.
+           * @param tag key
+           * @param val value
+           */
+          void add(std::string tag, float val) {
+              aux[tag] = std::to_string(val);
+              aux_fmt[tag] = 'f';
+          }
+
+          /**
+           * @brief
+           * Add a string type aux tag.
+           * @param tag key
+           * @param val value
+           */
+          void add(std::string tag, std::string val) {
+              aux[tag] = val;
+              aux_fmt[tag] = 'Z';
+          }
+
+          /**
+           * Get a char type tag.
+           * @param tag key
+           * @param val to store result in
+           * @return false if key does not exist, or is the wrong type.
+           */
+          bool get(std::string tag, char &val) const {
+              if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'A') return false;
+              val = aux.at(tag).at(0);
+              return true;
+          }
+
+          /**
+           * Get a int type tag.
+           * @param tag key
+           * @param val to store result in
+           * @return false if key does not exist, or is the wrong type.
+           */
+          bool get(std::string tag, int &val) const {
+              if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'i') return false;
+              val = std::stoi(aux.at(tag));
+              return true;
+          }
+
+          /**
+           * Get a float type tag.
+           * @param tag key
+           * @param val to store result in
+           * @return false if key does not exist, or is the wrong type.
+           */
+          bool get(std::string tag, float &val) const {
+              if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'f') return false;
+              val = std::stof(aux.at(tag));
+              return true;
+          }
+
+          /**
+           * Get a string type tag.
+           * @param tag key
+           * @param val to store result in
+           * @return false if key does not exist, or is the wrong type.
+           */
+          bool get(std::string tag, std::string &val) const {
+              if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'Z') return false;
+              val = aux.at(tag);
+              return true;
+          }
+
+          /**
+           * @brief
+           * returns all the optional fields formatted into a line. Tab leading.
+           * @return formatted fields
+           */
+          std::string to_string() const {
+              std::ostringstream ss;
+              for (auto &pair : aux) {
+                  ss << '\t' << pair.first
+                      << ':' << aux_fmt.at(pair.first)
+                      << ':' << pair.second;
+              }
+              return ss.str();
+          }
+
+      };
+
       /**
        * @brief
        * Represents all stored information in a SAM/BAM header.
@@ -62,6 +215,8 @@ namespace Vargas {
                   species = "", /**< Species of sequence */
                   URI = ""; /**< URL of sequence, can start with http or ftp */
 
+              Optional aux;
+
               /**
                * @brief
                * Prints a header-formatted line containing all populated tags
@@ -75,7 +230,7 @@ namespace Vargas {
                       (genome_assembly.length() > 0 ? "\tAS:" + genome_assembly : "") <<
                       (md5.length() > 0 ? "\tM5:" + md5 : "") <<
                       (species.length() > 0 ? "\tSP:" + species : "") <<
-                      (URI.length() > 0 ? "\tUR:" + URI : "");
+                      (URI.length() > 0 ? "\tUR:" + URI : "") << aux.to_string();
                   return ss.str();
               }
 
@@ -89,6 +244,7 @@ namespace Vargas {
                   md5 = "";
                   species = "";
                   URI = "";
+                  aux.clear();
 
                   std::vector<std::string> tags = split(line, '\t');
                   for (auto &p : tags) {
@@ -111,6 +267,9 @@ namespace Vargas {
                       }
                       else if (tag == "UR") {
                           URI = val;
+                      }
+                      else {
+                          aux.add(p);
                       }
                   }
               }
@@ -157,6 +316,8 @@ namespace Vargas {
                   sample = "", /**< Sample, or pool name */
                   id = ""; /**< Unique ID */
 
+              Optional aux;
+
               /**
      * @brief
      * Prints a header-formatted line containing all populated tags
@@ -177,7 +338,7 @@ namespace Vargas {
                       (platform.length() > 0 ? "\tPL:" + platform : "") <<
                       (platform_model.length() > 0 ? "\tPM:" + platform_model : "") <<
                       (platform_unit.length() > 0 ? "\tPU:" + platform_unit : "") <<
-                      (sample.length() > 0 ? "\tSM:" + sample : "");
+                      (sample.length() > 0 ? "\tSM:" + sample : "") << aux.to_string();
                   return ss.str();
               }
 
@@ -199,6 +360,7 @@ namespace Vargas {
                   platform_model = "";
                   platform_unit = "";
                   sample = "";
+                  aux.clear();
 
                   std::vector<std::string> tags = split(line, '\t');
                   for (auto &p : tags) {
@@ -243,6 +405,9 @@ namespace Vargas {
                       else if (tag == "SM") {
                           sample = val;
                       }
+                      else {
+                          aux.add(p);
+                      }
                   }
               }
 
@@ -265,6 +430,7 @@ namespace Vargas {
            * Describes a program used on the data.
            */
           struct Program {
+              Program() { }
               Program(std::string line) { parse(line); }
 
               std::string name = "",
@@ -273,6 +439,8 @@ namespace Vargas {
                   prev_pg = "",
                   desc = "",
                   version = "";
+
+              Optional aux;
 
               /**
      * @brief
@@ -287,7 +455,7 @@ namespace Vargas {
                       (command_line.length() > 0 ? "\tCL:" + command_line : "") <<
                       (prev_pg.length() > 0 ? "\tPP:" + prev_pg : "") <<
                       (desc.length() > 0 ? "\tDS:" + desc : "") <<
-                      (version.length() > 0 ? "\tVN:" + version : "");
+                      (version.length() > 0 ? "\tVN:" + version : "") << aux.to_string();
                   return ss.str();
               }
 
@@ -302,6 +470,7 @@ namespace Vargas {
                   prev_pg = "";
                   desc = "";
                   version = "";
+                  aux.clear();
 
                   std::vector<std::string> tags = split(line, '\t');
                   for (auto &p : tags) {
@@ -324,6 +493,9 @@ namespace Vargas {
                       }
                       else if (tag == "VN") {
                           version = val;
+                      }
+                      else {
+                          aux.add(p);
                       }
                   }
               }
@@ -595,116 +767,9 @@ namespace Vargas {
 
           Flag flag; /**< Bitwise flag */
 
-          // Optional fields
-          std::unordered_map<std::string, std::string> aux;
-          /**< Map the two char tag to value */
-          std::unordered_map<std::string, char> aux_fmt; /**< Map the two char tag to format */
+          Optional aux;
 
-          /**
-           * @brief
-           * Add a aux field of form X:Y:Z, where X is the tag
-           * Y is the format, Z is the value.
-           * @param a aux field
-           */
-          void add(std::string a) {
-              if (a.at(2) != ':') throw std::invalid_argument("Expected \':\' after 2 character tag in \"" + a + "\"");
-              if (a.at(4) != ':') throw std::invalid_argument("Expected \':\' after format tag in \"" + a + "\"");
-              std::string tag = a.substr(0, 2);
-              aux[tag] = a.substr(5);
-              aux_fmt[tag] = a.at(3);
-          }
 
-          /**
-           * @brief
-           * Add a char type aux tag.
-           * @param tag key
-           * @param val value
-           */
-          void add(std::string tag, char val) {
-              aux[tag] = aux[std::string(1, val)];
-              aux_fmt[tag] = 'A';
-          }
-
-          /**
-           * @brief
-           * Add a int type aux tag.
-           * @param tag key
-           * @param val value
-           */
-          void add(std::string tag, int val) {
-              aux[tag] = aux[std::to_string(val)];
-              aux_fmt[tag] = 'i';
-          }
-
-          /**
-           * @brief
-           * Add a float type aux tag.
-           * @param tag key
-           * @param val value
-           */
-          void add(std::string tag, float val) {
-              aux[tag] = aux[std::to_string(val)];
-              aux_fmt[tag] = 'f';
-          }
-
-          /**
-           * @brief
-           * Add a string type aux tag.
-           * @param tag key
-           * @param val value
-           */
-          void add(std::string tag, std::string val) {
-              aux[tag] = aux[val];
-              aux_fmt[tag] = 'Z';
-          }
-
-          /**
-           * Get a char type tag.
-           * @param tag key
-           * @param val to store result in
-           * @return false if key does not exist, or is the wrong type.
-           */
-          bool get(std::string tag, char &val) const {
-              if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'A') return false;
-              val = aux.at(tag).at(0);
-              return true;
-          }
-
-          /**
-           * Get a int type tag.
-           * @param tag key
-           * @param val to store result in
-           * @return false if key does not exist, or is the wrong type.
-           */
-          bool get(std::string tag, int &val) const {
-              if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'i') return false;
-              val = std::stoi(aux.at(tag));
-              return true;
-          }
-
-          /**
-           * Get a float type tag.
-           * @param tag key
-           * @param val to store result in
-           * @return false if key does not exist, or is the wrong type.
-           */
-          bool get(std::string tag, float &val) const {
-              if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'f') return false;
-              val = std::stof(aux.at(tag));
-              return true;
-          }
-
-          /**
-           * Get a string type tag.
-           * @param tag key
-           * @param val to store result in
-           * @return false if key does not exist, or is the wrong type.
-           */
-          bool get(std::string tag, std::string &val) const {
-              if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'Z') return false;
-              val = aux.at(tag);
-              return true;
-          }
 
           /**
            * @brief
@@ -723,12 +788,7 @@ namespace Vargas {
                   << pos_next << '\t'
                   << tlen << '\t'
                   << seq << '\t'
-                  << qual;
-              for (auto &pair : aux) {
-                  ss << '\t' << pair.first
-                      << ':' << aux_fmt.at(pair.first)
-                      << ':' << pair.second;
-              }
+                  << qual << aux.to_string();
               return ss.str();
           }
 
@@ -750,12 +810,11 @@ namespace Vargas {
               tlen = std::stoi(cols[8]);
               seq = cols[9];
               qual = cols[10];
+              aux.clear();
 
               // Aux fields
-              aux.clear();
-              aux_fmt.clear();
               for (size_t i = 11; i < cols.size(); ++i) {
-                  add(cols[i]);
+                  aux.add(cols[i]);
               }
 
           }
@@ -791,7 +850,8 @@ namespace Vargas {
    * Provides an interface to read a SAM file.
    * @details
    * Minimal error checking is done, no error will be raised if there is a mismatch (e.g. a ref name
-   * that is not defined in the header).
+   * that is not defined in the header). \n
+   * See Vargas::SAM for more usage information.
    */
   class isam {
     public:
@@ -889,7 +949,8 @@ namespace Vargas {
    * @brief
    * Provides an interface to write a SAM file.
    * @details
-   * Outputs are not checked to see if they conform with the standard format.
+   * Outputs are not checked to see if they conform with the standard format. \n
+   * See Vargas::SAM for more information about usage.
    */
   class osam {
     public:
@@ -920,9 +981,12 @@ namespace Vargas {
        */
       void open(std::string file_name) {
           close();
-          out.open(file_name);
-          if (!out.good()) throw std::invalid_argument("Error opening output file \"" + file_name + "\"");
-          out << _hdr.to_string();
+          if (file_name.length() == 0) _use_stdout = true;
+          else {
+              out.open(file_name);
+              if (!out.good()) throw std::invalid_argument("Error opening output file \"" + file_name + "\"");
+          }
+          (_use_stdout ? std::cout : out) << _hdr.to_string() << std::flush;
       }
 
       /**
@@ -942,12 +1006,13 @@ namespace Vargas {
 
       void add_record(const SAM::Record &r) {
           if (!good()) throw std::invalid_argument("No valid file open.");
-          out << r.to_string() << '\n';
+          (_use_stdout ? std::cout : out) << r.to_string() << '\n';
       }
 
     private:
       std::ofstream out;
       const SAM::Header _hdr;
+      bool _use_stdout = false;
   };
 
 }
@@ -997,7 +1062,7 @@ TEST_CASE ("SAM File") {
     // Orderings of tags might be different.
     while (std::getline(a, A) && std::getline(b, B)) CHECK (A.length() == B.length());
 
-    remove("tmp_s.sam");
-    remove("osam.sam");
+    //   remove("tmp_s.sam");
+    //   remove("osam.sam");
 }
 #endif //VARGAS_SAM_H

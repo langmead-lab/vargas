@@ -13,7 +13,6 @@ set(MAIN_SOURCES
         src/main.cpp
         src/graph.cpp
         src/utils.cpp
-        src/readfile.cpp
         src/varfile.cpp
         src/sim.cpp)
 

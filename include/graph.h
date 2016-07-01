@@ -67,6 +67,12 @@ namespace Vargas {
           bool pct;
           /**< if true, num is a percentage. Otherwise number of individuals.*/
           bool outgroup; /**< rue if the origin was an outgroup graph.*/
+
+          std::string to_string() const {
+              std::ostringstream ss;
+              ss << (outgroup ? 'o' : 'i') << ',' << num << ',' << id << ',' << pct;
+              return ss.str();
+          }
       };
 
       /** Alias for a dyn_bitset */

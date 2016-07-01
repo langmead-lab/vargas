@@ -12,7 +12,19 @@
 #ifndef VARGAS_SIM_H
 #define VARGAS_SIM_H
 
-#include "readsource.h"
+#define SIM_SAM_READ_ORIG_TAG "ro"
+#define SIM_SAM_INDIV_TAG "nd"
+#define SIM_SAM_SUB_ERR_TAG  "se"
+#define SIM_SAM_VAR_NODES_TAG "vd"
+#define SIM_SAM_VAR_BASE_TAG "vb"
+#define SIM_SAM_INDEL_ERR_TAG "ne"
+#define SIM_SAM_END_POS_TAG "ep"
+#define SIM_SAM_GID_TAG "gd"
+#define SIM_SAM_USE_RATE_TAG "rt"
+#define SIM_SAM_POPULATION "po"
+#define SIM_SAM_REF_TAG "fa"
+#define SIM_SAM_VCF_TAG "vf"
+
 #include "graph.h"
 
 namespace Vargas {
@@ -21,9 +33,94 @@ namespace Vargas {
   * @brief
   * Generate reads from a graph using a given profile. srand() should be called externally.
   */
-  class Sim: public ReadSource {
+  class Sim {
 
     public:
+
+      // Tags defining meta information in FASTA read names
+      const std::string READ_META_END = "pos";
+      const std::string READ_META_MUT = "sub";
+      const std::string READ_META_INDEL = "ind";
+      const std::string READ_META_VARNODE = "vnd";
+      const std::string READ_META_VARBASE = "vbs";
+      const std::string READ_META_SRC = "src";
+      const char READ_FASTA_META_DELIM = ';';
+/**
+ * @brief
+ * Struct to represent a Read.
+ */
+      struct Read {
+          Read() : read_orig(""), read(""),
+                   end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1), indel_err(-1) { }
+          Read(std::string r) : read_orig(""), read(r), read_num(seq_to_num(r)),
+                                end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1), indel_err(-1) { }
+
+          std::string read_orig;
+          /**< unmutated read sequence */
+          std::string read;
+          /**< base sequence. */
+          std::vector<Base> read_num;
+          /**< Numeric read representation */
+          int32_t end_pos;
+          /**< position of last base in seq. */
+          int32_t indiv;
+          /**< Individual the read was taken from. */
+          int32_t sub_err;
+          /**< Number of substitiution errors introduced. */
+          int32_t var_nodes;
+          /**< Number of variant nodes the read traverses. */
+          int32_t var_bases;
+          /**< Number of bases that are in variant nodes. */
+          int32_t indel_err;
+          /**< Number of insertions and deletions introduced. */
+          Graph::GID src; /**< Read origin graph, as defined in GDEF file. */
+
+      };
+
+      /**
+       * @brief
+       * Output two lines in FASTA format.
+       * @details
+       * Output two lines given the form: \n
+       * > Meta information \n
+       * read_sequence \n
+       * @param r Read to print
+       * @return two-line string
+       */
+      inline std::string to_fasta(const Read &r) {
+          std::ostringstream ss;
+          ss << ">"
+              << READ_META_END << ":" << r.end_pos << READ_FASTA_META_DELIM
+              << READ_META_MUT << ":" << r.sub_err << READ_FASTA_META_DELIM
+              << READ_META_INDEL << ":" << r.indel_err << READ_FASTA_META_DELIM
+              << READ_META_VARNODE << ":" << r.var_nodes << READ_FASTA_META_DELIM
+              << READ_META_VARBASE << ":" << r.var_bases << READ_FASTA_META_DELIM
+              << READ_META_SRC << ":" << r.src
+              << std::endl
+              << r.read;
+          return ss.str();
+      }
+
+      /**
+       * @brief
+       * Convert the read to a single line CSV.
+       * @details
+       * Output form: \n
+       * src,read_seq,end_pos,sub_err,indel_err,var_nodes,var_bases \n
+       * @param r Read to print
+       * @return single line string
+       */
+      inline std::string to_csv(const Read &r) {
+          std::ostringstream ss;
+          ss << r.src << ','
+              << r.read << ','
+              << r.end_pos << ','
+              << r.sub_err << ','
+              << r.indel_err << ','
+              << r.var_nodes << ','
+              << r.var_bases;
+          return ss.str();
+      }
 
       /**
        * @brief
@@ -41,6 +138,17 @@ namespace Vargas {
           int var_nodes = -1;
           /**< Number of variant nodes */
           int var_bases = -1; /**< number of total variant bases */
+
+          std::string to_string() const {
+              std::ostringstream os;
+              os << "len=" << len
+                  << ";mut=" << mut
+                  << ";indel=" << indel
+                  << ";vnode=" << var_nodes
+                  << ";vbase=" << var_bases
+                  << ";rand=" << rand;
+              return os.str();
+          }
       };
 
       /**
@@ -59,7 +167,32 @@ namespace Vargas {
        * Generate and store an updated read.
        * @return true if successful
        */
-      virtual bool update_read() override;
+      bool update_read();
+
+      /**
+ * @brief
+ * Get size reads. If more reads are not available, a undersized
+ * batch is returned.
+ * @param size nominal number of reads to get.
+ */
+      const std::vector<Read> &get_batch(int size) {
+          if (size <= 0) size = 1;
+          _batch.clear();
+          for (int i = 0; i < size; ++i) {
+              if (!update_read()) break;
+              _batch.push_back(_read);
+          }
+          return _batch;
+      }
+
+      /**
+       * @brief
+       * Get the stored batch of reads.
+       * @return vector of Reads
+       */
+      const std::vector<Read> &batch() const {
+          return _batch;
+      }
 
       /**
        * @brief
@@ -82,9 +215,8 @@ namespace Vargas {
       /**
        * @return the profile used to generate the reads
        */
-      virtual std::string get_header() const override {
-          std::ostringstream ss;
-          return ss.str();
+      std::string get_header() const {
+          return _prof.to_string();
       }
 
       /**
@@ -92,11 +224,14 @@ namespace Vargas {
        */
       Profile get_profile() const { return _prof; }
 
+      Read &get_read() { return _read; };
 
     private:
       const Vargas::Graph &_graph;
       std::vector<uint32_t> next_keys;
+      std::vector<Read> _batch;
       Profile _prof;
+      Read _read;
 
       /**
        * Creates a vector of keys of all outgoing edges. Allows for random node selection
@@ -121,12 +256,7 @@ namespace Vargas {
    * @return output stream
    */
   inline std::ostream &operator<<(std::ostream &os, const Sim::Profile &rp) {
-      os << "len=" << rp.len
-          << " mut=" << rp.mut
-          << " indel=" << rp.indel
-          << " vnode=" << rp.var_nodes
-          << " vbase=" << rp.var_bases
-          << " rand=" << rp.rand;
+      os << rp.to_string();
       return os;
   }
 

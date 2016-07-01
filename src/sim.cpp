@@ -22,8 +22,8 @@ bool Vargas::Sim::update_read() {
     curr_node = next_keys[rand() % next_keys.size()]; // Random start node ID
     size_t curr_pos = rand() % nodes[curr_node]->length(); // current pos relative to node origin
 
-    read.var_bases = 0;
-    read.var_nodes = 0;
+    _read.var_bases = 0;
+    _read.var_nodes = 0;
 
     while (true) {
         // The first time a branch is hit, pick an individual to track
@@ -40,8 +40,8 @@ bool Vargas::Sim::update_read() {
         curr_pos += len;
 
         if (!nodes[curr_node]->is_ref()) {
-            ++read.var_nodes;
-            read.var_bases += len;
+            ++_read.var_nodes;
+            _read.var_bases += len;
         }
 
         if (read_str.length() >= _prof.len) break; // Done
@@ -58,12 +58,12 @@ bool Vargas::Sim::update_read() {
     }
 
     if (std::count(read_str.begin(), read_str.end(), 'N') >= _prof.len / 2) return update_read();
-    if (_prof.var_nodes >= 0 && read.var_nodes != _prof.var_nodes) return update_read();
-    if (_prof.var_bases >= 0 && read.var_bases != _prof.var_bases) return update_read();
+    if (_prof.var_nodes >= 0 && _read.var_nodes != _prof.var_nodes) return update_read();
+    if (_prof.var_bases >= 0 && _read.var_bases != _prof.var_bases) return update_read();
 
     // Introduce errors
-    read.sub_err = 0;
-    read.indel_err = 0;
+    _read.sub_err = 0;
+    _read.indel_err = 0;
     std::string read_mut = "";
 
 
@@ -76,28 +76,28 @@ bool Vargas::Sim::update_read() {
                 do {
                     m = rand_base();
                 } while (m == read_str[i]);
-                ++read.sub_err;
+                ++_read.sub_err;
             }
 
             // Insertion
             if (rand() % 10000 < 5000 * _prof.indel) {
                 read_mut += rand_base();
-                ++read.indel_err;
+                ++_read.indel_err;
             }
 
             // Deletion (if we don't enter)
             if (rand() % 10000 > 5000 * _prof.indel) {
                 read_mut += m;
-                ++read.indel_err;
+                ++_read.indel_err;
             }
         }
     }
     else {
         // Fixed number of errors
-        read.sub_err = std::round(_prof.mut);
-        read.indel_err = std::round(_prof.indel);
+        _read.sub_err = std::round(_prof.mut);
+        _read.indel_err = std::round(_prof.indel);
         std::vector<int> indel_pos;
-        for (int i = 0; i < read.indel_err;) {
+        for (int i = 0; i < _read.indel_err;) {
             int r = rand() % read_str.length();
             if (std::find(indel_pos.begin(), indel_pos.end(), r) == indel_pos.end()) {
                 indel_pos.push_back(r);
@@ -116,7 +116,7 @@ bool Vargas::Sim::update_read() {
         }
         read_mut += read_str.substr(prev, std::string::npos);
 
-        for (int i = 0; i < read.sub_err;) {
+        for (int i = 0; i < _read.sub_err;) {
             int r = rand() % read_str.length();
             if (read_str[r] == read_mut[r]) { // Make sure we don't double mutate same base
                 do {
@@ -129,16 +129,16 @@ bool Vargas::Sim::update_read() {
 
 
     // Have read reflect profile, mainly for when params are -1
-    read.var_nodes = _prof.var_nodes;
-    read.indel_err = _prof.indel;
-    read.sub_err = _prof.mut;
-    read.var_bases = _prof.var_bases;
+    _read.var_nodes = _prof.var_nodes;
+    _read.indel_err = _prof.indel;
+    _read.sub_err = _prof.mut;
+    _read.var_bases = _prof.var_bases;
 
-    read.indiv = curr_indiv;
-    read.read_orig = read_str;
-    read.read = read_mut;
-    read.read_num = seq_to_num(read_mut);
-    read.end_pos = nodes[curr_node]->end() - nodes[curr_node]->length() + curr_pos;
+    _read.indiv = curr_indiv;
+    _read.read_orig = read_str;
+    _read.read = read_mut;
+    _read.read_num = seq_to_num(read_mut);
+    _read.end_pos = nodes[curr_node]->end() - nodes[curr_node]->length() + curr_pos;
 
     return true;
 }

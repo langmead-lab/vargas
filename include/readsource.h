@@ -22,103 +22,6 @@
 
 namespace Vargas {
 
-  // Tags defining meta information in FASTA read names
-  const std::string READ_META_END = "pos";
-  const std::string READ_META_MUT = "sub";
-  const std::string READ_META_INDEL = "ind";
-  const std::string READ_META_VARNODE = "vnd";
-  const std::string READ_META_VARBASE = "vbs";
-  const std::string READ_META_SRC = "src";
-  const char READ_FASTA_META_DELIM = ';';
-
-/**
- * @brief
- * Struct to represent a Read.
- */
-  struct Read {
-      Read() : read_orig(""), read(""),
-               end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1), indel_err(-1) { }
-      Read(std::string r) : read_orig(""), read(r), read_num(seq_to_num(r)),
-                            end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1), indel_err(-1) { }
-
-      std::string read_orig;
-      /**< unmutated read sequence */
-      std::string read;
-      /**< base sequence. */
-      std::vector<Base> read_num;
-      /**< Numeric read representation */
-      int32_t end_pos;
-      /**< position of last base in seq. */
-      int32_t indiv;
-      /**< Individual the read was taken from. */
-      int32_t sub_err;
-      /**< Number of substitiution errors introduced. */
-      int32_t var_nodes;
-      /**< Number of variant nodes the read traverses. */
-      int32_t var_bases;
-      /**< Number of bases that are in variant nodes. */
-      int32_t indel_err;
-      /**< Number of insertions and deletions introduced. */
-      Graph::GID src; /**< Read origin graph, as defined in GDEF file. */
-
-  };
-
-  /**
-   * @brief
-   * Output two lines in FASTA format.
-   * @details
-   * Output two lines given the form: \n
-   * > Meta information \n
-   * read_sequence \n
-   * @param r Read to print
-   * @return two-line string
-   */
-  inline std::string to_fasta(const Read &r) {
-      std::ostringstream ss;
-      ss << ">"
-          << READ_META_END << ":" << r.end_pos << READ_FASTA_META_DELIM
-          << READ_META_MUT << ":" << r.sub_err << READ_FASTA_META_DELIM
-          << READ_META_INDEL << ":" << r.indel_err << READ_FASTA_META_DELIM
-          << READ_META_VARNODE << ":" << r.var_nodes << READ_FASTA_META_DELIM
-          << READ_META_VARBASE << ":" << r.var_bases << READ_FASTA_META_DELIM
-          << READ_META_SRC << ":" << r.src
-          << std::endl
-          << r.read;
-      return ss.str();
-  }
-
-  /**
-   * @brief
-   * Convert the read to a single line CSV.
-   * @details
-   * Output form: \n
-   * src,read_seq,end_pos,sub_err,indel_err,var_nodes,var_bases \n
-   * @param r Read to print
-   * @return single line string
-   */
-  inline std::string to_csv(const Read &r) {
-      std::ostringstream ss;
-      ss << r.src << ','
-          << r.read << ','
-          << r.end_pos << ','
-          << r.sub_err << ','
-          << r.indel_err << ','
-          << r.var_nodes << ','
-          << r.var_bases;
-      return ss.str();
-  }
-
-  /**
-   * Output the FASTA form of the read.
-   * @param os output stream
-   * @param r Read to output
-   * @return output stream
-   */
-  inline std::ostream &operator<<(std::ostream &os, const Read &r) {
-      os << to_fasta(r);
-      return os;
-  }
-
 /**
  * @brief
  * Class defining functions for read sources.
@@ -175,30 +78,7 @@ namespace Vargas {
        */
       virtual bool update_read() = 0;
 
-      /**
-       * @brief
-       * Get size reads. If more reads are not available, a undersized
-       * batch is returned.
-       * @param size nominal number of reads to get.
-       */
-      const std::vector<Read> &get_batch(int size) {
-          if (size <= 0) size = 1;
-          _batch.clear();
-          for (int i = 0; i < size; ++i) {
-              if (!update_read()) break;
-              _batch.push_back(read);
-          }
-          return _batch;
-      }
 
-      /**
-       * @brief
-       * Get the stored batch of reads.
-       * @return vector of Reads
-       */
-      const std::vector<Read> &batch() const {
-          return _batch;
-      }
 
       virtual inline std::ostream &operator<<(std::ostream &os) {
           os << update_and_get();
