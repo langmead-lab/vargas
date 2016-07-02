@@ -20,20 +20,47 @@ namespace Vargas {
 
   /**
    * @brief
-   * Provides structures representing SAM data.
+   * Provides a structured representation of SAM data.
    * @details
-   * SAM files can be either read with isam, or written with osam. Both use
-   * the same core structures to store data. Each SAM file consists of:\n
-   * 1 Header \n
-   * \t Any number of ReadGroup \n
-   * \t Any number of Sequence \n
-   * \t Any number of Program \n
-   * Any number of Record\n
+   * SAM files can be either read with SAM::isam, or written with SAM::osam. Both use
+   * the same core structures to store data. \n
+   * Each SAM file consists of:
+   * - 1 Header with:
+   *    - Any number of ReadGroups
+   *    - Any number of Sequences
+   *    - Any number of Programs
+   * - Any number of Records
+   *
    * Tags defined in the spec can be directly accessed. Other tags are stored in an
    * aux Optional struct. \n
-   * No conflict management is done.
+   * Usage: \n
+   * @code{.cpp}
+   *    // Keep records only if they belong to a certain read group.
+   *    #include "sam.h"
+   *
+   *    std::string keep_rg = "ID_to_keep";
+   *
+   *    SAM::isam input("alignments.sam");
+   *    SAM::Header header = input.header();
+   *    auto &rg = header.read_groups;
+   *
+   *    rg.erase(std::remove_if(rg.begin(), rg.end(),
+   *                            [](SAM::Header::ReadGroup _r){_r.id != keep_rg;}),
+   *             rg.end());
+   *
+   *    SAM::osam output("alignments_mod.sam", header);
+   *
+   *    std::string rec_rg;
+   *    do {
+   *        auto &rec = input.record();
+   *        if (rec.aux.get("RG", rec_rg) && rec_rg == keep_rg)
+   *            output << red;
+   *    } while(input.next());
+   * @endcode
+   *
    */
-  struct SAM {
+  class SAM {
+    public:
 
       /**
        * @brief
@@ -73,7 +100,7 @@ namespace Vargas {
            * @param tag key
            * @param val value
            */
-          void add(std::string tag, char val) {
+          void set(std::string tag, char val) {
               aux[tag] = std::string(1, val);
               aux_fmt[tag] = 'A';
           }
@@ -84,7 +111,7 @@ namespace Vargas {
            * @param tag key
            * @param val value
            */
-          void add(std::string tag, int val) {
+          void set(std::string tag, int val) {
               aux[tag] = std::to_string(val);
               aux_fmt[tag] = 'i';
           }
@@ -95,7 +122,7 @@ namespace Vargas {
            * @param tag key
            * @param val value
            */
-          void add(std::string tag, float val) {
+          void set(std::string tag, float val) {
               aux[tag] = std::to_string(val);
               aux_fmt[tag] = 'f';
           }
@@ -106,7 +133,7 @@ namespace Vargas {
            * @param tag key
            * @param val value
            */
-          void add(std::string tag, std::string val) {
+          void set(std::string tag, std::string val) {
               aux[tag] = val;
               aux_fmt[tag] = 'Z';
           }
@@ -627,7 +654,6 @@ namespace Vargas {
           std::string sorting_order = "", /**< Type of alignment sorting, default unknown */
               grouping = "";
           /**< Grouping of alignments. Default None */
-
           std::vector<Sequence> sequences;
           /**< All sequence lines */
           std::vector<ReadGroup> read_groups;
@@ -843,21 +869,29 @@ namespace Vargas {
           void operator=(std::string line) { parse(line); }
 
       };
+
+    protected:
+      bool _use_stdio;
+      SAM::Header _hdr;
   };
 
   /**
-   * @brief
-   * Provides an interface to read a SAM file.
-   * @details
-   * Minimal error checking is done, no error will be raised if there is a mismatch (e.g. a ref name
-   * that is not defined in the header). \n
-   * See Vargas::SAM for more usage information.
-   */
-  class isam {
+ * @brief
+ * Provides an interface to read a SAM file.
+ * @details
+ * Minimal error checking is done, no error will be raised if there is a mismatch (e.g. a ref name
+ * that is not defined in the header). \n
+ * See Vargas::SAM for more usage information.
+ */
+  class isam: public SAM {
     public:
+
+      /**
+       * Read
+       */
       isam() { }
-      isam(std::string file_name) : _file_name(file_name) { _init(); }
-      ~isam() { _deinit(); }
+      isam(std::string file_name) { open(file_name); }
+      ~isam() { close(); }
 
       /**
        * @brief
@@ -865,22 +899,36 @@ namespace Vargas {
        * @param file_name SAM file to open
        */
       void open(std::string file_name) {
-          _deinit();
-          _file_name = file_name;
-          _init();
+          close();
+          if (file_name.length() == 0) _use_stdio = true;
+          else {
+              _use_stdio = false;
+              in.open(file_name);
+              if (!in.good()) throw std::invalid_argument("Error opening file \"" + file_name + "\"");
+          }
+          std::ostringstream hdr;
+          while (std::getline((_use_stdio ? std::cin : in), _curr_line) && _curr_line.at(0) == '@') {
+              hdr << _curr_line << '\n';
+          }
+          _hdr << hdr.str();
+          _pprec << _curr_line;
       }
 
       /**
        * @brief
        * Clear data and close any open handles.
        */
-      void close() { _deinit(); }
+      void close() {
+          in.close();
+          _hdr = SAM::Header();
+          _pprec = SAM::Record();
+      }
 
       /**
        * @return true if file is open.
        */
       bool good() const {
-          return in.good();
+          return in.good() || _use_stdio;
       }
 
       /**
@@ -892,7 +940,7 @@ namespace Vargas {
        * @return true is a new record was obtained.
        */
       bool next() {
-          if (!std::getline(in, _curr_line)) return false;
+          if (!std::getline((_use_stdio ? std::cin : in), _curr_line)) return false;
           _pprec.parse(_curr_line);
           return true;
       }
@@ -908,52 +956,34 @@ namespace Vargas {
        * Get the SAM Header.
        * @return SAM::Header
        */
-      const SAM::Header &header() const { return _pphdr; }
-
-    protected:
-      /**
-       * @brief
-       * open the SAM file, load the header, and the first record.
-       */
-      void _init() {
-          in.open(_file_name);
-          if (!in.good()) throw std::invalid_argument("Error opening file \"" + _file_name + "\"");
-          std::ostringstream hdr;
-          while (std::getline(in, _curr_line) && _curr_line.at(0) == '@') {
-              hdr << _curr_line << '\n';
-          }
-          _pphdr << hdr.str();
-          _pprec << _curr_line;
-      }
-
-      /**
-       * @brief
-       * Clear data and close any open handles.
-       */
-      void _deinit() {
-          in.close();
-          _pphdr = SAM::Header();
-          _pprec = SAM::Record();
-          _file_name = "";
-      }
+      const SAM::Header &header() const { return _hdr; }
 
     private:
-      std::string _file_name = "", _curr_line;
+      std::string _curr_line;
       std::ifstream in;
 
-      SAM::Header _pphdr;
       SAM::Record _pprec;
   };
 
   /**
-   * @brief
-   * Provides an interface to write a SAM file.
-   * @details
-   * Outputs are not checked to see if they conform with the standard format. \n
-   * See Vargas::SAM for more information about usage.
-   */
-  class osam {
+ * @brief
+ * Provides an interface to write a SAM file.
+ * @details
+ * Outputs are not checked to see if they conform with the standard format. \n
+ * See Vargas::SAM for more information about usage.
+ */
+  class osam: public SAM {
     public:
+
+      /**
+       * @brief
+       * Use stdout
+       */
+      osam(const SAM::Header &hdr) {
+          _hdr = hdr;
+          open("");
+      }
+
       /**
        * @brief
        * Create a SAM file with the given header and file name.
@@ -964,9 +994,11 @@ namespace Vargas {
        * @param file_name file to write
        * @param hdr SAM::Header of the file
        */
-      osam(std::string file_name, const SAM::Header &hdr) : _hdr(hdr) {
+      osam(std::string file_name, const SAM::Header &hdr) {
+          _hdr = hdr;
           open(file_name);
       }
+
       ~osam() {
           close();
       }
@@ -981,12 +1013,13 @@ namespace Vargas {
        */
       void open(std::string file_name) {
           close();
-          if (file_name.length() == 0) _use_stdout = true;
+          if (file_name.length() == 0) _use_stdio = true;
           else {
+              _use_stdio = false;
               out.open(file_name);
               if (!out.good()) throw std::invalid_argument("Error opening output file \"" + file_name + "\"");
           }
-          (_use_stdout ? std::cout : out) << _hdr.to_string() << std::flush;
+          (_use_stdio ? std::cout : out) << _hdr.to_string() << std::flush;
       }
 
       /**
@@ -1002,17 +1035,29 @@ namespace Vargas {
       /**
        * @return true of output open.
        */
-      bool good() const { return out.good(); }
+      bool good() const { return out.good() || _use_stdio; }
 
+      /**
+       * @brief
+       * Writes a record.
+       * @param r
+       */
       void add_record(const SAM::Record &r) {
           if (!good()) throw std::invalid_argument("No valid file open.");
-          (_use_stdout ? std::cout : out) << r.to_string() << '\n';
+          (_use_stdio ? std::cout : out) << r.to_string() << '\n';
+      }
+
+      /**
+       * @param rec write record to output
+       * @return SAM::osam
+       */
+      osam &operator<<(const SAM::Record &rec) {
+          add_record(rec);
+          return *this;
       }
 
     private:
       std::ofstream out;
-      const SAM::Header _hdr;
-      bool _use_stdout = false;
   };
 
 }

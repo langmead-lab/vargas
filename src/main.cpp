@@ -421,8 +421,8 @@ int sim_main(const int argc, const char *argv[]) {
     Vargas::SAM::Header::ReadGroup rg;
     rg.seq_center = "vargas_sim";
     rg.date = curr_date;
-    rg.aux.add(SIM_SAM_REF_TAG, gdf.fasta());
-    rg.aux.add(SIM_SAM_VCF_TAG, gdf.var());
+    rg.aux.set(SIM_SAM_REF_TAG, gdf.fasta());
+    rg.aux.set(SIM_SAM_VCF_TAG, gdf.var());
     for (auto &vbase : vbase_split) {
         for (auto &vnode : vnode_split) {
             for (auto &ind : indel_split) {
@@ -437,16 +437,17 @@ int sim_main(const int argc, const char *argv[]) {
 
                     pending_sims.push_back(std::pair<int, Vargas::Sim::Profile>(++rg_id, prof));
 
-                    rg.aux.add(SIM_SAM_INDEL_ERR_TAG, prof.indel);
-                    rg.aux.add(SIM_SAM_VAR_NODES_TAG, prof.var_nodes);
-                    rg.aux.add(SIM_SAM_SUB_ERR_TAG, prof.mut);
-                    rg.aux.add(SIM_SAM_USE_RATE_TAG, (int) prof.rand);
+                    rg.aux.set(SIM_SAM_INDEL_ERR_TAG, prof.indel);
+                    rg.aux.set(SIM_SAM_VAR_NODES_TAG, prof.var_nodes);
+                    rg.aux.set(SIM_SAM_VAR_BASE_TAG, prof.var_bases);
+                    rg.aux.set(SIM_SAM_SUB_ERR_TAG, prof.mut);
+                    rg.aux.set(SIM_SAM_USE_RATE_TAG, (int) prof.rand);
 
 
                     // Each profile and subgraph combination is a unique set of reads
                     for (auto p : pops) {
-                        rg.aux.add(SIM_SAM_GID_TAG, p.first.to_string());
-                        rg.aux.add(SIM_SAM_POPULATION, p.second.to_string());
+                        rg.aux.set(SIM_SAM_GID_TAG, p.first.to_string());
+                        rg.aux.set(SIM_SAM_POPULATION, p.second.to_string());
                         rg.id = std::to_string(rg_id) + "_" + p.first.to_string();
                         sam_hdr.add(rg);
                     }
@@ -461,7 +462,7 @@ int sim_main(const int argc, const char *argv[]) {
 
     std::cerr << "Loading graph..." << std::endl;
     Vargas::Graph base_graph = gb.build();
-    
+
     // For each subgraph type
     for (auto &pop : pops) {
         std::cerr << "\nSubgraph: " << pop.first;
@@ -482,11 +483,15 @@ int sim_main(const int argc, const char *argv[]) {
 
             for (auto r : sim.batch()) {
                 rec.seq = r.read;
-                rec.aux.add(SIM_SAM_END_POS_TAG, r.end_pos);
-                rec.aux.add(SIM_SAM_INDIV_TAG, r.indiv);
-                rec.aux.add(SIM_SAM_READ_ORIG_TAG, r.read_orig);
-                rec.aux.add(SIM_SAM_VAR_BASE_TAG, r.var_bases);
-                rec.aux.add("RG", std::to_string(pending_sims[p].first) + "_" + pop.first.to_string());
+                rec.aux.set(SIM_SAM_INDEL_ERR_TAG, r.indel_err);
+                rec.aux.set(SIM_SAM_VAR_NODES_TAG, r.var_nodes);
+                rec.aux.set(SIM_SAM_VAR_BASE_TAG, r.var_bases);
+                rec.aux.set(SIM_SAM_SUB_ERR_TAG, r.sub_err);
+                rec.aux.set(SIM_SAM_END_POS_TAG, r.end_pos);
+                rec.aux.set(SIM_SAM_INDIV_TAG, r.indiv);
+                rec.aux.set(SIM_SAM_READ_ORIG_TAG, r.read_orig);
+                rec.aux.set(SIM_SAM_VAR_BASE_TAG, r.var_bases);
+                rec.aux.set("RG", std::to_string(pending_sims[p].first) + "_" + pop.first.to_string());
                 out.add_record(rec);
             }
 

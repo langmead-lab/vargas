@@ -14,30 +14,122 @@
 
 #include <string>
 #include <fstream>
+#include <iostream>
 #include "utils.h"
 #include "doctest.h"
 #include "htslib/faidx.h"
 
 
 namespace Vargas {
-/**
- * @brief
-* Provides an interface for a FASTA File. An index is built if one does not
-* already exist.
-*/
-  class FASTAFile {
 
+  /**
+   * @brief
+   * FASTA file writer.
+   * @details
+   * Usage: \n
+   * @code{.cpp}
+   * #include "fasta.h"
+   *
+   * {
+   *     Vargas::ofasta out("output.fa");
+   *     out.char_per_line(5);
+   *
+   *     out.write("seq1", "ACGTCACCT");
+   *     out.write("seq2", "ACGT");
+   *
+   *     // output.fa:
+   *     // >seq1
+   *     // ACGTC
+   *     // ACCT
+   *     // >seq2
+   *     // ACGT
+   * }
+   *
+   * {
+   *    Vargas ofasta out();
+   *    out.char_per_line(3);
+   *    out.write("seq1", "ACGTCTCTC");
+   *
+   *    // stdout:
+   *    // >seq1\nACG\nTCT\nCTC\n
+   * }
+   * @endcode
+   */
+  class ofasta {
     public:
 
       /**
-       * @enum MODE
-       * Set the FASTAFile handle type. The file can be opened in either
-       * read or write mode.
+       * @brief
+       * Output to stdout
        */
-      enum class MODE {
-          READ, /**< Open FASTAFile in read mode. */
-              WRITE /**< Open FASTAFile in write mode. */
-      };
+      ofasta() : _use_stdio(true) { }
+      ofasta(std::string file_name) { open(file_name); }
+
+      void open(std::string file_name) {
+          close();
+          if (file_name.length() == 0) {
+              _use_stdio = true;
+          }
+          else {
+              _use_stdio = false;
+              _o.open(file_name);
+              if (!_o.good()) throw std::invalid_argument("Error opening file \"" + file_name + "\"");
+          }
+      }
+
+      void close() { _o.close(); }
+
+      /**
+       * @brief
+       * Write a sequence
+       * @param name sequence name and any meta information.
+       * @param sequence sequence string
+       */
+      void write(const std::string &name, const std::string &sequence) {
+          (_use_stdio ? std::cout : _o) << '>' << name << '\n';
+          size_t pos = 0;
+          while (pos < sequence.length()) {
+              (_use_stdio ? std::cout : _o) << sequence.substr(pos, _char_per_line) << '\n';
+              pos += _char_per_line;
+          }
+      }
+
+      /**
+       * @brief
+       * Set the number of characters per line.
+       * @param len maximum sequence line length
+       */
+      void char_per_line(int len) { if (len > 0) _char_per_line = len; }
+
+
+    private:
+      int _char_per_line = 70;
+      std::ofstream _o;
+      bool _use_stdio;
+  };
+
+  /**
+   * @brief
+   * Provides an interface for a FASTA File. An index is built if one does not
+   * already exist.
+   * @details
+   * Usage:\n
+   * @code{.cpp}
+   * #include "fasta.h"
+   *
+   * Vargas::ifasta in("hs37d5.fa"); // input.fa.fai is also loaded, made if it doesn't exist
+   * std::vector<std>>string> names = in.sequence_names(); // "1", "2", "3" ... "22", "X", "Y", ...
+   * in.num_seq(); // 86 sequences
+   *
+   * std::string chr22 = in.seq("22"); // All of chromosome 22
+   * std::string chr22_0_1000 = in.subseq("22", 0, 1000); // subsequence of a record
+   * @endcode
+   */
+  class ifasta {
+
+    public:
+
+      ifasta() { }
 
       /**
        * @brief
@@ -45,17 +137,10 @@ namespace Vargas {
        * @param file filename
        * @param mode read or write mode, default read
        */
-      FASTAFile(std::string file, MODE mode = MODE::READ) : _file_name(file), _mode(mode) { _init(); }
+      ifasta(std::string file) : _file_name(file) { open(file); }
 
-      /**
-       * @brief
-       * Create a file handle
-       * @mode mode read or Write mode, default read.
-       */
-      FASTAFile(MODE mode = MODE::READ) : _mode(mode) { }
-
-      ~FASTAFile() {
-        close();
+      ~ifasta() {
+          close();
       }
 
       /**
@@ -63,10 +148,8 @@ namespace Vargas {
        * Close any opened file and flush any outputs.
        */
       void close() {
-        if (_index) fai_destroy(_index);
-        _index = nullptr;
-        _file_name = "";
-        if (_mode == MODE::WRITE) flush(_out);
+          if (_index) fai_destroy(_index);
+          _index = nullptr;
       }
 
       /**
@@ -75,11 +158,28 @@ namespace Vargas {
        * @param file filename
        * @return -1 on index build error, -2 on open error, 0 otherwise
        */
-      void open(const std::string &file) {
-        _file_name = file;
-        _init();
-        if (_mode == MODE::WRITE) flush();
+      int open(const std::string &file_name) {
+          // Check if a Fasta index exists. If it doesn't build it.
+          if (!file_exists(file_name + ".fai")) {
+              if (fai_build(file_name.c_str()) != 0) {
+                  return -1;
+              }
+          }
+          _index = fai_load(file_name.c_str());
+          if (!_index) return -2;
+          _file_name = file_name;
+
+          _seq_names.clear();
+          for (size_t i = 0; i < num_seq(); ++i) {
+              _seq_names.push_back(seq_name(i));
+          }
+          return 0;
       }
+
+      /**
+       * @return opened file name.
+       */
+      std::string file() { return _file_name; }
 
       /**
        * @brief
@@ -88,8 +188,7 @@ namespace Vargas {
        * @return number of sequences in the FASTA file
        */
       size_t num_seq() const {
-        if (_mode == MODE::WRITE) return _buffer.size();
-        return faidx_nseq(_index);
+          return faidx_nseq(_index);
       }
 
       /**
@@ -99,7 +198,7 @@ namespace Vargas {
        * @return sequence
        */
       std::string seq(const std::string &name) const {
-        return std::string(subseq(name, 0, faidx_seq_len(_index, name.c_str())));
+          return std::string(subseq(name, 0, faidx_seq_len(_index, name.c_str())));
       }
 
       /**
@@ -112,12 +211,11 @@ namespace Vargas {
        * @return subsequence string
        */
       std::string subseq(const std::string &name, int beg, int end) const {
-        if (_mode == MODE::WRITE) throw ("subseq() not valid in WRITE mode.");
-        int len;
-        char *ss = faidx_fetch_seq(_index, name.c_str(), beg, end, &len);
-        std::string ret(ss);
-        free(ss);
-        return ret;
+          int len;
+          char *ss = faidx_fetch_seq(_index, name.c_str(), beg, end, &len);
+          std::string ret(ss);
+          free(ss);
+          return ret;
       }
 
       /**
@@ -127,8 +225,7 @@ namespace Vargas {
        * @return sequence length
        */
       size_t seq_len(std::string name) {
-        if (_mode == MODE::WRITE) throw ("seq_len() not valid in WRITE mode.");
-        return faidx_seq_len(_index, name.c_str());
+          return faidx_seq_len(_index, name.c_str());
       }
 
       /**
@@ -139,12 +236,8 @@ namespace Vargas {
        * @return sequence name
        */
       std::string seq_name(size_t i) const {
-        if (_mode == MODE::WRITE) {
-          if (i > _buffer.size()) throw std::range_error("Out of buffer index range.");
-          return _buffer[i].second;
-        }
-        if (i > num_seq()) throw std::range_error("Out of sequence index range.");
-        return std::string(faidx_iseq(_index, i));
+          if (i > num_seq()) throw std::range_error("Out of sequence index range.");
+          return std::string(faidx_iseq(_index, i));
       }
 
       /**
@@ -152,19 +245,8 @@ namespace Vargas {
        * Get all sequence names in the file or buffer when in write mode.
        * @return vector of sequence names.
        */
-      std::vector<std::string> sequence_names() const {
-        std::vector<std::string> ret;
-        if (_mode == MODE::WRITE) {
-          for (auto &p : _buffer) {
-            ret.push_back(p.first);
-          }
-          return ret;
-        }
-        // READ mode
-        for (size_t i = 0; i < num_seq(); ++i) {
-          ret.push_back(seq_name(i));
-        }
-        return ret;
+      const std::vector<std::string> &sequence_names() const {
+          return _seq_names;
       }
 
       /**
@@ -174,14 +256,13 @@ namespace Vargas {
        * @return vector of std::pair<seq_name, seq>
        */
       std::vector<std::pair<std::string, std::string>> sequences() const {
-        if (_mode == MODE::WRITE) return _buffer;
-        if (!_index) throw std::invalid_argument("No file loaded.");
-        std::vector<std::pair<std::string, std::string>> ret;
-        for (size_t i = 0; i < num_seq(); ++i) {
-          std::string name = std::string(faidx_iseq(_index, i));
-          ret.push_back(std::pair<std::string, std::string>(name, seq(name)));
-        }
-        return ret;
+          if (!_index) throw std::invalid_argument("No file loaded.");
+          std::vector<std::pair<std::string, std::string>> ret;
+          for (size_t i = 0; i < num_seq(); ++i) {
+              std::string name = std::string(faidx_iseq(_index, i));
+              ret.push_back(std::pair<std::string, std::string>(name, seq(name)));
+          }
+          return ret;
       }
 
       /**
@@ -190,162 +271,229 @@ namespace Vargas {
       bool good() const { return _index; }
 
       /**
-       * @return FASTA file name
+       * @brief
+       * iterator through FASTA records.
        */
-      std::string file() const { return _file_name; }
+      class iter {
+        public:
+
+
+          /**
+           * @brief
+           * Create an iterator starting at sequence i.
+           * @param in ifasta handle
+           * @param i index to start: 0 for begin, seq_len() for end
+           */
+          iter(ifasta &in, int i) : _if(in), _i(i), _end(in.num_seq()) { }
+
+          /**
+           * @return true if at same index
+           */
+          bool operator==(const iter &other) const { return _i == other._i; }
+
+          /**
+           * @return true if not at same index
+           */
+          bool operator!=(const iter &other) const { return !operator==(other); }
+
+          /*
+           * @return true if index is lower than other
+           */
+          bool operator<(const iter &other) const { return _i < other._i; }
+
+          /*
+           * @return true if index is greater than other
+           */
+          bool operator>(const iter &other) const { return _i > other._i; }
+
+          /*
+           * @return true if index is lower than / equal other
+           */
+          bool operator<=(const iter &other) const { return _i <= other._i; }
+
+          /*
+           * @return true if index is greater than / equal other
+           */
+          bool operator>=(const iter &other) const { return _i >= other._i; }
+
+          /**
+           * @return iterator to next sequence
+           */
+          iter &operator++() {
+              if (_i < _end) ++_i;
+              return *this;
+          };
+
+          /**
+           * @return pair<seq_name, seq>
+           */
+          std::pair<std::string, std::string> &operator*() {
+              _curr.first = _if._seq_names[_i];
+              _curr.second = _if.seq(_curr.first);
+              return _curr;
+          };
+
+          /**
+           * @return *pair<seq_name, seq>
+           */
+          std::pair<std::string, std::string> *operator->() {
+              return &operator*();
+          };
+
+
+        private:
+          ifasta &_if;
+          size_t _i;
+          size_t _end;
+
+          std::pair<std::string, std::string> _curr;
+      };
 
       /**
-       * @brief
-       * Add a sequence to the write buffer.
-       * @param name sequence name and any meta information.
-       * @param sequence sequence string
+       * @return iterator to first sequence in FASTA file
        */
-      void add(const std::string &name, const std::string &sequence) {
-        _buffer.push_back(std::pair<std::string, std::string>(name, sequence));
-        if (_out.good() && _buffer.size() >= MAX_BUFFER_SIZE) flush(_out);
-      }
+      iter begin() { return iter(*this, 0); }
 
       /**
-       * @brief
-       * Flush the buffer to the output file.
+       * @return iterator to end of FASTA file
        */
-      void flush() {
-        if (!_out.good()) throw std::invalid_argument("Invalid output file");
-        flush(_out);
-      }
+      iter end() { return iter(*this, num_seq()); }
 
       /**
-       * @brief
-       * Max number of characters per FASTA line
-       * @param num Max number of chars.
+       * @param seq_name sequence name to start at
+       * @return iter to seq_name
        */
-      void char_per_line(size_t num) {
-        if (num > 0) _char_per_line = num;
-      }
-
-
-    protected:
-
-      /**
-       * @brief
-       * Loads a FASTA index. If the index does not exist, one is created.
-       * @details
-       * With write mode, an index is not created or used. Return true if
-       * output file successfully opened.
-       * @return -1 on .fai build error, -2 on index load error. 0 on success
-       */
-      int _init() {
-        if (_mode == MODE::WRITE) {
-          if (_file_name.length() != 0) _out.open(_file_name);
-          if (!_out.good()) throw std::invalid_argument("Error opening output file.");
-          return 0;
-        }
-        // Check if a Fasta index exists. If it doesn't build it.
-        if (!file_exists(_file_name + ".fai")) {
-          if (fai_build(_file_name.c_str()) != 0) {
-            _file_name = "";
-            return -1;
-          }
-        }
-        _index = fai_load(_file_name.c_str());
-        if (!_index) return -2;
-        return 0;
-      }
-
-      /**
-       * @brief
-       * Flush the buffer to the output stream.
-       * @param o output stream to flush to
-       */
-      void flush(std::ostream &o) {
-        if (!o.good()) return;
-        for (auto &p : _buffer) {
-          o << '>' << p.first << '\n';
-          size_t pos = 0;
-          while (pos < p.second.length()) {
-            o << p.second.substr(pos, _char_per_line) << '\n';
-            pos += _char_per_line;
-          }
-        }
-        o << std::flush;
-        _buffer.clear();
+      iter begin(std::string seq_name) {
+          auto f = std::find(_seq_names.begin(), _seq_names.end(), seq_name);
+          if (f == _seq_names.end()) return end();
+          return iter(*this, f - _seq_names.begin());
       }
 
     private:
+      friend class iter;
+      std::vector<std::string> _seq_names;
       std::string _file_name;
       faidx_t *_index = nullptr;
-      const MODE _mode;
-
-      std::vector<std::pair<std::string, std::string>> _buffer;
-      std::ofstream _out;
-
-      const size_t MAX_BUFFER_SIZE = 1000;
-      size_t _char_per_line = 70;
   };
 }
 
 TEST_CASE ("FASTA Reading") {
-  using std::endl;
-  std::string tmpfa = "tmp_tc.fa";
-  {
-    std::ofstream fao(tmpfa);
-    fao
-        << ">x" << endl
-        << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
-        << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
-        << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
-        << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
-        << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
-        << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
-        << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
-        << ">y" << endl
-        << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
-  }
-    Vargas::FASTAFile fa(tmpfa);
+    using std::endl;
+    std::string tmpfa = "tmp_tc.fa";
 
-      CHECK(fa.num_seq() == 2);
-      REQUIRE(fa.sequence_names().size() == 2);
-      CHECK(fa.seq_name(0) == "x");
-      CHECK(fa.seq_name(1) == "y");
-      CHECK(fa.subseq("x", 0, 3) == "CAAA");
-      CHECK(fa.subseq("y", 0, 2) == "GGA");
-      CHECK(fa.sequence_names()[0] == "x");
-      CHECK(fa.sequence_names()[1] == "y");
+        SUBCASE("Basic read") {
+        {
+            std::ofstream fao(tmpfa);
+            fao
+                << ">x" << endl
+                << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
+                << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
+                << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
+                << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
+                << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
+                << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
+                << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
+                << ">y" << endl
+                << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+        }
+        Vargas::ifasta fa(tmpfa);
 
-  remove(tmpfa.c_str());
-  remove((tmpfa + ".fai").c_str());
+            CHECK(fa.num_seq() == 2);
+            REQUIRE(fa.sequence_names().size() == 2);
+            CHECK(fa.seq_name(0) == "x");
+            CHECK(fa.seq_name(1) == "y");
+            CHECK(fa.subseq("x", 0, 3) == "CAAA");
+            CHECK(fa.subseq("y", 0, 2) == "GGA");
+            CHECK(fa.sequence_names()[0] == "x");
+            CHECK(fa.sequence_names()[1] == "y");
+
+    }
+
+        SUBCASE("iterator") {
+        {
+            std::ofstream o(tmpfa);
+            o << ">a\nAAA\nAA\n>b\nCCC\nCC\n>c c\nTTT\nTT\n";
+        }
+
+            SUBCASE("Normal iterator") {
+            Vargas::ifasta fin(tmpfa);
+            auto i = fin.begin();
+
+                CHECK(i->first == "a");
+                CHECK(i->second == "AAAAA");
+            ++i;
+
+                CHECK(i->first == "b");
+                CHECK(i->second == "CCCCC");
+            ++i;
+
+                CHECK(i->first == "c");
+                CHECK(i->second == "TTTTT");
+            ++i;
+
+                CHECK(i == fin.end());
+            ++i;
+                CHECK(i == fin.end());
+        }
+
+            SUBCASE("Resuming iterator") {
+            Vargas::ifasta fin(tmpfa);
+            {
+                auto i = fin.begin("B");
+                    CHECK(i == fin.end());
+            }
+
+            auto i = fin.begin("b");
+                CHECK(i->first == "b");
+                CHECK(i->second == "CCCCC");
+            ++i;
+
+                CHECK(i->first == "c");
+                CHECK(i->second == "TTTTT");
+            ++i;
+
+                CHECK(i == fin.end());
+            ++i;
+                CHECK(i == fin.end());
+
+        }
+    }
+
+    remove(tmpfa.c_str());
+    remove((tmpfa + ".fai").c_str());
 }
 
 TEST_CASE ("FASTA Writing") {
-      SUBCASE("open constructor") {
-    {
-        Vargas::FASTAFile fa("tmp_tc_wr.fa", Vargas::FASTAFile::MODE::WRITE);
-      fa.char_per_line(5);
-      fa.add("a", "AAAAA");
-      fa.add("b", "TT");
-      fa.add("c", "CCCCCCCCCCCC");
+        SUBCASE("open constructor") {
+        {
+            Vargas::ofasta fa("tmp_tc_wr.fa");
+            fa.char_per_line(5);
+            fa.write("a", "AAAAA");
+            fa.write("b", "TT");
+            fa.write("c", "CCCCCCCCCCCC");
+        }
+        std::ifstream in("tmp_tc_wr.fa");
+        std::string line;
+
+        std::getline(in, line);
+            CHECK(line == ">a");
+        std::getline(in, line);
+            CHECK(line == "AAAAA");
+        std::getline(in, line);
+            CHECK(line == ">b");
+        std::getline(in, line);
+            CHECK(line == "TT");
+        std::getline(in, line);
+            CHECK(line == ">c");
+        std::getline(in, line);
+            CHECK(line == "CCCCC");
+        std::getline(in, line);
+            CHECK(line == "CCCCC");
+        std::getline(in, line);
+            CHECK(line == "CC");
+
+        remove("tmp_tc_wr.fa");
     }
-    std::ifstream in("tmp_tc_wr.fa");
-    std::string line;
-
-    std::getline(in, line);
-        CHECK(line == ">a");
-    std::getline(in, line);
-        CHECK(line == "AAAAA");
-    std::getline(in, line);
-        CHECK(line == ">b");
-    std::getline(in, line);
-        CHECK(line == "TT");
-    std::getline(in, line);
-        CHECK(line == ">c");
-    std::getline(in, line);
-        CHECK(line == "CCCCC");
-    std::getline(in, line);
-        CHECK(line == "CCCCC");
-    std::getline(in, line);
-        CHECK(line == "CC");
-
-    remove("tmp_tc_wr.fa");
-  }
 }
+
 #endif //VARGAS_FASTA_H

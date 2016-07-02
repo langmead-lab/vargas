@@ -12,6 +12,10 @@
 #include "sim.h"
 
 bool Vargas::Sim::update_read() {
+
+    if (_prof.var_nodes == 0 && _prof.var_bases > 0)
+        throw std::invalid_argument("Invalid profile option var_nodes = 0, var_bases > 0.");
+
     auto &nodes = *_graph.node_map();
     auto &next = _graph.next_map();
 
@@ -127,17 +131,9 @@ bool Vargas::Sim::update_read() {
         }
     }
 
-
-    // Have read reflect profile, mainly for when params are -1
-    _read.var_nodes = _prof.var_nodes;
-    _read.indel_err = _prof.indel;
-    _read.sub_err = _prof.mut;
-    _read.var_bases = _prof.var_bases;
-
     _read.indiv = curr_indiv;
     _read.read_orig = read_str;
     _read.read = read_mut;
-    _read.read_num = seq_to_num(read_mut);
     _read.end_pos = nodes[curr_node]->end() - nodes[curr_node]->length() + curr_pos;
 
     return true;

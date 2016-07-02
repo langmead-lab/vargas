@@ -39,7 +39,79 @@ namespace Vargas {
  * The Graph is backed by a map of Graph::Node, and edges
  * are backed by a map of node ID's. If a Graph is built using a previous graph, the underlying
  * nodes of the origin graph are used by the derived graph. shared_ptr's are used to preserve
- * lifetimes.
+ * lifetimes. \n
+ * Usage: \n
+ * @code{.cpp}
+ * #include "graph.h"
+ *
+ * //     GGG
+ * //    /   \
+ * // AAA     TTT
+ * //    \   /
+ * //     CCC(ref)
+ *
+ * // Node ID's are incremented each instantiation
+ * Vargas::Graph::Node::_newID = 0;
+ * Vargas::Graph g;
+
+ * {
+ * 	Vargas::Graph::Node n;
+ * 	n.set_endpos(3);
+ * 	n.set_as_ref();
+ * 	std::vector<bool> a = {1, 1, 1};
+ * 	n.set_population(a);
+ * 	n.set_seq("AAA");
+ * 	g.add_node(n);
+ * }
+
+ * {
+ * 	Vargas::Graph::Node n;
+ * 	n.set_endpos(6);
+ * 	n.set_as_ref();
+ * 	std::vector<bool> a = {1, 1, 1};
+ * 	n.set_population(a);
+ * 	n.set_af(0.4);
+ * 	n.set_seq("CCC");
+ * 	g.add_node(n);
+ * }
+
+ * {
+ * 	Vargas::Graph::Node n;
+ * 	n.set_endpos(6);
+ * 	n.set_not_ref();
+ * 	std::vector<bool> a = {0, 1, 0}; // Individual 1 has this allele
+ * 	n.set_population(a);
+ * 	n.set_af(0.6);
+ * 	n.set_seq("GGG");
+ * 	g.add_node(n);
+ * }
+
+ * {
+ * 	Vargas::Graph::Node n;
+ * 	n.set_endpos(9);
+ * 	n.set_as_ref();
+ * 	std::vector<bool> a = {1, 1, 1};
+ * 	n.set_population(a);
+ * 	n.set_seq("TTT");
+ * 	n.set_af(0.3);
+ * 	g.add_node(n);
+ * }
+
+ * g.add_edge(0, 1);
+ * g.add_edge(0, 2);
+ * g.add_edge(1, 3);
+ * g.add_edge(2, 3);
+ *
+ * // Traverse nodes
+ * for(Vargas::Graph::FilteringIter i = g.begin(); i != g.end(); ++i)
+ *  std::cout << i->id() << " "; // 0 1 2 3 4
+ *
+ * // Derive a graph
+ * std::vector<bool> filter = {1, 0, 0};
+ * Vargas::Graph g2(g, filter); // AAA-CCC-TTT
+ * Vargas::Graph g2(g, Vargas::Graph::REF); // Also AAA-CCC-TTT
+ *
+ * @endcode
  */
   class Graph {
 
@@ -535,23 +607,18 @@ namespace Vargas {
 
           /**
            * @brief
-           * Inserts the ID into the queue if it's unique.
-           * @param id node id to insert
-           */
-          __INLINE__
-          void _insert_queue(uint32_t id) {
-              if (_queue_unique.count(id) == 0) {
-                  _queue_unique.insert(id);
-                  _queue.push(id);
-              }
-          }
-
-          /**
-           * @brief
            * Const reference to the current node.
            * @return Node
            */
           const Graph::Node &operator*() const;
+
+          /**
+           * @brief
+           * @return pointer to underlying node
+           */
+          const Graph::Node *operator->() const {
+              return &operator*();
+          }
 
           /**
            * @brief
@@ -567,6 +634,19 @@ namespace Vargas {
 
 
         private:
+          /**
+           * @brief
+           * Inserts the ID into the queue if it's unique.
+           * @param id node id to insert
+           */
+          __INLINE__
+          void _insert_queue(uint32_t id) {
+              if (_queue_unique.count(id) == 0) {
+                  _queue_unique.insert(id);
+                  _queue.push(id);
+              }
+          }
+
           const Graph &_graph; // Underlying graph
           Population _filter; // Nodes that intersect with _filter are included if _type == FILTER
           Graph::Type _type; // Set to MAXAF or REF for linear subgraph traversals
@@ -658,7 +738,18 @@ namespace Vargas {
    * @details
    * The base graph can
    * include a subset of samples, or a full graph can be built and subsequent graphs derived
-   * from the base graph.
+   * from the base graph. \n
+   * Usage: \n
+   * @code{.cpp}
+   * #include "graph.h"
+   *
+   * Vargas::GraphBuilder gb("reference.fa", "var.bcf");
+   * gb.node_len(5);
+   * gb.ingroup(100);
+   * gb.region("x:0-15");
+   *
+   * Vargas::Graph g = gb.build();
+   * @endcode
    */
   class GraphBuilder {
 
@@ -784,7 +875,7 @@ namespace Vargas {
     private:
       std::string _fa_file, _vf_file;
       VCF _vf;
-      FASTAFile _fa;
+      ifasta _fa;
       Graph g;
 
       // Graph construction parameters
@@ -877,12 +968,13 @@ TEST_CASE ("Graph class") {
     Vargas::Graph::Node::_newID = 0;
     Vargas::Graph g;
 
-    /**   GGG
-    *    /   \
-    * AAA     TTT
-    *    \   /
-    *     CCC(ref)
-    */
+    /**
+     *     GGG
+     *    /   \
+     * AAA     TTT
+     *    \   /
+     *     CCC(ref)
+     */
 
     {
         Vargas::Graph::Node n;

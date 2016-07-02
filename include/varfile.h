@@ -34,7 +34,39 @@ namespace Vargas {
 /**
  * @brief
  * Provides an interface to a VCF/BCF file. Core processing
- * provided by htslib.
+ * provided by htslib. \n
+ * Usage: \n
+ * @code{.cpp}
+ * #include "varfile.h"
+ *
+ * Vargas::VCF vcf("variants.bcf");
+ * std::vector<std::string> seqs = vcf.sequences(); // Names of CHROM's present
+ *
+ * vcf.set_region("22:0-10,000,000");
+ * vcf.create_ingroup(50); // Randomly select 50% of individuals to include
+ *
+ * vcf.samples().size(); // 4 individuals
+ *
+ * // Allele with the maximum allele frequency for each VCF record
+ * while(vcf.next()) {
+ *  float max_af = 0;
+ *  std::string max_allele;
+ *  std::vector<float> &freqs = vcf.frequencies();
+ *  for (size_t i = 0; i < freqs.size(); ++i) {
+ *    if (f > max_af) {
+ *     max_af = f;
+ *     max_allele = vcf.alleles[i];
+ *     }
+ *   }
+ *   std::cout << "Variant position:" << vcf.pos() << ", Ref:" << vcf.ref()
+ *             << ", Max AF allele:" << max_allele << ", Freq:" << max_af
+ *             << ", Population:" << vcf.allele_pop(max_allele).to_string();
+ *
+ *   // 4 samples/individuals = 8 genotypes
+ *   // Variant position: 100 Ref: A, Max AF allele: G, Freq: 0.6, Population: 01100101
+ * }
+ *
+ * @endcode
  */
   class VCF {
  public:

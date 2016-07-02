@@ -71,7 +71,33 @@ namespace Vargas {
    * Note: "score" means something that is added, "penalty" refers to something
    * that is subtracted. All scores/penalties are provided as positive integers.
    * Most memory is allocated for the class so it can be reused during alignment. To reduce memory usage,
-   * the maximum node size can be reduced.
+   * the maximum node size can be reduced. \n
+   * Usage:\n
+   * @code{.cpp}
+   * #include "graph.h"
+   * #include "alignment.h"
+   *
+   * Vargas::GraphBuilder gb("reference.fa", "var.bcf");
+   * gb.node_len(5);
+   * gb.ingroup(100);
+   * gb.region("x:0-15");
+   *
+   * Vargas::Graph g = gb.build();
+   * std::vector<std::string> reads = {"ACGT", "GGGG", "ATTA", "CCNT"};
+   *
+   * Vargas::Aligner<> a(g.max_node_len(), 4);
+   * Vargas::Aligner<>::Results res = a.align(reads, g.begin(), g.end());
+   *
+   * for (int i = 0; i < reads.size(); ++i) {
+   *    std::cout << reads[i] << ", score:" << res.max_score[i] << " pos:" << res.max_pos[i] << std::endl;
+   * }
+   * // Output:
+   * // ACGT, score:8 pos:10
+   * // GGGG, score:6 pos:65
+   * // ATTA, score:8 pos:18
+   * // CCNT, score:8 pos:80
+   * @endcode
+   *
    * @tparam num_reads max number of reads. If a non-default T is used, this should be set to
    *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
    *    SIMDPP_FAST_INT8_SIZE
@@ -98,10 +124,6 @@ namespace Vargas {
       Aligner(size_t max_node_len, int rlen)
           :
           read_len(rlen),
-          max_pos(std::vector<uint32_t>(num_reads)),
-          max_count(std::vector<uint32_t>(num_reads)),
-          sub_pos(std::vector<uint32_t>(num_reads)),
-          sub_count(std::vector<uint32_t>(num_reads)),
           _max_node_len(max_node_len) { _alloc(); }
 
       /**
@@ -122,10 +144,6 @@ namespace Vargas {
               uint8_t extend) :
           read_len(rlen),
           _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend),
-          max_pos(std::vector<uint32_t>(num_reads)),
-          max_count(std::vector<uint32_t>(num_reads)),
-          sub_pos(std::vector<uint32_t>(num_reads)),
-          sub_count(std::vector<uint32_t>(num_reads)),
           _max_node_len(max_node_len) { _alloc(); }
 
       ~Aligner() {
@@ -173,7 +191,7 @@ namespace Vargas {
           __INLINE__ void load_reads(const std::vector<std::string> &batch) {
               std::vector<std::vector<Base>> _reads;
               for (auto &b : batch) _reads.push_back(seq_to_num(b));
-              _package_reads(_reads);
+              load_reads(_reads);
           }
 
           /**
@@ -251,6 +269,7 @@ namespace Vargas {
               // Interleave reads
               // For each read (read[i] is in _packaged_reads[0..n][i]
               for (size_t r = 0; r < _reads.size(); ++r) {
+                  assert(_reads[r].size() == read_len);
                   // Put each base in the appropriate vector element
                   for (size_t p = 0; p < read_len; ++p) {
                       pckg[p][r] = _reads[r][p];
@@ -267,13 +286,10 @@ namespace Vargas {
               // Load into vectors
               for (int i = 0; i < read_len; ++i) {
                   _packaged_reads[i] = simdpp::load(pckg[i]);
-              }
-
-              // Free memory
-              for (int i = 0; i < read_len; ++i) {
                   free(pckg[i]);
               }
               free(pckg);
+
               PROF_END("Package Reads")
           }
 
@@ -284,16 +300,19 @@ namespace Vargas {
        * Struct to return the alignment results
        */
       struct Results {
-          Results() { }
           std::vector<uint32_t> best_pos;
           /**< Best positions */
           std::vector<uint32_t> sub_pos;
           /**< Second best positions */
+          std::vector<uint8_t> best_count;
+          /**< Occurances of best_pos */
+          std::vector<uint8_t> sub_count;
+          /**< Occurances of sub_pos */
+          std::vector<uint8_t> cor_flag;    /**< 1 if best alignment matched target, 2 for second best, else 0 */
+
           std::vector<NativeT> best_score;
           /**< Best scores */
-          std::vector<NativeT> sub_score;
-          /**< Second best scores */
-          std::vector<uint8_t> cor_flag;    /**< 1 if best alignment matched target, 2 for second best, else 0 */
+          std::vector<NativeT> sub_score;   /**< Second best scores */
 
           /**
            * @brief
@@ -302,6 +321,8 @@ namespace Vargas {
           void resize(size_t size) {
               best_pos.resize(size);
               sub_pos.resize(size);
+              best_count.resize(size);
+              sub_count.resize(size);
               best_score.resize(size);
               sub_score.resize(size);
               cor_flag.resize(size);
@@ -359,9 +380,10 @@ namespace Vargas {
           using namespace simdpp;
 
           const size_t read_group_size = read_group.size();
-          aligns.resize(read_group_size);
-
           const int full_groups = read_group_size / num_reads;
+
+          aligns.resize((full_groups + 1) * num_reads); // Need space for padded reads too
+
 
           std::unordered_map<uint32_t, _seed> seed_map;
 
@@ -374,28 +396,31 @@ namespace Vargas {
               // Reset old info
               max_score = ZERO_CT;
               sub_score = ZERO_CT;
-              std::fill(max_pos.begin(), max_pos.end(), 0);
+              // fill into result vectors
+              max_pos = aligns.best_pos.data() + (i * num_reads);
+              sub_pos = aligns.sub_pos.data() + (i * num_reads);
+              max_count = aligns.best_count.data() + (i * num_reads);
+              sub_count = aligns.sub_count.data() + (i * num_reads);
+              cor_flag = aligns.cor_flag.data() + (i * num_reads);
+
               _seed seed(read_len);
 
               seed_map.clear();
               for (auto gi = begin; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, &seed);
-                  if ((*gi).is_pinched()) seed_map.clear();
-                  seed_map.emplace((*gi).id(), _fill_node(*gi, _ag, &seed));
+                  if (gi->is_pinched()) seed_map.clear();
+                  seed_map.emplace(gi->id(), _fill_node(*gi, _ag, &seed));
               }
 
               memcpy(aligns.best_score.data() + (i * num_reads), &max_score, len * sizeof(NativeT));
               memcpy(aligns.sub_score.data() + (i * num_reads), &sub_score, len * sizeof(NativeT));
-              memcpy(aligns.best_pos.data() + (i * num_reads), max_pos.data(), len * sizeof(uint32_t));
-              memcpy(aligns.sub_pos.data() + (i * num_reads), sub_pos.data(), len * sizeof(uint32_t));
           }
 
+          aligns.resize(read_group_size); // crop off extra space
           PROF_TERMINATE
       }
 
-    protected:
-      AlignmentGroup _ag;
-
+    private:
       /**
        * @brief
        * Ending vectors from a previous node
@@ -509,6 +534,8 @@ namespace Vargas {
       _seed _fill_node(const Graph::Node &n,
                        const AlignmentGroup &read_group,
                        const _seed *s) {
+
+          assert(n.seq().size() < _max_node_len);
 
           _seed nxt(read_len);  // Seed for next node
           auto node_seq = n.seq().data();
@@ -799,7 +826,7 @@ namespace Vargas {
               for (uchar i = 0; i < num_reads; ++i) {
                   // Check if the i'th elements MSB is set
                   if (extract(i, tmp)) {
-                      ++max_count[i];
+                      max_count[i] += 1;
                       max_pos[i] = curr;
               }
           }
@@ -831,7 +858,7 @@ namespace Vargas {
               for (uchar i = 0; i < num_reads; ++i) {
                   // Check if the i'th elements MSB is set
                   if (extract(i, tmp)) {
-                      ++sub_count[i];
+                      sub_count[i] += 1;
                       sub_pos[i] = curr;
               }
           }
@@ -863,8 +890,7 @@ namespace Vargas {
           ((NativeT *) &vec)[i] = ins;
       }
 
-    private:
-
+      AlignmentGroup _ag;
       int read_len; /**< Maximum read length. */
 
       // Zero vector
@@ -909,13 +935,15 @@ namespace Vargas {
 
       // Optimal alignment info
       CellType<num_reads> max_score;
-      std::vector<uint32_t> max_pos;
-      std::vector<uint32_t> max_count;
+      uint32_t *max_pos;
+      uint8_t *max_count;
 
       // Suboptimal alignment info
       CellType<num_reads> sub_score;
-      std::vector<uint32_t> sub_pos;
-      std::vector<uint32_t> sub_count;
+      uint32_t *sub_pos;
+      uint8_t *sub_count;
+
+      uint8_t *cor_flag;
 
       size_t _max_node_len;
 

@@ -1,3 +1,12 @@
+.table {
+  margin:0;
+}
+
+.table > tbody > tr > td {
+  border: none;
+  padding: 0px;
+}
+
 h1, .h1, h2, .h2, h3, .h3{
     font-weight: 200 !important;
 }
@@ -170,7 +179,7 @@ div.line {
 
 div.line.glow {
     background-color: cyan;
-    box-shadow: 0 0 10px cyan;
+    box-shadow: 0 0 0px cyan;
 }
 
 
@@ -350,4 +359,17 @@ span.SRScope {
 }
 .page-header .label {
   font-size: 10%;
+}
+
+.params .mlabels .mlabels-left .mlabels-right {
+  padding: 0px;
+}
+
+.panel-heading {
+  padding: 5px;
+  padding-left: 0px;
+}
+
+.panel-body {
+  padding: 0px;
 }

@@ -155,8 +155,8 @@ void Vargas::GraphBuilder::build(Vargas::Graph &g) {
   g = Vargas::Graph();
   _fa.open(_fa_file);
   _vf.open(_vf_file);
-  if (!_fa.good()) throw std::invalid_argument("Invalid FASTA file: " + _fa.file());
-  if (!_vf.good()) throw std::invalid_argument("Invalid B/VCF file: " + _vf.file());
+  if (!_fa.good()) throw std::invalid_argument("Invalid FASTA file: " + _fa_file);
+  if (!_vf.good()) throw std::invalid_argument("Invalid B/VCF file: " + _vf_file);
 
   _vf.create_ingroup(_ingroup);
 

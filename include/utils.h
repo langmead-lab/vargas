@@ -21,7 +21,7 @@
 #endif
 
 #ifdef __GNUC__
-#define __INLINE__ __attribute__((always_inline)) inline
+#define __INLINE__  inline
 #else
 #define __INLINE__ inline
 #endif
