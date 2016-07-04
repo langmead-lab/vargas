@@ -443,6 +443,7 @@ namespace Vargas {
           std::unordered_set<size_t> filled;
           bool ret = true;
           for (auto &gi = begin; gi != end; ++gi) {
+              filled.insert((*gi).id());
               for (auto i : gi.incoming()) {
                   if (filled.count(i) == 0) {
                       ret = false;
