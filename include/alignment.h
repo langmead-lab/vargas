@@ -121,8 +121,7 @@ namespace Vargas {
        * @param max_node_len maximum node length
        * @param rlen maximum read length
        */
-      Aligner(size_t max_node_len, int rlen)
-          :
+      Aligner(size_t max_node_len, int rlen) :
           read_len(rlen),
           _max_node_len(max_node_len) { _alloc(); }
 

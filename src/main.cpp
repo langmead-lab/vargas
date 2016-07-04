@@ -192,15 +192,8 @@ int profile(const int argc, const char *argv[]) {
 
         Vargas::Aligner<> a(g.max_node_len(), 50);
 
-        std::cerr << SIMDPP_FAST_INT8_SIZE << " read alignment:\n\t";
-        std::cerr << "Filtering iterator:\n\t";
-        auto pop_filt = g.subset(ingroup);
+        std::cerr << SIMDPP_FAST_INT8_SIZE << " read alignment:\n";
 
-        {
-            start = std::clock();
-            Vargas::Aligner<>::Results aligns = a.align(reads, g.begin(pop_filt), g.end());
-            std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-        }
 
         {
             start = std::clock();
