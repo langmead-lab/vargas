@@ -97,20 +97,15 @@ namespace Vargas {
    * // ATTA, score:8 pos:18
    * // CCNT, score:8 pos:80
    * @endcode
-   *
-   * @tparam num_reads max number of reads. If a non-default T is used, this should be set to
-   *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
-   *    SIMDPP_FAST_INT8_SIZE
-   * @tparam CellType element type. Determines max score range. Default simdpp::uint8.
-   * @tparam NativeT Native version of CellType. Default uint8_t.
    */
-  template<unsigned int num_reads = SIMDPP_FAST_INT8_SIZE,
-      template<unsigned int, typename=void> class CellType=simdpp::uint8,
-      typename NativeT=uint8_t>
-  class Aligner {
+
+  class ByteAligner {
+    public:
+      const int num_reads = SIMDPP_FAST_INT8_SIZE;
+      typedef simdpp::uint8 CellType;
+      typedef uint8_t NativeT;
       typedef typename std::vector<CellType<num_reads>> VecType;
 
-    public:
       /**
        * @brief
        * Default constructor uses the following score values: \n
@@ -121,7 +116,7 @@ namespace Vargas {
        * @param max_node_len maximum node length
        * @param rlen maximum read length
        */
-      Aligner(size_t max_node_len, int rlen) :
+      ByteAligner(size_t max_node_len, int rlen) :
           read_len(rlen),
           _max_node_len(max_node_len) { _alloc(); }
 
@@ -135,17 +130,17 @@ namespace Vargas {
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
-      Aligner(size_t max_node_len,
-              int rlen,
-              uint8_t match,
-              uint8_t mismatch,
-              uint8_t open,
-              uint8_t extend) :
+      ByteAligner(size_t max_node_len,
+                  int rlen,
+                  uint8_t match,
+                  uint8_t mismatch,
+                  uint8_t open,
+                  uint8_t extend) :
           read_len(rlen),
           _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend),
           _max_node_len(max_node_len) { _alloc(); }
 
-      ~Aligner() {
+      ~ByteAligner() {
           _dealloc();
       }
 
@@ -378,11 +373,12 @@ namespace Vargas {
                       Results &aligns) {
           using namespace simdpp;
 
+          if (!validate(begin, end)) return;
+
           const size_t read_group_size = read_group.size();
           const int full_groups = read_group_size / num_reads;
 
           aligns.resize((full_groups + 1) * num_reads); // Need space for padded reads too
-
 
           std::unordered_map<uint32_t, _seed> seed_map;
 
@@ -405,7 +401,7 @@ namespace Vargas {
               _seed seed(read_len);
 
               seed_map.clear();
-              for (auto gi = begin; gi != end; ++gi) {
+              for (auto &gi = begin; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, &seed);
                   if (gi->is_pinched()) seed_map.clear();
                   seed_map.emplace(gi->id(), _fill_node(*gi, _ag, &seed));
@@ -419,6 +415,21 @@ namespace Vargas {
           PROF_TERMINATE
       }
 
+      bool validate(Graph::FilteringIter begin,
+                    Graph::FilteringIter end) {
+          std::unordered_map<size_t> filled;
+          bool ret = true;
+          for (auto &gi = begin; gi != end; ++gi) {
+              for (auto i : gi.incoming()) {
+                  if (filled.count(i) == 0) {
+                      ret = false;
+                      std::cerr << "Node (ID:" << gi->id() << ", POS:" << gi->end() << ")"
+                          << " hit before previous node " << i << std::endl;
+                  }
+              }
+          }
+          return ret;
+      }
     private:
       /**
        * @brief
