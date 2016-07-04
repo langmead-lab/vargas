@@ -23,13 +23,13 @@
 namespace Vargas {
 
   // Tags defining meta information in FASTA read names
-  const std::string READ_META_END = "pos";
-  const std::string READ_META_MUT = "sub";
-  const std::string READ_META_INDEL = "ind";
-  const std::string READ_META_VARNODE = "vnd";
-  const std::string READ_META_VARBASE = "vbs";
+  const std::string READ_META_END = "end";
+  const std::string READ_META_MUT = "mut";
+  const std::string READ_META_INDEL = "indel";
+  const std::string READ_META_VARNODE = "vnode";
+  const std::string READ_META_VARBASE = "vbase";
   const std::string READ_META_SRC = "src";
-  const char READ_FASTA_META_DELIM = ';';
+  const char READ_FASTA_META_DELIM = ' ';
 
 /**
  * @brief

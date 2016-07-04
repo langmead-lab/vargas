@@ -224,6 +224,8 @@ namespace Vargas {
                       std::vector<Alignment> &aligns) {
           using namespace simdpp;
 
+          if (!validate(begin, end)) return;
+
           max_score = ZERO_CT;
           sub_score = ZERO_CT;
           max_pos = std::vector<uint32_t>(num_reads);
@@ -436,6 +438,22 @@ namespace Vargas {
           return nxt;
       }
 
+      bool validate(Graph::FilteringIter begin,
+                    Graph::FilteringIter end) {
+          std::unordered_set<size_t> filled;
+          bool ret = true;
+          for (auto &gi = begin; gi != end; ++gi) {
+              for (auto i : gi.incoming()) {
+                  if (filled.count(i) == 0) {
+                      ret = false;
+                      std::cerr << "Node (ID:" << (*gi).id() << ", POS:" << (*gi).end() << ")"
+                          << " hit before previous node " << i << std::endl;
+                  }
+              }
+          }
+          return ret;
+      }
+
       /**
        * @brief
        * Fills the top left cell.
@@ -618,12 +636,13 @@ namespace Vargas {
                   if (extract(i, tmp)) {
                       max_elem = extract(i, max_score);
                       // If old max is larger than old sub_max, and if its far enough away
-                      if (max_elem > extract(i, sub_score) && curr < max_pos[i] - read_len) {
+                      if (curr > max_pos[i] + read_len) {
                           insert(max_elem, i, sub_score);
                           sub_pos[i] = max_pos[i];
                           sub_count[i] = max_count[i];
+                          if (corflag[i] == 1) corflag[i] == 2;
                       }
-                      max_pos[i] = curr;
+                      // Dont set max_pos here cause eq check will catch it
                       max_count[i] = 0;
                       // Invalidate previous best match
                       if (corflag[i] == 1) corflag[i] = 0;
@@ -638,6 +657,7 @@ namespace Vargas {
                   // Check if the i'th elements MSB is set
                   if (extract(i, tmp)) {
                       ++max_count[i];
+                      max_pos[i] = curr;
                       if (reads[i].end_pos == curr) corflag[i] = 1;
                   }
               }
