@@ -641,7 +641,7 @@ namespace Vargas {
                           insert(max_elem, i, sub_score);
                           sub_pos[i] = max_pos[i];
                           sub_count[i] = max_count[i];
-                          if (corflag[i] == 1) corflag[i] == 2;
+                          if (corflag[i] == 1) corflag[i] = 2;
                       }
                       // Dont set max_pos here cause eq check will catch it
                       max_count[i] = 0;
@@ -786,27 +786,27 @@ TEST_CASE ("Alignment") {
         SUBCASE("Node Fill scores") {
         std::vector<Vargas::Read> reads;
         reads.push_back(Vargas::Read("CGT")); // Score 6, Match
-        reads.push_back(Vargas::Read("ATAGCCA")); // Score 10, del
-        reads.push_back(Vargas::Read("ATAACGCCA")); // Score 12, Ins
-        reads.push_back(Vargas::Read("TACCCCA")); // Score 10, mismatch
+        reads.push_back(Vargas::Read("ATA")); // Score 10, del
+        reads.push_back(Vargas::Read("ACG")); // Score 12, Ins
+        reads.push_back(Vargas::Read("CCA")); // Score 10, mismatch
 
         Vargas::Graph::Node n;
         n.set_endpos(13);
         n.set_seq("ACGTNATACGCCA");
 
-        Vargas::ReadBatch<> rb(reads, 16);
-        Vargas::Aligner<> a(15, 16);
+        Vargas::ReadBatch<> rb(reads, 3);
+        Vargas::Aligner<> a(15, 3);
         std::vector<uint32_t> pos;
 
         auto maxscore = a._test_fill_node(n, rb, pos);
             CHECK((int) simdpp::extract<0>(maxscore) == 6);
-            CHECK((int) simdpp::extract<1>(maxscore) == 10);
-            CHECK((int) simdpp::extract<2>(maxscore) == 12);
-            CHECK((int) simdpp::extract<3>(maxscore) == 10);
+            CHECK((int) simdpp::extract<1>(maxscore) == 6);
+            CHECK((int) simdpp::extract<2>(maxscore) == 6);
+            CHECK((int) simdpp::extract<3>(maxscore) == 6);
 
             CHECK(pos[0] == 4);
-            CHECK(pos[1] == 13);
-            CHECK(pos[2] == 13);
+            CHECK(pos[1] == 8);
+            CHECK(pos[2] == 10);
             CHECK(pos[3] == 13);
 
     }
@@ -876,16 +876,12 @@ TEST_CASE ("Alignment") {
         reads.push_back(Vargas::Read("GGTT"));
         reads.push_back(Vargas::Read("AAGG"));
         reads.push_back(Vargas::Read("AACC"));
-        reads.push_back(Vargas::Read("AGGGT"));
-        reads.push_back(Vargas::Read("GG"));
-        reads.push_back(Vargas::Read("AAATTTA"));
-        reads.push_back(Vargas::Read("AAAGCCC"));
 
-        Vargas::ReadBatch<> rb(reads, 8);
-        Vargas::Aligner<> a(5, 8);
+        Vargas::ReadBatch<> rb(reads, 4);
+        Vargas::Aligner<> a(5, 4);
 
         std::vector<Vargas::Alignment> aligns = a.align(rb, g);
-            REQUIRE(aligns.size() == 8);
+            REQUIRE(aligns.size() == 4);
 
             CHECK(aligns[0].read.read == "CCTT");
             CHECK(aligns[0].opt_score == 8);
@@ -902,22 +898,6 @@ TEST_CASE ("Alignment") {
             CHECK(aligns[3].read.read == "AACC");
             CHECK(aligns[3].opt_score == 8);
             CHECK(aligns[3].opt_align_end == 5);
-
-            CHECK(aligns[4].read.read == "AGGGT");
-            CHECK(aligns[4].opt_score == 10);
-            CHECK(aligns[4].opt_align_end == 7);
-
-            CHECK(aligns[5].read.read == "GG");
-            CHECK(aligns[5].opt_score == 4);
-            CHECK(aligns[5].opt_align_end == 5);
-
-            CHECK(aligns[6].read.read == "AAATTTA");
-            CHECK(aligns[6].opt_score == 8);
-            CHECK(aligns[6].opt_align_end == 10);
-
-            CHECK(aligns[7].read.read == "AAAGCCC");
-            CHECK(aligns[7].opt_score == 8);
-            CHECK(aligns[7].opt_align_end == 6);
     }
 }
 
