@@ -132,6 +132,26 @@ namespace Vargas {
            */
           GID(int num, int id, bool pct = false) : num(num), id(id), pct(pct), outgroup(false) { }
 
+          /**
+           * @brief
+           * Build a GID from a string output from to_string
+           * @param std::string string form
+           */
+          GID(std::string s) {
+              try {
+                  std::vector<std::string> s_split = split(s, ',');
+                  outgroup = s[0] == 'o';
+                  num = std::stoi(s_split[1]);
+                  id = std::stoi(s_split[2]);
+                  pct = s_split[3][0] == '1';
+              }
+              catch (std::exception &e) {
+                  std::cerr << "Invalid GID string format: " << s << std::endl;
+                  GID();
+              }
+
+          }
+
           int num;
           /**< Percent or number of individuals included in the graph. */
           int id;

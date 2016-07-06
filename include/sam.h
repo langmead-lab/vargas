@@ -507,7 +507,7 @@ namespace Vargas {
                           id = val;
                       }
                       else if (tag == "PN") {
-                          name = std::stoi(val);
+                          name = val;
                       }
                       else if (tag == "CL") {
                           command_line = val;
@@ -889,7 +889,7 @@ namespace Vargas {
       /**
        * Read
        */
-      isam() { }
+      isam() { open(""); }
       isam(std::string file_name) { open(file_name); }
       ~isam() { close(); }
 
@@ -1097,7 +1097,6 @@ TEST_CASE ("SAM File") {
         do {
             os.add_record(sf.record());
         } while (sf.next());
-        int x;
     }
 
     std::ifstream a("tmp_s.sam");
