@@ -79,3 +79,14 @@ int levenshtein_distance(const std::string &s1, const std::string &s2) {
   delete[] column;
   return result;
 }
+
+std::string current_date() {
+  time_t t = time(0);
+  struct tm *now = localtime(&t);
+
+  std::ostringstream ss;
+  ss << (now->tm_year + 1900) << '-'
+      << (now->tm_mon + 1) << '-'
+      << now->tm_mday;
+  return ss.str();
+}

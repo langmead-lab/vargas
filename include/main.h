@@ -46,6 +46,10 @@ int define_main(const int argc, const char *argv[]);
  */
 int profile(const int argc, const char *argv[]);
 
+int split_main(const int argc, const char *argv[]);
+
+int sam2csv(const int argc, const char *argv[]);
+
 
 /**
  * Aligns the given vector of reads to the given graph,
@@ -64,6 +68,13 @@ void align_to_graph(std::string label,
                     std::ostream &out,
                     unsigned int threads);
 
+void derive_and_sim(std::string rg,
+                    const Vargas::Graph &base,
+                    const Vargas::Graph::Population &pop,
+                    const Vargas::Sim::Profile &prof,
+                    unsigned int num_reads,
+                    std::vector<Vargas::SAM::Record> &results);
+
 
 // Menus
 void main_help();
@@ -71,4 +82,6 @@ void profile_help();
 void align_help();
 void sim_help();
 void define_help();
+void split_help();
+void sam2csv_help();
 #endif //VARGAS_MAIN_H

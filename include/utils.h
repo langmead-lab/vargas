@@ -175,4 +175,6 @@ char rand_base() {
  */
 int levenshtein_distance(const std::string &s1, const std::string &s2);
 
+std::string current_date();
+
 #endif //VARGAS_UTILS_H

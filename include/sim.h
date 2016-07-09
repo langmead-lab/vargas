@@ -18,13 +18,18 @@
 #define SIM_SAM_SUB_ERR_TAG  "se"
 #define SIM_SAM_VAR_NODES_TAG "vd"
 #define SIM_SAM_VAR_BASE_TAG "vb"
-#define SIM_SAM_INDEL_ERR_TAG "ne"
+#define SIM_SAM_INDEL_ERR_TAG "ni"
 #define SIM_SAM_END_POS_TAG "ep"
 #define SIM_SAM_GID_TAG "gd"
 #define SIM_SAM_USE_RATE_TAG "rt"
 #define SIM_SAM_POPULATION "po"
 #define SIM_SAM_REF_TAG "fa"
 #define SIM_SAM_VCF_TAG "vf"
+
+// SAM CIGAR modification types
+#define SIM_CIGAR_ALIGNED 'M'
+#define SIM_CIGAR_INSERT 'I'
+#define SIM_CIGAR_DEL 'D'
 
 // Tags defining meta information in FASTA read names
 #define READ_META_END "pos"
@@ -35,6 +40,7 @@
 #define READ_META_SRC "src"
 #define READ_META_FASTA_DELIM ';'
 
+#include "sam.h"
 #include "graph.h"
 #include "doctest.h"
 
@@ -218,6 +224,20 @@ namespace Vargas {
 
       /**
        * @brief
+       * Derive off of a base graph and simulate from it.
+       * @param base_graph graph to derive from
+       * @param pop Population filter for base_graph
+       * @param prof simulation profile
+       */
+      Sim(const Graph &base_graph, const Graph::Population &pop, const Profile &prof) :
+          _derived_graph(new Graph(base_graph, pop)), _graph(*_derived_graph), _prof(prof) { _init(); }
+
+      ~Sim() {
+          if (_derived_graph) delete _derived_graph;
+      }
+
+      /**
+       * @brief
        * Generate and store an updated read.
        * @return true if successful
        */
@@ -229,7 +249,7 @@ namespace Vargas {
        * batch is returned.
        * @param size nominal number of reads to get.
        */
-      const std::vector<Read> &get_batch(int size) {
+      const std::vector<SAM::Record> &get_batch(int size) {
           if (size <= 0) size = 1;
           _batch.clear();
           for (int i = 0; i < size; ++i) {
@@ -244,7 +264,7 @@ namespace Vargas {
        * Get the stored batch of reads.
        * @return vector of Reads
        */
-      const std::vector<Read> &batch() const {
+      const std::vector<SAM::Record> &batch() const {
           return _batch;
       }
 
@@ -278,14 +298,15 @@ namespace Vargas {
        */
       Profile get_profile() const { return _prof; }
 
-      Read &get_read() { return _read; };
+      SAM::Record &get_read() { return _read; };
 
     private:
+      Vargas::Graph *_derived_graph = nullptr;
       const Vargas::Graph &_graph;
       std::vector<uint32_t> next_keys;
-      std::vector<Read> _batch;
+      std::vector<SAM::Record> _batch;
       Profile _prof;
-      Read _read;
+      SAM::Record _read;
 
       /**
        * Creates a vector of keys of all outgoing edges. Allows for random node selection

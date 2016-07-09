@@ -14,6 +14,12 @@
 #ifndef VARGAS_SAM_H
 #define VARGAS_SAM_H
 
+#include <unordered_map>
+#include <vector>
+#include <sstream>
+#include <iostream>
+
+#include "utils.h"
 #include "doctest.h"
 
 namespace Vargas {
@@ -175,13 +181,13 @@ namespace Vargas {
           }
 
           /**
-           * Get a string type tag.
+           * Get a string type tag. Any tag can be obtained with this, no conversion is done.
            * @param tag key
            * @param val to store result in
            * @return false if key does not exist, or is the wrong type.
            */
           bool get(std::string tag, std::string &val) const {
-              if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'Z') return false;
+              if (aux.count(tag) == 0) return false;
               val = aux.at(tag);
               return true;
           }
@@ -549,21 +555,30 @@ namespace Vargas {
            * Add a new sequence line.
            * @param s Sequence
            */
-          void add(const Sequence &s) { sequences.push_back(s); }
+          void add(const Sequence &s) {
+              if (sequences.count(s.name) != 0) throw std::out_of_range("Sequence name already exists.");
+              sequences[s.name] = s;
+          }
 
           /**
            * @brief
            * Add a new ReadGroup line.
            * @param rg ReadGroup
            */
-          void add(const ReadGroup &rg) { read_groups.push_back(rg); }
+          void add(const ReadGroup &rg) {
+              if (read_groups.count(rg.id) != 0) throw std::out_of_range("Read group ID already exists.");
+              read_groups[rg.id] = rg;
+          }
 
           /**
            * @brief
            * Add a new Program line.
            * @param pg Program
            */
-          void add(const Program &pg) { programs.push_back(pg); }
+          void add(const Program &pg) {
+              if (programs.count(pg.id) != 0) throw std::out_of_range("Program ID already exists.");
+              programs[pg.id] = pg;
+          }
 
           /**
             * @brief
@@ -578,13 +593,13 @@ namespace Vargas {
                   ((grouping.length() > 0) ? std::string("\tGO:") + grouping : "") <<
                   "\n";
               for (auto &seq : sequences) {
-                  ret << seq.to_string() << "\n";
+                  ret << seq.second.to_string() << "\n";
               }
               for (auto &rg : read_groups) {
-                  ret << rg.to_string() << "\n";
+                  ret << rg.second.to_string() << "\n";
               }
               for (auto &pg : programs) {
-                  ret << pg.to_string() << "\n";
+                  ret << pg.second.to_string() << "\n";
               }
               return ret.str();
           }
@@ -654,11 +669,11 @@ namespace Vargas {
           std::string sorting_order = "", /**< Type of alignment sorting, default unknown */
               grouping = "";
           /**< Grouping of alignments. Default None */
-          std::vector<Sequence> sequences;
+          std::unordered_map<std::string, Sequence> sequences;
           /**< All sequence lines */
-          std::vector<ReadGroup> read_groups;
+          std::unordered_map<std::string, ReadGroup> read_groups;
           /**< All Read Group lines */
-          std::vector<Program> programs; /**< ALl program lines */
+          std::unordered_map<std::string, Program> programs; /**< ALl program lines */
 
       };
 
@@ -868,6 +883,22 @@ namespace Vargas {
            */
           void operator=(std::string line) { parse(line); }
 
+          /**
+           * @brief
+           * Get a tag from the associated header read group.
+           * @param hdr SAM header
+           * @param tag
+           * @param val result
+           * @return true if tag exists
+           */
+          template<typename T>
+          bool read_group(const Header &hdr, const std::string &tag, T &val) const {
+              std::string rg;
+              if (!aux.get("RG", rg))return false;
+              if (hdr.read_groups.count(rg) == 0) return false;
+              return hdr.read_groups.at(rg).aux.get(tag, val);
+          }
+
       };
 
     protected:
@@ -910,7 +941,7 @@ namespace Vargas {
           while (std::getline((_use_stdio ? std::cin : in), _curr_line) && _curr_line.at(0) == '@') {
               hdr << _curr_line << '\n';
           }
-          _hdr << hdr.str();
+          if (hdr.str().length() > 0) _hdr << hdr.str();
           _pprec << _curr_line;
       }
 

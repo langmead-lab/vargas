@@ -19,15 +19,15 @@ bool Vargas::Sim::update_read() {
     auto &nodes = *_graph.node_map();
     auto &next = _graph.next_map();
 
-    size_t curr_node;
+    unsigned int curr_node;
     int curr_indiv = -1;
     std::string read_str = "";
 
     curr_node = next_keys[rand() % next_keys.size()]; // Random start node ID
     size_t curr_pos = rand() % nodes[curr_node]->length(); // current pos relative to node origin
 
-    _read.var_bases = 0;
-    _read.var_nodes = 0;
+    int var_bases = 0;
+    int var_nodes = 0;
 
     while (true) {
         // The first time a branch is hit, pick an individual to track
@@ -44,8 +44,8 @@ bool Vargas::Sim::update_read() {
         curr_pos += len;
 
         if (!nodes[curr_node]->is_ref()) {
-            ++_read.var_nodes;
-            _read.var_bases += len;
+            ++var_nodes;
+            var_bases += len;
         }
 
         if (read_str.length() >= _prof.len) break; // Done
@@ -62,12 +62,12 @@ bool Vargas::Sim::update_read() {
     }
 
     if (std::count(read_str.begin(), read_str.end(), 'N') >= _prof.len / 2) return update_read();
-    if (_prof.var_nodes >= 0 && _read.var_nodes != _prof.var_nodes) return update_read();
-    if (_prof.var_bases >= 0 && _read.var_bases != _prof.var_bases) return update_read();
+    if (_prof.var_nodes >= 0 && var_nodes != _prof.var_nodes) return update_read();
+    if (_prof.var_bases >= 0 && var_bases != _prof.var_bases) return update_read();
 
     // Introduce errors
-    _read.sub_err = 0;
-    _read.indel_err = 0;
+    int sub_err = 0;
+    int indel_err = 0;
     std::string read_mut = "";
 
 
@@ -80,28 +80,28 @@ bool Vargas::Sim::update_read() {
                 do {
                     m = rand_base();
                 } while (m == read_str[i]);
-                ++_read.sub_err;
+                ++sub_err;
             }
 
             // Insertion
             if (rand() % 10000 < 5000 * _prof.indel) {
                 read_mut += rand_base();
-                ++_read.indel_err;
+                ++indel_err;
             }
 
             // Deletion (if we don't enter)
             if (rand() % 10000 > 5000 * _prof.indel) {
                 read_mut += m;
-                ++_read.indel_err;
+                ++indel_err;
             }
         }
     }
     else {
         // Fixed number of errors
-        _read.sub_err = std::round(_prof.mut);
-        _read.indel_err = std::round(_prof.indel);
+        sub_err = (int) std::round(_prof.mut);
+        indel_err = (int) std::round(_prof.indel);
         std::vector<int> indel_pos;
-        for (int i = 0; i < _read.indel_err;) {
+        for (int i = 0; i < indel_err;) {
             int r = rand() % read_str.length();
             if (std::find(indel_pos.begin(), indel_pos.end(), r) == indel_pos.end()) {
                 indel_pos.push_back(r);
@@ -113,6 +113,7 @@ bool Vargas::Sim::update_read() {
         for (int p : indel_pos) {
             read_mut += read_str.substr(prev, p);
             if (rand() % 2) {
+                // Insertion
                 read_mut += rand_base();
                 read_mut += read_str[p];
             }
@@ -120,7 +121,7 @@ bool Vargas::Sim::update_read() {
         }
         read_mut += read_str.substr(prev, std::string::npos);
 
-        for (int i = 0; i < _read.sub_err;) {
+        for (int i = 0; i < sub_err;) {
             int r = rand() % read_str.length();
             if (read_str[r] == read_mut[r]) { // Make sure we don't double mutate same base
                 do {
@@ -131,10 +132,23 @@ bool Vargas::Sim::update_read() {
         }
     }
 
-    _read.indiv = curr_indiv;
-    _read.read_orig = read_str;
-    _read.read = read_mut;
-    _read.end_pos = nodes[curr_node]->end() - nodes[curr_node]->length() + curr_pos;
+    _read = SAM::Record();
+
+    _read.flag.unmapped = false;
+    _read.flag.aligned = true;
+
+    _read.seq = read_mut;
+    _read.aux.set(SIM_SAM_INDIV_TAG, curr_indiv);
+    _read.aux.set(SIM_SAM_INDEL_ERR_TAG, indel_err);
+    _read.aux.set(SIM_SAM_VAR_BASE_TAG, var_bases);
+    _read.aux.set(SIM_SAM_VAR_NODES_TAG, var_nodes);
+    _read.aux.set(SIM_SAM_SUB_ERR_TAG, sub_err);
+
+    _read.pos = nodes[curr_node]->end() - nodes[curr_node]->length() + curr_pos - _prof.len;
+
+    //TODO set cigar
+
+    _read.aux.set(SIM_SAM_READ_ORIG_TAG, read_str);
 
     return true;
 }

@@ -19,33 +19,43 @@
 #include "gdef.h"
 #include "main.h"
 #include "getopt_pp.h"
-#include "sam.h"
 
 
 int main(const int argc, const char *argv[]) {
 
     srand(time(NULL)); // Rand used in profiles and sim.h
 
-    if (argc > 1) {
-        if (!strcmp(argv[1], "test")) {
-            doctest::Context doc(argc, argv);
-            doc.setOption("no-breaks", true);
-            doc.setOption("abort-after", 10);
-            doc.setOption("sort", "name");
-            return doc.run();
+    try {
+        if (argc > 1) {
+            if (!strcmp(argv[1], "test")) {
+                doctest::Context doc(argc, argv);
+                doc.setOption("no-breaks", true);
+                doc.setOption("abort-after", 10);
+                doc.setOption("sort", "name");
+                return doc.run();
+            }
+            else if (!strcmp(argv[1], "profile")) {
+                return profile(argc, argv);
+            }
+            else if (!strcmp(argv[1], "define")) {
+                return define_main(argc, argv);
+            }
+            else if (!strcmp(argv[1], "sim")) {
+                return sim_main(argc, argv);
+            }
+            else if (!strcmp(argv[1], "align")) {
+                return align_main(argc, argv);
+            }
+            else if (!strcmp(argv[1], "split")) {
+                return split_main(argc, argv);
+            }
+            else if (!strcmp(argv[1], "convert")) {
+                return sam2csv(argc, argv);
+            }
         }
-        else if (!strcmp(argv[1], "profile")) {
-            return profile(argc, argv);
-        }
-        else if (!strcmp(argv[1], "define")) {
-            return define_main(argc, argv);
-        }
-        else if (!strcmp(argv[1], "sim")) {
-            return sim_main(argc, argv);
-        }
-        else if (!strcmp(argv[1], "align")) {
-            return align_main(argc, argv);
-        }
+    } catch (std::exception &e) {
+        std::cerr << "\nFatal Error: " << e.what() << "\n" << std::endl;
+        return 1;
     }
 
     GetOpt::GetOpt_pp args(argc, argv);
@@ -58,6 +68,571 @@ int main(const int argc, const char *argv[]) {
     main_help();
     return 1;
 
+}
+
+int split_main(const int argc, const char *argv[]) {
+    GetOpt::GetOpt_pp args(argc, argv);
+
+    if (args >> GetOpt::OptionPresent('h', "help")) {
+        split_help();
+        return 0;
+    }
+
+    std::string sam_file = "", prefix = "";
+    size_t lines = 0, num_files = 0;
+    args >> GetOpt::Option('s', "sam", sam_file)
+        >> GetOpt::Option('p', "prefix", prefix)
+        >> GetOpt::Option('l', "lines", lines)
+        >> GetOpt::Option('n', "num", num_files);
+
+    if ((lines && num_files) || (!lines && !num_files))
+        throw std::invalid_argument("One of -n and -l should be defined.");
+
+    if (prefix.length() == 0 && sam_file.length() == 0) prefix = "sam_split.";
+    else if (prefix.length() == 0) prefix = sam_file + ".";
+
+    int suffix = 0;
+    Vargas::isam input(sam_file);
+
+    if (lines) {
+        std::ofstream out;
+        size_t l = lines;
+        do {
+            if (l == lines) {
+                out.close();
+                out.open(prefix + std::to_string(suffix));
+                out << input.header().to_string();
+                ++suffix;
+                l = 0;
+            }
+            out << input.record().to_string() << "\n";
+            ++l;
+        } while (input.next());
+
+    }
+
+    if (num_files) {
+        std::vector<std::ofstream *> outs;
+        size_t curr_out = 0;
+        for (size_t i = 0; i < num_files; ++i) {
+            outs.push_back(new std::ofstream(prefix + std::to_string(suffix++)));
+            *(outs.back()) << input.header().to_string();
+        }
+        do {
+            *(outs[curr_out++]) << input.record().to_string();
+            if (curr_out == outs.size()) curr_out = 0;
+        } while (input.next());
+
+        for (auto p : outs) delete p;
+    }
+    return 0;
+}
+
+int sam2csv(const int argc, const char *argv[]) {
+    GetOpt::GetOpt_pp args(argc, argv);
+
+    if (args >> GetOpt::OptionPresent('h', "help")) {
+        sam2csv_help();
+        return 0;
+    }
+
+    std::string sam_file = "",
+    // Type, read source, num, id, pct, sub err, var node, max score, max count, sub score, subcount, corflag
+        format = "tp,gd,se,vd,ms,mc,ss,sc,cf";
+
+    args >> GetOpt::Option('s', "sam", sam_file)
+        >> GetOpt::Option('f', "format", format);
+
+    std::vector<std::string> fmt_split = split(format, ',');
+
+    Vargas::isam input(sam_file);
+
+    std::string buff, val;
+    do {
+        buff = "";
+        for (auto &tag : fmt_split) {
+            buff += ",";
+            if (tag == "POS") {
+                buff += std::to_string(input.record().pos);
+            }
+            else if (tag == "QNAME") {
+                buff += input.record().query_name;
+            }
+            else if (tag == "RNEXT") {
+                buff += input.record().ref_next;
+            }
+            else if (tag == "RNAME") {
+                buff += input.record().ref_name;
+            }
+            else if (tag == "SEQ") {
+                buff += input.record().seq;
+            }
+            else if (tag == "CIGAR") {
+                buff += input.record().cigar;
+            }
+            else if (tag == "FLAG") {
+                buff += std::to_string(input.record().flag.encode());
+            }
+            else if (tag == "PNEXT") {
+                buff += std::to_string(input.record().pos_next);
+            }
+            else if (tag == "MAPQ") {
+                buff += std::to_string(input.record().mapq);
+            }
+            else if (tag == "TLEN") {
+                buff += std::to_string(input.record().tlen);
+            }
+            else if (tag == "QUAL") {
+                buff += input.record().qual;
+            }
+            else if (tag.substr(0, 3) == "RG:") {
+                val = "*";
+                if (!input.record().read_group(input.header(), tag.substr(3), val)) {
+                    std::cerr << "Warning: \"" << tag << "\" tag not present in read group." << std::endl;
+                }
+                buff += val;
+            }
+            else {
+                val = "*";
+                if (!input.record().aux.get(tag, val)) {
+                    std::cerr << "Warning: \"" << tag << "\" tag not present." << std::endl;
+                }
+                buff += "," + val;
+            }
+        }
+        std::cout << buff.substr(1) << '\n'; // Crop leading comma
+    } while (input.next());
+
+}
+
+int align_main(const int argc, const char *argv[]) {
+    GetOpt::GetOpt_pp args(argc, argv);
+
+    if (args >> GetOpt::OptionPresent('h', "help")) {
+        align_help();
+        return 0;
+    }
+
+    // Load parameters
+    uint8_t match = 2, mismatch = 2, gopen = 3, gext = 1;
+    unsigned int threads = 1, read_len = 50;
+    std::string read_file, gdf_file;
+    bool R = false, // Align to reference
+        X = false, // Align to max-AF graph
+        O = false, // Align to outgroup graph
+        I = false; // Align to ingroup graph
+
+    args >> GetOpt::Option('m', "match", match)
+        >> GetOpt::Option('n', "mismatch", mismatch)
+        >> GetOpt::Option('o', "gap_open", gopen)
+        >> GetOpt::Option('e', "gap_extend", gext)
+        >> GetOpt::Option('r', "reads", read_file)
+        >> GetOpt::Option('g', "gdef", gdf_file)
+        >> GetOpt::Option('j', "threads", threads)
+        >> GetOpt::Option('l', "rlen", read_len)
+        >> GetOpt::OptionPresent('R', R)
+        >> GetOpt::OptionPresent('X', X)
+        >> GetOpt::OptionPresent('O', O)
+        >> GetOpt::OptionPresent('I', I);
+
+    if (!R && !X && !O && !I) throw std::invalid_argument("No alignment mode (R,X,I,O) selected.");
+    if (threads == 0) threads = std::thread::hardware_concurrency();
+
+    Vargas::GDEF gdf(gdf_file);
+    if (O) gdf.include_outgroups();
+    Vargas::GraphBuilder gb(gdf.fasta(), gdf.var());
+    gb.region(gdf.region());
+
+    std::cerr << "Loading base graph..." << std::endl;
+    Vargas::Graph base_graph = gb.build();
+
+    std::cerr << "Loading reads..." << std::endl;
+    std::map<Vargas::Graph::GID, std::vector<Vargas::SAM::Record>> read_queue;
+    Vargas::SAM::Header hdr;
+    {
+        Vargas::isam reads_in(read_file);
+        hdr = reads_in.header();
+        std::string gid_str;
+        Vargas::Graph::GID gid;
+        do {
+            if (!reads_in.record().read_group(hdr, SIM_SAM_GID_TAG, gid_str)) gid = Vargas::Graph::GID();
+            else gid = Vargas::Graph::GID(gid_str);
+            read_queue[gid].push_back(reads_in.record());
+            assert(reads_in.record().seq.length() == read_len);
+        } while (reads_in.next());
+    }
+    std::cerr << hdr.read_groups.size() << " read groups, "
+        << read_queue.size() * ((R ? 1 : 0) + (X ? 1 : 0) + (I ? 1 : 0) + (O ? 1 : 0)) << " target graphs."
+        << std::endl;
+
+    auto &pops = gdf.populations();
+
+    std::vector<std::shared_ptr<Vargas::ByteAligner>> aligners;
+    for (uint8_t i = 0; i < threads; ++i) {
+        aligners.push_back(std::make_shared<Vargas::ByteAligner>(base_graph.max_node_len(),
+                                                                 read_len,
+                                                                 match,
+                                                                 mismatch,
+                                                                 gopen,
+                                                                 gext));
+    }
+
+    std::cerr << "Aligning..." << std::endl;
+    Vargas::osam aligns_out(hdr);
+    std::vector<std::thread> jobs;
+    std::vector<std::string> seqs;
+    std::vector<uint32_t> targets;
+    std::vector<Vargas::ByteAligner::Results> aligns(threads);
+    std::vector<std::vector<Vargas::SAM::Record>> aligns_source(threads);
+    std::vector<int> aligns_type(threads);
+    Vargas::Graph ref_graph(base_graph, Vargas::Graph::REF);
+    Vargas::Graph af_graph(base_graph, Vargas::Graph::MAXAF);
+    size_t num = 0;
+
+    std::map<Vargas::Graph::GID, Vargas::Graph> sub_graphs;
+
+    for (size_t i = 0; i < read_queue.size(); ++i) {
+        if (R) std::cerr << '_';
+        if (X) std::cerr << '_';
+        if (I) std::cerr << '_';
+        if (O) std::cerr << '_';
+    }
+    std::cerr << std::endl;
+    for (auto &pair : read_queue) {
+        ++num;
+        seqs.clear();
+        targets.clear();
+
+        auto gid = pair.first;
+
+        for (auto &s : pair.second) {
+            seqs.push_back(s.seq);
+            targets.push_back(s.pos + read_len); // SAM is left based coord
+        }
+
+        for (int i = 0; i < 4; ++i) {
+            if (R && i == 0) {
+                aligns_source[jobs.size()] = pair.second;
+                aligns_type[jobs.size()] = 0;
+                jobs.emplace(jobs.end(),
+                             &Vargas::ByteAligner::align_into,
+                             aligners[jobs.size()],
+                             seqs,
+                             targets,
+                             ref_graph.begin(),
+                             ref_graph.end(),
+                             std::ref(aligns[jobs.size()]));
+            }
+            else if (X && i == 1) {
+                aligns_source[jobs.size()] = pair.second;
+                aligns_type[jobs.size()] = 1;
+                jobs.emplace(jobs.end(),
+                             &Vargas::ByteAligner::align_into,
+                             aligners[jobs.size()],
+                             seqs,
+                             targets,
+                             af_graph.begin(),
+                             af_graph.end(),
+                             std::ref(aligns[jobs.size()]));
+            }
+
+            else if (I && i == 2) {
+                gid.outgroup = false;
+                sub_graphs.emplace(std::make_pair(gid, Vargas::Graph(base_graph, pops.at(gid))));
+                aligns_source[jobs.size()] = pair.second;
+                aligns_type[jobs.size()] = 2;
+                jobs.emplace(jobs.end(),
+                             &Vargas::ByteAligner::align_into,
+                             aligners[jobs.size()],
+                             seqs,
+                             targets,
+                             sub_graphs[gid].begin(),
+                             sub_graphs[gid].end(),
+                             std::ref(aligns[jobs.size()]));
+            }
+            else if (O && i == 3) {
+                gid.outgroup = true;
+                sub_graphs.emplace(std::make_pair(gid, Vargas::Graph(base_graph, pops.at(gid))));
+                aligns_source[jobs.size()] = pair.second;
+                aligns_type[jobs.size()] = 3;
+                jobs.emplace(jobs.end(),
+                             &Vargas::ByteAligner::align_into,
+                             aligners[jobs.size()],
+                             seqs,
+                             targets,
+                             sub_graphs[gid].begin(),
+                             sub_graphs[gid].end(),
+                             std::ref(aligns[jobs.size()]));
+            }
+
+            if (jobs.size() == threads || (i == 3 && num == read_queue.size())) {
+                std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
+
+                for (size_t a = 0; a < jobs.size(); ++a) {
+                    for (size_t r = 0; r < aligns_source[a].size(); ++r) {
+                        auto rec = aligns_source[a][r];
+                        switch (aligns_type[a]) {
+                            case 0:
+                                rec.aux.set(ALIGN_SAM_TYPE_TAG, ALIGN_SAM_TYPE_REF);
+                                break;
+                            case 1:
+                                rec.aux.set(ALIGN_SAM_TYPE_TAG, ALIGN_SAM_TYPE_MAXAF);
+                                break;
+                            case 2:
+                                rec.aux.set(ALIGN_SAM_TYPE_TAG, ALIGN_SAM_TYPE_IN);
+                                {
+                                    std::string gid_str;
+                                    rec.read_group(hdr, SIM_SAM_GID_TAG, gid_str);
+                                    Vargas::Graph::GID gid(gid_str);
+                                    gid.outgroup = false;
+                                    sub_graphs.erase(gid);
+                                }
+                                break;
+                            case 3:
+                                rec.aux.set(ALIGN_SAM_TYPE_TAG, ALIGN_SAM_TYPE_OUT);
+                                {
+                                    std::string gid_str;
+                                    rec.read_group(hdr, SIM_SAM_GID_TAG, gid_str);
+                                    Vargas::Graph::GID gid(gid_str);
+                                    gid.outgroup = true;
+                                    sub_graphs.erase(gid);
+                                }
+                                break;
+                            default:
+                                throw std::invalid_argument("Invalid type: " + std::to_string(aligns_type[a]));
+                        }
+                        rec.aux.set(ALIGN_SAM_MAX_POS_TAG, (int) aligns[a].max_pos[r]);
+                        rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns[a].max_score[r]);
+                        rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns[a].max_count[r]);
+                        rec.aux.set(ALIGN_SAM_SUB_POS_TAG, (int) aligns[a].sub_pos[r]);
+                        rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns[a].sub_score[r]);
+                        rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns[a].sub_count[r]);
+                        rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns[a].cor_flag[r]);
+                        aligns_out.add_record(rec);
+                    }
+                    std::cerr << "\u2588" << std::flush;
+                }
+
+                jobs.clear();
+            }
+
+        }
+    }
+    std::cerr << std::endl;
+
+    return 0;
+}
+
+int sim_main(const int argc, const char *argv[]) {
+    GetOpt::GetOpt_pp args(argc, argv);
+
+    if (args >> GetOpt::OptionPresent('h', "help")) {
+        sim_help();
+        return 0;
+    }
+
+    // Load parameters
+    unsigned int read_len = 50, num_reads = 1000, threads = 1;
+    std::string mut = "0", indel = "0", vnodes = "*", vbases = "*";
+    std::string gdf_file, out_file = "";
+    bool use_rate = false, outgroup = false;
+
+    Vargas::SAM::Header sam_hdr;
+
+    {
+        Vargas::SAM::Header::Program pg;
+        std::ostringstream ss;
+        ss << "vargas sim ";
+        for (int i = 0; i < argc; ++i) ss << std::string(argv[i]) << " ";
+        pg.command_line = ss.str();
+        pg.name = "vargas_sim";
+        pg.id = "VS";
+        pg.version = __DATE__;
+        std::replace_if(pg.version.begin(), pg.version.end(), isspace, ' '); // rm tabs
+        sam_hdr.add(pg);
+    }
+
+    args >> GetOpt::Option('g', "gdef", gdf_file)
+        >> GetOpt::OptionPresent('o', "outgroup", outgroup)
+        >> GetOpt::Option('v', "vnodes", vnodes)
+        >> GetOpt::Option('b', "vbases", vbases)
+        >> GetOpt::Option('l', "rlen", read_len)
+        >> GetOpt::Option('n', "numreads", num_reads)
+        >> GetOpt::Option('m', "mut", mut)
+        >> GetOpt::Option('i', "indel", indel)
+        >> GetOpt::Option('t', "out", out_file)
+        >> GetOpt::Option('j', "threads", threads)
+        >> GetOpt::OptionPresent('a', "rate", use_rate);
+
+
+    Vargas::GDEF gdf(gdf_file);
+    if (outgroup) gdf.include_outgroups();
+    auto &pops = gdf.populations();
+
+    Vargas::GraphBuilder gb(gdf.fasta(), gdf.var());
+    gb.region(gdf.region());
+
+    auto mut_split = split(mut, ',');
+    auto indel_split = split(indel, ',');
+    auto vnode_split = split(vnodes, ',');
+    auto vbase_split = split(vbases, ',');
+
+    std::cerr << "Building profiles..." << std::endl;
+
+    // Map a read group ID to a unique read group
+    std::unordered_map<std::string, std::pair<Vargas::Graph::Population, Vargas::Sim::Profile>> pending_sims;
+
+    int rg_id = 0;
+    Vargas::SAM::Header::ReadGroup rg;
+    rg.seq_center = "vargas_sim";
+    rg.date = current_date();
+    rg.aux.set(SIM_SAM_REF_TAG, gdf.fasta());
+    rg.aux.set(SIM_SAM_VCF_TAG, gdf.var());
+
+    for (auto &vbase : vbase_split) {
+        for (auto &vnode : vnode_split) {
+            for (auto &ind : indel_split) {
+                for (auto &m : mut_split) {
+                    Vargas::Sim::Profile prof;
+
+                    try {
+                        prof.len = read_len;
+                        prof.mut = m == "*" ? -1 : std::stof(m);
+                        prof.indel = ind == "*" ? -1 : std::stof(ind);
+                        prof.rand = use_rate;
+                        prof.var_bases = vbase == "*" ? -1 : std::stoi(vbase);
+                        prof.var_nodes = vnode == "*" ? -1 : std::stoi(vnode);
+                    } catch (std::out_of_range &e) {
+                        std::cerr << "Invalid profile argument." << std::endl;
+                        return 1;
+                    }
+
+                    rg.aux.set(SIM_SAM_INDEL_ERR_TAG, prof.indel);
+                    rg.aux.set(SIM_SAM_VAR_NODES_TAG, prof.var_nodes);
+                    rg.aux.set(SIM_SAM_VAR_BASE_TAG, prof.var_bases);
+                    rg.aux.set(SIM_SAM_SUB_ERR_TAG, prof.mut);
+                    rg.aux.set(SIM_SAM_USE_RATE_TAG, (int) prof.rand);
+
+                    // Each profile and subgraph combination is a unique set of reads
+                    for (auto &p : pops) {
+                        rg.aux.set(SIM_SAM_GID_TAG, p.first.to_string());
+                        rg.aux.set(SIM_SAM_POPULATION, p.second.to_string());
+                        rg.id = std::to_string(++rg_id);
+                        sam_hdr.add(rg);
+
+                        pending_sims[rg.id] = std::pair<Vargas::Graph::Population,
+                                                        Vargas::Sim::Profile>(p.second, prof);
+                    }
+                }
+            }
+        }
+    }
+    std::cerr << pending_sims.size() << " read groups over " << pops.size() << " subgraphs." << std::endl;
+
+    Vargas::osam out(out_file, sam_hdr);
+    if (!out.good()) throw std::invalid_argument("Error opening output file \"" + out_file + "\"");
+
+    std::cerr << "Loading base graph..." << std::endl;
+    Vargas::Graph base_graph = gb.build();
+
+    for (size_t i = 0; i < pending_sims.size() / threads; ++i) std::cerr << "_";
+    std::cerr << std::endl;
+
+    // Threading
+    std::vector<std::vector<Vargas::SAM::Record>> reads(threads);
+    std::vector<std::thread> jobs;
+
+    // For each readgroup
+    //TODO Building the same graph multiple times (one for each prof)
+    unsigned int num = 0;
+    for (auto &ps : pending_sims) {
+        ++num;
+        jobs.emplace(jobs.end(),
+                     &derive_and_sim,
+                     ps.first, std::ref(base_graph),
+                     std::ref(ps.second.first),
+                     std::ref(ps.second.second),
+                     num_reads,
+                     std::ref(reads[jobs.size()]));
+
+        if (jobs.size() == threads || num == pending_sims.size()) {
+            std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
+            std::cerr << "\u2588" << std::flush;
+            for (auto &t : reads) {
+                for (auto &r : t) {
+                    out.add_record(r);
+                }
+                jobs.clear();
+            }
+        }
+    }
+    std::cerr << std::endl;
+    return 0;
+}
+
+void derive_and_sim(std::string rg,
+                    const Vargas::Graph &base,
+                    const Vargas::Graph::Population &pop,
+                    const Vargas::Sim::Profile &prof,
+                    unsigned int num_reads,
+                    std::vector<Vargas::SAM::Record> &results) {
+    Vargas::Sim sim(base, pop, prof);
+    results = sim.get_batch(num_reads);
+    for (auto &r : results) r.aux.set("RG", rg);
+}
+
+int define_main(const int argc, const char *argv[]) {
+    GetOpt::GetOpt_pp args(argc, argv);
+
+    if (args >> GetOpt::OptionPresent('h', "help")) {
+        define_help();
+        return 0;
+    }
+
+    std::string fasta_file = "", varfile = "", region = "", ingroups = "";
+    int num = 1, node_len = 1000000;
+
+    args >> GetOpt::Option('f', "fasta", fasta_file)
+        >> GetOpt::Option('v', "var", varfile)
+        >> GetOpt::Option('g', "region", region)
+        >> GetOpt::Option('i', "ingroup", ingroups)
+        >> GetOpt::Option('n', "num", num)
+        >> GetOpt::Option('l', "nodelen", node_len);
+
+    Vargas::GDEF gdef(fasta_file, varfile, region, node_len);
+
+    std::vector<std::string> ingroup_split = split(ingroups, ',');
+    for (auto &ingrp_str : ingroup_split) {
+        if (ingrp_str.at(0) == 'c') {
+            // Explicit number of individuals
+            size_t ingrp = std::stoi(ingrp_str.substr(1));
+            for (int n = 0; n < num; ++n) {
+                std::unordered_set<size_t> picked;
+                Vargas::Graph::Population filter(gdef.num_samples() * 2);
+                while (picked.size() < ingrp) {
+                    size_t ind = rand() % (gdef.num_samples() * 2);
+                    if (picked.insert(ind).second) {
+                        filter.set(ind);
+                    }
+                }
+                gdef.add_population(Vargas::Graph::GID(ingrp, n, false), filter);
+            }
+        } else {
+            // Percentage
+            int ingrp = std::stoi(ingrp_str);
+            for (int n = 0; n < num; ++n) {
+                Vargas::Graph::Population filter(gdef.num_samples() * 2);
+                for (unsigned int i = 0; i < filter.size(); ++i) {
+                    if (rand() % 100 < ingrp) filter.set(i);
+                }
+                gdef.add_population(Vargas::Graph::GID(ingrp, n, true), filter);
+            }
+        }
+    }
+
+    gdef.write(std::cout);
+    std::cerr << gdef.populations().size() << " subgraph definitions generated." << std::endl;
+    return 0;
 }
 
 int profile(const int argc, const char *argv[]) {
@@ -208,418 +783,6 @@ int profile(const int argc, const char *argv[]) {
     return 0;
 }
 
-int align_main(const int argc, const char *argv[]) {
-    GetOpt::GetOpt_pp args(argc, argv);
-
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        align_help();
-        return 0;
-    }
-
-    // Load parameters
-    uint8_t match = 2, mismatch = 2, gopen = 3, gext = 1;
-    unsigned int threads = 1, read_len = 50;
-    std::string read_file, gdf_file;
-    bool R = false, // Align to reference
-        X = false, // Align to max-AF graph
-        O = false, // Align to outgroup graph
-        I = false; // Align to ingroup graph
-
-    args >> GetOpt::Option('m', "match", match)
-        >> GetOpt::Option('n', "mismatch", mismatch)
-        >> GetOpt::Option('o', "gap_open", gopen)
-        >> GetOpt::Option('e', "gap_extend", gext)
-        >> GetOpt::Option('r', "reads", read_file)
-        >> GetOpt::Option('g', "gdef", gdf_file)
-        >> GetOpt::Option('j', "threads", threads)
-        >> GetOpt::Option('l', "rlen", read_len)
-        >> GetOpt::OptionPresent('R', R)
-        >> GetOpt::OptionPresent('X', X)
-        >> GetOpt::OptionPresent('O', O)
-        >> GetOpt::OptionPresent('I', I);
-
-    if (!R && !X && !O && !I) throw std::invalid_argument("No alignment mode (R,X,I,O) selected.");
-    if (threads == 0) threads = std::thread::hardware_concurrency();
-
-    Vargas::GDEF gdf(gdf_file);
-    if (O) gdf.include_outgroups();
-    Vargas::GraphBuilder gb(gdf.fasta(), gdf.var());
-    gb.region(gdf.region());
-
-    std::cerr << "Loading base graph..." << std::endl;
-    Vargas::Graph base_graph = gb.build();
-
-    std::cerr << "Loading reads..." << std::endl;
-    std::map<Vargas::Graph::GID, std::vector<Vargas::SAM::Record>> read_queue;
-    Vargas::SAM::Header hdr;
-    {
-        Vargas::isam reads_in(read_file);
-        hdr = reads_in.header();
-        std::string gid_str;
-        Vargas::Graph::GID gid;
-        do {
-            if (!reads_in.record().aux.get(SIM_SAM_GID_TAG, gid_str)) gid = Vargas::Graph::GID();
-            else gid = Vargas::Graph::GID(gid_str);
-            read_queue[gid].push_back(reads_in.record());
-            assert(reads_in.record().seq.length() == read_len);
-        } while (reads_in.next());
-    }
-    std::cerr << read_queue.size() << " read groups." << std::endl;
-
-    auto &pops = gdf.populations();
-
-    std::vector<std::shared_ptr<Vargas::ByteAligner>> aligners;
-    for (uint8_t i = 0; i < threads; ++i) {
-        aligners.push_back(std::make_shared<Vargas::ByteAligner>(base_graph.max_node_len(),
-                                                                 read_len,
-                                                                 match,
-                                                                 mismatch,
-                                                                 gopen,
-                                                                 gext));
-    }
-
-    std::cerr << "Aligning..." << std::endl;
-    Vargas::osam aligns_out("aligns.sam", hdr);
-    std::vector<std::thread> jobs;
-    std::vector<std::string> seqs;
-    std::vector<uint32_t> targets;
-    std::vector<Vargas::ByteAligner::Results> aligns(threads);
-    std::vector<std::vector<Vargas::SAM::Record>> aligns_source(threads);
-    std::vector<int> aligns_type(threads);
-    Vargas::Graph ref_graph(base_graph, Vargas::Graph::REF);
-    Vargas::Graph af_graph(base_graph, Vargas::Graph::MAXAF);
-    size_t num = 0;
-    int target;
-
-    std::map<Vargas::Graph::GID, Vargas::Graph> sub_graphs;
-
-    for (size_t i = 0; i < read_queue.size(); ++i) {
-        if (R) std::cerr << '_';
-        if (X) std::cerr << '_';
-        if (I) std::cerr << '_';
-        if (O) std::cerr << '_';
-    }
-    std::cerr << std::endl;
-    for (auto &pair : read_queue) {
-        ++num;
-        seqs.clear();
-        targets.clear();
-
-        auto gid = pair.first;
-
-        for (auto &s : pair.second) {
-            seqs.push_back(s.seq);
-            target = 0;
-            s.aux.get(SIM_SAM_END_POS_TAG, target);
-            targets.push_back(target);
-        }
-
-        for (int i = 0; i < 4; ++i) {
-            if (R && i == 0) {
-                std::cerr << "\u2588" << std::flush;
-                aligns_source[jobs.size()] = pair.second;
-                aligns_type[jobs.size()] = 0;
-                jobs.emplace(jobs.end(),
-                             &Vargas::ByteAligner::align_into,
-                             aligners[jobs.size()],
-                             seqs,
-                             targets,
-                             ref_graph.begin(),
-                             ref_graph.end(),
-                             std::ref(aligns[jobs.size()]));
-            }
-            else if (X && i == 1) {
-                std::cerr << "\u2588" << std::flush;
-                aligns_source[jobs.size()] = pair.second;
-                aligns_type[jobs.size()] = 1;
-                jobs.emplace(jobs.end(),
-                             &Vargas::ByteAligner::align_into,
-                             aligners[jobs.size()],
-                             seqs,
-                             targets,
-                             af_graph.begin(),
-                             af_graph.end(),
-                             std::ref(aligns[jobs.size()]));
-            }
-
-            else if (I && i == 2) {
-                std::cerr << "\u2588" << std::flush;
-                gid.outgroup = false;
-                sub_graphs.emplace(std::make_pair(gid, Vargas::Graph(base_graph, pops.at(gid))));
-                aligns_source[jobs.size()] = pair.second;
-                aligns_type[jobs.size()] = 2;
-                jobs.emplace(jobs.end(),
-                             &Vargas::ByteAligner::align_into,
-                             aligners[jobs.size()],
-                             seqs,
-                             targets,
-                             sub_graphs[gid].begin(),
-                             sub_graphs[gid].end(),
-                             std::ref(aligns[jobs.size()]));
-            }
-            else if (O && i == 3) {
-                std::cerr << "\u2588" << std::flush;
-                gid.outgroup = true;
-                sub_graphs.emplace(std::make_pair(gid, Vargas::Graph(base_graph, pops.at(gid))));
-                aligns_source[jobs.size()] = pair.second;
-                aligns_type[jobs.size()] = 3;
-                jobs.emplace(jobs.end(),
-                             &Vargas::ByteAligner::align_into,
-                             aligners[jobs.size()],
-                             seqs,
-                             targets,
-                             sub_graphs[gid].begin(),
-                             sub_graphs[gid].end(),
-                             std::ref(aligns[jobs.size()]));
-            }
-
-            if (jobs.size() == threads || (i == 3 && num == read_queue.size())) {
-                std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
-
-                for (size_t a = 0; a < jobs.size(); ++a) {
-                    for (size_t r = 0; r < aligns_source[a].size(); ++r) {
-                        auto rec = aligns_source[a][r];
-                        switch (aligns_type[a]) {
-                            case 0:
-                                rec.aux.set(ALIGN_SAM_TYPE_TAG, ALIGN_SAM_TYPE_REF);
-                                break;
-                            case 1:
-                                rec.aux.set(ALIGN_SAM_TYPE_TAG, ALIGN_SAM_TYPE_MAXAF);
-                                break;
-                            case 2:
-                                rec.aux.set(ALIGN_SAM_TYPE_TAG, ALIGN_SAM_TYPE_IN);
-                                break;
-                            case 3:
-                                rec.aux.set(ALIGN_SAM_TYPE_TAG, ALIGN_SAM_TYPE_OUT);
-                                break;
-                            default:
-                                throw std::invalid_argument("Invalid type: " + std::to_string(aligns_type[a]));
-                        }
-                        rec.aux.set(ALIGN_SAM_MAX_POS_TAG, (int) aligns[a].max_pos[r]);
-                        rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns[a].max_score[r]);
-                        rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns[a].max_count[r]);
-                        rec.aux.set(ALIGN_SAM_SUB_POS_TAG, (int) aligns[a].sub_pos[r]);
-                        rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns[a].sub_score[r]);
-                        rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns[a].sub_count[r]);
-                        rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns[a].cor_flag[r]);
-                        aligns_out.add_record(rec);
-                    }
-                }
-
-                jobs.clear();
-            }
-
-        }
-    }
-    std::cerr << std::endl;
-
-    return 0;
-}
-
-int sim_main(const int argc, const char *argv[]) {
-    GetOpt::GetOpt_pp args(argc, argv);
-
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        sim_help();
-        return 0;
-    }
-
-    // Load parameters
-    unsigned int read_len = 50, num_reads = 1000;
-    std::string mut = "0", indel = "0", vnodes = "*", vbases = "*";
-    std::string gdf_file, out_file;
-    bool use_rate = false, outgroup = false;
-
-    Vargas::SAM::Header sam_hdr;
-
-    {
-        Vargas::SAM::Header::Program pg;
-        std::ostringstream ss;
-        ss << "vargas sim ";
-        for (int i = 0; i < argc; ++i) ss << std::string(argv[i]) << " ";
-        pg.command_line = ss.str();
-        pg.name = "vargas_sim";
-        pg.id = "VS";
-        pg.version = __DATE__;
-        std::replace_if(pg.version.begin(), pg.version.end(), isspace, ' '); // rm tabs
-        sam_hdr.add(pg);
-    }
-
-    args >> GetOpt::Option('g', "gdef", gdf_file)
-        >> GetOpt::OptionPresent('o', "outgroup", outgroup)
-        >> GetOpt::Option('v', "vnodes", vnodes)
-        >> GetOpt::Option('b', "vbases", vbases)
-        >> GetOpt::Option('l', "rlen", read_len)
-        >> GetOpt::Option('n', "numreads", num_reads)
-        >> GetOpt::Option('m', "mut", mut)
-        >> GetOpt::Option('i', "indel", indel)
-        >> GetOpt::Option('t', "out", out_file)
-        >> GetOpt::OptionPresent('a', "rate", use_rate);
-
-
-    time_t t = time(0);
-    struct tm *now = localtime(&t);
-    std::string curr_date;
-    {
-        std::ostringstream ss;
-        ss << (now->tm_year + 1900) << '-'
-            << (now->tm_mon + 1) << '-'
-            << now->tm_mday;
-        curr_date = ss.str();
-    }
-
-    Vargas::GDEF gdf(gdf_file);
-    if (outgroup) gdf.include_outgroups();
-    Vargas::GraphBuilder gb(gdf.fasta(), gdf.var());
-    gb.region(gdf.region());
-    auto &pops = gdf.populations();
-
-    auto mut_split = split(mut, ',');
-    auto indel_split = split(indel, ',');
-    auto vnode_split = split(vnodes, ',');
-    auto vbase_split = split(vbases, ',');
-
-    std::cerr << "Building profiles..." << std::endl;
-    std::vector<std::pair<int, Vargas::Sim::Profile>> pending_sims;
-    int rg_id = 0;
-    Vargas::SAM::Header::ReadGroup rg;
-    rg.seq_center = "vargas_sim";
-    rg.date = curr_date;
-    rg.aux.set(SIM_SAM_REF_TAG, gdf.fasta());
-    rg.aux.set(SIM_SAM_VCF_TAG, gdf.var());
-    for (auto &vbase : vbase_split) {
-        for (auto &vnode : vnode_split) {
-            for (auto &ind : indel_split) {
-                for (auto &m : mut_split) {
-                    Vargas::Sim::Profile prof;
-                    prof.len = read_len;
-                    prof.mut = m == "*" ? -1 : std::stof(m);
-                    prof.indel = ind == "*" ? -1 : std::stof(ind);
-                    prof.rand = use_rate;
-                    prof.var_bases = vbase == "*" ? -1 : std::stoi(vbase);
-                    prof.var_nodes = vnode == "*" ? -1 : std::stoi(vnode);
-
-                    pending_sims.push_back(std::pair<int, Vargas::Sim::Profile>(++rg_id, prof));
-
-                    rg.aux.set(SIM_SAM_INDEL_ERR_TAG, prof.indel);
-                    rg.aux.set(SIM_SAM_VAR_NODES_TAG, prof.var_nodes);
-                    rg.aux.set(SIM_SAM_VAR_BASE_TAG, prof.var_bases);
-                    rg.aux.set(SIM_SAM_SUB_ERR_TAG, prof.mut);
-                    rg.aux.set(SIM_SAM_USE_RATE_TAG, (int) prof.rand);
-
-
-                    // Each profile and subgraph combination is a unique set of reads
-                    for (auto p : pops) {
-                        rg.aux.set(SIM_SAM_GID_TAG, p.first.to_string());
-                        rg.aux.set(SIM_SAM_POPULATION, p.second.to_string());
-                        rg.id = std::to_string(rg_id) + "_" + p.first.to_string();
-                        sam_hdr.add(rg);
-                    }
-                }
-            }
-        }
-    }
-    std::cerr << pending_sims.size() << " profile(s), " << pops.size() << " subgraphs." << std::endl;
-
-    Vargas::osam out(out_file, sam_hdr);
-    if (!out.good()) throw std::invalid_argument("Error opening output file \"" + out_file + "\"");
-
-    std::cerr << "Loading graph..." << std::endl;
-    Vargas::Graph base_graph = gb.build();
-
-    // For each subgraph type
-    for (auto &pop : pops) {
-        std::cerr << "\nSubgraph: " << pop.first;
-
-        // Create subgraph
-        Vargas::Graph subgraph;
-        subgraph = Vargas::Graph(base_graph, pop.second);
-
-        Vargas::Sim sim(subgraph);
-
-        Vargas::SAM::Record rec;
-        rec.flag.unmapped = true;
-
-        for (size_t p = 0; p < pending_sims.size(); ++p) {
-
-            sim.set_prof(pending_sims[p].second);
-            sim.get_batch(num_reads);
-
-            for (auto r : sim.batch()) {
-                rec.seq = r.read;
-                rec.aux.set(SIM_SAM_INDEL_ERR_TAG, r.indel_err);
-                rec.aux.set(SIM_SAM_VAR_NODES_TAG, r.var_nodes);
-                rec.aux.set(SIM_SAM_VAR_BASE_TAG, r.var_bases);
-                rec.aux.set(SIM_SAM_SUB_ERR_TAG, r.sub_err);
-                rec.aux.set(SIM_SAM_END_POS_TAG, r.end_pos);
-                rec.aux.set(SIM_SAM_INDIV_TAG, r.indiv);
-                rec.aux.set(SIM_SAM_READ_ORIG_TAG, r.read_orig);
-                rec.aux.set(SIM_SAM_VAR_BASE_TAG, r.var_bases);
-                rec.aux.set(SIM_SAM_GID_TAG, pop.first.to_string());
-                rec.aux.set("RG", std::to_string(pending_sims[p].first) + "_" + pop.first.to_string());
-                out.add_record(rec);
-            }
-
-        }
-    }
-    std::cerr << std::endl;
-    return 0;
-}
-
-int define_main(const int argc, const char *argv[]) {
-    GetOpt::GetOpt_pp args(argc, argv);
-
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        define_help();
-        return 0;
-    }
-
-    std::string fasta_file = "", varfile = "", region = "", ingroups = "";
-    int num = 1, node_len = 1000000;
-
-    args >> GetOpt::Option('f', "fasta", fasta_file)
-        >> GetOpt::Option('v', "var", varfile)
-        >> GetOpt::Option('g', "region", region)
-        >> GetOpt::Option('i', "ingroup", ingroups)
-        >> GetOpt::Option('n', "num", num)
-        >> GetOpt::Option('l', "nodelen", node_len);
-
-    Vargas::GDEF gdef(fasta_file, varfile, region, node_len);
-
-    std::vector<std::string> ingroup_split = split(ingroups, ',');
-    for (auto &ingrp_str : ingroup_split) {
-        if (ingrp_str.at(0) == 'c') {
-            // Explicit number of individuals
-            size_t ingrp = std::stoi(ingrp_str.substr(1));
-            for (int n = 0; n < num; ++n) {
-                std::unordered_set<size_t> picked;
-                Vargas::Graph::Population filter(gdef.num_samples() * 2);
-                while (picked.size() < ingrp) {
-                    size_t ind = rand() % (gdef.num_samples() * 2);
-                    if (picked.insert(ind).second) {
-                        filter.set(ind);
-                    }
-                }
-                gdef.add_population(Vargas::Graph::GID(ingrp, n, false), filter);
-            }
-        } else {
-            // Percentage
-            int ingrp = std::stoi(ingrp_str);
-            for (int n = 0; n < num; ++n) {
-                Vargas::Graph::Population filter(gdef.num_samples() * 2);
-                for (unsigned int i = 0; i < filter.size(); ++i) {
-                    if (rand() % 100 < ingrp) filter.set(i);
-                }
-                gdef.add_population(Vargas::Graph::GID(ingrp, n, true), filter);
-            }
-        }
-    }
-
-    gdef.write(std::cout);
-    std::cerr << gdef.populations().size() << " subgraph definitions generated." << std::endl;
-    return 0;
-}
-
 void main_help() {
     using std::cerr;
     using std::endl;
@@ -629,6 +792,8 @@ void main_help() {
     cerr << "\tdefine      Define a set of graphs for use with sim/align.\n";
     cerr << "\tsim         Simulate reads from a set of graphs.\n";
     cerr << "\talign       Align reads to a set of graphs.\n";
+    cerr << "\tsplit       Split a SAM file into multiple files.\n";
+    cerr << "\tconvert     Convert a SAM file to a CSV file.\n";
     cerr << "\ttest        Run doctests.\n";
     cerr << "\tprofile     Run profiles.\n" << endl;
 }
@@ -694,17 +859,47 @@ void sim_help() {
 
     cerr << endl
         << "-------------------- Vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
-    cerr << "-g\t--gdef          *<string> Graph definition file. Reads are simulated from Ingroups.\n";
+    cerr << "-g\t--gdef          *<string> Graph definition file. Reads are simulated from the ingroups.\n";
     cerr << "-t\t--out           <string> Output file. Default stdout.\n";
     cerr << "-o\t--outgroup      Simulate from outgroup graphs.\n";
     cerr << "-n\t--numreads      <int> Number of reads to simulate from each subgraph, default 1000.\n";
-    cerr << "-m\t--muterr        <float, float...> Read mutation error. Default 0.\n";
-    cerr << "-i\t--indelerr      <float, float...> Read indel error. Default 0.\n";
+    cerr << "-m\t--muterr        <int/float, int/float...> Read mutation error. Default 0.\n";
+    cerr << "-i\t--indelerr      <int/float, int/float...> Read indel error. Default 0.\n";
     cerr << "-v\t--vnodes        <int, int...> Number of variant nodes, default any (*).\n";
     cerr << "-b\t--vbases        <int, int...> Number of variant bases, default any (*).\n";
     cerr << "-l\t--rlen          <int> Read length, default 50.\n";
-    cerr << "-a\t--rate          Interpret -m, -i as rates, instead of exact number of errors.\n" << endl;
+    cerr << "-a\t--rate          Interpret -m, -i as rates, instead of exact number of errors.\n";
+    cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
+
 
     cerr << "-n reads are produced for each -m, -i, -v, -b combination. If set to \'*\', any value is accepted."
         << endl << endl;
+}
+
+void split_help() {
+    using std::cerr;
+    using std::endl;
+
+    cerr << endl
+        << "-------------------- Vargas split, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
+    cerr << "-s\t--sam           <string> SAM input file. Default stdin.\n";
+    cerr << "-l\t--lines         <int> Maximum number of lines per file.\n";
+    cerr << "-n\t--num           <int> Number of files to distribute records to.\n";
+    cerr << "-p\t--prefix        <string> Prefix of output files. Numeric suffix will be appended.\n\n";
+    cerr << "-n distributes records round-robin style.\n" << endl;
+
+}
+
+void sam2csv_help() {
+    using std::cerr;
+    using std::endl;
+
+    cerr << endl
+        << "-------------------- Vargas convert, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
+    cerr << "-s\t--sam          *<string> SAM input file.\n";
+    cerr << "-f\t--format        <string,string...> Specify tags per column. Case sensitive.\n";
+    cerr << "\nOutput printed to stdout.\n";
+    cerr << "Requred column names: QNAME, FLAG, RNAME, POS, MAPQ, CIGAR, RNEXT, PNEXT, TLEN, SEQ, QUAL\n";
+    cerr << "Prefix with \"RG:\" to obtain a value from the associated read group.\n" << endl;
+
 }
