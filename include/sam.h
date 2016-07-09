@@ -1130,14 +1130,7 @@ TEST_CASE ("SAM File") {
         } while (sf.next());
     }
 
-    std::ifstream a("tmp_s.sam");
-    std::ifstream b("osam.sam");
-    std::string A, B;
-
-    // Orderings of tags might be different.
-    while (std::getline(a, A) && std::getline(b, B)) CHECK (A.length() == B.length());
-
-    //   remove("tmp_s.sam");
-    //   remove("osam.sam");
+       remove("tmp_s.sam");
+       remove("osam.sam");
 }
 #endif //VARGAS_SAM_H
