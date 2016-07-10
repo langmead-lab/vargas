@@ -144,7 +144,8 @@ bool Vargas::Sim::update_read() {
     _read.aux.set(SIM_SAM_VAR_NODES_TAG, var_nodes);
     _read.aux.set(SIM_SAM_SUB_ERR_TAG, sub_err);
 
-    _read.pos = nodes[curr_node]->end() - nodes[curr_node]->length() + curr_pos - _prof.len;
+    // +1 from length being 1 indexed but end() being zero indexed, +1 since POS is 1 indexed.
+    _read.pos = nodes[curr_node]->end() - nodes[curr_node]->length() + 2 + curr_pos - _prof.len;
 
     //TODO set cigar
 

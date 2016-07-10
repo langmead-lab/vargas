@@ -85,3 +85,75 @@ void define_help();
 void split_help();
 void sam2csv_help();
 #endif //VARGAS_MAIN_H
+
+// Checks to see if coordinate systems between the simulator and aligner line up.
+TEST_CASE ("Coordinate matches") {
+    srand(1);
+    Vargas::Graph::Node::_newID = 0;
+    using std::endl;
+    std::string tmpfa = "tmp_tc.fa";
+    {
+        std::ofstream fao(tmpfa);
+        fao
+            << ">x" << endl
+            << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
+            << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
+            << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
+            << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
+            << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
+            << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
+            << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
+            << ">y" << endl
+            << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+    }
+    std::string tmpvcf = "tmp_tc.vcf";
+
+    {
+        std::ofstream vcfo(tmpvcf);
+        vcfo
+            << "##fileformat=VCFv4.1" << endl
+            << "##phasing=true" << endl
+            << "##contig=<ID=x>" << endl
+            << "##contig=<ID=y>" << endl
+            << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+            << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+            << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
+            << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+            << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+            << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+            << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+            << "x\t9\t.\tG\tA,CC,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+            << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
+            << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+    }
+
+    Vargas::GraphBuilder gb(tmpfa, tmpvcf);
+    gb.node_len(5);
+    gb.ingroup(100);
+    gb.region("x:0-50");
+    Vargas::Graph g = gb.build();
+
+    Vargas::Sim::Profile prof;
+    prof.len = 5;
+    Vargas::Sim sim(g, prof);
+
+    Vargas::ByteAligner aligner(g.max_node_len(), 5);
+    auto reads = sim.get_batch(aligner.read_capacity());
+
+    std::vector<std::string> seqs;
+    std::vector<uint32_t> targets;
+    for (auto &r : reads) {
+        seqs.push_back(r.seq);
+        targets.push_back(r.pos + r.seq.length() - 1);
+    }
+
+    auto results = aligner.align(seqs, targets, g.begin(), g.end());
+
+    for (auto i : results.cor_flag) CHECK ((int) i == 1);
+
+    remove(tmpfa.c_str());
+    remove(tmpvcf.c_str());
+}

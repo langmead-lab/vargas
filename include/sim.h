@@ -386,6 +386,13 @@ TEST_CASE ("Read sim") {
     Vargas::Sim sim(g);
     Vargas::Sim::Profile prof;
     prof.len = 5;
+
+    sim.set_prof(prof);
+    sim.update_read();
+    sim.get_read();
+
+    remove(tmpfa.c_str());
+    remove(tmpvcf.c_str());
 }
 
 #endif //VARGAS_SIM_H

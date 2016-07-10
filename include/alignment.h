@@ -654,13 +654,13 @@ namespace Vargas {
                        const _seed *s,
                        const std::vector<uint32_t> &targets) {
 
-          assert(n.seq().size() < _max_node_len);
+          assert(n.seq().size() <= _max_node_len);
 
           _seed nxt(_read_len);  // Seed for next node
           const Base *node_seq = n.seq().data();
           const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> *read_ptr = read_group.data();
           const size_t seq_size = n.seq().size();
-          const size_t node_origin = n.end() - seq_size;
+          const size_t node_origin = n.end() - seq_size + 1;
 
           #if DEBUG_PRINT_SW
           std::cout << std::endl << "-\t";
@@ -1098,7 +1098,7 @@ TEST_CASE ("Alignment") {
 
         {
             Vargas::Graph::Node n;
-            n.set_endpos(3);
+            n.set_endpos(2);
             n.set_as_ref();
             std::vector<bool> a = {0, 1, 1};
             n.set_population(a);
@@ -1108,7 +1108,7 @@ TEST_CASE ("Alignment") {
 
         {
             Vargas::Graph::Node n;
-            n.set_endpos(6);
+            n.set_endpos(5);
             n.set_as_ref();
             std::vector<bool> a = {0, 0, 1};
             n.set_population(a);
@@ -1119,7 +1119,7 @@ TEST_CASE ("Alignment") {
 
         {
             Vargas::Graph::Node n;
-            n.set_endpos(6);
+            n.set_endpos(5);
             n.set_not_ref();
             std::vector<bool> a = {0, 1, 0};
             n.set_population(a);
@@ -1130,7 +1130,7 @@ TEST_CASE ("Alignment") {
 
         {
             Vargas::Graph::Node n;
-            n.set_endpos(10);
+            n.set_endpos(9);
             n.set_as_ref();
             std::vector<bool> a = {0, 1, 1};
             n.set_population(a);

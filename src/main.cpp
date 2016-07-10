@@ -91,7 +91,7 @@ int split_main(const int argc, const char *argv[]) {
     if (prefix.length() == 0 && sam_file.length() == 0) prefix = "sam_split.";
     else if (prefix.length() == 0) prefix = sam_file + ".";
 
-    int suffix = 0;
+    size_t suffix = 0;
     Vargas::isam input(sam_file);
 
     if (lines) {
@@ -113,17 +113,21 @@ int split_main(const int argc, const char *argv[]) {
 
     if (num_files) {
         std::vector<std::ofstream *> outs;
-        size_t curr_out = 0;
         for (size_t i = 0; i < num_files; ++i) {
             outs.push_back(new std::ofstream(prefix + std::to_string(suffix++)));
+            if (!outs.back()->good()) throw std::invalid_argument("Error opening output file.");
             *(outs.back()) << input.header().to_string();
         }
+        suffix = 0;
         do {
-            *(outs[curr_out++]) << input.record().to_string();
-            if (curr_out == outs.size()) curr_out = 0;
+            *(outs[suffix++]) << input.record().to_string();
+            if (suffix == outs.size()) suffix = 0;
         } while (input.next());
 
-        for (auto p : outs) delete p;
+        for (auto p : outs) {
+            p->close();
+            delete p;
+        }
     }
     return 0;
 }
@@ -136,13 +140,13 @@ int sam2csv(const int argc, const char *argv[]) {
         return 0;
     }
 
-    std::string sam_file = "",
-    // Type, read source, num, id, pct, sub err, var node, max score, max count, sub score, subcount, corflag
-        format = "tp,gd,se,vd,ms,mc,ss,sc,cf";
+    std::string sam_file = "", format = "";
 
     args >> GetOpt::Option('s', "sam", sam_file)
         >> GetOpt::Option('f', "format", format);
 
+
+    format.erase(std::remove(format.begin(), format.end(), ' '), format.end());
     std::vector<std::string> fmt_split = split(format, ',');
 
     Vargas::isam input(sam_file);
@@ -197,12 +201,12 @@ int sam2csv(const int argc, const char *argv[]) {
                 if (!input.record().aux.get(tag, val)) {
                     std::cerr << "Warning: \"" << tag << "\" tag not present." << std::endl;
                 }
-                buff += "," + val;
+                buff += val;
             }
         }
         std::cout << buff.substr(1) << '\n'; // Crop leading comma
     } while (input.next());
-
+    return 0;
 }
 
 int align_main(const int argc, const char *argv[]) {
@@ -307,7 +311,7 @@ int align_main(const int argc, const char *argv[]) {
 
         for (auto &s : pair.second) {
             seqs.push_back(s.seq);
-            targets.push_back(s.pos + read_len); // SAM is left based coord
+            targets.push_back(s.pos + s.seq.length() - 1); // SAM is left based coord. -1 gives last base coord
         }
 
         for (int i = 0; i < 4; ++i) {
@@ -896,8 +900,8 @@ void sam2csv_help() {
 
     cerr << endl
         << "-------------------- Vargas convert, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
-    cerr << "-s\t--sam          *<string> SAM input file.\n";
-    cerr << "-f\t--format        <string,string...> Specify tags per column. Case sensitive.\n";
+    cerr << "-s\t--sam          <string> SAM input file. Default stdin.\n";
+    cerr << "-f\t--format       *<string,string...> Specify tags per column. Case sensitive.\n";
     cerr << "\nOutput printed to stdout.\n";
     cerr << "Requred column names: QNAME, FLAG, RNAME, POS, MAPQ, CIGAR, RNEXT, PNEXT, TLEN, SEQ, QUAL\n";
     cerr << "Prefix with \"RG:\" to obtain a value from the associated read group.\n" << endl;
