@@ -120,6 +120,7 @@ namespace Vargas {
       /**
        * @brief
        * Uniquely identifies a subgraph when mapped to a Population.
+       * Default constructor indicates whole graph
        */
       struct GID {
           GID() : num(100), id(0), pct(true), outgroup(false) { }

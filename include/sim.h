@@ -13,18 +13,18 @@
 #define VARGAS_SIM_H
 
 // SAM tags used in sim output
-#define SIM_SAM_READ_ORIG_TAG "ro"
-#define SIM_SAM_INDIV_TAG "nd"
-#define SIM_SAM_SUB_ERR_TAG  "se"
-#define SIM_SAM_VAR_NODES_TAG "vd"
-#define SIM_SAM_VAR_BASE_TAG "vb"
-#define SIM_SAM_INDEL_ERR_TAG "ni"
-#define SIM_SAM_END_POS_TAG "ep"
-#define SIM_SAM_GID_TAG "gd"
-#define SIM_SAM_USE_RATE_TAG "rt"
-#define SIM_SAM_POPULATION "po"
-#define SIM_SAM_REF_TAG "fa"
-#define SIM_SAM_VCF_TAG "vf"
+#define SIM_SAM_READ_ORIG_TAG "ro" // Original unmutated read
+#define SIM_SAM_INDIV_TAG "nd" // Sample of VCF file. -1 if common to all.
+#define SIM_SAM_SUB_ERR_TAG  "se" // Number of sub errors
+#define SIM_SAM_VAR_NODES_TAG "vd" // Number of variant nodes traversed
+#define SIM_SAM_VAR_BASE_TAG "vb" // Number of variant bases traversed
+#define SIM_SAM_INDEL_ERR_TAG "ni" // Number of indel errors
+#define SIM_SAM_END_POS_TAG "ep" // Position of the last base in the seq
+#define SIM_SAM_GID_TAG "gd" // Origin subgraph definition
+#define SIM_SAM_USE_RATE_TAG "rt" // Errors were generated with rates rather than discrete numbers
+#define SIM_SAM_POPULATION "po" // Which samples were included in the subgraph
+#define SIM_SAM_REF_TAG "fa" // Reference file
+#define SIM_SAM_VCF_TAG "vf" // Variant file
 
 // SAM CIGAR modification types
 #define SIM_CIGAR_ALIGNED 'M'

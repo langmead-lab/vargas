@@ -128,7 +128,8 @@ namespace Vargas {
        */
       ByteAligner(size_t max_node_len, size_t read_len) :
           _read_len(read_len),
-          _max_node_len(max_node_len) { _alloc(); }
+          _max_node_len(max_node_len),
+          _alignment_group(read_len) { _alloc(); }
 
       /**
        * @brief
@@ -148,7 +149,7 @@ namespace Vargas {
                   uint8_t extend) :
           _read_len(read_len),
           _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend),
-          _max_node_len(max_node_len) { _alloc(); }
+          _max_node_len(max_node_len), _alignment_group(read_len) { _alloc(); }
 
       ~ByteAligner() {
           _dealloc();
@@ -168,25 +169,7 @@ namespace Vargas {
       class AlignmentGroup {
         public:
 
-          AlignmentGroup() { }
-
-          /**
-           * @brief
-           * Read length is set to first read size.
-           * @param batch package the given vector of reads. Must be nonempty.
-           */
-          AlignmentGroup(const std::vector<std::vector<Base>> &batch) {
-              load_reads(batch);
-          }
-
-          /**
-           * @brief
-           * Read length is set to first read size.
-           * @param batch package the given vector of reads. Must be nonempty.
-           */
-          AlignmentGroup(const std::vector<std::string> &batch) {
-              load_reads(batch);
-          }
+          AlignmentGroup(size_t read_len) : _read_len(read_len), _packaged_reads(read_len) {}
 
           __INLINE__ void load_reads(const std::vector<std::string> &reads, size_t begin, size_t end) {
               load_reads(std::vector<std::string>(reads.begin() + begin, reads.begin() + end));
@@ -205,7 +188,6 @@ namespace Vargas {
            * @param batch load the given vector of reads.
            */
           __INLINE__ void load_reads(const std::vector<std::vector<Base>> &batch) {
-              _read_len = batch[0].size();
               _package_reads(batch);
           }
 
@@ -259,7 +241,7 @@ namespace Vargas {
 
         private:
 
-          size_t _read_len;
+          const size_t _read_len;
 
           /**
            * _packaged_reads[i] contains all i'th bases.
@@ -275,40 +257,24 @@ namespace Vargas {
            * @param _reads vector of reads to package
            */
           __INLINE__ void _package_reads(const std::vector<std::vector<Base>> &_reads) {
-              PROF_BEGIN("Package Reads")
-              _packaged_reads.resize(_read_len);
-
-              // allocate memory
-              uint8_t **pckg = (uint8_t **) malloc(_read_len * sizeof(uint8_t *));
-              for (size_t i = 0; i < _read_len; ++i) {
-                  pckg[i] = (uint8_t *) malloc(SIMDPP_FAST_INT8_SIZE * sizeof(uint8_t));
-              }
-
+              assert(_reads.size() <= SIMDPP_FAST_INT8_SIZE);
               // Interleave reads
               // For each read (read[i] is in _packaged_reads[0..n][i]
               for (size_t r = 0; r < _reads.size(); ++r) {
                   assert(_reads[r].size() == _read_len);
                   // Put each base in the appropriate vector element
                   for (size_t p = 0; p < _read_len; ++p) {
-                      pckg[p][r] = _reads[r][p];
+                      insert(_reads[r][p], r, _packaged_reads[p]);
                   }
               }
 
               // Pad underful batches
               for (size_t r = _reads.size(); r < SIMDPP_FAST_INT8_SIZE; ++r) {
                   for (size_t p = 0; p < _read_len; ++p) {
-                      pckg[p][r] = Base::N;
+                      insert(Base::N, r, _packaged_reads[p]);
                   }
               }
 
-              // Load into vectors
-              for (size_t i = 0; i < _read_len; ++i) {
-                  _packaged_reads[i] = simdpp::load(pckg[i]);
-                  free(pckg[i]);
-              }
-              free(pckg);
-
-              PROF_END("Package Reads")
           }
 
       };
@@ -987,32 +953,8 @@ namespace Vargas {
 
       }
 
-      /**
-       * @brief
-       * Extract the i'th element from a vector. No range checking is done.
-       * @param i index of element
-       * @param vec vector to extract from
-       */
-      __INLINE__
-      uint8_t extract(uint8_t i, const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
-          return ((uint8_t *) &vec)[i];
-      }
-
-      /**
-       * @brief
-       * Insert into the i'th element from a vector. No range checking is done.
-       * @param elem element to insert
-       * @param i index of element
-       * @param vec vector to insert in
-       */
-      __INLINE__
-      void insert(uint8_t elem, uint8_t i, const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
-          ((uint8_t *) &vec)[i] = elem;
-      }
-
       /*********************************** Variables ***********************************/
 
-      AlignmentGroup _alignment_group;
       size_t _read_len; /**< Maximum read length. */
 
       // Zero vector
@@ -1069,6 +1011,8 @@ namespace Vargas {
       uint32_t *_targets;
 
       size_t _max_node_len;
+
+      AlignmentGroup _alignment_group;
 
   };
 

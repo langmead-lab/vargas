@@ -30,6 +30,7 @@
 #include <fstream>
 #include <algorithm>
 #include <sstream>
+#include "simdpp/simd.h"
 
 typedef unsigned char uchar;
 
@@ -176,5 +177,28 @@ char rand_base() {
 int levenshtein_distance(const std::string &s1, const std::string &s2);
 
 std::string current_date();
+
+/**
+ * @brief
+ * Extract the i'th element from a vector. No range checking is done.
+ * @param i index of element
+ * @param vec vector to extract from
+ */
+__INLINE__
+uint8_t extract(uint8_t i, const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
+    return ((uint8_t *) &vec)[i];
+}
+
+/**
+ * @brief
+ * Insert into the i'th element from a vector. No range checking is done.
+ * @param elem element to insert
+ * @param i index of element
+ * @param vec vector to insert in
+ */
+__INLINE__
+void insert(uint8_t elem, uint8_t i, const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
+    ((uint8_t *) &vec)[i] = elem;
+}
 
 #endif //VARGAS_UTILS_H

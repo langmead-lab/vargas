@@ -46,8 +46,25 @@ int define_main(const int argc, const char *argv[]);
  */
 int profile(const int argc, const char *argv[]);
 
+/**
+ * Split a SAM file into multiple files. All files have the same header.
+ * @param argc CL arg count
+ * @param argv CL args
+ */
 int split_main(const int argc, const char *argv[]);
 
+/**
+ * Merge multiple SAM files that have the same header.
+ * @param argc CL arg count
+ * @param argv CL args
+ */
+int merge_main(const int argc, const char *argv[]);
+
+/**
+ * Extract fields from a SAM file and export them to a CSV file.
+ * @param argc CL arg count
+ * @param argv CL args
+ */
 int sam2csv(const int argc, const char *argv[]);
 
 
@@ -83,6 +100,7 @@ void align_help();
 void sim_help();
 void define_help();
 void split_help();
+void merge_help();
 void sam2csv_help();
 #endif //VARGAS_MAIN_H
 
@@ -213,8 +231,6 @@ TEST_CASE ("cor flag") {
     gb.region("x:0-100");
     Vargas::Graph g = gb.build();
 
-    g.to_DOT("tmp1.dot", "g");
-
     Vargas::ByteAligner aligner(g.max_node_len(), 6);
     Vargas::isam reads(reads_file);
 
@@ -229,7 +245,7 @@ TEST_CASE ("cor flag") {
 
     auto res = aligner.align(read_seq, targets, g.begin(), g.end());
 
-    for (int i = 0; i < records.size(); ++i) {
+    for (size_t i = 0; i < records.size(); ++i) {
         records[i].aux.set(ALIGN_SAM_MAX_POS_TAG, (int) res.max_pos[i]);
         records[i].aux.set(ALIGN_SAM_MAX_SCORE_TAG, (int) res.max_score[i]);
         records[i].aux.set(ALIGN_SAM_MAX_COUNT_TAG, (int) res.max_count[i]);

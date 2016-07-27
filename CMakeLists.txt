@@ -20,13 +20,10 @@ set(MAIN_SOURCES
 #include(libsimdpp/cmake/SimdppMultiarch.cmake)
 #simdpp_get_runnable_archs(RUNNABLE_ARCHS)
 
-# SIMD architecture to use
-add_definitions(-DSIMDPP_ARCH_X86_SSE4_1)
-
 add_executable(vargas ${MAIN_SOURCES})
 target_link_libraries(vargas hts)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++11")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -pedantic -Wall -Wextra -Wno-unused-function")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG}")
