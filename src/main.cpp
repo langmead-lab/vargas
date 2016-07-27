@@ -330,12 +330,15 @@ int align_main(const int argc, const char *argv[]) {
     }
 
 
-    std::vector<Vargas::ByteAligner> aligners(threads, Vargas::ByteAligner(base_graph.max_node_len(),
-                                                                           read_len,
-                                                                           match,
-                                                                           mismatch,
-                                                                           gopen,
-                                                                           gext));
+    std::vector<std::shared_ptr<Vargas::ByteAligner>> aligners;
+    for (uint8_t i = 0; i < threads; ++i) {
+        aligners.push_back(std::make_shared<Vargas::ByteAligner>(base_graph.max_node_len(),
+                                                                 read_len,
+                                                                 match,
+                                                                 mismatch,
+                                                                 gopen,
+                                                                 gext));
+    }
 
 
     std::cerr << "Aligning..." << std::endl;
@@ -368,7 +371,7 @@ int align_main(const int argc, const char *argv[]) {
         size_t aligner_idx = 0;
 
         for (const auto &s : pair.second) {
-            // Distribute reads round-robbin
+            // Distribute reads round-robin
             if (aligner_idx == threads) aligner_idx = 0;
             aligner_seqs[aligner_idx].push_back(s.seq);
             // SAM is left based coord. -1 gives last base coord
@@ -382,7 +385,7 @@ int align_main(const int argc, const char *argv[]) {
                 for (size_t j = 0; j < threads; ++j) {
                     jobs.emplace(jobs.end(),
                                  &Vargas::ByteAligner::align_into,
-                                 &(aligners[jobs.size()]),
+                                 aligners[jobs.size()],
                                  std::ref(aligner_seqs[jobs.size()]),
                                  std::ref(aligner_targets[jobs.size()]),
                                  ref_graph.begin(),
@@ -396,7 +399,7 @@ int align_main(const int argc, const char *argv[]) {
                 for (size_t j = 0; j < threads; ++j) {
                     jobs.emplace(jobs.end(),
                                  &Vargas::ByteAligner::align_into,
-                                 &(aligners[jobs.size()]),
+                                 aligners[jobs.size()],
                                  std::ref(aligner_seqs[jobs.size()]),
                                  std::ref(aligner_targets[jobs.size()]),
                                  af_graph.begin(),
@@ -417,7 +420,7 @@ int align_main(const int argc, const char *argv[]) {
                 for (size_t j = 0; j < threads; ++j) {
                     jobs.emplace(jobs.end(),
                                  &Vargas::ByteAligner::align_into,
-                                 &(aligners[jobs.size()]),
+                                 aligners[jobs.size()],
                                  std::ref(aligner_seqs[jobs.size()]),
                                  std::ref(aligner_targets[jobs.size()]),
                                  sub.begin(),
@@ -438,7 +441,7 @@ int align_main(const int argc, const char *argv[]) {
                 for (size_t j = 0; j < threads; ++j) {
                     jobs.emplace(jobs.end(),
                                  &Vargas::ByteAligner::align_into,
-                                 &(aligners[jobs.size()]),
+                                 aligners[jobs.size()],
                                  std::ref(aligner_seqs[jobs.size()]),
                                  std::ref(aligner_targets[jobs.size()]),
                                  sub.begin(),

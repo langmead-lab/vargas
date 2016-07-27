@@ -120,14 +120,19 @@ namespace Vargas {
        * @brief
        * Default constructor uses the following score values: \n
        * Match : 2 \n
-       * Mismatch : -2 \n
-       * Gap Open : 3 \n
-       * Gap Extend : 1 \n
+       * Mismatch penalty : 2 \n
+       * Gap Open penalty : 3 \n
+       * Gap Extend penalty : 1 \n
        * @param max_node_len maximum node length
        * @param read_len maximum read length
        */
-      ByteAligner(size_t max_node_len, size_t read_len) :
+      ByteAligner(size_t max_node_len,
+                  size_t read_len) :
           _read_len(read_len),
+          _match_vec(simdpp::splat(2)),
+          _mismatch_vec(simdpp::splat(2)),
+          _gap_open_extend_vec(simdpp::splat(4)),
+          _gap_extend_vec(simdpp::splat(1)),
           _max_node_len(max_node_len),
           _alignment_group(read_len) { _alloc(); }
 
@@ -148,8 +153,12 @@ namespace Vargas {
                   uint8_t open,
                   uint8_t extend) :
           _read_len(read_len),
-          _match(match), _mismatch(mismatch), _gap_open(open), _gap_extend(extend),
-          _max_node_len(max_node_len), _alignment_group(read_len) { _alloc(); }
+          _match_vec(simdpp::splat(match)),
+          _mismatch_vec(simdpp::splat(mismatch)),
+          _gap_open_extend_vec(simdpp::splat(open + extend)),
+          _gap_extend_vec(simdpp::splat(extend)),
+          _max_node_len(max_node_len),
+          _alignment_group(read_len) { _alloc(); }
 
       ~ByteAligner() {
           _dealloc();
@@ -328,10 +337,13 @@ namespace Vargas {
                       int8_t mismatch,
                       int8_t open,
                       int8_t extend) {
-          _match = match;
-          _mismatch = mismatch;
-          _gap_open = open;
-          _gap_extend = extend;
+          using namespace simdpp;
+
+          _match_vec = splat(match);
+          _mismatch_vec = splat(mismatch);
+          _gap_open_extend_vec = splat(open + extend);
+          _gap_extend_vec = splat(extend);
+
       }
 
       /**
@@ -765,10 +777,10 @@ namespace Vargas {
 
           // D(i,j) = D(i-1,j) - gap_extend
           // Dp is _D_prev[col], 0 for row=0
-          _D_curr[col] = sub_sat(Dp, _gap_extend);   // _tmp0 = S(i-1,j) - ( gap_open + gap_extend)
+          _D_curr[col] = sub_sat(Dp, _gap_extend_vec);   // _tmp0 = S(i-1,j) - ( gap_open + gap_extend)
           // Sp is _S_prev[col], 0 for row=0
           // D(i,j) = max{ D(i-1,j) - gap_extend, S(i-1,j) - ( gap_open + gap_extend) }
-          _tmp0 = sub_sat(Sp, _gap_extend + _gap_open);
+          _tmp0 = sub_sat(Sp, _gap_open_extend_vec);
           _D_curr[col] = max(_D_curr[col], _tmp0);
 
           PROF_END("D")
@@ -787,10 +799,10 @@ namespace Vargas {
           PROF_BEGIN("I")
 
           // I(i,j) = I(i,j-1) - gap_extend
-          _I_curr[row] = sub_sat(_I_prev[row], _gap_extend);  // I: I(i,j-1) - gap_extend
+          _I_curr[row] = sub_sat(_I_prev[row], _gap_extend_vec);  // I: I(i,j-1) - gap_extend
           // _tmp0 = S(i,j-1) - (gap_open + gap_extend)
           // Sc is _S_curr[col - 1], seed->S_col[row] for col=0
-          _tmp0 = sub_sat(Sc, _gap_extend + _gap_open);
+          _tmp0 = sub_sat(Sc, _gap_open_extend_vec);
           _I_curr[row] = max(_I_curr[row], _tmp0);
 
           PROF_END("I")
@@ -819,13 +831,13 @@ namespace Vargas {
           if (ref != Base::N) {
               // Set all mismatching pairs to _mismatch
               _tmp0 = cmp_neq(read, ref);
-              _Cneq = _tmp0 & _mismatch;   // If the read base is Base::N, set to 0 (_Ceq)
+              _Cneq = _tmp0 & _mismatch_vec;   // If the read base is Base::N, set to 0 (_Ceq)
               _tmp0 = cmp_eq(read, Base::N);
               _Cneq = blend(_Ceq, _Cneq, _tmp0);
 
               // b is not N, so all equal bases are valid
               _tmp0 = cmp_eq(read, ref);
-              _Ceq = _tmp0 & _match;
+              _Ceq = _tmp0 & _match_vec;
           }
 
           // Sp is _S_prev[col - 1], 0 for row=0
@@ -960,11 +972,11 @@ namespace Vargas {
       // Zero vector
       const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> ZERO_CT = simdpp::splat(0);
 
-      uint8_t
-          _match = 2,       /**< Match score, is added */
-          _mismatch = 2,    /**< mismatch penalty, is subtracted */
-          _gap_open = 3,    /**< gap open penalty, subtracted */
-          _gap_extend = 1;  /**< gap extension penalty, subtracted */
+      simdpp::uint8<SIMDPP_FAST_INT8_SIZE>
+          _match_vec,
+          _mismatch_vec,
+          _gap_open_extend_vec,
+          _gap_extend_vec;
 
       /**
        * Each vector has an 'a' and a 'b' version. Through each row of the
