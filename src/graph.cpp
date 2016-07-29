@@ -158,7 +158,7 @@ void Vargas::GraphBuilder::build(Vargas::Graph &g) {
   if (!_fa.good()) throw std::invalid_argument("Invalid FASTA file: " + _fa_file);
   if (!_vf.good()) throw std::invalid_argument("Invalid B/VCF file: " + _vf_file);
 
-  _vf.create_ingroup(_ingroup);
+  _vf.create_ingroup(100);
 
   // If no region is specified, the default is the first sequence in the FASTA file
   if (_vf.region_chr().length() == 0) {
@@ -309,11 +309,6 @@ std::vector<std::string> Vargas::GraphBuilder::_split_seq(std::string seq) {
 }
 
 
-void Vargas::GraphBuilder::ingroup(int percent) {
-  if (percent < 0 || percent > 100) return;
-  _ingroup = percent;
-}
-
 Vargas::Graph::Population Vargas::Graph::subset(int ingroup) const {
   Vargas::Graph::Population p(_pop_size);
   for (size_t i = 0; i < _pop_size; ++i) {
@@ -330,11 +325,12 @@ bool Vargas::Graph::FilteringIter::operator==(const Vargas::Graph::FilteringIter
 }
 
 bool Vargas::Graph::FilteringIter::operator!=(const Vargas::Graph::FilteringIter &other) const {
-  if (_type == END && other._type == END) return false;
   if (_type != other._type) return true;
+  if (_type == other._type) return false;
   if (&_graph != &other._graph) return true;
   return _currID != other._currID;
 }
+
 
 Vargas::Graph::FilteringIter &Vargas::Graph::FilteringIter::operator++() {
   // If end of graph has been reached
@@ -405,18 +401,17 @@ Vargas::Graph::FilteringIter &Vargas::Graph::FilteringIter::operator++() {
 
 const Vargas::Graph::Node &Vargas::Graph::FilteringIter::operator*() const {
   if (_type == TOPO) return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
-  if (_type == END) return *(_graph._IDMap->at(*(_graph._add_order.end())));
   return *(_graph._IDMap->at(_currID));
 }
 
 const std::vector<uint32_t> &Vargas::Graph::FilteringIter::incoming() {
-  _incoming.clear();
   if (_type == TOPO) {
     const uint32_t nid = _graph._add_order.at(_currID);
     if (_graph._prev_map.count(nid) == 0) return _incoming;
     return _graph._prev_map.at(nid);
   }
   if (_graph._prev_map.count(_currID) == 0) return _incoming;
+  _incoming.clear();
   for (auto &id : _graph._prev_map.at(_currID)) {
     if (_traversed.count(id)) _incoming.push_back(id);
   }

@@ -12,9 +12,7 @@
 #define SIMDPP_ARCH_X86_SSE4_1 // SSE support
 #define DOCTEST_CONFIG_IMPLEMENT // User controlled test execution
 
-#define TIME_ALIGNMENT 1
-
-#include "doctest.h"
+#define TIME_ALIGNMENT 0 // Disable output and report time to align
 
 #include <iostream>
 #include <thread>
@@ -365,18 +363,18 @@ int align_main(const int argc, const char *argv[]) {
     for (const auto &pair : read_queue) {
         auto gid = pair.first;
 
-        std::vector<std::vector<Vargas::SAM::Record>> aligner_source(threads);
-        std::vector<std::vector<std::string>> aligner_seqs(threads);
-        std::vector<std::vector<uint32_t>> aligner_targets(threads);
+        std::vector<std::vector<Vargas::SAM::Record>> src_record(threads);
+        std::vector<std::vector<std::string>> read_seqs(threads);
+        std::vector<std::vector<uint32_t>> read_targets(threads);
         size_t aligner_idx = 0;
 
         for (const auto &s : pair.second) {
             // Distribute reads round-robin
             if (aligner_idx == threads) aligner_idx = 0;
-            aligner_seqs[aligner_idx].push_back(s.seq);
+            read_seqs[aligner_idx].push_back(s.seq);
             // SAM is left based coord. -1 gives last base coord
-            aligner_targets[aligner_idx].push_back(s.pos + s.seq.length() - 1);
-            aligner_source[aligner_idx].push_back(s);
+            read_targets[aligner_idx].push_back(s.pos + s.seq.length() - 1);
+            src_record[aligner_idx].push_back(s);
             ++aligner_idx;
         }
 
@@ -386,8 +384,8 @@ int align_main(const int argc, const char *argv[]) {
                     jobs.emplace(jobs.end(),
                                  &Vargas::ByteAligner::align_into,
                                  aligners[jobs.size()],
-                                 std::ref(aligner_seqs[jobs.size()]),
-                                 std::ref(aligner_targets[jobs.size()]),
+                                 std::ref(read_seqs[jobs.size()]),
+                                 std::ref(read_targets[jobs.size()]),
                                  ref_graph.begin(),
                                  ref_graph.end(),
                                  std::ref(aligns[jobs.size()]));
@@ -400,8 +398,8 @@ int align_main(const int argc, const char *argv[]) {
                     jobs.emplace(jobs.end(),
                                  &Vargas::ByteAligner::align_into,
                                  aligners[jobs.size()],
-                                 std::ref(aligner_seqs[jobs.size()]),
-                                 std::ref(aligner_targets[jobs.size()]),
+                                 std::ref(read_seqs[jobs.size()]),
+                                 std::ref(read_targets[jobs.size()]),
                                  af_graph.begin(),
                                  af_graph.end(),
                                  std::ref(aligns[jobs.size()]));
@@ -421,8 +419,8 @@ int align_main(const int argc, const char *argv[]) {
                     jobs.emplace(jobs.end(),
                                  &Vargas::ByteAligner::align_into,
                                  aligners[jobs.size()],
-                                 std::ref(aligner_seqs[jobs.size()]),
-                                 std::ref(aligner_targets[jobs.size()]),
+                                 std::ref(read_seqs[jobs.size()]),
+                                 std::ref(read_targets[jobs.size()]),
                                  sub.begin(),
                                  sub.end(),
                                  std::ref(aligns[jobs.size()]));
@@ -442,8 +440,8 @@ int align_main(const int argc, const char *argv[]) {
                     jobs.emplace(jobs.end(),
                                  &Vargas::ByteAligner::align_into,
                                  aligners[jobs.size()],
-                                 std::ref(aligner_seqs[jobs.size()]),
-                                 std::ref(aligner_targets[jobs.size()]),
+                                 std::ref(read_seqs[jobs.size()]),
+                                 std::ref(read_targets[jobs.size()]),
                                  sub.begin(),
                                  sub.end(),
                                  std::ref(aligns[jobs.size()]));
@@ -454,8 +452,8 @@ int align_main(const int argc, const char *argv[]) {
 
 #if !TIME_ALIGNMENT
             for (size_t k = 0; k < threads; ++k) {
-                for (size_t j = 0; j < aligner_source[k].size(); ++j) {
-                    auto &rec = aligner_source[k][j];
+                for (size_t j = 0; j < src_record[k].size(); ++j) {
+                    auto &rec = src_record[k][j];
                     switch (alignment_type) {
                         case 0:
                             rec.aux.set(ALIGN_SAM_TYPE_TAG, ALIGN_SAM_TYPE_REF);
@@ -747,8 +745,6 @@ int profile(const int argc, const char *argv[]) {
 
     Vargas::GraphBuilder gb(fasta, bcf);
     gb.region(region);
-    if (!gb.good()) throw std::invalid_argument("Error opening files\n" + fasta + "\nand/or:\n" + bcf);
-
 
     std::clock_t start = std::clock();
 
@@ -932,7 +928,8 @@ void align_help() {
     cerr << "-n\t--mismatch      <int> Mismatch penalty, default 2.\n";
     cerr << "-o\t--gap_open      <int> Gap opening penalty, default 3.\n";
     cerr << "-e\t--gap_extend    <int> Gap extend penalty, default 1.\n";
-    cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
+    cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n";
+    cerr << "            \t            Optimal reads per subgraph: n * j * " << SIMDPP_FAST_INT8_SIZE << endl << endl;
 
     cerr << "Lines beginning with \'#\' are ignored. Alignments output to stdout, reads input from stdin\n";
     cerr << "if no -r specified.\n";

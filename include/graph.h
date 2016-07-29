@@ -153,13 +153,10 @@ namespace Vargas {
 
           }
 
-          int num;
-          /**< Percent or number of individuals included in the graph. */
-          int id;
-          /**< unique id if multiple graphs of num exist. */
-          bool pct;
-          /**< if true, num is a percentage. Otherwise number of individuals.*/
-          bool outgroup; /**< rue if the origin was an outgroup graph.*/
+          int num; /**< Percent or number of individuals included in the graph. */
+          int id; /**< unique id if multiple graphs of num exist. */
+          bool pct; /**< if true, num is a percentage. Otherwise number of individuals.*/
+          bool outgroup; /**< True if the origin was an outgroup graph.*/
 
           std::string to_string() const {
               std::ostringstream ss;
@@ -628,7 +625,7 @@ namespace Vargas {
 
           /**
            * @brief
-           * Const reference to the current node.
+           * Const reference to the current node. Undefined for end iterator.
            * @return Node
            */
           const Graph::Node &operator*() const;
@@ -680,6 +677,7 @@ namespace Vargas {
           size_t _add_order_size = _graph._add_order.size();
 
       };
+
 
       /**
        * @brief
@@ -782,7 +780,8 @@ namespace Vargas {
        */
       GraphBuilder(std::string reffile,
                    std::string vcffile) :
-          _fa_file(reffile), _vf_file(vcffile) { }
+          _fa_file(reffile),
+          _vf_file(vcffile) {}
 
       /**
        * Use the provided files for graph building.
@@ -793,14 +792,6 @@ namespace Vargas {
                 std::string vcf) {
           _fa_file = ref;
           _vf_file = vcf;
-      }
-
-      /**
-       * Checks if input files are valid. Generally an internal function.
-       * @return true if open and valid.
-       */
-      bool good() const {
-          return !_fa.good() || !_vf.good();
       }
 
       /**
@@ -825,12 +816,6 @@ namespace Vargas {
                   int max) {
           _vf.set_region(chr, min, max);
       }
-
-      /**
-       * Use a certain percentage of individuals. Reference nodes are always included.
-       * @param percent 0 - 100
-       */
-      void ingroup(int percent);
 
       /**
        * Set maximum node length. If <= 0, length is unbounded.
@@ -900,7 +885,6 @@ namespace Vargas {
       Graph g;
 
       // Graph construction parameters
-      int _ingroup = 100; // percent of individuals to use. Ref nodes always included
       unsigned int _max_node_len = 10000000; // If a node is longer, split into multiple nodes
   };
 
@@ -1281,7 +1265,6 @@ TEST_CASE ("Graph Builder") {
         SUBCASE("Basic Graph") {
         Vargas::GraphBuilder gb(tmpfa, tmpvcf);
         gb.node_len(5);
-        gb.ingroup(100);
         gb.region("x:0-15");
 
         Vargas::Graph g;
@@ -1320,7 +1303,6 @@ TEST_CASE ("Graph Builder") {
         SUBCASE("Deriving a Graph") {
         Vargas::GraphBuilder gb(tmpfa, tmpvcf);
         gb.node_len(5);
-        gb.ingroup(100);
         gb.region("x:0-15");
 
         Vargas::Graph g;

@@ -379,7 +379,6 @@ TEST_CASE ("Read sim") {
 
     Vargas::GraphBuilder gb(tmpfa, tmpvcf);
     gb.node_len(5);
-    gb.ingroup(100);
     gb.region("x:0-50");
     Vargas::Graph g = gb.build();
 

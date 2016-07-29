@@ -32,36 +32,6 @@
 #define DEBUG_PRINT_SW 0 // Print the full SW matrix for each node aligned
 #define DEBUG_PRINT_SW_NUM 0 // Print the matrix for this read number in the alignment group
 
-#define ALIGN_ENABLE_PROFILE 0
-
-#if ALIGN_ENABLE_PROFILE
-
-#include <unordered_map>
-#include <ctime>
-std::unordered_map<std::string, time_t> _PROF_TOTALS;
-std::unordered_map<std::string, time_t> _PROF_STARTS;
-
-#define PROF_BEGIN(name) { _PROF_STARTS[name] = std::clock();}
-#define PROF_END(name) {_PROF_TOTALS[name] += std::clock() - _PROF_STARTS[name];}
-#define PROF_TERMINATE { \
-                        time_t TOT = 0; \
-                        for (auto &p : _PROF_TOTALS) TOT += p.second; \
-                        for (auto &p : _PROF_TOTALS) { \
-                            std::cerr << p.first << ": " << ((double) p.second / (CLOCKS_PER_SEC/1000)) << "ms, " \
-                            << ((double) (100 * p.second) / TOT) << "%" << std::endl; \
-                        } \
-                        _PROF_TOTALS.clear(); \
-                        _PROF_STARTS.clear(); \
-                        }
-
-#else
-
-#define PROF_BEGIN(name)
-#define PROF_END(name)
-#define PROF_TERMINATE
-
-#endif
-
 #define ALIGN_SAM_TYPE_REF "REF"
 #define ALIGN_SAM_TYPE_MAXAF "MAXAF"
 #define ALIGN_SAM_TYPE_IN "IN"
@@ -420,7 +390,7 @@ namespace Vargas {
           std::fill(aligns.cor_flag.begin(), aligns.cor_flag.end(), 0);
 
           std::unordered_map<uint32_t, _seed> seed_map; // Maps node ID's to the ending matrix columns of the node
-          _seed seed(_read_len);
+          _seed seed(_read_len), nxt(_read_len);
 
           for (size_t group = 0; group < num_groups; ++group) {
               seed_map.clear();
@@ -442,7 +412,8 @@ namespace Vargas {
               for (auto gi = begin; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, &seed);
                   if (gi->is_pinched()) seed_map.clear();
-                  seed_map.emplace(gi->id(), _fill_node(*gi, _alignment_group, &seed));
+                  _fill_node(*gi, _alignment_group, &seed, &nxt);
+                  seed_map.emplace(gi->id(), nxt);
               }
 
               memcpy(aligns.max_score.data() + beg_offset, &_max_score, SIMDPP_FAST_INT8_SIZE * sizeof(uint8_t));
@@ -482,7 +453,8 @@ namespace Vargas {
               for (auto &gi = begin; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, &seed);
                   if (gi->is_pinched()) seed_map.clear();
-                  seed_map.emplace(gi->id(), _fill_node(*gi, _alignment_group, &seed));
+                  _fill_node(*gi, _alignment_group, &seed, &nxt);
+                  seed_map.emplace(gi->id(), nxt);
               }
 
               memcpy(aligns.max_score.data() + offset, &_max_score, len * sizeof(uint8_t));
@@ -495,7 +467,6 @@ namespace Vargas {
               memcpy(aligns.cor_flag.data() + offset, tmp_cor_flag.data(), len * sizeof(uint8_t));
           }
 
-          PROF_TERMINATE
       }
 
       /**
@@ -541,10 +512,10 @@ namespace Vargas {
        * @param seed_map ID->seed map for all previous nodes
        * @param seed best seed to populate
        */
+      __INLINE__
       void _get_seed(const std::vector<uint32_t> &prev_ids,
                      const std::unordered_map<uint32_t, _seed> &seed_map,
                      _seed *seed) {
-          PROF_BEGIN("Get Seed")
           using namespace simdpp;
 
           const _seed *ns;
@@ -563,7 +534,6 @@ namespace Vargas {
           catch (std::exception &e) {
               throw std::logic_error("Unable to get seed, invalid node ordering.");
           }
-          PROF_END("Get Seed")
       }
 
       /**
@@ -615,31 +585,19 @@ namespace Vargas {
 
       /**
        * @brief
-       * Computes local alignment of the node, with no previous seed.
-       * @param n Node to align to
-       * @param read_group AlignmentGroup to align
-       */
-      _seed _fill_node(const Graph::Node &n,
-                       const AlignmentGroup &read_group) {
-          _seed s(_read_len);
-          s = _fill_node(n, read_group, &s);
-          return s;
-      }
-
-      /**
-       * @brief
        * Computes local alignment to the node.
        * @param n Node to align to
        * @param read_group AlignmentGroup to align
        * @param s seeds from previous nodes
+       * @param nxt seed for next nodes
        */
-      _seed _fill_node(const Graph::Node &n,
-                       const AlignmentGroup &read_group,
-                       const _seed *s) {
+      void _fill_node(const Graph::Node &n,
+                      const AlignmentGroup &read_group,
+                      const _seed *s,
+                      _seed *nxt) {
 
           assert(n.seq().size() <= _max_node_len);
 
-          _seed nxt(_read_len);  // Seed for next node
           const Base *node_seq = n.seq().data();
           const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> *read_ptr = read_group.data();
           const size_t seq_size = n.seq().size();
@@ -655,7 +613,7 @@ namespace Vargas {
               _fill_cell_finish(0, c, node_origin);
           }
 
-          nxt.S_col[0] = _S_curr[seq_size - 1];
+          nxt->S_col[0] = _S_curr[seq_size - 1];
 
           // Rest of the rows
           for (uint32_t r = 1; r < _read_len; ++r) {
@@ -682,13 +640,12 @@ namespace Vargas {
                   _fill_cell_finish(r, c, node_origin);
               }
 
-              nxt.S_col[r] = _S_curr[seq_size - 1];
+              nxt->S_col[r] = _S_curr[seq_size - 1];
 
           }
 
           // origin vector of what is now _I_curr
-          nxt.I_col = _Ia->data() == _I_curr ? *_Ia : *_Ib;
-          return nxt;
+          nxt->I_col = _Ia->data() == _I_curr ? *_Ia : *_Ib;
       }
 
       /**
@@ -754,7 +711,6 @@ namespace Vargas {
                       const Base &ref,
                       const uint32_t &row,
                       const uint32_t &col) {
-          using namespace simdpp;
 
           _D(col, _D_prev[col], _S_prev[col]);
           _I(row, _S_curr[col - 1]);
@@ -773,7 +729,6 @@ namespace Vargas {
               const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &Dp,
               const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &Sp) {
           using namespace simdpp;
-          PROF_BEGIN("D")
 
           // D(i,j) = D(i-1,j) - gap_extend
           // Dp is _D_prev[col], 0 for row=0
@@ -783,7 +738,6 @@ namespace Vargas {
           _tmp0 = sub_sat(Sp, _gap_open_extend_vec);
           _D_curr[col] = max(_D_curr[col], _tmp0);
 
-          PROF_END("D")
       }
 
       /**
@@ -796,7 +750,6 @@ namespace Vargas {
       void _I(const uint32_t &row,
               const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &Sc) {
           using namespace simdpp;
-          PROF_BEGIN("I")
 
           // I(i,j) = I(i,j-1) - gap_extend
           _I_curr[row] = sub_sat(_I_prev[row], _gap_extend_vec);  // I: I(i,j-1) - gap_extend
@@ -805,7 +758,6 @@ namespace Vargas {
           _tmp0 = sub_sat(Sc, _gap_open_extend_vec);
           _I_curr[row] = max(_I_curr[row], _tmp0);
 
-          PROF_END("I")
       }
 
       /**
@@ -823,8 +775,6 @@ namespace Vargas {
               const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &Sp) {
           using namespace simdpp;
 
-          PROF_BEGIN("M")
-
           _Ceq = ZERO_CT;
           _Cneq = ZERO_CT;
 
@@ -832,7 +782,7 @@ namespace Vargas {
               // Set all mismatching pairs to _mismatch
               _tmp0 = cmp_neq(read, ref);
               _Cneq = _tmp0 & _mismatch_vec;   // If the read base is Base::N, set to 0 (_Ceq)
-              _tmp0 = cmp_eq(read, Base::N);
+              _tmp0 = cmp_eq(read, _N_VEC);
               _Cneq = blend(_Ceq, _Cneq, _tmp0);
 
               // b is not N, so all equal bases are valid
@@ -845,7 +795,6 @@ namespace Vargas {
           _S_curr[col] = add_sat(Sp, _Ceq);   // Add match scores
           _S_curr[col] = sub_sat(_S_curr[col], _Cneq); // Subtract mismatch scores
 
-          PROF_END("M")
       }
 
 
@@ -876,8 +825,6 @@ namespace Vargas {
            */
 
           // Check for new or equal high scores
-          PROF_BEGIN("New Max")
-
           _tmp0 = _S_curr[col] > _max_score;
           if (reduce_or(_tmp0)) {
               _max_score = max(_S_curr[col], _max_score);
@@ -901,11 +848,6 @@ namespace Vargas {
               }
           }
 
-          PROF_END("New Max")
-
-
-          PROF_BEGIN("Eq Max")
-
           // Check for equal max score.
           _tmp0 = cmp_eq(_S_curr[col], _max_score);
           if (reduce_or(_tmp0)) {
@@ -920,10 +862,6 @@ namespace Vargas {
                   _tmp0 = simdpp::move16_l<1>(_tmp0);
               }
           }
-
-          PROF_END("Eq Max")
-
-          PROF_BEGIN("New Sub")
 
           // new second best score
           // Greater than old sub max and less than max score (prevent repeats of max triggering)
@@ -942,10 +880,6 @@ namespace Vargas {
               }
           }
 
-          PROF_END("New Sub")
-
-          PROF_BEGIN("Eq Sub")
-
           // Repeat sub score
           _tmp0 = cmp_eq(_S_curr[col], _sub_score);
           if (reduce_or(_tmp0)) {
@@ -961,8 +895,6 @@ namespace Vargas {
               }
           }
 
-          PROF_END("Eq Sub")
-
       }
 
       /*********************************** Variables ***********************************/
@@ -971,6 +903,7 @@ namespace Vargas {
 
       // Zero vector
       const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> ZERO_CT = simdpp::splat(0);
+      const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> _N_VEC = simdpp::splat(Base::N);
 
       simdpp::uint8<SIMDPP_FAST_INT8_SIZE>
           _match_vec,

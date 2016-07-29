@@ -33,8 +33,14 @@ namespace Vargas {
        * @param region region of graph, CHR:XX,XXX-YY,YYY
        * @param node_len maximum node length
        */
-      GDEF(std::string fasta_file, std::string var_file, std::string region, int node_len) :
-          _fasta_file(fasta_file), _var_file(var_file), _region(region), _node_len(node_len) {
+      GDEF(std::string fasta_file,
+           std::string var_file,
+           std::string region,
+           int node_len) :
+          _fasta_file(fasta_file),
+          _var_file(var_file),
+          _region(region),
+          _node_len(node_len) {
           Vargas::VCF vf(var_file);
           _num_samples = vf.num_samples();
       }
