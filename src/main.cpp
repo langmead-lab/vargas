@@ -100,6 +100,8 @@ int split_main(const int argc, const char *argv[]) {
     size_t suffix = 0;
     Vargas::isam input(sam_file);
 
+    auto start_time = std::chrono::steady_clock::now();
+
     if (lines) {
         std::ofstream out;
         size_t l = lines;
@@ -136,6 +138,11 @@ int split_main(const int argc, const char *argv[]) {
             delete p;
         }
     }
+
+    std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
+        std::chrono::steady_clock::now() - start_time).count()
+              << " seconds." << std::endl;
+
     return 0;
 }
 
@@ -153,6 +160,8 @@ int merge_main(const int argc, const char *argv[]) {
     std::string out_file = "";
     args >> GetOpt::Option('t', "out", out_file);
 
+    auto start_time = std::chrono::steady_clock::now();
+
     Vargas::isam in(argv[2]);
     Vargas::osam out(out_file, in.header());
 
@@ -163,6 +172,10 @@ int merge_main(const int argc, const char *argv[]) {
             out.add_record(in.record());
         } while (in.next());
     }
+
+    std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
+        std::chrono::steady_clock::now() - start_time).count()
+              << " seconds." << std::endl;
 
     return 0;
 }
@@ -180,6 +193,7 @@ int sam2csv(const int argc, const char *argv[]) {
     args >> GetOpt::Option('s', "sam", sam_file)
          >> GetOpt::Option('f', "format", format);
 
+    auto start_time = std::chrono::steady_clock::now();
 
     format.erase(std::remove(format.begin(), format.end(), ' '), format.end());
     std::vector<std::string> fmt_split = split(format, ',');
@@ -245,6 +259,11 @@ int sam2csv(const int argc, const char *argv[]) {
         }
         std::cout << buff.substr(1) << '\n'; // Crop leading comma
     } while (input.next());
+
+    std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
+        std::chrono::steady_clock::now() - start_time).count()
+              << " seconds." << std::endl;
+
     return 0;
 }
 
@@ -281,7 +300,8 @@ int align_main(const int argc, const char *argv[]) {
     if (!R && !X && !O && !I) throw std::invalid_argument("No alignment mode [RXIO] selected.");
     if (threads == 0) threads = std::thread::hardware_concurrency();
 
-    std::cerr << "Loading reads..." << std::endl;
+    std::cerr << "Loading reads... " << std::flush;
+    auto start_time = std::chrono::steady_clock::now();
     std::map<Vargas::Graph::GID, std::vector<Vargas::SAM::Record>> read_queue;
     Vargas::SAM::Header hdr;
     {
@@ -297,21 +317,29 @@ int align_main(const int argc, const char *argv[]) {
         } while (reads_in.next());
     }
     size_t num_target_graphs = read_queue.size() * ((R ? 1 : 0) + (X ? 1 : 0) + (I ? 1 : 0) + (O ? 1 : 0));
-    std::cerr << hdr.read_groups.size() << " read groups, " << num_target_graphs << " target graphs." << std::endl;
+    std::cerr << hdr.read_groups.size() << " read groups, "
+              << num_target_graphs << " target graphs. "
+              << std::chrono::duration_cast<std::chrono::duration<double>>(
+                  std::chrono::steady_clock::now() - start_time).count()
+              << " seconds." << std::endl;
 
 
     std::map<Vargas::Graph::GID, Vargas::Graph::Population> pops;
     Vargas::Graph base_graph;
 
     {
+        start_time = std::chrono::steady_clock::now();
         Vargas::GDEF gdf(gdf_file);
         if (O) gdf.include_outgroups();
         Vargas::GraphBuilder gb(gdf.fasta(), gdf.var());
         gb.region(gdf.region());
 
-        std::cerr << "Loading base graph..." << std::endl;
+        std::cerr << "Loading base graph... " << std::flush;
         base_graph = gb.build();
         pops = gdf.populations();
+        std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
+            std::chrono::steady_clock::now() - start_time).count()
+                  << " seconds." << std::endl;
     }
 
     {
@@ -339,7 +367,7 @@ int align_main(const int argc, const char *argv[]) {
     }
 
 
-    std::cerr << "Aligning..." << std::endl;
+    std::cerr << "Aligning... " << std::endl;
 
     Vargas::osam aligns_out(hdr);
     std::vector<std::thread> jobs;
@@ -359,6 +387,8 @@ int align_main(const int argc, const char *argv[]) {
     #if TIME_ALIGNMENT
     time_t start = std::clock();
     #endif
+
+    start_time = std::chrono::steady_clock::now();
 
     for (const auto &pair : read_queue) {
         auto gid = pair.first;
@@ -380,18 +410,16 @@ int align_main(const int argc, const char *argv[]) {
 
         for (int i = 0; i < 4; ++i) {
             if (R && i == 0) {
+                #pragma omp parallel for num_threads(threads)
                 for (size_t j = 0; j < threads; ++j) {
-                    jobs.emplace(jobs.end(),
-                                 &Vargas::ByteAligner::align_into,
-                                 aligners[jobs.size()],
-                                 std::ref(read_seqs[jobs.size()]),
-                                 std::ref(read_targets[jobs.size()]),
-                                 ref_graph.begin(),
-                                 ref_graph.end(),
-                                 std::ref(aligns[jobs.size()]));
+                    aligners[j]->align_into(read_seqs[j],
+                                            read_targets[j],
+                                            ref_graph.begin(),
+                                            ref_graph.end(),
+                                            aligns[j]);
                 }
                 alignment_type = 0;
-                std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
+                //  std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
             }
             else if (X && i == 1) {
                 for (size_t j = 0; j < threads; ++j) {
@@ -498,6 +526,10 @@ int align_main(const int argc, const char *argv[]) {
 
     std::cerr << std::endl;
 
+    std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
+        std::chrono::steady_clock::now() - start_time).count()
+              << " seconds." << std::endl;
+
     return 0;
 }
 
@@ -532,7 +564,7 @@ int sim_main(const int argc, const char *argv[]) {
 
     args >> GetOpt::Option('g', "gdef", gdf_file)
          >> GetOpt::OptionPresent('o', "outgroup", outgroup)
-         >> GetOpt::Option('v', "vnodes", vnodes)
+         >> GetOpt::Option('d', "vnodes", vnodes)
          >> GetOpt::Option('b', "vbases", vbases)
          >> GetOpt::Option('l', "rlen", read_len)
          >> GetOpt::Option('n', "numreads", num_reads)
@@ -547,15 +579,19 @@ int sim_main(const int argc, const char *argv[]) {
     if (outgroup) gdf.include_outgroups();
     auto &pops = gdf.populations();
 
-    Vargas::GraphBuilder gb(gdf.fasta(), gdf.var());
-    gb.region(gdf.region());
+    std::string ref_file = gdf.fasta();
+    std::string var_file = gdf.var();
+    args >> GetOpt::Option('r', "ref", ref_file)
+         >> GetOpt::Option('v', "var", var_file);
 
     auto mut_split = split(mut, ',');
     auto indel_split = split(indel, ',');
     auto vnode_split = split(vnodes, ',');
     auto vbase_split = split(vbases, ',');
 
-    std::cerr << "Building profiles..." << std::endl;
+    std::cerr << "Building profiles... " << std::flush;
+
+    auto start_time = std::chrono::steady_clock::now();
 
     // Map a read group ID to a unique read group
     std::unordered_map<std::string, std::pair<Vargas::Graph::Population, Vargas::Sim::Profile>> pending_sims;
@@ -605,13 +641,22 @@ int sim_main(const int argc, const char *argv[]) {
             }
         }
     }
-    std::cerr << pending_sims.size() << " read groups over " << pops.size() << " subgraphs." << std::endl;
+    std::cerr << pending_sims.size() << " read groups over " << pops.size() << " subgraphs. "
+              << std::chrono::duration_cast<std::chrono::duration<double>>(
+                  std::chrono::steady_clock::now() - start_time).count()
+              << " seconds." << std::endl;
 
     Vargas::osam out(out_file, sam_hdr);
     if (!out.good()) throw std::invalid_argument("Error opening output file \"" + out_file + "\"");
 
-    std::cerr << "Loading base graph..." << std::endl;
-    Vargas::Graph base_graph = gb.build();
+    std::cerr << "Loading base graph... " << std::flush;
+
+    start_time = std::chrono::steady_clock::now();
+    Vargas::Graph base_graph(ref_file, var_file, gdf.region(), gdf.node_len());
+
+    std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
+        std::chrono::steady_clock::now() - start_time).count()
+              << " seconds.\nSimulating... " << std::endl;
 
     int prog_bar_scale = ((pending_sims.size() / threads) + 49) / 50;
     int scale_counter = 0;
@@ -622,6 +667,8 @@ int sim_main(const int argc, const char *argv[]) {
     // Threading
     std::vector<std::vector<Vargas::SAM::Record>> reads(threads);
     std::vector<std::thread> jobs;
+
+    start_time = std::chrono::steady_clock::now();
 
     // For each readgroup
     //TODO Building the same graph multiple times (one for each prof)
@@ -650,7 +697,13 @@ int sim_main(const int argc, const char *argv[]) {
             }
         }
     }
+
     std::cerr << std::endl;
+
+    std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
+        std::chrono::steady_clock::now() - start_time).count()
+              << " seconds." << std::endl;
+
     return 0;
 }
 
@@ -746,7 +799,7 @@ int profile(const int argc, const char *argv[]) {
     Vargas::GraphBuilder gb(fasta, bcf);
     gb.region(region);
 
-    std::clock_t start = std::clock();
+    auto start = std::clock();
 
     std::cerr << "Initial Build:\n\t";
     Vargas::Graph g;
@@ -945,12 +998,14 @@ void sim_help() {
     cerr << endl
          << "-------------------- Vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
     cerr << "-g\t--gdef          *<string> Graph definition file. Reads are simulated from the ingroups.\n";
+    cerr << "-r\t--ref           <string> Override reference file specified in GDEF file.\n";
+    cerr << "-v\t--var           <string> Override variant file specified in GDEF file.\n";
     cerr << "-t\t--out           <string> Output file. Default stdout.\n";
     cerr << "-o\t--outgroup      Simulate from outgroup graphs.\n";
     cerr << "-n\t--numreads      <int> Number of reads to simulate from each subgraph, default 1000.\n";
     cerr << "-m\t--muterr        <int/float, int/float...> Read mutation error. Default 0.\n";
     cerr << "-i\t--indelerr      <int/float, int/float...> Read indel error. Default 0.\n";
-    cerr << "-v\t--vnodes        <int, int...> Number of variant nodes, default any (*).\n";
+    cerr << "-d\t--vnodes        <int, int...> Number of variant nodes, default any (*).\n";
     cerr << "-b\t--vbases        <int, int...> Number of variant bases, default any (*).\n";
     cerr << "-l\t--rlen          <int> Read length, default 50.\n";
     cerr << "-a\t--rate          Interpret -m, -i as rates, instead of exact number of errors.\n";

@@ -4,7 +4,7 @@
  * rgaddip1@jhu.edu
  *
  * @brief
- * Provides tools to interact with Alignments.
+ * Aligns groups of short reads to a graph.
  *
  * @details
  * Reads are aligned using
@@ -381,10 +381,6 @@ namespace Vargas {
               std::fill(targets.begin(), targets.end(), 0);
           }
 
-          if (!validate(begin, end)) {
-              throw std::logic_error("Graph not topographically ordered. Aborting.");
-          }
-
           size_t num_groups = read_group.size() / SIMDPP_FAST_INT8_SIZE; // Full alignment groups
           aligns.resize(read_group.size());
           std::fill(aligns.cor_flag.begin(), aligns.cor_flag.end(), 0);
@@ -511,6 +507,7 @@ namespace Vargas {
        * @param prev_ids All nodes preceding _curr_posent node
        * @param seed_map ID->seed map for all previous nodes
        * @param seed best seed to populate
+       * @throws std::logic_error if a node listed as a previous node but it has not been encountered yet. i.e. not topographically sorted.
        */
       __INLINE__
       void _get_seed(const std::vector<uint32_t> &prev_ids,

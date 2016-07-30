@@ -32,6 +32,7 @@ class ReadFile: public ReadSource {
 
     /**
      * @param file filename of reads file
+     * @throws std::invalid_argument if file cannot be opened
      */
   ReadFile(std::string file) {
     _read_file.open(file);

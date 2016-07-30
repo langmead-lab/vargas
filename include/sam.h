@@ -554,6 +554,7 @@ namespace Vargas {
            * @brief
            * Add a new sequence line.
            * @param s Sequence
+           * @throws std::out_of_range if sequence name already exists
            */
           void add(const Sequence &s) {
               if (sequences.count(s.name) != 0) throw std::out_of_range("Sequence name already exists.");
@@ -564,6 +565,7 @@ namespace Vargas {
            * @brief
            * Add a new ReadGroup line.
            * @param rg ReadGroup
+           * @throws std::out_of_range if read group ID already exists
            */
           void add(const ReadGroup &rg) {
               if (read_groups.count(rg.id) != 0) throw std::out_of_range("Read group ID already exists.");
@@ -573,6 +575,7 @@ namespace Vargas {
           /**
            * @brief
            * Add a new Program line.
+           * @throws std::out_of_range if program ID already exists
            * @param pg Program
            */
           void add(const Program &pg) {
@@ -608,6 +611,7 @@ namespace Vargas {
            * @brief
            * Parse a header and populate tags.
            * @param hdr space delimited tag-pairs, colon delimited pairs
+           * @throws std::invalid_argument if invalid SAM file
            */
           void parse(std::string hdr) {
               sorting_order = "";
@@ -836,6 +840,7 @@ namespace Vargas {
           /**
            * @brief
            * Parse the line and populate fields.
+           * @throws std::invalid_argument if record has incorrect number of fields
            */
           void parse(std::string line) {
               std::vector<std::string> cols = split(line, '\t');
@@ -928,6 +933,7 @@ namespace Vargas {
        * @brief
        * Close any open file and open the given file.
        * @param file_name SAM file to open
+       * @throws std::invalid_argument if file cannot be opened
        */
       void open(std::string file_name) {
           close();
@@ -1041,6 +1047,7 @@ namespace Vargas {
        * Any added alignments are flushed to the previous file (if any). The header
        * is written to the new file.
        * @param file_name file to open
+       * @throws std::invalid_argument if file cannot be opened
        */
       void open(std::string file_name) {
           close();
@@ -1071,7 +1078,8 @@ namespace Vargas {
       /**
        * @brief
        * Writes a record.
-       * @param r
+       * @param r record to add
+       * @throws std::invalid_argument if no output file open
        */
       void add_record(const SAM::Record &r) {
           if (!good()) throw std::invalid_argument("No valid file open.");

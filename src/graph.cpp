@@ -12,11 +12,18 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
-#include "../include/graph.h"
+#include "graph.h"
 
 
 uint32_t Vargas::Graph::Node::_newID = 0;
 
+Vargas::Graph::Graph(std::string ref_file, std::string vcf_file, std::string region, int max_node_len) {
+    _IDMap = std::make_shared<std::unordered_map<uint32_t, nodeptr>>();
+    GraphBuilder gb(ref_file, vcf_file);
+    gb.region(region);
+    gb.node_len(max_node_len);
+    gb.build(*this);
+}
 
 Vargas::Graph::Graph(const Vargas::Graph &g,
                      const Population &filter) {

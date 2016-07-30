@@ -121,6 +121,8 @@ namespace Vargas {
        * @brief
        * Read length is set to first read size.
        * @param batch package the given vector of reads. Must be nonempty.
+       * @throws std::invalid_argument if batch is empty
+       * @throws std::range_error if too many reads are supplied, or a read is too long.
        */
       ReadBatch(const std::vector<Read> &batch) : _reads(batch) {
           if (batch.size() == 0) throw std::invalid_argument("Vector of reads must be non-empty.");
@@ -132,6 +134,8 @@ namespace Vargas {
        * @brief
        * Read length is set to first read size.
        * @param rs obtain a batch of reads from the Read source and package them.
+       * @throws std::invalid_argument if rs fails to provide a batch
+       * @throws std::range_error if too many reads are supplied, or a read is too long.
        */
       ReadBatch(ReadSource &rs) : _reads(rs.get_batch(num_reads)) {
           if (_reads.size() == 0) throw std::invalid_argument("Unable to get reads.");
@@ -142,6 +146,7 @@ namespace Vargas {
       /**
        * @param batch package the given vector of reads. Must be nonempty.
        * @param len max read length
+       * @throws std::range_error if too many reads are supplied, or a read is too long.
        */
       ReadBatch(const std::vector<Read> &batch, int len) : read_len(len), _reads(batch) {
           _package_reads();
@@ -152,6 +157,7 @@ namespace Vargas {
        * obtain a batch of reads from the Read source and package them.
        * @param rs ReadSource to pull reads from
        * @param len max read length
+       * @throws std::range_error if too many reads are supplied, or a read is too long.
        */
       ReadBatch(ReadSource &rs, int len) : _reads(rs.get_batch(num_reads)), read_len(len) {
           _package_reads();
@@ -265,6 +271,7 @@ namespace Vargas {
       /**
        * Interleaves reads so all same-index base positions are in one
        * vector. Empty spaces are padded with Base::N.
+       * @throws std::range_error if too many reads are supplied, or a read is too long.
        */
       inline void _package_reads() {
           _packaged_reads.resize(read_len);

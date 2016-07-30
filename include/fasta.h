@@ -63,8 +63,17 @@ namespace Vargas {
        * Output to stdout
        */
       ofasta() : _use_stdio(true) { }
+
+      /**
+       * @param file_name output file
+       */
       ofasta(std::string file_name) { open(file_name); }
 
+      /**
+       * @brief open a file for output
+       * @param file_name
+       * @throws std::invalid_argument Error opening a file
+       */
       void open(std::string file_name) {
           close();
           if (file_name.length() == 0) {
@@ -234,6 +243,7 @@ namespace Vargas {
        * Returns from buffer in WRITE mode.
        * @param i index of sequence
        * @return sequence name
+       * @throws std::range_error i is out of sequence index range
        */
       std::string seq_name(size_t i) const {
           if (i > num_seq()) throw std::range_error("Out of sequence index range.");
@@ -254,6 +264,7 @@ namespace Vargas {
        * Return the full set of sequence names and sequences.
        * If in write mode, return the current buffer.
        * @return vector of std::pair<seq_name, seq>
+       * @throws std::invalid_argument No file is loaded
        */
       std::vector<std::pair<std::string, std::string>> sequences() const {
           if (!_index) throw std::invalid_argument("No file loaded.");

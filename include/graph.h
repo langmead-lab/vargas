@@ -403,6 +403,19 @@ namespace Vargas {
 
       /**
        * @brief
+       * Build a graph given a reference FASTA file and a variant VCF or BCF file.
+       * @param ref_file FASTA file name
+       * @param vcf_file VCF or BCF file name
+       * @param region region in the format chromosome:start-end
+       * @param max_node_len Maximum graph node length
+       */
+      Graph(std::string ref_file,
+            std::string vcf_file,
+            std::string region,
+            int max_node_len = 1000000);
+
+      /**
+       * @brief
        * Create a Graph with another Graph and a population filter.
        * @details
        * The new Graph will only
@@ -497,6 +510,7 @@ namespace Vargas {
        * Const reference to a node
        * @param id ID of the node
        * @return shared node object
+       * @throws std::invalid_argument if node ID does not exist
        */
       const Node &node(uint32_t id) const {
           if (_IDMap->count(id) == 0) throw std::invalid_argument("Invalid Node ID.");
@@ -520,6 +534,7 @@ namespace Vargas {
        * Export the graph in DOT format
        * @param filename to export to
        * @param name of the graph
+       * @throws std::invalid_argument if output file cannot be opened
        */
       void to_DOT(std::string filename, std::string name) {
           std::ofstream out(filename);
@@ -678,7 +693,6 @@ namespace Vargas {
 
       };
 
-
       /**
        * @brief
        * Provides an iterator to the whole graph.
@@ -687,7 +701,6 @@ namespace Vargas {
       FilteringIter begin() const {
           return FilteringIter(*this);
       }
-
 
       /**
        * @brief

@@ -94,6 +94,7 @@ class dyn_bitset {
      * Set a single bit, default true
      * @param bit bit index
      * @param val value to set bit to.
+     * @throws std::range_error bit is out of range of bitset size
      */
     void set(const int bit,
              bool val = true) {
@@ -115,6 +116,7 @@ class dyn_bitset {
      * @brief
      * Flips the specified bit.
      * @param bit bit index
+     * @throws std::range_error bit is out of range
      */
     void flip(const int bit) {
         if (bit > size() || bit < 0) throw std::range_error("Index out of bounds.");
@@ -125,6 +127,7 @@ class dyn_bitset {
      * @brief
      * Value of a single bit
      * @param bit bit index
+     * @throws std::range_error bit is out of range
      */
     bool at(const int bit) const {
         if (bit > size() || bit < 0) throw std::range_error("Index out of bounds.");
@@ -194,6 +197,8 @@ class dyn_bitset {
      * e.g: \n
      * 0101 && 1010 = false \n
      * 0010 && 1011 = true
+     * @param db other bitset
+     * @throws std::invalid_argument bitsets are different sizes
      */
     bool operator&&(const dyn_bitset &db) const {
         if (_bitset.size() != db._bitset.size() || _right_pad != db._right_pad)
@@ -206,12 +211,59 @@ class dyn_bitset {
     }
 
     /**
+     * Bitwise AND
+     * @param other
+     * @return b1 & b2
+     * @throws std::range_error Bitsets are incompatible dimensions
+     */
+    dyn_bitset<core_size> operator&(const dyn_bitset<core_size> &other) {
+        //TODO done slowly
+        //TODO add tests
+        if (_right_pad != other._right_pad) throw std::range_error("Incompatible dimension");
+        dyn_bitset<core_size> ret(size());
+        for (int i = 0; i < size(); ++i) {
+            if (at(i) && other.at(i)) ret.set(i);
+        }
+        return ret;
+    }
+
+    /**
+     * Bitwise OR
+     * @param other
+     * @return b1 | b2
+     * @throws std::range_error Bitsets are incompatible dimensions
+ */
+    dyn_bitset<core_size> operator|(const dyn_bitset<core_size> &other) {
+        //TODO done slowly
+        //TODO add tests
+        if (_right_pad != other._right_pad) throw std::range_error("Incompatible dimension");
+        dyn_bitset<core_size> ret(size());
+        for (int i = 0; i < size(); ++i) {
+            if (at(i) || other.at(i)) ret.set(i);
+        }
+        return ret;
+    }
+
+    /**
      * @param pop init via assignment from vector
      */
     template<typename T>
     dyn_bitset &operator=(const std::vector<T> &pop) {
         _init_from_vec<T>(pop);
         return *this;
+    }
+
+    /**
+     * @brief
+     * Count the number of bits set.
+     * @return number of bits set.
+     */
+    size_t count() const {
+        size_t count = 0;
+        for (int i = 0; i < size(); ++i) {
+            if (at(i)) ++count;
+        }
+        return count;
     }
 
 
