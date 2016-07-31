@@ -536,7 +536,7 @@ namespace Vargas {
        * @param name of the graph
        * @throws std::invalid_argument if output file cannot be opened
        */
-      void to_DOT(std::string filename, std::string name) {
+      void to_DOT(std::string filename, std::string name) const {
           std::ofstream out(filename);
           if (!out.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
           out << to_DOT(name);
@@ -603,6 +603,7 @@ namespace Vargas {
           explicit FilteringIter(const Graph &g, Graph::Type type)
               : _graph(g), _type(type), _currID(g._root) {
               if (_type == TOPO) _currID = 0;
+              if (_type == END) _currID = g._add_order.size() - 1;
           }
 
           /**

@@ -17,6 +17,7 @@
 #include <iostream>
 #include <thread>
 #include <algorithm>
+#include <omp.h>
 #include "gdef.h"
 #include "main.h"
 #include "getopt_pp.h"
@@ -109,6 +110,7 @@ int define_main(const int argc, const char *argv[]) {
         while (std::getline(std::cin, line)) subgraph_str += line + "\n";
     } else {
         std::ifstream in(subgraph_def);
+        if (!in.good()) throw std::invalid_argument("Error opening file \"" + subgraph_def + "\".");
         std::stringstream buff;
         buff << in.rdbuf();
         subgraph_str = buff.str();
@@ -124,6 +126,7 @@ int define_main(const int argc, const char *argv[]) {
 }
 
 int sim_main(const int argc, const char *argv[]) {
+
     GetOpt::GetOpt_pp args(argc, argv);
 
     if (args >> GetOpt::OptionPresent('h', "help")) {
@@ -131,18 +134,11 @@ int sim_main(const int argc, const char *argv[]) {
         return 0;
     }
 
-    // Load parameters
-    unsigned int read_len = 50, num_reads = 1000, threads = 1;
-    std::string mut = "0", indel = "0", vnodes = "*", vbases = "*";
-    std::string gdf_file, out_file = "";
-    bool use_rate = false, outgroup = false;
-
     Vargas::SAM::Header sam_hdr;
 
     {
         Vargas::SAM::Header::Program pg;
         std::ostringstream ss;
-        ss << "vargas sim ";
         for (int i = 0; i < argc; ++i) ss << std::string(argv[i]) << " ";
         pg.command_line = ss.str();
         pg.name = "vargas_sim";
@@ -152,8 +148,25 @@ int sim_main(const int argc, const char *argv[]) {
         sam_hdr.add(pg);
     }
 
+    // Load parameters
+    int
+        read_len = 50,
+        num_reads = 1000,
+        threads = 1;
+
+    std::string
+        mut = "0",
+        indel = "0",
+        vnodes = "*",
+        vbases = "*",
+        gdf_file = "",
+        out_file = "",
+        sim_src = "";
+
+    bool use_rate = false;
+
     args >> GetOpt::Option('g', "gdef", gdf_file)
-         >> GetOpt::OptionPresent('o', "outgroup", outgroup)
+         >> GetOpt::Option('s', "sub", sim_src)
          >> GetOpt::Option('d', "vnodes", vnodes)
          >> GetOpt::Option('b', "vbases", vbases)
          >> GetOpt::Option('l', "rlen", read_len)
@@ -164,50 +177,45 @@ int sim_main(const int argc, const char *argv[]) {
          >> GetOpt::Option('j', "threads", threads)
          >> GetOpt::OptionPresent('a', "rate", use_rate);
 
+    if (threads > 0) omp_set_num_threads(threads);
 
-    Vargas::GDEF gdf(gdf_file);
-    if (outgroup) gdf.include_outgroups();
-    auto &pops = gdf.populations();
-
-    std::string ref_file = gdf.fasta();
-    std::string var_file = gdf.var();
-    args >> GetOpt::Option('r', "ref", ref_file)
-         >> GetOpt::Option('v', "var", var_file);
+    Vargas::GraphManager gm{gdf_file};
 
     auto mut_split = split(mut, ',');
     auto indel_split = split(indel, ',');
     auto vnode_split = split(vnodes, ',');
     auto vbase_split = split(vbases, ',');
+    auto subdef_split = split(sim_src, gm.GDEF_DELIM);
 
     std::cerr << "Building profiles... " << std::flush;
 
     auto start_time = std::chrono::steady_clock::now();
 
     // Map a read group ID to a unique read group
-    std::unordered_map<std::string, std::pair<Vargas::Graph::Population, Vargas::Sim::Profile>> pending_sims;
+    std::unordered_map<std::string,
+                       std::vector<std::pair<std::string, Vargas::Sim::Profile>>> queue;
 
     int rg_id = 0;
     Vargas::SAM::Header::ReadGroup rg;
     rg.seq_center = "vargas_sim";
     rg.date = current_date();
-    rg.aux.set(SIM_SAM_REF_TAG, gdf.fasta());
-    rg.aux.set(SIM_SAM_VCF_TAG, gdf.var());
+    rg.aux.set(SIM_SAM_REF_TAG, gm.reference());
+    rg.aux.set(SIM_SAM_VCF_TAG, gm.variants());
 
+    Vargas::Sim::Profile prof;
+    prof.len = read_len;
+    prof.rand = use_rate;
     for (auto &vbase : vbase_split) {
         for (auto &vnode : vnode_split) {
             for (auto &ind : indel_split) {
                 for (auto &m : mut_split) {
-                    Vargas::Sim::Profile prof;
-
                     try {
-                        prof.len = read_len;
                         prof.mut = m == "*" ? -1 : std::stof(m);
                         prof.indel = ind == "*" ? -1 : std::stof(ind);
-                        prof.rand = use_rate;
                         prof.var_bases = vbase == "*" ? -1 : std::stoi(vbase);
                         prof.var_nodes = vnode == "*" ? -1 : std::stoi(vnode);
-                    } catch (std::out_of_range &e) {
-                        std::cerr << "Invalid profile argument." << std::endl;
+                    } catch (std::exception &e) {
+                        std::cerr << "Invalid profile argument: " << e.what() << std::endl;
                         return 1;
                     }
 
@@ -218,80 +226,70 @@ int sim_main(const int argc, const char *argv[]) {
                     rg.aux.set(SIM_SAM_USE_RATE_TAG, (int) prof.rand);
 
                     // Each profile and subgraph combination is a unique set of reads
-                    for (auto &p : pops) {
-                        rg.aux.set(SIM_SAM_GID_TAG, p.first.to_string());
-                        rg.aux.set(SIM_SAM_POPULATION, p.second.to_string());
+                    for (auto &p : subdef_split) {
+                        rg.aux.set(SIM_SAM_SRC_TAG, p);
+                        rg.aux.set(SIM_SAM_POPULATION, gm.filter(p).to_string());
+
                         rg.id = std::to_string(++rg_id);
                         sam_hdr.add(rg);
-
-                        pending_sims[rg.id] = std::pair<Vargas::Graph::Population,
-                                                        Vargas::Sim::Profile>(p.second, prof);
+                        queue[p].emplace(queue[p].end(), rg.id, prof);
                     }
                 }
             }
         }
     }
-    std::cerr << pending_sims.size() << " read groups over " << pops.size() << " subgraphs. "
-              << std::chrono::duration_cast<std::chrono::duration<double>>(
-                  std::chrono::steady_clock::now() - start_time).count()
+    std::cerr << rg_id << " read groups over " << subdef_split.size() << " subgraphs. "
+              << chrono_duration(start_time)
               << " seconds." << std::endl;
 
     Vargas::osam out(out_file, sam_hdr);
     if (!out.good()) throw std::invalid_argument("Error opening output file \"" + out_file + "\"");
 
-    std::cerr << "Loading base graph... " << std::flush;
+    std::cerr << "Simulating... " << std::endl;
 
-    start_time = std::chrono::steady_clock::now();
-    Vargas::Graph base_graph(ref_file, var_file, gdf.region(), gdf.node_len());
-
-    std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
-        std::chrono::steady_clock::now() - start_time).count()
-              << " seconds.\nSimulating... " << std::endl;
-
-    int prog_bar_scale = ((pending_sims.size() / threads) + 49) / 50;
+    int prog_bar_scale = ((queue.size()) + 49) / 50;
     int scale_counter = 0;
 
-    for (size_t i = 0; i < (pending_sims.size() / threads) / prog_bar_scale; ++i) std::cerr << "_";
+    for (size_t i = 0; i < (queue.size()) / prog_bar_scale; ++i) std::cerr << "_";
     std::cerr << std::endl;
-
-    // Threading
-    std::vector<std::vector<Vargas::SAM::Record>> reads(threads);
-    std::vector<std::thread> jobs;
 
     start_time = std::chrono::steady_clock::now();
 
-    // For each readgroup
-    //TODO Building the same graph multiple times (one for each prof)
-    unsigned int num = 0;
-    for (auto &ps : pending_sims) {
-        ++num;
-        jobs.emplace(jobs.end(),
-                     &derive_and_sim,
-                     ps.first, std::ref(base_graph),
-                     std::ref(ps.second.first),
-                     std::ref(ps.second.second),
-                     num_reads,
-                     std::ref(reads[jobs.size()]));
+    // For each subgraph
+    const size_t num_graphs = subdef_split.size();
+    for (size_t j = 0; j < num_graphs; ++j) {
+        const std::string graph_label = subdef_split[j];
+        const size_t num_prof = queue.at(graph_label).size();
 
-        if (jobs.size() == threads || num == pending_sims.size()) {
-            std::for_each(jobs.begin(), jobs.end(), [](std::thread &t) { t.join(); });
-            if (++scale_counter == prog_bar_scale) {
-                std::cerr << "\u2588" << std::flush;
-                scale_counter = 0;
+        const auto subgraph_ptr = gm.make_subgraph(graph_label);
+
+        std::vector<std::vector<Vargas::SAM::Record>> results(num_prof);
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < num_prof; ++i) {
+            Vargas::Sim sim(*subgraph_ptr, queue.at(graph_label).at(i).second);
+            results[i] = sim.get_batch(num_reads);
+            for (auto &r : results[i]) r.aux.set("RG", queue.at(graph_label).at(i).first);
+        }
+
+        for (auto &res : results) {
+            for (auto &r : res) {
+
+                out.add_record(r);
             }
-            for (auto &t : reads) {
-                for (auto &r : t) {
-                    out.add_record(r);
-                }
-                jobs.clear();
-            }
+        }
+
+        gm.destroy(graph_label);
+
+        if (++scale_counter == prog_bar_scale) {
+            std::cerr << "\u2588" << std::flush;
+            scale_counter = 0;
         }
     }
 
     std::cerr << std::endl;
 
-    std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
-        std::chrono::steady_clock::now() - start_time).count()
+    std::cerr << chrono_duration(start_time)
               << " seconds." << std::endl;
 
     return 0;
@@ -351,7 +349,7 @@ int align_main(const int argc, const char *argv[]) {
         std::string gid_str;
         Vargas::Graph::GID gid;
         do {
-            if (!reads_in.record().read_group(hdr, SIM_SAM_GID_TAG, gid_str)) gid = Vargas::Graph::GID();
+            if (!reads_in.record().read_group(hdr, SIM_SAM_SRC_TAG, gid_str)) gid = Vargas::Graph::GID();
             else gid = Vargas::Graph::GID(gid_str);
             read_queue[gid].push_back(reads_in.record());
             assert(reads_in.record().seq.length() == read_len);

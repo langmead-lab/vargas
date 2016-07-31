@@ -102,6 +102,13 @@ void define_help();
 void split_help();
 void merge_help();
 void sam2csv_help();
+
+template<typename T>
+inline double chrono_duration(const std::chrono::time_point<T> &start_time) {
+    return std::chrono::duration_cast<std::chrono::duration<double>>
+        (std::chrono::steady_clock::now() - start_time).count();
+}
+
 #endif //VARGAS_MAIN_H
 
 // Checks to see if coordinate systems between the simulator and aligner line up.
@@ -109,7 +116,7 @@ TEST_CASE ("Coordinate matches") {
     srand(1);
     Vargas::Graph::Node::_newID = 0;
     using std::endl;
-    std::string tmpfa = "tmp_tc.fa";
+    std::string tmpfa = "tmp    _tc.fa";
     {
         std::ofstream fao(tmpfa);
         fao

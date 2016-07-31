@@ -20,7 +20,7 @@
 #define SIM_SAM_VAR_BASE_TAG "vb" // Number of variant bases traversed
 #define SIM_SAM_INDEL_ERR_TAG "ni" // Number of indel errors
 #define SIM_SAM_END_POS_TAG "ep" // Position of the last base in the seq
-#define SIM_SAM_GID_TAG "gd" // Origin subgraph definition
+#define SIM_SAM_SRC_TAG "gd" // Origin subgraph label
 #define SIM_SAM_USE_RATE_TAG "rt" // Errors were generated with rates rather than discrete numbers
 #define SIM_SAM_POPULATION "po" // Which samples were included in the subgraph
 #define SIM_SAM_REF_TAG "fa" // Reference file
@@ -40,6 +40,7 @@
 #define READ_META_SRC "src"
 #define READ_META_FASTA_DELIM ';'
 
+#include <random>
 #include "sam.h"
 #include "graph.h"
 #include "doctest.h"
@@ -230,7 +231,10 @@ namespace Vargas {
        * @param prof simulation profile
        */
       Sim(const Graph &base_graph, const Graph::Population &pop, const Profile &prof) :
-          _derived_graph(new Graph(base_graph, pop)), _graph(*_derived_graph), _prof(prof) { _init(); }
+          _derived_graph(new Graph(base_graph, pop)), _graph(*_derived_graph) {
+          set_prof(prof);
+          _init();
+      }
 
       ~Sim() {
           if (_derived_graph) delete _derived_graph;
@@ -283,6 +287,8 @@ namespace Vargas {
        * @param prof Read Profile
        */
       void set_prof(const Profile &prof) {
+          if (prof.var_nodes == 0 && prof.var_bases > 0)
+              throw std::invalid_argument("Invalid profile option var_nodes = 0, var_bases > 0.");
           _prof = prof;
       }
 
@@ -308,6 +314,9 @@ namespace Vargas {
       Profile _prof;
       SAM::Record _read;
 
+      std::uniform_int_distribution<unsigned int> rand_pos;
+      std::mt19937 rand_gen;
+
       /**
        * Creates a vector of keys of all outgoing edges. Allows for random node selection
        * This precludes the possibility of having reads begin in the last node of the graph.
@@ -316,6 +325,12 @@ namespace Vargas {
           for (auto &n : _graph.next_map()) {
               next_keys.push_back(n.first);
           }
+
+          std::random_device rd;
+          rand_gen = std::mt19937(rd());
+          const auto min = _graph.begin()->end() - _graph.begin()->length() + 1;
+          const auto max = _graph.end()->end();
+          rand_pos = std::uniform_int_distribution<unsigned int>(min, max);
       }
 
   };

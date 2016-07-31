@@ -247,10 +247,9 @@ namespace Vargas {
           return _subgraph_filters.size();
       }
 
-    private:
-      std::shared_ptr<const Graph> _base_graph = nullptr;
-      std::unordered_map<std::string, Graph::Population> _subgraph_filters;
-      std::unordered_map<std::string, std::shared_ptr<const Graph>> _subgraphs;
+      std::string reference() const { return _ref_file; }
+      std::string variants() const { return _vcf_file; }
+      std::string region() const { return _region; }
 
       const std::string GDEF_FILE_MARKER = "@gdef";
       const std::string GDEF_REF = "ref";
@@ -262,6 +261,16 @@ namespace Vargas {
       const char GDEF_SCOPE = ':';
       const char GDEF_ASSIGN = '=';
       const char GDEF_DELIM = ';';
+
+    private:
+      std::shared_ptr<const Graph>
+          _base_graph = nullptr,
+          _ref_graph = nullptr,
+          _maxaf_graph = nullptr;
+      std::unordered_map<std::string, Graph::Population> _subgraph_filters;
+      std::unordered_map<std::string, std::shared_ptr<const Graph>> _subgraphs;
+
+      std::string _ref_file, _vcf_file, _region;
 
   };
 

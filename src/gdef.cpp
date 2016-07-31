@@ -20,6 +20,7 @@ void Vargas::GraphManager::close() {
     _base_graph.reset();
     _subgraph_filters.clear();
     _subgraphs.clear();
+    _ref_file = _vcf_file = _region = "";
 }
 
 bool Vargas::GraphManager::open(std::string file_name, bool build_base) {
@@ -37,7 +38,6 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
     if (!std::getline(in, line) || line != GDEF_FILE_MARKER || !std::getline(in, line)) return false;
 
     // Pull meta info
-    std::string ref, vcf, region;
     int node_len;
     {
         std::vector<std::string> meta_split = split(line, GDEF_DELIM);
@@ -47,9 +47,9 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
             if (tv_pair.size() != 2) throw std::invalid_argument("Invalid token: \"" + tv + "\"");
             const std::string &tag = tv_pair[0];
             const std::string &val = tv_pair[1];
-            if (tag == GDEF_REF) ref = val;
-            else if (tag == GDEF_VCF) vcf = val;
-            else if (tag == GDEF_REGION) region = val;
+            if (tag == GDEF_REF) _ref_file = val;
+            else if (tag == GDEF_VCF) _vcf_file = val;
+            else if (tag == GDEF_REGION) _region = val;
             else if (tag == GDEF_NODELEN) node_len = std::stoi(val);
         }
     }
@@ -57,11 +57,11 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
     // Build base graph
     unsigned nsamps;
     {
-        GraphBuilder gb(ref, vcf);
-        gb.region(region);
+        GraphBuilder gb(_ref_file, _vcf_file);
+        gb.region(_region);
         gb.node_len(node_len);
         if (build_base) _base_graph = std::make_shared<Graph>(gb.build());
-        VCF vcf_stream(vcf);
+        VCF vcf_stream(_vcf_file);
         nsamps = vcf_stream.num_samples() * 2;
     }
 

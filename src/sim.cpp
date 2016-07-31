@@ -13,28 +13,32 @@
 
 bool Vargas::Sim::update_read() {
 
-    if (_prof.var_nodes == 0 && _prof.var_bases > 0)
-        throw std::invalid_argument("Invalid profile option var_nodes = 0, var_bases > 0.");
+    const auto &nodes = *_graph.node_map();
+    const auto &next = _graph.next_map();
 
-    auto &nodes = *_graph.node_map();
-    auto &next = _graph.next_map();
-
-    unsigned int curr_node;
+    int curr_node;
     int curr_indiv = -1;
     std::string read_str = "";
 
-    curr_node = next_keys[rand() % next_keys.size()]; // Random start node ID
-    size_t curr_pos = rand() % nodes[curr_node]->length(); // current pos relative to node origin
+    size_t curr_pos = rand_pos(rand_gen); // Initial random position
+    // Find correct node
+    std::vector<unsigned> candidates;
+    for (const auto &node : _graph) {
+        if (node.end() >= curr_pos && node.end() - node.length() + 1 <= curr_pos) candidates.push_back(node.id());
+    }
+    curr_node = candidates[rand() % candidates.size()];
+    // make pos relative to node origin
+    curr_pos -= nodes.at(curr_node)->end() - nodes.at(curr_node)->length();
 
     int var_bases = 0;
     int var_nodes = 0;
 
     while (true) {
         // The first time a branch is hit, pick an individual to track
-        if (curr_indiv < 0 && !nodes[curr_node]->is_ref()) {
+        if (curr_indiv < 0 && !nodes.at(curr_node)->is_ref()) {
             do {
                 curr_indiv = rand() % _graph.pop_size();
-            } while (nodes[curr_node]->individuals()[curr_indiv] == 0);
+            } while (nodes.at(curr_node)->individuals()[curr_indiv] == 0);
         }
 
         // Extract len subseq
@@ -43,7 +47,7 @@ bool Vargas::Sim::update_read() {
         read_str += nodes.at(curr_node)->seq_str().substr(curr_pos, len);
         curr_pos += len;
 
-        if (!nodes[curr_node]->is_ref()) {
+        if (!nodes.at(curr_node)->is_ref()) {
             ++var_nodes;
             var_bases += len;
         }
@@ -54,7 +58,7 @@ bool Vargas::Sim::update_read() {
         if (next.find(curr_node) == next.end()) return update_read(); // End of graph
         std::vector<uint32_t> valid_next;
         for (auto n : next.at(curr_node)) {
-            if (curr_indiv < 0 || nodes[n]->belongs(curr_indiv)) valid_next.push_back(n);
+            if (curr_indiv < 0 || nodes.at(n)->belongs(curr_indiv)) valid_next.push_back(n);
         }
         if (valid_next.size() == 0) return update_read();
         curr_node = valid_next[rand() % valid_next.size()];
@@ -102,7 +106,8 @@ bool Vargas::Sim::update_read() {
         indel_err = (int) std::round(_prof.indel);
         std::vector<int> indel_pos;
         for (int i = 0; i < indel_err;) {
-            int r = rand() % read_str.length();
+            throw std::invalid_argument("Fixed indels are not implemented.");
+            int r = 1 + (rand() % read_str.length());
             if (std::find(indel_pos.begin(), indel_pos.end(), r) == indel_pos.end()) {
                 indel_pos.push_back(r);
                 ++i;
@@ -111,11 +116,13 @@ bool Vargas::Sim::update_read() {
         std::sort(indel_pos.begin(), indel_pos.end());
         int prev = 0;
         for (int p : indel_pos) {
-            read_mut += read_str.substr(prev, p);
+            read_mut += read_str.substr(prev, p - prev - 1);
             if (rand() % 2) {
                 // Insertion
                 read_mut += rand_base();
                 read_mut += read_str[p];
+            } else {
+                //TODO indel is wrong
             }
             prev = p + 1;
         }
@@ -145,7 +152,7 @@ bool Vargas::Sim::update_read() {
     _read.aux.set(SIM_SAM_SUB_ERR_TAG, sub_err);
 
     // +1 from length being 1 indexed but end() being zero indexed, +1 since POS is 1 indexed.
-    _read.pos = nodes[curr_node]->end() - nodes[curr_node]->length() + 2 + curr_pos - _prof.len;
+    _read.pos = nodes.at(curr_node)->end() - nodes.at(curr_node)->length() + 2 + curr_pos - _prof.len;
 
     //TODO set cigar
 
