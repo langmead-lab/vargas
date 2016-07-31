@@ -19,6 +19,7 @@ link_directories(${PROJECT_SOURCE_DIR}/htslib)
 set(MAIN_SOURCES
         src/getopt_pp.cpp
         src/main.cpp
+        src/gdef.cpp
         src/graph.cpp
         src/utils.cpp
         src/varfile.cpp

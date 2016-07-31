@@ -1,6 +1,6 @@
 /**
  * @author Ravi Gaddipati
- * @date June 24, 2016
+ * @date July 31, 2016
  * rgaddip1@jhu.edu
  *
  * @brief
@@ -17,16 +17,6 @@
 #include <map>
 #include <fstream>
 #include "graph.h"
-
-#define GDEF_FILE_MARKER "@gdef"
-#define GDEF_REF "ref"
-#define GDEF_VCF "vcf"
-#define GDEF_REGION "reg"
-#define GDEF_NODELEN "nlen"
-#define GDEF_NEGATE '~'
-#define GDEF_SCOPE ':'
-#define GDEF_ASSIGN '='
-#define GDEF_DELIM ';'
 
 namespace Vargas {
 
@@ -50,7 +40,7 @@ namespace Vargas {
    * \n
    * GDEF file format:
    * @code{.unparsed}
-   * \@gdef
+   * @gdef
    * ref=REFERENCE,var=VCF,reg=REGION,nlen=NODE_LEN
    * label=POP_FILTER
    * ...
@@ -86,9 +76,7 @@ namespace Vargas {
        * @param gdef_file file name
        * @throws std::invalid_argument Failed to open the input file.
        */
-      GraphManager(std::string gdef_file) {
-          if (!open(gdef_file)) throw std::invalid_argument("Invalid GDEF file \"" + gdef_file + "\"");
-      }
+      GraphManager(std::string gdef_file);
 
       ~GraphManager() { close(); }
 
@@ -96,118 +84,53 @@ namespace Vargas {
        * @brief
        * Remove any graphs.
        */
-      void close() {
-          _base_graph.reset();
-          _subgraph_filters.clear();
-          _subgraphs.clear();
-      }
+      void close();
 
       /**
        * @brief
        * Open a GDEF file.
        * @param file_name
+       * @param build_base If true, build the base graph.
        * @return true on success
        */
-      bool open(std::string file_name = "") {
-          if (file_name.length() == 0) open(std::cin);
-          std::ifstream in(file_name);
-          if (!in.good()) return false;
-          return open(in);
-      }
+      bool open(std::string file_name, bool build_base = true);
 
       /**
        * @brief
        * Read a GDEF file from an input stream
        * @param in input stream
+       * @param build_base If true, build the base graph
        * @return true on success
        * @throws std::invalid_argument Invalid token or a duplicate definition
        * @throws std::range_error Filter length does not match the number of samples in the VCF file
        */
-      bool open(std::istream &in) {
-          std::string line;
-
-          // Check file type, get next line
-          if (!std::getline(in, line) || line != GDEF_FILE_MARKER || !std::getline(in, line)) return false;
-
-          // Pull meta info
-          std::string ref, vcf, region;
-          int node_len;
-          {
-              std::vector<std::string> meta_split = split(line, GDEF_DELIM);
-              std::vector<std::string> tv_pair;
-              for (const std::string &tv : meta_split) {
-                  split(tv, GDEF_ASSIGN, tv_pair);
-                  if (tv_pair.size() != 2) throw std::invalid_argument("Invalid token: \"" + tv + "\"");
-                  const std::string &tag = tv_pair[0];
-                  const std::string &val = tv_pair[1];
-                  if (tag == GDEF_REF) ref = val;
-                  else if (tag == GDEF_VCF) vcf = val;
-                  else if (tag == GDEF_REGION) region = val;
-                  else if (tag == GDEF_NODELEN) node_len = std::stoi(val);
-              }
-          }
-
-          // Build base graph
-          unsigned nsamps;
-          {
-              GraphBuilder gb(ref, vcf);
-              gb.region(region);
-              gb.node_len(node_len);
-              _base_graph = std::make_shared<Graph>(gb.build());
-              VCF vcf_stream(vcf);
-              nsamps = vcf_stream.num_samples() * 2;
-          }
-
-          // subgraphs
-          {
-              std::vector<std::string> p_pair;
-              Graph::Population pop(nsamps);
-              while (std::getline(in, line)) {
-                  split(line, GDEF_ASSIGN, p_pair);
-
-                  if (p_pair.size() != 2)
-                      throw std::invalid_argument("Invalid token: \"" + line + "\"");
-                  if (p_pair[1].length() != nsamps)
-                      throw std::range_error("Population length does not match VCF file: \"" + p_pair[0] + "\"");
-
-                  pop.reset();
-                  for (size_t i = 0; i < p_pair[1].length(); ++i) {
-                      if (p_pair[1][i] == '1') pop.set(i);
-                  }
-                  if (_subgraph_filters.count(p_pair[0]))
-                      throw std::invalid_argument("Duplicate definition: \"" + p_pair[0] + "\"");
-
-                  _subgraph_filters[p_pair[0]] = pop;
-              }
-          }
-
-          return true;
-      }
+      bool open(std::istream &in, bool build_base = true);
 
       /**
        * @brief
-       * Create a subgraph if it does not exist. If it was previously constructed, get a shared_ptr.
+       * Create a subgraph if it does not exist.
        * @param label subgraph name
        * @return shared_ptr to graph
-       * @throws std::invalid_argument Label does not exist
+       * @throws std::invalid_argument Label does not exist, or no base graph built
        */
-      std::shared_ptr<const Graph> subgraph(std::string label) {
-          label = "B:" + label;
-          if (_subgraphs.count(label)) return _subgraphs.at(label);
-          if (!_subgraph_filters.count(label)) throw std::invalid_argument("Label \"" + label + "\" does not exist.");
-          #pragma omp critical
-          {
-              _subgraphs[label] = std::make_shared<Graph>(*_base_graph, _subgraph_filters.at(label));
-          }
-          return _subgraphs.at(label);
-      }
+      std::shared_ptr<const Graph> make_subgraph(std::string label);
+
+      /**
+       * @brief
+       * Get a previously made graph.
+       * @param label subgraph name
+       * @return shared_ptr to graph
+       * @throws std::out_of_range Graph does not exist
+     */
+      std::shared_ptr<const Graph> subgraph(std::string label) const;
 
       /**
        * @brief
        * Full graph
        * @return shared_ptr to base graph
+       * @throw std::invalid_argument Base graph is not built.
        */
-      std::shared_ptr<const Graph> base() const { return _base_graph; }
+      std::shared_ptr<const Graph> base() const;
 
       /**
        * @brief
@@ -216,11 +139,7 @@ namespace Vargas {
        * @return Graph::Population to derive subgraph from base graph
        * @throws std::invalid_argument Label does not exist
        */
-      Graph::Population filter(std::string label) const {
-          label = "B:" + label;
-          if (!_subgraph_filters.count(label)) throw std::invalid_argument("Label \"" + label + "\" does not exist.");
-          return _subgraph_filters.at(label);
-      }
+      Graph::Population filter(std::string label) const;
 
       /**
        * @brief
@@ -229,10 +148,7 @@ namespace Vargas {
        * @param label graph name
        */
       void destroy(std::string label) {
-          #pragma omp critical
-          {
-              _subgraphs.erase("B:" + label);
-          }
+          _subgraphs.erase(GDEF_BASE + GDEF_SCOPE + label);
       }
 
       /**
@@ -245,36 +161,35 @@ namespace Vargas {
 
       /**
        * @brief
-       * Parse a defintion string a write a GDEF file.
+       * Parse a defintion string a write a GDEF file. Also loads the generated file.
        * @param ref_file Reference file name
        * @param vcf_file Variant file name
        * @param region Region in the format 'CHR:MIN-MAX'
        * @param defs subgraph definition string
        * @param node_len maximum graph node length.
        * @param out_file Output file name
+       * @param build_base If true, build the base graph.
        * @return true on success
+       * @throws std::invalid_argument Invalid output file
        */
       bool write(std::string ref_file,
                  std::string vcf_file,
                  std::string region,
                  const std::string &defs,
                  int node_len,
-                 std::string out_file = "") const {
-          if (out_file.length() == 0) write(ref_file, vcf_file, region, defs, node_len, std::cout);
-          std::ofstream out(out_file);
-          if (!out.good()) return false;
-          return write(ref_file, vcf_file, region, defs, node_len, out);
-      }
+                 std::string out_file,
+                 bool build_base = true);
 
       /**
        * @brief
-       * Parse a defintion string a write a GDEF file.
+       * Parse a defintion string a write a GDEF file. Also loads the generated file.
        * @param ref_file Reference file name
        * @param vcf_file Variant file name
        * @param region Region in the format 'CHR:MIN-MAX'
        * @param defs subgraph definition string
        * @param node_len maximum graph node length.
        * @param out output stream
+       * @param build_base If true, build the base graph.
        * @param nsamps if unspecified the number of samples will be determined from the VCF file
        * @return true on success
        */
@@ -284,139 +199,69 @@ namespace Vargas {
                  std::string defs_str,
                  int node_len,
                  std::ostream &out,
-                 int nsamps = 0) const {
-
-          out << GDEF_FILE_MARKER << std::endl
-              << GDEF_REF << GDEF_ASSIGN << ref_file << GDEF_DELIM
-              << GDEF_VCF << GDEF_ASSIGN << vcf_file << GDEF_DELIM
-              << GDEF_REGION << GDEF_ASSIGN << region << GDEF_DELIM
-              << GDEF_NODELEN << GDEF_ASSIGN << node_len << std::endl;
-
-
-          // Replace new lines with the delim, remove any spaces
-          std::replace(defs_str.begin(), defs_str.end(), '\n', GDEF_DELIM);
-          defs_str.erase(std::remove_if(defs_str.begin(), defs_str.end(), isspace), defs_str.end());
-          std::vector<std::string> defs = split(defs_str, GDEF_DELIM);
-
-          // Get number of samples from VCF file
-          if (nsamps == 0) {
-              VCF vcf(vcf_file);
-              if (!vcf.good()) throw std::invalid_argument("Invalid VCF file \"" + vcf_file + "\".");
-              nsamps = vcf.num_samples() * 2;
-          }
-
-          std::unordered_map<std::string, Graph::Population> populations;
-
-          {
-              std::vector<std::string> pair;
-              Graph::Population pop(nsamps);
-              std::vector<int> avail_set;
-              std::set<int> added;
-              size_t count, r;
-              std::string parent;
-              size_t parent_end;
-
-              // Base graph "B" uses the full filter
-              {
-                  Graph::Population base(nsamps);
-                  base.set();
-                  populations.insert(std::pair<std::string, Graph::Population>("B", base));
-                  base.reset();
-              }
-
-              for (auto def : defs) {
-                  split(def, GDEF_ASSIGN, pair);
-                  if (pair.size() != 2) throw std::invalid_argument("Invalid assignment: \"" + def + "\".");
-                  pop.reset();
-
-                  if (pair[0].length() < 3 || pair[0].substr(0, 2) != "B:") pair[0] = "B:" + pair[0];
-                  parent_end = pair[0].find_last_of(GDEF_SCOPE);
-                  parent = pair[0].substr(0, parent_end);
-
-                  if (populations.count(parent) == 0)
-                      throw std::invalid_argument("Parent \"" + parent + "\" not yet defined.");
-
-                  if (pair[0].at(parent_end + 1) == '~')
-                      throw std::invalid_argument("Negative graphs cannot be defined explicitly: \"" + def + "\".");
-
-                  if (pair[1].at(pair[1].size() - 1) == '%') {
-                      count = (int) (((double) populations.at(parent).count() / 100) *
-                          std::stoi(pair[1].substr(0, pair[1].length() - 1)));
-                  } else count = std::stoi(pair[1]);
-
-                  if (count > populations.at(parent).count())
-                      throw std::invalid_argument("Not enough samples available to pick " +
-                          std::to_string(count) + " in definition \"" + def + "\".");
-
-
-                  avail_set.clear();
-                  for (int j = 0; j < nsamps; ++j) {
-                      if (populations.at(parent).at(j)) avail_set.push_back(j);
-                  }
-
-                  added.clear();
-                  for (size_t k = 0; k < count;) {
-                      r = rand() % avail_set.size();
-                      if (added.count(avail_set[r]) == 0) {
-                          ++k;
-                          pop.set(avail_set[r]);
-                          added.insert(avail_set[r]);
-                      }
-                  }
-
-                  populations[parent + GDEF_SCOPE + pair[0].substr(parent_end + 1)] = pop;
-                  populations[parent + GDEF_SCOPE + GDEF_NEGATE + pair[0].substr(parent_end + 1)] =
-                      ~pop & populations.at(parent);
-              }
-          }
-
-          for (auto &p : populations) {
-              out << p.first << GDEF_ASSIGN << p.second.to_string() << std::endl;
-          }
-
-          return true;
-      }
+                 bool build_base,
+                 int nsamps = 0);
 
       /**
      * @brief
-     * Export the graph in DOT format
+     * Export the Population graph in DOT format
      * @param filename to export to
      * @param name of the graph
      * @throws std::invalid_argument if output file cannot be opened
      */
-      void to_DOT(std::string filename, std::string name) {
+      void to_DOT(std::string filename, std::string name) const {
           std::ofstream out(filename);
           if (!out.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
           out << to_DOT(name);
       }
 
-      std::string to_DOT(std::string name = "groups") const {
-          std::ostringstream dot;
-          dot << "digraph " << name << " {\n";
-          std::string node_label;
-          std::unordered_map<std::string, int> id_map;
-          int ids = 0;
-          for (const auto &l : _subgraph_filters) {
-              node_label = l.first.substr(l.first.find_last_of(GDEF_SCOPE) + 1);
-              dot << ++ids << "[label=\"" << node_label << ":" << l.second.count() << "\"];\n";
-              id_map[node_label] = ids;
-          }
+      /**
+       * @brief
+       * Derive a graph of population dependencies
+       * @param name Graph name
+       * @return String of population graph in DOT format
+       */
+      std::string to_DOT(std::string name = "groups") const;
 
-          for (const auto &l : _subgraph_filters) {
-              size_t last_scope = l.first.find_last_of(GDEF_SCOPE);
-              if (last_scope == std::string::npos) continue;
-              std::string root = l.first.substr(0, last_scope);
-              dot << id_map.at(root.substr(root.find_last_of(GDEF_SCOPE) + 1))
-                  << " -> " << id_map.at(l.first.substr(last_scope + 1)) << ";\n";
+      /**
+       * @brief
+       * Get a vector of all labels that have a population.
+       * @details
+       * Each label is fully scoped.
+       * @return vector of labels
+       */
+      std::vector<std::string> labels() const {
+          std::vector<std::string> ret;
+          for (const auto &pair : _subgraph_filters) {
+              ret.push_back(pair.first);
           }
-          dot << "labelloc=\"t\";\nlabel=\"Subgraph Name : Population Size\";\n}\n";
-          return dot.str();
+          return ret;
+      }
+
+      /**
+       * @brief
+       * Return the number of subgraphs defined.
+       * @return Number of subgraph filters.
+       */
+      size_t size() const {
+          return _subgraph_filters.size();
       }
 
     private:
       std::shared_ptr<const Graph> _base_graph = nullptr;
       std::unordered_map<std::string, Graph::Population> _subgraph_filters;
       std::unordered_map<std::string, std::shared_ptr<const Graph>> _subgraphs;
+
+      const std::string GDEF_FILE_MARKER = "@gdef";
+      const std::string GDEF_REF = "ref";
+      const std::string GDEF_VCF = "vcf";
+      const std::string GDEF_REGION = "reg";
+      const std::string GDEF_NODELEN = "nlen";
+      const std::string GDEF_BASE = "BASE";
+      const char GDEF_NEGATE = '~';
+      const char GDEF_SCOPE = ':';
+      const char GDEF_ASSIGN = '=';
+      const char GDEF_DELIM = ';';
 
   };
 
@@ -695,7 +540,7 @@ TEST_CASE ("Graph Manager") {
     std::stringstream ss;
 
     Vargas::GraphManager gm;
-    gm.write(tmpfa, tmpvcf, "x:0-10", "ingroup = 2;~ingroup:1_1=1;ingroup:1_2=1", 100000, ss);
+    gm.write(tmpfa, tmpvcf, "x:0-10", "ingroup = 2;~ingroup:1_1=1;ingroup:1_2=1", 100000, ss, true);
     gm.open(ss);
 
         CHECK_THROWS(gm.filter("sdf"));
@@ -711,14 +556,14 @@ TEST_CASE ("Graph Manager") {
         CHECK((gm.filter("ingroup:1_2") | gm.filter("ingroup:~1_2")) == gm.filter("ingroup"));
 
     {
-        auto in_graph = gm.subgraph("ingroup");
+        auto in_graph = gm.make_subgraph("ingroup");
             CHECK(in_graph.use_count() == 2);
         gm.destroy("ingroup");
             CHECK(in_graph.use_count() == 1);
     }
 
     {
-        auto in_graph = gm.subgraph("ingroup");
+        auto in_graph = gm.make_subgraph("ingroup");
             CHECK(in_graph.use_count() == 2);
         gm.clear();
             CHECK(in_graph.use_count() == 1);
