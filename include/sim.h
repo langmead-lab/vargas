@@ -245,7 +245,11 @@ namespace Vargas {
        * Generate and store an updated read.
        * @return true if successful
        */
-      bool update_read();
+      bool update_read() {
+          // Call internal function. update_read is a wrapper to prevent stack overflow
+          while (!_update_read());
+          return true;
+      }
 
       /**
        * @brief
@@ -332,6 +336,8 @@ namespace Vargas {
           const auto max = _graph.end()->end();
           rand_pos = std::uniform_int_distribution<unsigned int>(min, max);
       }
+
+      bool _update_read();
 
   };
 

@@ -11,7 +11,7 @@
 
 #include "sim.h"
 
-bool Vargas::Sim::update_read() {
+bool Vargas::Sim::_update_read() {
 
     const auto &nodes = *_graph.node_map();
     const auto &next = _graph.next_map();
@@ -24,8 +24,11 @@ bool Vargas::Sim::update_read() {
     // Find correct node
     std::vector<unsigned> candidates;
     for (const auto &node : _graph) {
-        if (node.end() >= curr_pos && node.end() - node.length() + 1 <= curr_pos) candidates.push_back(node.id());
+        if (node.end() >= curr_pos && node.end() + 1 - node.length() <= curr_pos) candidates.push_back(node.id());
     }
+
+    //missing positions?
+    if (candidates.size() == 0) return false;
     curr_node = candidates[rand() % candidates.size()];
     // make pos relative to node origin
     curr_pos -= nodes.at(curr_node)->end() - nodes.at(curr_node)->length();
@@ -55,19 +58,19 @@ bool Vargas::Sim::update_read() {
         if (read_str.length() >= _prof.len) break; // Done
 
         // Pick random next node.
-        if (next.find(curr_node) == next.end()) return update_read(); // End of graph
+        if (next.find(curr_node) == next.end()) return false; // End of graph
         std::vector<uint32_t> valid_next;
         for (auto n : next.at(curr_node)) {
             if (curr_indiv < 0 || nodes.at(n)->belongs(curr_indiv)) valid_next.push_back(n);
         }
-        if (valid_next.size() == 0) return update_read();
+        if (valid_next.size() == 0) return false;
         curr_node = valid_next[rand() % valid_next.size()];
         curr_pos = 0;
     }
 
-    if (std::count(read_str.begin(), read_str.end(), 'N') >= _prof.len / 2) return update_read();
-    if (_prof.var_nodes >= 0 && var_nodes != _prof.var_nodes) return update_read();
-    if (_prof.var_bases >= 0 && var_bases != _prof.var_bases) return update_read();
+    if (std::count(read_str.begin(), read_str.end(), 'N') >= _prof.len / 2) return false;
+    if (_prof.var_nodes >= 0 && var_nodes != _prof.var_nodes) return false;
+    if (_prof.var_bases >= 0 && var_bases != _prof.var_bases) return false;
 
     // Introduce errors
     int sub_err = 0;

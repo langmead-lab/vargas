@@ -357,7 +357,6 @@ namespace Vargas {
           return aligns;
       }
 
-
       /**
        * @brief
        * Align a batch of reads to a graph range, return a vector of alignments

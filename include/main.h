@@ -85,14 +85,6 @@ void align_to_graph(std::string label,
                     std::ostream &out,
                     unsigned int threads);
 
-void derive_and_sim(std::string rg,
-                    const Vargas::Graph &base,
-                    const Vargas::Graph::Population &pop,
-                    const Vargas::Sim::Profile &prof,
-                    unsigned int num_reads,
-                    std::vector<Vargas::SAM::Record> &results);
-
-
 // Menus
 void main_help();
 void profile_help();
