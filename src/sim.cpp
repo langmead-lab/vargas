@@ -20,9 +20,9 @@ bool Vargas::Sim::_update_read() {
     int curr_indiv = -1;
     std::string read_str = "";
 
-    size_t curr_pos = rand_pos(rand_gen); // Initial random position
+    int curr_pos = rand_pos(rand_gen); // Initial random position
     // Find correct node
-    std::vector<unsigned> candidates;
+    std::vector<int> candidates;
     for (const auto &node : _graph) {
         if (node.end() >= curr_pos && node.end() + 1 - node.length() <= curr_pos) candidates.push_back(node.id());
     }

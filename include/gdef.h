@@ -189,7 +189,10 @@ namespace Vargas {
        * @param label graph name
        */
       void destroy(std::string label) {
-          _subgraphs.erase(GDEF_BASEGRAPH + GDEF_SCOPE + label);
+          #pragma omp critical(gdef_destroy)
+          {
+              _subgraphs.erase(GDEF_BASEGRAPH + GDEF_SCOPE + label);
+          }
       }
 
       /**
@@ -197,7 +200,10 @@ namespace Vargas {
        * Remove all local references to subgraphs. The base graph is preserved.
        */
       void clear() {
-          _subgraphs.clear();
+          #pragma omp critical(gdef_destroy)
+          {
+              _subgraphs.clear();
+          }
       }
 
       /**

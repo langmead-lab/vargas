@@ -268,42 +268,37 @@ int sim_main(const int argc, const char *argv[]) {
     Vargas::osam out(out_file, sam_hdr);
     if (!out.good()) throw std::invalid_argument("Error opening output file \"" + out_file + "\"");
 
-    std::cerr << "Simulating... " << std::endl;
-
-    int prog_bar_scale = ((queue.size()) + 49) / 50;
-    int scale_counter = 0;
-
-    for (size_t i = 0; i < (queue.size()) / prog_bar_scale; ++i) std::cerr << "_";
-    std::cerr << std::endl;
+    std::cerr << "Simulating... " << std::flush;
 
     start_time = std::chrono::steady_clock::now();
 
-    // For each subgraph
-    for (size_t j = 0; j < subdef_split.size(); ++j) {
-        const std::string graph_label = subdef_split[j];
-        const size_t num_prof = queue.at(graph_label).size();
-        const auto subgraph_ptr = gm.make_subgraph(graph_label);
-        std::vector<std::vector<Vargas::SAM::Record>> results(num_prof);
+    std::vector<std::pair<std::string, // Graph label
+                          std::pair<std::string, // RG ID
+                                    Vargas::Sim::Profile>>> // sim prof
+        task_list;
 
-        #pragma omp parallel for
-        for (size_t i = 0; i < num_prof; ++i) {
-            Vargas::Sim sim(*subgraph_ptr, queue.at(graph_label).at(i).second);
-            results[i] = sim.get_batch(num_reads);
-            for (auto &r : results[i]) r.aux.set("RG", queue.at(graph_label).at(i).first);
+    for (size_t k = 0; k < subdef_split.size(); ++k) {
+        for (size_t i = 0; i < queue.at(subdef_split[k]).size(); ++i) {
+            auto &p = queue.at(subdef_split[k]).at(i);
+            task_list.push_back(std::pair<std::string, std::pair<std::string, Vargas::Sim::Profile>>
+                                    (subdef_split[k], std::pair<std::string, Vargas::Sim::Profile>(p.first, p.second)));
         }
+    }
 
-        for (auto &res : results) {
-            for (auto &r : res) {
-                out.add_record(r);
-            }
-        }
+    const size_t num_tasks = task_list.size();
+    std::vector<std::vector<Vargas::SAM::Record>> results(num_tasks);
+    #pragma omp parallel for
+    for (size_t n = 0; n < num_tasks; ++n) {
+        const std::string label = task_list.at(n).first;
+        const auto subgraph_ptr = gm.make_subgraph(label);
+        Vargas::Sim sim(*subgraph_ptr, task_list.at(n).second.second);
+        results[n] = sim.get_batch(num_reads);
+        gm.destroy(label);
+        for (auto &r : results[n]) r.aux.set("RG", task_list.at(n).second.first);
+    }
 
-        gm.destroy(graph_label);
-
-        if (++scale_counter == prog_bar_scale) {
-            std::cerr << "\u2588" << std::flush;
-            scale_counter = 0;
-        }
+    for (const auto &res : results) {
+        for (const auto &r : res) out.add_record(r);
     }
 
     std::cerr << std::endl << chrono_duration(start_time) << " seconds." << std::endl;
@@ -409,7 +404,6 @@ int align_main(const int argc, const char *argv[]) {
     std::cerr << "Loading graphs... " << std::flush;
     start_time = std::chrono::steady_clock::now();
     Vargas::GraphManager gm(gdf_file);
-    for (const auto &tl : task_list) gm.make_subgraph(tl.first);
     std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
 
 
@@ -445,7 +439,7 @@ int align_main(const int argc, const char *argv[]) {
         }
         Vargas::ByteAligner aligner(gm.node_len(), read_len, match, mismatch, gopen, gext);
         task_list.at(l).first;
-        auto subgraph = gm.subgraph(task_list.at(l).first);
+        auto subgraph = gm.make_subgraph(task_list.at(l).first);
         auto aligns = aligner.align(read_seqs, targets, subgraph->begin(), subgraph->end());
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             Vargas::SAM::Record &rec = task_list.at(l).second.at(j);
@@ -458,9 +452,10 @@ int align_main(const int argc, const char *argv[]) {
             rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
             rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.cor_flag[j]);
         }
+        gm.destroy(task_list.at(l).first);
     }
 
-    Vargas::osam aligns_out(reads_hdr);
+    Vargas::osam aligns_out(out_file, reads_hdr);
 
     for (const auto &pair : task_list) {
         for (const auto &rec : pair.second) aligns_out.add_record(rec);
