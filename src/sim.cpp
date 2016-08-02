@@ -20,15 +20,19 @@ bool Vargas::Sim::_update_read() {
     int curr_indiv = -1;
     std::string read_str = "";
 
-    int curr_pos = rand_pos(rand_gen); // Initial random position
-    // Find correct node
     std::vector<int> candidates;
-    for (const auto &node : _graph) {
-        if (node.end() >= curr_pos && node.end() + 1 - node.length() <= curr_pos) candidates.push_back(node.id());
-    }
+    int curr_pos;
+    do {
+        curr_pos = rand_pos(rand_gen); // Initial random position
+        // Find correct node
+        for (const auto &nid : _graph.next_map()) {
+            const auto &node = *(_graph.node_map()->at(nid.first));
+            if (node.end() >= curr_pos && node.end() + 1 - node.length() <= curr_pos) {
+                candidates.push_back(node.id());
+            }
+        }
+    } while (candidates.size() < 1);
 
-    //missing positions?
-    if (candidates.size() == 0) return false;
     curr_node = candidates[rand() % candidates.size()];
     // make pos relative to node origin
     curr_pos -= nodes.at(curr_node)->end() - nodes.at(curr_node)->length();
