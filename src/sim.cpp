@@ -43,9 +43,12 @@ bool Vargas::Sim::_update_read() {
     while (true) {
         // The first time a branch is hit, pick an individual to track
         if (curr_indiv < 0 && !nodes.at(curr_node)->is_ref()) {
-            do {
-                curr_indiv = rand() % _graph.pop_size();
-            } while (nodes.at(curr_node)->individuals()[curr_indiv] == 0);
+            std::vector<int> possible_indivs;
+            for (size_t i = 0; i < _graph.pop_size(); ++i) {
+                if (nodes.at(curr_node)->individuals()[i] && _graph.filter().at(i)) possible_indivs.push_back(i);
+            }
+            if (possible_indivs.size() == 0) return false;
+            curr_indiv = possible_indivs[rand() % possible_indivs.size()];
         }
 
         // Extract len subseq
@@ -59,7 +62,8 @@ bool Vargas::Sim::_update_read() {
             var_bases += len;
         }
 
-        if (read_str.length() >= _prof.len) break; // Done
+        assert(read_str.length() <= _prof.len);
+        if (read_str.length() == _prof.len) break; // Done
 
         // Pick random next node.
         if (next.find(curr_node) == next.end()) return false; // End of graph

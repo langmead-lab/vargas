@@ -549,6 +549,9 @@ namespace Vargas {
        */
       void set_popsize(int popsize) { _pop_size = popsize; }
 
+      void set_filter(const Population &filter) { _filter = filter; }
+      const Population &filter() const { return _filter; }
+
       /**
        * @return population size
        */
@@ -754,6 +757,7 @@ namespace Vargas {
       std::string _desc;
       size_t _pop_size = 0;
       size_t _max_node_len;
+      Population _filter;
 
       /**
        * Given a subset of nodes from Graph g, rebuild all applicable edges in the new graph.

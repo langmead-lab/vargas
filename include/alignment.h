@@ -480,7 +480,7 @@ namespace Vargas {
                   if (filled.count(i) == 0) {
                       ret = false;
                       std::cerr << "Node (ID:" << gi->id() << ", POS:" << gi->end() << ")"
-                          << " hit before previous node " << i << std::endl;
+                                << " hit before previous node " << i << std::endl;
                   }
               }
           }
@@ -802,7 +802,7 @@ namespace Vargas {
        * @param col _curr_posent column
        * @param node_origin Current position, used to get absolute alignment position
        */
-      __INLINE__
+      __INLINE__ __UNROLL__
       void _fill_cell_finish(const uint32_t &row,
                              const uint32_t &col,
                              const uint32_t &node_origin) {
@@ -820,77 +820,64 @@ namespace Vargas {
            * shift through each element and update if the mask element is set.
            */
 
-          // Check for new or equal high scores
           _tmp0 = _S_curr[col] > _max_score;
           if (reduce_or(_tmp0)) {
+              // Check for new or equal high scores
               _max_score = max(_S_curr[col], _max_score);
               for (int i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
-                  if (simdpp::extract<0>(_tmp0)) {
+                  if (_tmp0_ptr[i]) {
                       // Demote old max to submax
                       if (_curr_pos > _max_pos[i] + _read_len) {
-                          insert(extract(i, _max_score), i, _sub_score);
+                          _sub_score_ptr[i] = _max_score_ptr[i];
                           _sub_pos[i] = _max_pos[i];
                           _sub_count[i] = _max_count[i];
-                          if (_cor_flag[i] == 1) _cor_flag[i] = 2;
-                          else if (_cor_flag[i] == 2) _cor_flag[i] = 0;
+                          _cor_flag[i] = (_cor_flag[i] == 1) * 2;
                       }
-                      // pos/corflag set in equal check
-                      _max_pos[i] = _curr_pos;
                       _max_count[i] = 1;
-                      if (_cor_flag[i] == 1) _cor_flag[i] = 0;
-                      else if (_curr_pos == _targets[i]) _cor_flag[i] = 1;
+                      _cor_flag[i] = (_cor_flag[i] == 2) * 2;
                   }
-                  _tmp0 = simdpp::move16_l<1>(_tmp0);
               }
           }
 
-          // Check for equal max score.
           _tmp0 = cmp_eq(_S_curr[col], _max_score);
           if (reduce_or(_tmp0)) {
+              // Check for equal max score.
               for (uint8_t i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
-                  // Check if the i'th elements MSB is set
-                  if (simdpp::extract<0>(_tmp0)) {
-                      // Distinct alignment
-                      if (_curr_pos > _max_pos[i] + _read_len) ++(_max_count[i]);
+                  if (_tmp0_ptr[i]) {
+                      _max_count[i] += _curr_pos > (_max_pos[i] + _read_len);
                       _max_pos[i] = _curr_pos;
-                      if (_curr_pos == _targets[i]) _cor_flag[i] = 1;
+                      if (_max_pos[i] == _targets[i]) _cor_flag[i] = 1;
                   }
-                  _tmp0 = simdpp::move16_l<1>(_tmp0);
               }
           }
 
-          // new second best score
+
           // Greater than old sub max and less than max score (prevent repeats of max triggering)
           _tmp0 = (_S_curr[col] > _sub_score) & (_S_curr[col] < _max_score);
           if (reduce_or(_tmp0)) {
+              // new second best score
               for (uint8_t i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
-                  // Check if the i'th elements MSB is set, and if far enough
-                  if (simdpp::extract<0>(_tmp0) && _curr_pos > _max_pos[i] + _read_len) {
-                      insert(extract(i, _S_curr[col]), i, _sub_score);
+                  if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
+                      _sub_score_ptr[i] = extract(i, _S_curr[col]);
                       _sub_count[i] = 1;
                       _sub_pos[i] = _curr_pos;
-                      if (_cor_flag[i] == 2) _cor_flag[i] = 0;
-                      else if (_curr_pos == _targets[i]) _cor_flag[i] = 2;
+                      if (_curr_pos == _targets[i]) _cor_flag[i] = 2;
+                      else _cor_flag[i] = _cor_flag[i] == 1;
                   }
-                  _tmp0 = simdpp::move16_l<1>(_tmp0);
               }
           }
 
-          // Repeat sub score
           _tmp0 = cmp_eq(_S_curr[col], _sub_score);
           if (reduce_or(_tmp0)) {
+              // Repeat sub score
               for (uint8_t i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
-                  // Check if the i'th elements MSB is set
-                  if (simdpp::extract<0>(_tmp0) && _curr_pos > _max_pos[i] + _read_len) {
-                      // Distinct subopt alignment
-                      if (_curr_pos > _sub_pos[i] + _read_len) ++(_sub_count[i]);
+                  if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
+                      _sub_count[i] += _curr_pos > (_sub_pos[i] + _read_len);
                       _sub_pos[i] = _curr_pos;
                       if (_curr_pos == _targets[i]) _cor_flag[i] = 2;
                   }
-                  _tmp0 = simdpp::move16_l<1>(_tmp0);
               }
           }
-
       }
 
       /*********************************** Variables ***********************************/
@@ -931,10 +918,9 @@ namespace Vargas {
           *_swp_tmp0;
 
       simdpp::uint8<SIMDPP_FAST_INT8_SIZE>
-          _tmp0,  /**< temporary for use within functions */
+          _tmp0, /**< temporary for use within functions */
           _Ceq,  /**< Match score when read_base == ref_base */
-          _Cneq;
-      /**< mismatch penalty */
+          _Cneq; /**< mismatch penalty */
 
       uint32_t _curr_pos;
 
@@ -947,6 +933,10 @@ namespace Vargas {
       simdpp::uint8<SIMDPP_FAST_INT8_SIZE> _sub_score;
       uint32_t *_sub_pos;
       uint8_t *_sub_count;
+
+      uint8_t *_tmp0_ptr = (uint8_t *) &_tmp0;
+      uint8_t *_max_score_ptr = (uint8_t *) &_max_score;
+      uint8_t *_sub_score_ptr = (uint8_t *) &_sub_score;
 
       uint8_t *_cor_flag;
       uint32_t *_targets;

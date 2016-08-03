@@ -15,14 +15,12 @@
 #ifdef __GNUC__
 #define LIKELY(x) __builtin_expect((x),1)
 #define UNLIKELY(x) __builtin_expect((x),0)
+#define __UNROLL__ __attribute__((optimize("unroll-loops")))
+#define __INLINE__ __attribute__((always_inline)) inline
 #else
 #define LIKELY(x) (x)
 #define UNLIKELY(x) (x)
-#endif
-
-#ifdef __GNUC__
-#define __INLINE__ __attribute__((always_inline)) inline
-#else
+#define __UNROLL__
 #define __INLINE__ inline
 #endif
 

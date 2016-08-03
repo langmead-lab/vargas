@@ -30,6 +30,7 @@ Vargas::Graph::Graph(const Vargas::Graph &g,
 
   _IDMap = g._IDMap;
   _pop_size = g.pop_size();
+    _filter = filter;
 
   // Add all nodes
   std::unordered_map<uint32_t, nodeptr> includedNodes;
@@ -54,6 +55,7 @@ Vargas::Graph::Graph(const Graph &g,
                      Type type) {
   _IDMap = g._IDMap;
   _pop_size = g.pop_size();
+    _filter = Population(_pop_size, true);
   std::unordered_map<uint32_t, nodeptr> includedNodes;
 
   if (type == REF) {
@@ -179,6 +181,7 @@ void Vargas::GraphBuilder::build(Vargas::Graph &g) {
 
   g.set_popsize(_vf.samples().size() * 2);
   const Graph::Population all_pop(g.pop_size(), true);
+    g.set_filter(all_pop);
 
   while (_vf.next()) {
     _vf.genotypes();

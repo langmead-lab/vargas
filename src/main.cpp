@@ -286,19 +286,18 @@ int sim_main(const int argc, const char *argv[]) {
     }
 
     const size_t num_tasks = task_list.size();
-    std::vector<std::vector<Vargas::SAM::Record>> results(num_tasks);
     #pragma omp parallel for
     for (size_t n = 0; n < num_tasks; ++n) {
         const std::string label = task_list.at(n).first;
         const auto subgraph_ptr = gm.make_subgraph(label);
         Vargas::Sim sim(*subgraph_ptr, task_list.at(n).second.second);
-        results[n] = sim.get_batch(num_reads);
+        auto results = sim.get_batch(num_reads);
         gm.destroy(label);
-        for (auto &r : results[n]) r.aux.set("RG", task_list.at(n).second.first);
-    }
-
-    for (const auto &res : results) {
-        for (const auto &r : res) out.add_record(r);
+        for (auto &r : results) r.aux.set("RG", task_list.at(n).second.first);
+        #pragma omp critical(sam_out)
+        {
+            for (const auto &r : results) out.add_record(r);
+        }
     }
 
     std::cerr << std::endl << chrono_duration(start_time) << " seconds." << std::endl;
