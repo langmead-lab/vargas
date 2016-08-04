@@ -27,7 +27,6 @@ Vargas::Graph::Graph(std::string ref_file, std::string vcf_file, std::string reg
 
 Vargas::Graph::Graph(const Vargas::Graph &g,
                      const Population &filter) {
-
   _IDMap = g._IDMap;
   _pop_size = g.pop_size();
     _filter = filter;

@@ -597,7 +597,7 @@ namespace Vargas {
           const Base *node_seq = n.seq().data();
           const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> *read_ptr = read_group.data();
           const size_t seq_size = n.seq().size();
-          const size_t node_origin = n.end() - seq_size + 1;
+          const size_t node_origin = n.end() - seq_size + 2;
 
           // top left corner
           _fill_cell_rzcz(read_ptr[0], node_seq[0], s);
@@ -771,10 +771,10 @@ namespace Vargas {
               const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &Sp) {
           using namespace simdpp;
 
-          _Ceq = ZERO_CT;
-          _Cneq = ZERO_CT;
-
           if (ref != Base::N) {
+              _Ceq = ZERO_CT;
+              _Cneq = ZERO_CT;
+
               // Set all mismatching pairs to _mismatch
               _tmp0 = cmp_neq(read, ref);
               _Cneq = _tmp0 & _mismatch_vec;   // If the read base is Base::N, set to 0 (_Ceq)
@@ -784,12 +784,12 @@ namespace Vargas {
               // b is not N, so all equal bases are valid
               _tmp0 = cmp_eq(read, ref);
               _Ceq = _tmp0 & _match_vec;
-          }
 
-          // Sp is _S_prev[col - 1], 0 for row=0
-          // Seed->S_col[row - 1] for col=0
-          _S_curr[col] = add_sat(Sp, _Ceq);   // Add match scores
-          _S_curr[col] = sub_sat(_S_curr[col], _Cneq); // Subtract mismatch scores
+              // Sp is _S_prev[col - 1], 0 for row=0
+              // Seed->S_col[row - 1] for col=0
+              _S_curr[col] = add_sat(Sp, _Ceq);   // Add match scores
+              _S_curr[col] = sub_sat(_S_curr[col], _Cneq); // Subtract mismatch scores
+          }
 
       }
 
@@ -808,7 +808,7 @@ namespace Vargas {
                              const uint32_t &node_origin) {
           using namespace simdpp;
 
-          _curr_pos = node_origin + col + 1;    // absolute position in reference sequence
+          _curr_pos = node_origin + col;    // absolute position in reference sequence
 
           // S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
           _S_curr[col] = max(_D_curr[col], _S_curr[col]);
@@ -820,8 +820,10 @@ namespace Vargas {
            * shift through each element and update if the mask element is set.
            */
 
+
+
           _tmp0 = _S_curr[col] > _max_score;
-          if (reduce_or(_tmp0)) {
+          if (extract_bits_any(_tmp0)) {
               // Check for new or equal high scores
               _max_score = max(_S_curr[col], _max_score);
               for (int i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
@@ -840,7 +842,7 @@ namespace Vargas {
           }
 
           _tmp0 = cmp_eq(_S_curr[col], _max_score);
-          if (reduce_or(_tmp0)) {
+          if (extract_bits_any(_tmp0)) {
               // Check for equal max score.
               for (uint8_t i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
                   if (_tmp0_ptr[i]) {
@@ -854,7 +856,7 @@ namespace Vargas {
 
           // Greater than old sub max and less than max score (prevent repeats of max triggering)
           _tmp0 = (_S_curr[col] > _sub_score) & (_S_curr[col] < _max_score);
-          if (reduce_or(_tmp0)) {
+          if (extract_bits_any(_tmp0)) {
               // new second best score
               for (uint8_t i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
@@ -868,7 +870,7 @@ namespace Vargas {
           }
 
           _tmp0 = cmp_eq(_S_curr[col], _sub_score);
-          if (reduce_or(_tmp0)) {
+          if (extract_bits_any(_tmp0)) {
               // Repeat sub score
               for (uint8_t i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {

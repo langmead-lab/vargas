@@ -247,7 +247,15 @@ namespace Vargas {
        */
       bool update_read() {
           // Call internal function. update_read is a wrapper to prevent stack overflow
-          while (!_update_read());
+          size_t counter = 0;
+          while (!_update_read()) {
+              ++counter;
+              if (counter == _abort_after) {
+                  std::cerr << "Failed to generate read after " << _abort_after
+                            << " tries.\n" << "Profile: " << _prof.to_string() << std::endl;
+                  return false;
+              }
+          }
           return true;
       }
 
@@ -320,6 +328,9 @@ namespace Vargas {
 
       std::uniform_int_distribution<unsigned int> rand_pos;
       std::mt19937 rand_gen;
+
+      // Abort trying to update the read after N tries
+      const size_t _abort_after = 1000000;
 
       /**
        * Creates a vector of keys of all outgoing edges. Allows for random node selection
