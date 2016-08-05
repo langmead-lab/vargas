@@ -38,6 +38,7 @@ bool Vargas::Sim::_update_read() {
         size_t len = _prof.len - read_str.length();
         if (len > _nodes.at(curr_node)->length() - curr_pos) len = _nodes.at(curr_node)->length() - curr_pos;
         read_str += _nodes.at(curr_node)->seq_str().substr(curr_pos, len);
+        curr_pos += len;
 
         if (!_nodes.at(curr_node)->is_ref()) {
             ++var_nodes;
