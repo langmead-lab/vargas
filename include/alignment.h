@@ -808,19 +808,13 @@ namespace Vargas {
                              const uint32_t &node_origin) {
           using namespace simdpp;
 
-          _curr_pos = node_origin + col;    // absolute position in reference sequence
+
 
           // S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
           _S_curr[col] = max(_D_curr[col], _S_curr[col]);
           _S_curr[col] = max(_I_curr[row], _S_curr[col]);
 
-          /**
-           * For each of new max score, equal max score, new sub max, equal sub max:
-           * Create mask of elements that match the condition. If any need to be updated,
-           * shift through each element and update if the mask element is set.
-           */
-
-
+          _curr_pos = node_origin + col;    // absolute position in reference sequence
 
           _tmp0 = _S_curr[col] > _max_score;
           if (extract_bits_any(_tmp0)) {

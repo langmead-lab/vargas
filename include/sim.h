@@ -111,22 +111,14 @@ namespace Vargas {
               read_orig(""), read(r), end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1),
               indel_err(-1) { }
 
-          std::string read_orig;
-          /**< unmutated read sequence */
-          std::string read;
-          /**< base sequence. */
-          int32_t end_pos;
-          /**< position of last base in seq. */
-          int32_t indiv;
-          /**< Individual the read was taken from. */
-          int32_t sub_err;
-          /**< Number of substitution errors introduced. */
-          int32_t var_nodes;
-          /**< Number of variant nodes the read traverses. */
-          int32_t var_bases;
-          /**< Number of bases that are in variant nodes. */
-          int32_t indel_err;
-          /**< Number of insertions and deletions introduced. */
+          std::string read_orig; /**< unmutated read sequence */
+          std::string read; /**< base sequence. */
+          int32_t end_pos; /**< position of last base in seq. */
+          int32_t indiv; /**< Individual the read was taken from. */
+          int32_t sub_err; /**< Number of substitution errors introduced. */
+          int32_t var_nodes; /**< Number of variant nodes the read traverses. */
+          int32_t var_bases; /**< Number of bases that are in variant nodes. */
+          int32_t indel_err; /**< Number of insertions and deletions introduced. */
           Graph::GID src; /**< Read origin graph, as defined in the GDEF file. */
 
 
@@ -180,16 +172,11 @@ namespace Vargas {
        * Parameter list controlling the types of reads created. -1 indicates no preferred value.
        */
       struct Profile {
-          unsigned int len = 50;
-          /**< Nominal length of the read */
-          bool rand = false;
-          /**< Number of mutation errors, or rate */
-          float mut = 0;
-          /**< number of insertions/deletions, or rate */
-          float indel = 0;
-          /**< Introduce mutations and indels at a random rate */
-          int var_nodes = -1;
-          /**< Number of variant nodes */
+          unsigned int len = 50; /**< Nominal length of the read */
+          bool rand = false; /**< Number of mutation errors, or rate */
+          float mut = 0; /**< number of insertions/deletions, or rate */
+          float indel = 0; /**< Introduce mutations and indels at a random rate */
+          int var_nodes = -1; /**< Number of variant nodes */
           int var_bases = -1; /**< number of total variant bases */
 
           /**
@@ -215,30 +202,19 @@ namespace Vargas {
       /**
        * @param g Graph to simulate from
        */
-      Sim(const Graph &g) : _graph(g) { _init(); }
+      Sim(const Graph &g) : _graph(g),
+                            _nodes(*(_graph.node_map())),
+                            _next(_graph.next_map()) { _init(); }
 
       /**
        * @param _graph Graph to simulate from
        * @param prof accept reads following this profile
        */
-      Sim(const Graph &_graph, const Profile &prof) : _graph(_graph), _prof(prof) { _init(); }
-
-      /**
-       * @brief
-       * Derive off of a base graph and simulate from it.
-       * @param base_graph graph to derive from
-       * @param pop Population filter for base_graph
-       * @param prof simulation profile
-       */
-      Sim(const Graph &base_graph, const Graph::Population &pop, const Profile &prof) :
-          _derived_graph(new Graph(base_graph, pop)), _graph(*_derived_graph) {
-          set_prof(prof);
-          _init();
-      }
-
-      ~Sim() {
-          if (_derived_graph) delete _derived_graph;
-      }
+      Sim(const Graph &_graph,
+          const Profile &prof) : _graph(_graph),
+                                 _prof(prof),
+                                 _nodes(*(_graph.node_map())),
+                                 _next(_graph.next_map()) { _init(); }
 
       /**
        * @brief
@@ -300,7 +276,7 @@ namespace Vargas {
        */
       void set_prof(const Profile &prof) {
           if (prof.var_nodes == 0 && prof.var_bases > 0)
-              throw std::invalid_argument("Invalid profile option var_nodes = 0, var_bases > 0.");
+              throw std::invalid_argument("Invalid profile option: var_nodes = 0, var_bases > 0.");
           _prof = prof;
       }
 
@@ -319,15 +295,25 @@ namespace Vargas {
       SAM::Record &get_read() { return _read; };
 
     private:
-      Vargas::Graph *_derived_graph = nullptr;
       const Vargas::Graph &_graph;
-      std::vector<uint32_t> next_keys;
-      std::vector<SAM::Record> _batch;
       Profile _prof;
+      const std::unordered_map<uint32_t, Graph::nodeptr> &_nodes;
+      const std::unordered_map<uint32_t, std::vector<uint32_t>> &_next;
+
+
+      /**
+       * The last element represents the number of bases in the entire graph, with each element
+       * representing a running total. Generating a random number and then finding the first index
+       * greater than that gives a random node weighted to sequence length.
+       */
+      std::vector<uint32_t> _node_ids;
+      std::vector<uint64_t> _node_weights;
+
+      std::vector<SAM::Record> _batch;
       SAM::Record _read;
 
-      std::uniform_int_distribution<unsigned int> rand_pos;
-      std::mt19937 rand_gen;
+      std::uniform_int_distribution<uint64_t> _node_weight_dist;
+      std::mt19937 _rand_generator;
 
       // Abort trying to update the read after N tries
       const size_t _abort_after = 1000000;
@@ -337,15 +323,21 @@ namespace Vargas {
        * This precludes the possibility of having reads begin in the last node of the graph.
        */
       void _init() {
-          for (auto &n : _graph.next_map()) {
-              next_keys.push_back(n.first);
+          uint64_t total = 0;
+          for (auto giter = _graph.begin(); giter != _graph.end(); ++giter) {
+              total += giter->length();
+              _node_weights.push_back(total);
+              _node_ids.push_back(giter->id());
           }
-
           std::random_device rd;
-          rand_gen = std::mt19937(rd());
-          const auto min = _graph.begin()->end() - _graph.begin()->length() + 1;
-          const auto max = _graph.end()->end();
-          rand_pos = std::uniform_int_distribution<unsigned int>(min, max);
+          _rand_generator = std::mt19937(rd());
+          _node_weight_dist = std::uniform_int_distribution<uint64_t>(0, total);
+      }
+
+      uint32_t _random_node_id() {
+          return _node_ids[std::lower_bound(_node_weights.begin(),
+                                            _node_weights.end(),
+                                            _node_weight_dist(_rand_generator)) - _node_weights.begin()];
       }
 
       bool _update_read();

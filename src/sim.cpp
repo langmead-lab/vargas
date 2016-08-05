@@ -13,12 +13,7 @@
 
 bool Vargas::Sim::_update_read() {
 
-    const auto &nodes = *_graph.node_map();
-    const auto &next = _graph.next_map();
-
-    uint32_t curr_node;
     uint32_t curr_indiv;
-    std::string read_str = "";
 
     // Pick an individual
     do {
@@ -26,33 +21,25 @@ bool Vargas::Sim::_update_read() {
     } while (!_graph.filter()[curr_indiv]);
 
 
-    // Pick random start position and the node
-    unsigned curr_pos;
-    {
-        std::vector<uint32_t> candidates;
-        curr_pos = rand_pos(rand_gen); // Initial random position
-        // Find correct node
-        for (const auto &nid : _graph.next_map()) {
-            const auto &node = *(_graph.node_map()->at(nid.first));
-            if (node.end() >= curr_pos && node.end() + 1 - node.length() <= curr_pos) {
-                candidates.push_back(node.id());
-            }
-        }
-        if (!candidates.size()) return false; // TODO still dont know why this sometimes is 0, there are some gaps
-        curr_node = candidates[rand() % candidates.size()];
-        curr_pos -= nodes.at(curr_node)->end() - nodes.at(curr_node)->length();
-    }
+    // Pick random weighted node and position within the node
+    uint32_t curr_node;
+    do {
+        curr_node = _random_node_id();
+    } while (!_nodes.at(curr_node)->belongs(curr_indiv));
+    unsigned curr_pos = rand() % _nodes.at(curr_node)->length();
+
 
     int var_bases = 0;
     int var_nodes = 0;
+    std::string read_str = "";
 
     while (true) {
         // Extract len subseq
         size_t len = _prof.len - read_str.length();
-        if (len > nodes.at(curr_node)->length() - curr_pos) len = nodes.at(curr_node)->length() - curr_pos;
-        read_str += nodes.at(curr_node)->seq_str().substr(curr_pos, len);
+        if (len > _nodes.at(curr_node)->length() - curr_pos) len = _nodes.at(curr_node)->length() - curr_pos;
+        read_str += _nodes.at(curr_node)->seq_str().substr(curr_pos, len);
 
-        if (!nodes.at(curr_node)->is_ref()) {
+        if (!_nodes.at(curr_node)->is_ref()) {
             ++var_nodes;
             var_bases += len;
         }
@@ -61,11 +48,11 @@ bool Vargas::Sim::_update_read() {
         if (read_str.length() == _prof.len) break; // Done
 
         // Pick random next node.
-        if (next.find(curr_node) == next.end()) return false; // End of graph
+        if (_next.find(curr_node) == _next.end()) return false; // End of graph
 
         std::vector<uint32_t> valid_next;
-        for (const uint32_t n : next.at(curr_node)) {
-            if (nodes.at(n)->belongs(curr_indiv)) valid_next.push_back(n);
+        for (const uint32_t n : _next.at(curr_node)) {
+            if (_nodes.at(n)->belongs(curr_indiv)) valid_next.push_back(n);
         }
         if (valid_next.size() == 0) return false;
         curr_node = valid_next[rand() % valid_next.size()];
@@ -80,7 +67,6 @@ bool Vargas::Sim::_update_read() {
     int sub_err = 0;
     int indel_err = 0;
     std::string read_mut = "";
-
 
     // Rate based errors
     if (_prof.rand) {
@@ -147,8 +133,6 @@ bool Vargas::Sim::_update_read() {
         }
     }
 
-    _read = SAM::Record();
-
     _read.flag.unmapped = false;
     _read.flag.aligned = true;
 
@@ -160,7 +144,7 @@ bool Vargas::Sim::_update_read() {
     _read.aux.set(SIM_SAM_SUB_ERR_TAG, sub_err);
 
     // +1 from length being 1 indexed but end() being zero indexed, +1 since POS is 1 indexed.
-    _read.pos = nodes.at(curr_node)->end() - nodes.at(curr_node)->length() + 2 + curr_pos - _prof.len;
+    _read.pos = _nodes.at(curr_node)->end() - _nodes.at(curr_node)->length() + 2 + curr_pos - _prof.len;
 
     _read.aux.set(SIM_SAM_READ_ORIG_TAG, read_str);
 
