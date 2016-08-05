@@ -27,7 +27,7 @@ int main(const int argc, const char *argv[]) {
 
     srand(time(NULL)); // Rand used in profiles and sim
 
-    try {
+//    try {
         if (argc > 1) {
             if (!strcmp(argv[1], "test")) {
                 doctest::Context doc(argc, argv);
@@ -58,12 +58,12 @@ int main(const int argc, const char *argv[]) {
                 return merge_main(argc, argv);
             }
         }
-    } catch (std::exception &e) {
+//    } catch (std::exception &e) {
         std::cerr << "\033[1;31m"
-                  << "\nFatal Error: " << e.what()
+                  //                  << "\nFatal Error: " << e.what()
                   << "\033[0m\n" << std::endl;
         return 1;
-    }
+    //   }
 
     GetOpt::GetOpt_pp args(argc, argv);
     if (args >> GetOpt::OptionPresent('h', "help")) {
@@ -409,7 +409,6 @@ int align_main(const int argc, const char *argv[]) {
     {
         Vargas::SAM::Header::Program pg;
         std::ostringstream ss;
-        ss << "vargas align ";
         for (int i = 0; i < argc; ++i) ss << std::string(argv[i]) << " ";
         pg.command_line = ss.str();
         pg.name = "vargas_align";
@@ -425,6 +424,8 @@ int align_main(const int argc, const char *argv[]) {
     start_time = std::chrono::steady_clock::now();
 
     const size_t num_tasks = task_list.size();
+
+    Vargas::osam aligns_out(out_file, reads_hdr);
 
     #pragma omp parallel for
     for (size_t l = 0; l < num_tasks; ++l) {
@@ -452,12 +453,13 @@ int align_main(const int argc, const char *argv[]) {
             rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.cor_flag[j]);
         }
         gm.destroy(task_list.at(l).first);
-    }
 
-    Vargas::osam aligns_out(out_file, reads_hdr);
-
-    for (const auto &pair : task_list) {
-        for (const auto &rec : pair.second) aligns_out.add_record(rec);
+        #pragma omp critical(aligns_out)
+        {
+            for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
+                aligns_out.add_record(task_list.at(l).second.at(j));
+            }
+        }
     }
 
     std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
@@ -861,7 +863,8 @@ void align_help() {
          << "------------------- Vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------\n";;
     cerr << "-g\t--gdef          *<string> Graph definition file.\n";
     cerr << "-r\t--reads         *<string, string...> Read files to align. Default stdin.\n";
-    cerr << "-a\t--align         *<string> Alignment targets file.\n";
+    cerr << "-a\t--align         *<string> Alignment targets.\n";
+    cerr << "-f\t--file          -a specifies a file name.\n";
     cerr << "-t\t--out           *<string> Alignment output file, default stdout.\n";
     cerr << "-l\t--rlen          <int> Max read length. Default 50.\n";
     cerr << "-m\t--match         <int> Match score, default 2.\n";
