@@ -133,6 +133,7 @@ bool Vargas::Sim::_update_read() {
         }
     }
 
+    _read = SAM::Record();
     _read.flag.unmapped = false;
     _read.flag.aligned = true;
 

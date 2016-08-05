@@ -28,10 +28,6 @@
 #include "graph.h"
 #include "doctest.h"
 
-
-#define DEBUG_PRINT_SW 0 // Print the full SW matrix for each node aligned
-#define DEBUG_PRINT_SW_NUM 0 // Print the matrix for this read number in the alignment group
-
 #define ALIGN_SAM_TYPE_REF "REF"
 #define ALIGN_SAM_TYPE_MAXAF "MAXAF"
 #define ALIGN_SAM_TYPE_IN "IN"
