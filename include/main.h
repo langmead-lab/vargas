@@ -108,7 +108,7 @@ TEST_CASE ("Coordinate matches") {
     srand(1);
     Vargas::Graph::Node::_newID = 0;
     using std::endl;
-    std::string tmpfa = "tmp    _tc.fa";
+    std::string tmpfa = "tmp_tc.fa";
     {
         std::ofstream fao(tmpfa);
         fao
@@ -259,4 +259,6 @@ TEST_CASE ("cor flag") {
 
     remove(tmpfa.c_str());
     remove(tmpvcf.c_str());
+    remove(reads_file.c_str());
+    remove("tmp_aout.sam");
 }

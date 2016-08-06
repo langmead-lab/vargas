@@ -27,7 +27,7 @@ int main(const int argc, const char *argv[]) {
 
     srand(time(NULL)); // Rand used in profiles and sim
 
-//    try {
+    try {
         if (argc > 1) {
             if (!strcmp(argv[1], "test")) {
                 doctest::Context doc(argc, argv);
@@ -58,12 +58,11 @@ int main(const int argc, const char *argv[]) {
                 return merge_main(argc, argv);
             }
         }
-//    } catch (std::exception &e) {
+    } catch (std::exception &e) {
         std::cerr << "\033[1;31m"
-                  //                  << "\nFatal Error: " << e.what()
+                  << "\nFatal Error: " << e.what()
                   << "\033[0m\n" << std::endl;
-        return 1;
-    //   }
+    }
 
     GetOpt::GetOpt_pp args(argc, argv);
     if (args >> GetOpt::OptionPresent('h', "help")) {
@@ -389,6 +388,7 @@ int align_main(const int argc, const char *argv[]) {
         // graph label to vector of reads
         for (const auto &sub_rg_pair : alignment_rg_map) {
             for (const std::string &rgid : sub_rg_pair.second) {
+                if (alignment_reads.count(rgid)) // If there is a header line that there are no reads associated with
                 task_list.push_back(std::pair<std::string, std::vector<Vargas::SAM::Record>>(sub_rg_pair.first,
                                                                                              alignment_reads.at(rgid)));
             }
@@ -396,8 +396,8 @@ int align_main(const int argc, const char *argv[]) {
         }
 
         std::cerr << chrono_duration(start_time) << " seconds. "
-                  << alignment_reads.size() << " read groups aligning to "
-                  << alignment_rg_map.size() << " graphs." << std::endl;
+                  << alignment_reads.size() << " read groups, "
+                  << alignment_rg_map.size() << " graphs, " << task_list.size() << " tasks." << std::endl;
     }
 
     std::cerr << "Loading graphs... " << std::flush;
