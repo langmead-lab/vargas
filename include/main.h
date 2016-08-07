@@ -101,6 +101,12 @@ inline double chrono_duration(const std::chrono::time_point<T> &start_time) {
         (std::chrono::steady_clock::now() - start_time).count();
 }
 
+template<typename T>
+inline double chrono_duration(const std::chrono::time_point<T> &start_time, const std::chrono::time_point<T> &end) {
+    return std::chrono::duration_cast<std::chrono::duration<double>>
+        (end - start_time).count();
+}
+
 #endif //VARGAS_MAIN_H
 
 // Checks to see if coordinate systems between the simulator and aligner line up.

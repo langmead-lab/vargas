@@ -415,8 +415,8 @@ namespace Vargas {
           if (read_group.size() % SIMDPP_FAST_INT8_SIZE) {
               seed_map.clear();
 
-              size_t len = read_group.size() - (num_groups * SIMDPP_FAST_INT8_SIZE);
-              size_t offset = num_groups * SIMDPP_FAST_INT8_SIZE;
+              const size_t len = read_group.size() - (num_groups * SIMDPP_FAST_INT8_SIZE);
+              const size_t offset = num_groups * SIMDPP_FAST_INT8_SIZE;
 
               _alignment_group.load_reads(read_group, num_groups * SIMDPP_FAST_INT8_SIZE, read_group.size());
               _max_score = ZERO_CT;
@@ -785,6 +785,8 @@ namespace Vargas {
               // Seed->S_col[row - 1] for col=0
               _S_curr[col] = add_sat(Sp, _Ceq);   // Add match scores
               _S_curr[col] = sub_sat(_S_curr[col], _Cneq); // Subtract mismatch scores
+          } else {
+              _S_curr[col] = Sp;
           }
 
       }

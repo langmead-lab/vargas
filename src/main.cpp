@@ -419,13 +419,15 @@ int align_main(const int argc, const char *argv[]) {
     }
 
 
-
-    std::cerr << "Aligning... " << std::endl;
+    std::cerr << "Aligning... " << std::flush;
     start_time = std::chrono::steady_clock::now();
+    auto start_cpu = std::chrono::system_clock::now();
 
     const size_t num_tasks = task_list.size();
 
     Vargas::osam aligns_out(out_file, reads_hdr);
+
+    size_t total_aligned = 0;
 
     #pragma omp parallel for
     for (size_t l = 0; l < num_tasks; ++l) {
@@ -459,10 +461,15 @@ int align_main(const int argc, const char *argv[]) {
             for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
                 aligns_out.add_record(task_list.at(l).second.at(j));
             }
+            ++total_aligned;
         }
     }
 
-    std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
+    auto end_time = std::chrono::steady_clock::now();
+    auto cpu_end = std::chrono::system_clock::now();
+    std::cerr << chrono_duration(start_time, end_time) << " s,"
+              << chrono_duration(start_cpu, cpu_end) << " CPU s, "
+              << chrono_duration(start_cpu, cpu_end) / total_aligned << "CPU s / alignment." << std::endl;
 
     return 0;
 }
