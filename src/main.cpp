@@ -62,6 +62,7 @@ int main(const int argc, const char *argv[]) {
         std::cerr << "\033[1;31m"
                   << "\nFatal Error: " << e.what()
                   << "\033[0m\n" << std::endl;
+        return 1;
     }
 
     GetOpt::GetOpt_pp args(argc, argv);
@@ -343,7 +344,7 @@ int align_main(const int argc, const char *argv[]) {
     std::replace(align_targets.begin(), align_targets.end(), '\n', ';');
     const std::vector<std::string> alignment_pairs = split(align_targets, ';');
 
-    std::cerr << "Loading reads... " << std::flush;
+    std::cerr << "Loading reads... " << std::endl;
     auto start_time = std::chrono::steady_clock::now();
 
     std::vector<std::pair<std::string, std::vector<Vargas::SAM::Record>>> task_list;
@@ -373,7 +374,7 @@ int align_main(const int argc, const char *argv[]) {
                 if (pair[0].at(2) != ':')
                     throw std::invalid_argument("Expected source format Read_group_tag:value in \"" + pair[0] + "\".");
                 if (pair[0].substr(0, 2) != "RG")
-                    throw std::invalid_argument("Expected a readgroup tag RG:xx: \"" + pair[0] + "\"");
+                    throw std::invalid_argument("Expected a read group tag \'RG:xx:\', got \"" + pair[0] + "\"");
                 tag = pair[0].substr(3, 2);
                 target_val = pair[0].substr(6);
                 for (const auto &rg_pair : reads_hdr.read_groups) {
@@ -385,19 +386,26 @@ int align_main(const int argc, const char *argv[]) {
             }
         }
 
+        size_t total = 0;
         // graph label to vector of reads
         for (const auto &sub_rg_pair : alignment_rg_map) {
             for (const std::string &rgid : sub_rg_pair.second) {
-                if (alignment_reads.count(rgid)) // If there is a header line that there are no reads associated with
-                task_list.push_back(std::pair<std::string, std::vector<Vargas::SAM::Record>>(sub_rg_pair.first,
-                                                                                             alignment_reads.at(rgid)));
+                if (alignment_reads.count(rgid)) {
+                    // If there is a header line that there are no reads associated with, skip
+                    task_list.push_back(std::pair<std::string, std::vector<Vargas::SAM::Record>>(sub_rg_pair.first,
+                                                                                                 alignment_reads.at(rgid)));
+                    std::cerr << '\t' << sub_rg_pair.first << " (" << alignment_reads.at(rgid).size() << " reads)\n";
+                    total += alignment_reads.at(rgid).size();
+                }
             }
 
         }
 
-        std::cerr << chrono_duration(start_time) << " seconds. "
-                  << alignment_reads.size() << " read groups, "
-                  << alignment_rg_map.size() << " graphs, " << task_list.size() << " tasks." << std::endl;
+        std::cerr << '\t' << alignment_reads.size() << " Read groups.\n"
+                  << '\t' << alignment_rg_map.size() << " Subgraphs.\n"
+                  << '\t' << task_list.size() << " Tasks.\n"
+                  << '\t' << total << " Total alignments.\n"
+                  << chrono_duration(start_time) << " seconds.\n" << std::endl;
     }
 
     std::cerr << "Loading graphs... " << std::flush;
@@ -421,7 +429,7 @@ int align_main(const int argc, const char *argv[]) {
 
     std::cerr << "Aligning... " << std::flush;
     start_time = std::chrono::steady_clock::now();
-    auto start_cpu = std::chrono::system_clock::now();
+    auto start_cpu = std::clock();
 
     const size_t num_tasks = task_list.size();
 
@@ -466,10 +474,10 @@ int align_main(const int argc, const char *argv[]) {
     }
 
     auto end_time = std::chrono::steady_clock::now();
-    auto cpu_end = std::chrono::system_clock::now();
-    std::cerr << chrono_duration(start_time, end_time) << " s,"
-              << chrono_duration(start_cpu, cpu_end) << " CPU s, "
-              << chrono_duration(start_cpu, cpu_end) / total_aligned << "CPU s / alignment." << std::endl;
+    auto cput = (start_cpu - std::clock()) / (double) CLOCKS_PER_SEC;
+    std::cerr << chrono_duration(start_time, end_time) << " s, "
+              << cput << " CPU s, " << total_aligned << " alignments, "
+              << cput / total_aligned << "CPU s / alignment.\n" << std::endl;
 
     return 0;
 }
@@ -507,6 +515,7 @@ int split_main(const int argc, const char *argv[]) {
             if (l == lines) {
                 out.close();
                 out.open(prefix + std::to_string(suffix));
+                std::cerr << "\"" << prefix << std::to_string(suffix) << "\" ..." << std::endl;
                 out << input.header().to_string();
                 ++suffix;
                 l = 0;
