@@ -66,12 +66,13 @@ namespace Vargas {
    *    gm.subgraph("~a"); // complement of 'a' subgraph
    *    gm.subgraph("c"); // Invalid
    *    gm.subgraph("~a:c") // valid
+   *    gm.subgraph("a:REF") // Only reference alleles from subgraph a
    *
    * }
    * @endcode
    * There are two versions to obtain graphs. The version prefixed with "make_" will create the graph
    * if it has not been made yet, gaurded with #pragma omp critical.
-   * The const versions subgraph(), ref(), base(), maxaf() will return a nullptr if the
+   * The const versions subgraph() and base() will return a nullptr if the
    * graph does not exist.
    */
   class GraphManager {
@@ -147,7 +148,7 @@ namespace Vargas {
        * @return shared_ptr to base graph
        * @throw std::invalid_argument Base graph is not built.
        */
-      std::shared_ptr<const Graph> make_ref();
+      std::shared_ptr<const Graph> make_ref(std::string const &label);
 
       /**
        * @brief
@@ -155,23 +156,7 @@ namespace Vargas {
        * @return shared_ptr to base graph
        * @throw std::invalid_argument Base graph is not built.
        */
-      std::shared_ptr<const Graph> make_maxaf();
-
-      /**
-       * @brief
-       * Reference graph
-       * @return shared_ptr to base graph
-       * @throw std::invalid_argument Base graph is not built.
-       */
-      std::shared_ptr<const Graph> ref() const;
-
-      /**
-       * @brief
-       * Max allele frequency graph
-       * @return shared_ptr to base graph
-       * @throw std::invalid_argument Base graph is not built.
-       */
-      std::shared_ptr<const Graph> maxaf() const;
+      std::shared_ptr<const Graph> make_maxaf(std::string const &label);
 
       /**
        * @brief
@@ -314,15 +299,17 @@ namespace Vargas {
       const char GDEF_DELIM = ';';
 
     private:
-      std::shared_ptr<const Graph>
-          _base_graph = nullptr,
-          _ref_graph = nullptr,
-          _maxaf_graph = nullptr;
       std::unordered_map<std::string, Graph::Population> _subgraph_filters;
       std::unordered_map<std::string, std::shared_ptr<const Graph>> _subgraphs;
 
       std::string _ref_file, _vcf_file, _region;
       int _node_len;
+
+      inline bool _ends_with(std::string const &fullString, std::string const &ending) {
+          if (fullString.length() >= ending.length())
+              return (0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending));
+          else return false;
+      }
 
   };
 

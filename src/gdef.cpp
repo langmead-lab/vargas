@@ -17,7 +17,6 @@ Vargas::GraphManager::GraphManager(std::string gdef_file) {
 }
 
 void Vargas::GraphManager::close() {
-    _base_graph.reset();
     _subgraph_filters.clear();
     _subgraphs.clear();
     _ref_file = _vcf_file = _region = "";
@@ -59,7 +58,7 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
         GraphBuilder gb(_ref_file, _vcf_file);
         gb.region(_region);
         gb.node_len(_node_len);
-        if (build_base) _base_graph = std::make_shared<Graph>(gb.build());
+        if (build_base) _subgraphs[GDEF_BASEGRAPH] = std::make_shared<Graph>(gb.build());
         VCF vcf_stream(_vcf_file);
         nsamps = vcf_stream.num_samples() * 2;
     }
@@ -91,14 +90,17 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
 }
 
 std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_subgraph(std::string label) {
-    if (!_base_graph) throw std::invalid_argument("No base graph built.");
+    if (!_subgraphs.count(GDEF_BASEGRAPH)) throw std::invalid_argument("No base graph built.");
     if (label == GDEF_BASEGRAPH) return base();
-    if (label == GDEF_REFGRAPH) return make_ref();
-    if (label == GDEF_MAXAFGRAPH) return make_maxaf();
     label = GDEF_BASEGRAPH + GDEF_SCOPE + label;
+
+    if (_ends_with(label, GDEF_REFGRAPH)) return make_ref(label);
+    if (_ends_with(label, GDEF_MAXAFGRAPH)) return make_maxaf(label);
+
     if (_subgraphs.count(label)) return _subgraphs.at(label);
+
     if (!_subgraph_filters.count(label)) throw std::invalid_argument("Label \"" + label + "\" does not exist.");
-    auto sub = std::make_shared<const Graph>(*_base_graph, _subgraph_filters.at(label));
+    auto sub = std::make_shared<const Graph>(*(_subgraphs[GDEF_BASEGRAPH]), _subgraph_filters.at(label));
     #pragma omp critical(_gdef_make_subgraph)
     {
         _subgraphs[label] = sub;
@@ -108,41 +110,38 @@ std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_subgraph(std::st
 
 std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::subgraph(std::string label) const {
     if (label == GDEF_BASEGRAPH) return base();
-    if (label == GDEF_REFGRAPH) return ref();
-    if (label == GDEF_MAXAFGRAPH) return maxaf();
     label = GDEF_BASEGRAPH + GDEF_SCOPE + label;
     if (_subgraphs.count(label) == 0) return nullptr;
     return _subgraphs.at(label);
 }
 
-std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_ref() {
-    if (!_base_graph) throw std::invalid_argument("No base graph built.");
-    #pragma omp critical(_gdef_make_ref)
+std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_ref(std::string const &label) {
+    if (!_subgraphs.count(GDEF_BASEGRAPH)) throw std::invalid_argument("No base graph built.");
+    if (_subgraphs.count(label)) return _subgraphs.at(label);
+    std::string root = label.substr(0, label.length() - GDEF_REFGRAPH.length() - 1);
+    #pragma omp critical(_gdef_make_subgraph)
     {
-        if (!_ref_graph) _ref_graph = std::make_shared<const Graph>(*_base_graph, Graph::REF);
+        _subgraphs[label] = std::make_shared<const Graph>(*make_subgraph(root), Graph::REF);
     }
-    return _ref_graph;
+    return _subgraphs[label];
 }
 
-std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_maxaf() {
-    if (!_base_graph) throw std::invalid_argument("No base graph built.");
-    #pragma omp critical(_gdef_make_maxaf)
+std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_maxaf(std::string const &label) {
+    if (!_subgraphs.count(GDEF_BASEGRAPH)) throw std::invalid_argument("No base graph built.");
+    if (_subgraphs.count(label)) return _subgraphs.at(label);
+    std::string root = label.substr(0, label.length() - GDEF_REFGRAPH.length() - 1);
+
+    #pragma omp critical(_gdef_make_subgraph)
     {
-        if (!_maxaf_graph) _maxaf_graph = std::make_shared<const Graph>(*_base_graph, Graph::MAXAF);
+        _subgraphs[label] = std::make_shared<const Graph>(*make_subgraph(root), Graph::MAXAF);
     }
-    return _maxaf_graph;
+    return _subgraphs[label];
 }
 
-std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::ref() const {
-    return _ref_graph;
-}
-
-std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::maxaf() const {
-    return _maxaf_graph;
-}
 
 std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::base() const {
-    return _base_graph;
+    if (!_subgraphs.count(GDEF_BASEGRAPH)) return nullptr;
+    return _subgraphs.at(GDEF_BASEGRAPH);
 }
 
 Vargas::Graph::Population Vargas::GraphManager::filter(std::string label) const {
@@ -231,9 +230,9 @@ bool Vargas::GraphManager::write(std::string ref_file,
                 throw std::invalid_argument("Negative graphs cannot be defined explicitly: \"" + def + "\".");
 
             if (pair[1].at(pair[1].length() - 1) == '%') {
-                count = (int) (((double) populations.at(parent).count() / 100) *
+                count = (size_t) (((double) populations.at(parent).count() / 100) *
                     std::stoi(pair[1].substr(0, pair[1].length() - 1)));
-            } else count = std::stoi(pair[1]);
+            } else count = std::stoul(pair[1]);
 
             if (count > populations.at(parent).count())
                 throw std::invalid_argument("Not enough samples available to pick " +

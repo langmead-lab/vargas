@@ -349,6 +349,7 @@ int align_main(const int argc, const char *argv[]) {
 
     std::vector<std::pair<std::string, std::vector<Vargas::SAM::Record>>> task_list;
     Vargas::SAM::Header reads_hdr;
+    size_t total = 0;
     {
         // Maps a read group ID to a vector of reads
         std::unordered_map<std::string, std::vector<Vargas::SAM::Record>> alignment_reads;
@@ -386,7 +387,8 @@ int align_main(const int argc, const char *argv[]) {
             }
         }
 
-        size_t total = 0;
+        std::cerr << '\t' << "Graph\t# Reads" << std::endl;
+
         // graph label to vector of reads
         for (const auto &sub_rg_pair : alignment_rg_map) {
             for (const std::string &rgid : sub_rg_pair.second) {
@@ -394,7 +396,7 @@ int align_main(const int argc, const char *argv[]) {
                     // If there is a header line that there are no reads associated with, skip
                     task_list.push_back(std::pair<std::string, std::vector<Vargas::SAM::Record>>(sub_rg_pair.first,
                                                                                                  alignment_reads.at(rgid)));
-                    std::cerr << '\t' << sub_rg_pair.first << " (" << alignment_reads.at(rgid).size() << " reads)\n";
+                    std::cerr << '\t' << sub_rg_pair.first << '\t' << alignment_reads.at(rgid).size() << '\n';
                     total += alignment_reads.at(rgid).size();
                 }
             }
@@ -408,7 +410,7 @@ int align_main(const int argc, const char *argv[]) {
                   << chrono_duration(start_time) << " seconds.\n" << std::endl;
     }
 
-    std::cerr << "Loading graphs... " << std::flush;
+    std::cerr << "Loading graphs... \n" << std::endl;
     start_time = std::chrono::steady_clock::now();
     Vargas::GraphManager gm(gdf_file);
     std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
@@ -427,15 +429,13 @@ int align_main(const int argc, const char *argv[]) {
     }
 
 
-    std::cerr << "Aligning... " << std::flush;
+    std::cerr << "Aligning... " << std::endl;
     start_time = std::chrono::steady_clock::now();
     auto start_cpu = std::clock();
 
     const size_t num_tasks = task_list.size();
 
     Vargas::osam aligns_out(out_file, reads_hdr);
-
-    size_t total_aligned = 0;
 
     #pragma omp parallel for
     for (size_t l = 0; l < num_tasks; ++l) {
@@ -469,15 +469,14 @@ int align_main(const int argc, const char *argv[]) {
             for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
                 aligns_out.add_record(task_list.at(l).second.at(j));
             }
-            ++total_aligned;
         }
     }
 
     auto end_time = std::chrono::steady_clock::now();
-    auto cput = (start_cpu - std::clock()) / (double) CLOCKS_PER_SEC;
-    std::cerr << chrono_duration(start_time, end_time) << " s, "
-              << cput << " CPU s, " << total_aligned << " alignments, "
-              << cput / total_aligned << "CPU s / alignment.\n" << std::endl;
+    auto cput = (std::clock() - start_cpu) / (double) CLOCKS_PER_SEC;
+    std::cerr << chrono_duration(start_time, end_time) << " s\n"
+              << cput << " CPU s\n"
+              << cput / total << " CPU s / alignment.\n" << std::endl;
 
     return 0;
 }
