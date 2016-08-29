@@ -25,6 +25,7 @@
 #include <time.h>
 #include <set>
 #include <unordered_map>
+#include <map>
 #include "dyn_bitset.h"
 #include "utils.h"
 #include "htslib/vcfutils.h"
@@ -609,21 +610,36 @@ namespace Vargas {
        * Represets the data in a line of a ksnp file
        */
       struct ksnp_record {
-          ksnp_record() : chr(""), id(""), pos(0), ref(Base::N), alt(Base::N), af(0), count(0) {}
+          ksnp_record() : count(0) {}
 
           /**
            * @param line Parse a ksnp line into a record
            */
           ksnp_record(std::string line);
 
-          std::string
-              chr, /**< Chromosome */
-              id; /**< SNP ID */
+          ksnp_record operator+(const ksnp_record &other) {
+              if (count == 0) return *this = other;
+              if (chr != other.chr || pos != other.pos) throw std::invalid_argument("SNPs are not at the same site.");
+              if (ref != other.ref) throw std::invalid_argument("Inconsistent reference.");
+              if (count != other.count) throw std::invalid_argument("Inconsistent count.");
+              for (const auto &i : other.id) id.push_back(i);
+              for (const auto &i : other.alt) alt.push_back(i);
+              for (const auto &i : other.af) af.push_back(i);
+              count += other.count;
+              return *this;
+          }
+
+          ksnp_record operator+=(const ksnp_record &other) {
+              return operator+(other);
+          }
+
+          std::string chr; /**< Chromosome */
+          std::vector<std::string> id; /**< SNP ID */
           uint32_t pos; /**< SNP Position */
-          Base ref; /**< Reference base */
-          Base alt; /**< Alternate base */
-          float af; /**< Allele frequency of alt */
-          int count; /**< Total number of SNPs at site */
+          std::string ref; /**< Reference base */
+          std::vector<std::string> alt; /**< Alternate base */
+          std::vector<float> af; /**< Allele frequency of alt */
+          int count; /**< Number of variants at site. */
       };
 
       /**
@@ -649,8 +665,7 @@ namespace Vargas {
        */
       void close() {
           _snps.clear();
-          _positions.clear();
-          _curr_iter = _positions.end();
+          _curr_iter = _snps.end();
       }
 
       /**
@@ -660,36 +675,29 @@ namespace Vargas {
       bool next() override;
 
       bool good() override {
-          return _curr_iter != _positions.end();
+          return _curr_iter != _snps.end();
       }
 
       std::string ref() const override {
-          return std::string(1, num_to_base(_curr_rec.ref));
+          return _curr_iter->second.ref;
       }
 
       const std::vector<std::string> &alleles() const override {
-          static std::vector<std::string> _alleles;
-          _alleles = {std::string(1, num_to_base(_curr_rec.alt))};
-          return _alleles;
+          return _curr_iter->second.alt;
       }
 
       int pos() const override {
-          return _curr_rec.pos;
+          return _curr_iter->second.pos;
       }
 
       const std::vector<float> &frequencies() const override {
-          static std::vector<float> _freqs;
-          _freqs = {_curr_rec.af};
-          return _freqs;
+          return _curr_iter->second.af;
       }
 
 
     private:
-      std::unordered_map<uint32_t, std::vector<ksnp_record>> _snps;
-      std::set<uint32_t> _positions;
-      std::set<uint32_t>::iterator _curr_iter;
-      std::vector<ksnp_record>::iterator _curr_vec_iter;
-      ksnp_record _curr_rec;
+      std::map<uint32_t, ksnp_record> _snps;
+      std::map<uint32_t, ksnp_record>::iterator _curr_iter;
 
   };
 
@@ -908,14 +916,105 @@ namespace Vargas {
       {
           std::ofstream ko(tmpksnp);
           ko
-              << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
-              << "x\t10\t.\tC\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-              << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
-              << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-              << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+              << "22      10        T       G       0.125   99      1       rs79667666\n"
+              << "22      15        T       G       0.125   99      2       rs577223570\n"
+              << "22      20        A       G       0.125   99      1       rs560440826\n"
+              << "22      25        A       A       0.125   99      1       rs542836275\n"
+              << "22      30        T       A       0.125   99      1       rs2899171\n"
+              << "22      35        A       C       0.375   99      1       rs531500837\n"
+              << "22      40        T       G       0.625   99      1       rs60683537\n"
+              << "22      12        G       T       0.125   99      1       rs527731052\n"
+              << "22      13        G       T       0.125   99      1       rs536519999\n"
+              << "22      14        G       G       0.125   99      1       rs138497313\n"
+              << "22      15        T       C       0.250   99      2       rs569928668\n"
+              << "22      16        G       A       0.125   99      1       rs562028339\n" // Line 12
+              << "22      17        A       A       0.625   99      1       rs557479846\n"
+              << "22      18        A       G       0.125   99      1       rs9609408\n";
       }
 
           SUBCASE("File write wrapper") {
+
+              SUBCASE("Basic file") {
+              KSNP ksnp(tmpksnp, 12);
+                  REQUIRE(ksnp.good() == true);
+
+                  CHECK(ksnp.ref() == "T");
+                  REQUIRE(ksnp.alleles().size() == 1);
+                  CHECK(ksnp.alleles()[0] == "G");
+                  REQUIRE(ksnp.frequencies().size() == 1);
+                  CHECK(ksnp.frequencies()[0] == 0.125);
+                  CHECK(ksnp.pos() == 10);
+                  REQUIRE(ksnp.allele_pop("G").size() == 2);
+                  CHECK(ksnp.allele_pop("G")[0] == 1);
+                  CHECK(ksnp.allele_pop("G")[1] == 1);
+                  CHECK(ksnp.allele_pop("sdfsdf").size() == 2);
+
+                  CHECK(ksnp.next() == true);
+
+                  CHECK(ksnp.ref() == "G");
+                  REQUIRE(ksnp.alleles().size() == 1);
+                  CHECK(ksnp.alleles()[0] == "T");
+                  REQUIRE(ksnp.frequencies().size() == 1);
+                  CHECK(ksnp.frequencies()[0] == 0.125);
+                  CHECK(ksnp.pos() == 12);
+
+                  CHECK(ksnp.next() == true);
+
+                  CHECK(ksnp.ref() == "G");
+                  REQUIRE(ksnp.alleles().size() == 1);
+                  CHECK(ksnp.alleles()[0] == "T");
+                  REQUIRE(ksnp.frequencies().size() == 1);
+                  CHECK(ksnp.frequencies()[0] == 0.125);
+                  CHECK(ksnp.pos() == 13);
+
+                  CHECK(ksnp.next() == true);
+
+                  CHECK(ksnp.ref() == "G");
+                  REQUIRE(ksnp.alleles().size() == 1);
+                  CHECK(ksnp.alleles()[0] == "G");
+                  REQUIRE(ksnp.frequencies().size() == 1);
+                  CHECK(ksnp.frequencies()[0] == 0.125);
+                  CHECK(ksnp.pos() == 14);
+
+                  CHECK(ksnp.next() == true);
+
+                  CHECK(ksnp.ref() == "T");
+                  REQUIRE(ksnp.alleles().size() == 2);
+                  CHECK(ksnp.alleles()[0] == "G");
+                  CHECK(ksnp.alleles()[1] == "C");
+                  REQUIRE(ksnp.frequencies().size() == 2);
+                  CHECK(ksnp.frequencies()[0] == 0.125);
+                  CHECK(ksnp.frequencies()[1] == 0.250);
+                  CHECK(ksnp.pos() == 15);
+
+                  CHECK(ksnp.next() == true);
+                  CHECK(ksnp.pos() == 16);
+                  CHECK(ksnp.next() == true);
+                  CHECK(ksnp.pos() == 20);
+                  CHECK(ksnp.next() == true);
+                  CHECK(ksnp.pos() == 25);
+                  CHECK(ksnp.next() == true);
+                  CHECK(ksnp.pos() == 30);
+                  CHECK(ksnp.next() == true);
+                  CHECK(ksnp.pos() == 35);
+                  CHECK(ksnp.next() == true);
+                  CHECK(ksnp.pos() == 40);
+
+                  CHECK_FALSE(ksnp.next());
+          }
+
+              SUBCASE("Bad file") {
+              std::stringstream ss;
+              ss
+                  << "22      10        T       G       0.125   99      1       rs79667666\n"
+                  << "22      10        A       G       0.125   99      2       rs577223570\n";
+
+              try {
+                  KSNP ksnp(ss);
+                  std::cerr << "Exception expected.\n";
+                      CHECK_FALSE(1);
+              } catch (std::exception &e) {}
+          }
 
       }
 

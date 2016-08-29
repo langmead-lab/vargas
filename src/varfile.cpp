@@ -187,11 +187,11 @@ Vargas::KSNP::ksnp_record::ksnp_record(std::string line) {
     try {
         chr = split_line.at(0);
         pos = std::stoul(split_line.at(1));
-        ref = base_to_num(split_line.at(2).at(0));
-        alt = base_to_num(split_line.at(3).at(0));
-        af = std::stof(split_line.at(4));
+        ref = split_line.at(2);
+        alt = {split_line.at(3)};
+        af = {std::stof(split_line.at(4))};
         count = std::stoi(split_line.at(6));
-        id = split_line.at(7);
+        id = {split_line.at(7)};
     } catch (std::exception &e) {
         std::cerr << "Invalid ksnp line: \"" << line << "\".\n";
         throw;
@@ -203,25 +203,19 @@ void Vargas::KSNP::open(std::istream &in, int const top_n) {
     std::string line;
     int counter = 0;
     while (std::getline(in, line)) {
-        ++counter;
         ksnp_record const rec(line);
-        _snps[rec.pos].push_back(rec);
-        _positions.insert(rec.pos);
+        _snps[rec.pos] += rec;
+        ++counter;
         if (top_n > 0 && counter == top_n) break;
     }
-    std::cerr << _snps.size() << " SNP locations loaded.\n";
-    _curr_iter = _positions.begin();
-    if (_curr_iter != _positions.end()) _curr_vec_iter = _snps[*_curr_iter].begin();
+    std::cerr << counter << " SNPs at " << _snps.size() << " sites loaded.\n";
+    _curr_iter = _snps.begin();
 }
 
 
 bool Vargas::KSNP::next() {
-    if (_curr_iter == _positions.end()) return false;
-    if (_curr_vec_iter == _snps[*_curr_iter].end()) {
-        ++_curr_iter;
-        if (_curr_iter == _positions.end()) return false;
-        _curr_vec_iter = _snps[*_curr_iter].begin();
-    }
-    _curr_rec = *_curr_vec_iter;
+    if (_curr_iter == _snps.end()) return false;
+    ++_curr_iter;
+    if (_curr_iter == _snps.end()) return false;
     return true;
 }

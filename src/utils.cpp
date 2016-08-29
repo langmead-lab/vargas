@@ -27,7 +27,6 @@ inline void split(const std::string &s, char delim, std::vector<std::string> &ve
   std::string item;
   vec.clear();
 
-
   if (s.length() == 0) {
     return;
   }
