@@ -4,8 +4,7 @@
  * rgaddip1@jhu.edu
  *
  * @brief
- * Defines a set of subgraphs from a given reference
- * and vcf file.
+ * Defines a set of subgraphs from a given reference and variant file.
  *
  * @file
  */
@@ -37,6 +36,10 @@ namespace Vargas {
    * "~a:d=5" # Choose 5 samples from the complement population of 'a'
    * "a:~e=5" # Invalid, complement graphs are implicit and cannot be directly defined.
    * @endcode
+   * The assignment can also be suffixed with 't', to select the top n SNPs from a KSNP file.
+   * @code{.unparsed}
+   * "a=10t" # Use the top 10 SNPs (KSNP file) OR first 10 haplotypes (VCF File)
+   * @endcode
    *
    * The following labels are reserved:
    * - BASE: Full graph
@@ -46,12 +49,17 @@ namespace Vargas {
    * \n
    * GDEF file format:
    * @code{.unparsed}
-   * @gdef
-   * ref=REFERENCE,var=VCF,reg=REGION,nlen=NODE_LEN
+   * @gdef[:TYPE]
+   * ref=REFERENCE,var=VCF/KSNP,reg=REGION,nlen=NODE_LEN
    * label=POP_FILTER
    * ...
+   * label=POP_FILTER
    * @endcode
    * \n
+   * Where Type indicates the graph source type. Default "VCF". The other valid option is "KSNP". When
+   * in VCF mode, the filter corresponds to the sample and genotype. When in KSNP mode, the filter corresponds to the
+   * n'th SNP in the ksnp file. As a result, the node population for a SNP will have a size of the number of lines in
+   * the KSNP file, with 1 bit set.
    * Usage:
    * @code{.cpp}
    * #include <gdef.h>
@@ -78,6 +86,8 @@ namespace Vargas {
   class GraphManager {
     public:
 
+      enum class VariantType { VCF, KSNP };
+
       GraphManager() {}
 
       /**
@@ -88,7 +98,9 @@ namespace Vargas {
        */
       GraphManager(std::string gdef_file);
 
-      ~GraphManager() { close(); }
+      ~GraphManager() {
+          close();
+      }
 
       /**
        * @brief
@@ -103,7 +115,8 @@ namespace Vargas {
        * @param build_base If true, build the base graph.
        * @return true on success
        */
-      bool open(std::string file_name, bool build_base = true);
+      bool open(std::string file_name,
+                bool build_base = true);
 
       /**
        * @brief
@@ -114,7 +127,8 @@ namespace Vargas {
        * @throws std::invalid_argument Invalid token or a duplicate definition
        * @throws std::range_error Filter length does not match the number of samples in the VCF file
        */
-      bool open(std::istream &in, bool build_base = true);
+      bool open(std::istream &in,
+                bool build_base = true);
 
       /**
        * @brief
@@ -195,7 +209,8 @@ namespace Vargas {
        * @brief
        * Parse a defintion string a write a GDEF file. Also loads the generated file.
        * @param ref_file Reference file name
-       * @param vcf_file Variant file name
+       * @param variant_file Variant file name
+       * @param vartype Type of variant source
        * @param region Region in the format 'CHR:MIN-MAX'
        * @param defs subgraph definition string
        * @param node_len maximum graph node length.
@@ -205,7 +220,8 @@ namespace Vargas {
        * @throws std::invalid_argument Invalid output file
        */
       bool write(std::string ref_file,
-                 std::string vcf_file,
+                 std::string variant_file,
+                 VariantType vartype,
                  std::string region,
                  const std::string &defs,
                  int node_len,
@@ -216,7 +232,8 @@ namespace Vargas {
        * @brief
        * Parse a defintion string a write a GDEF file. Also loads the generated file.
        * @param ref_file Reference file name
-       * @param vcf_file Variant file name
+       * @param variant_file Variant file name
+       * @param vartype Type of variant source
        * @param region Region in the format 'CHR:MIN-MAX'
        * @param defs subgraph definition string
        * @param node_len maximum graph node length.
@@ -226,13 +243,94 @@ namespace Vargas {
        * @return true on success
        */
       bool write(std::string ref_file,
-                 std::string vcf_file,
+                 std::string variant_file,
+                 VariantType vartype,
                  std::string region,
-                 std::string defs_str,
+                 std::string defs,
                  int node_len,
                  std::ostream &out,
                  bool build_base,
                  int nsamps = 0);
+
+      /**
+       * @brief
+       * Parse a defintion string a write a GDEF file. Also loads the generated file.
+       * @param ref_file Reference file name
+       * @param vcf Variant file name
+       * @param region Region in the format 'CHR:MIN-MAX'
+       * @param defs subgraph definition string
+       * @param max_node_len maximum graph node length.
+       * @param out output stream
+       * @return true on success
+       */
+      bool write_from_vcf(std::string ref_file,
+                          std::string vcf_file,
+                          std::string region,
+                          std::string defs,
+                          int max_node_len,
+                          std::ostream &out) {
+          return write(ref_file, vcf_file, VariantType::VCF, region, defs, max_node_len, out, true);
+      }
+
+      /**
+         * @brief
+         * Parse a defintion string a write a GDEF file. Also loads the generated file.
+         * @param ref_file Reference file name
+         * @param vcf Variant file name
+         * @param region Region in the format 'CHR:MIN-MAX'
+         * @param defs subgraph definition string
+         * @param max_node_len maximum graph node length.
+         * @param out output file name
+         * @return true on success
+         */
+      bool write_from_vcf(std::string ref_file,
+                          std::string vcf_file,
+                          std::string region,
+                          std::string defs,
+                          int max_node_len,
+                          std::string out) {
+          return write(ref_file, vcf_file, VariantType::VCF, region, defs, max_node_len, out, true);
+      }
+
+      /**
+        * @brief
+        * Parse a defintion string a write a GDEF file. Also loads the generated file.
+        * @param ref_file Reference file name
+        * @param ksnp_file Variant file name
+        * @param region Region in the format 'CHR:MIN-MAX'
+        * @param defs subgraph definition string
+        * @param max_node_len maximum graph node length.
+        * @param out output file name
+        * @return true on success
+        */
+      bool write_from_ksnp(std::string ref_file,
+                           std::string ksnp_file,
+                           std::string region,
+                           std::string defs,
+                           int max_node_len,
+                           std::string out) {
+          return write(ref_file, ksnp_file, VariantType::KSNP, region, defs, max_node_len, out, true);
+      }
+
+      /**
+        * @brief
+        * Parse a defintion string a write a GDEF file. Also loads the generated file.
+        * @param ref_file Reference file name
+        * @param ksnp_file Variant file name
+        * @param region Region in the format 'CHR:MIN-MAX'
+        * @param defs subgraph definition string
+        * @param max_node_len maximum graph node length.
+        * @param out output stream
+        * @return true on success
+        */
+      bool write_from_ksnp(std::string ref_file,
+                           std::string ksnp_file,
+                           std::string region,
+                           std::string defs,
+                           int max_node_len,
+                           std::ostream &out) {
+          return write(ref_file, ksnp_file, VariantType::KSNP, region, defs, max_node_len, out, true);
+      }
 
       /**
      * @brief
@@ -241,7 +339,8 @@ namespace Vargas {
      * @param name of the graph
      * @throws std::invalid_argument if output file cannot be opened
      */
-      void to_DOT(std::string filename, std::string name) const {
+      void to_DOT(std::string filename,
+                  std::string name) const {
           std::ofstream out(filename);
           if (!out.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
           out << to_DOT(name);
@@ -279,35 +378,55 @@ namespace Vargas {
           return _subgraph_filters.size();
       }
 
-      int node_len() const { return _node_len; }
+      int node_len() const {
+          return _node_len;
+      }
 
-      std::string reference() const { return _ref_file; }
-      std::string variants() const { return _vcf_file; }
-      std::string region() const { return _region; }
+      std::string reference() const {
+          return _ref_file;
+      }
+
+      std::string variants() const {
+          return _variant_file;
+      }
+
+      std::string region() const {
+          return _region;
+      }
 
       const std::string GDEF_FILE_MARKER = "@gdef";
       const std::string GDEF_REF = "ref";
-      const std::string GDEF_VCF = "vcf";
+      const std::string GDEF_VAR = "var";
       const std::string GDEF_REGION = "reg";
       const std::string GDEF_NODELEN = "nlen";
       const std::string GDEF_BASEGRAPH = "BASE";
       const std::string GDEF_REFGRAPH = "REF";
       const std::string GDEF_MAXAFGRAPH = "MAXAF";
+      const std::string VCF_TYPE = "VCF";
+      const std::string KSNP_TYPE = "KSNP";
       const char GDEF_NEGATE = '~';
       const char GDEF_SCOPE = ':';
       const char GDEF_ASSIGN = '=';
       const char GDEF_DELIM = ';';
 
     private:
+
+      /**
+       * When using a VCF file, the mapped population is the length of the # of genotypes.
+       * When using a KSNP file, the length of the population is the number of snps in a KSNP file.
+       */
       std::unordered_map<std::string, Graph::Population> _subgraph_filters;
       std::unordered_map<std::string, std::shared_ptr<const Graph>> _subgraphs;
 
-      std::string _ref_file, _vcf_file, _region;
+      std::string _ref_file, _variant_file, _region;
       int _node_len;
 
-      inline bool _ends_with(std::string const &fullString, std::string const &ending) {
+      VariantType _type = VariantType::VCF; // Default assumption is a VCF file
+
+      inline bool _ends_with(std::string const &fullString,
+                             std::string const &ending) {
           if (fullString.length() >= ending.length())
-              return (0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending));
+              return 0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending);
           else return false;
       }
 
@@ -332,67 +451,129 @@ TEST_CASE ("Graph Manager") {
             << ">y" << endl
             << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
     }
-    std::string tmpvcf = "tmp_tc.vcf";
-
-    // Write temp VCF file
-    {
-        std::ofstream vcfo(tmpvcf);
-        vcfo
-            << "##fileformat=VCFv4.1" << endl
-            << "##phasing=true" << endl
-            << "##contig=<ID=x>" << endl
-            << "##contig=<ID=y>" << endl
-            << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
-            << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
-            << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
-            << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
-            << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
-            << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
-            << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
-            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
-            << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
-            << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-            << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
-            << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-            << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
-    }
 
     std::srand(12345);
 
-    std::stringstream ss;
+        SUBCASE("File Write Wrapper") {
 
-    Vargas::GraphManager gm;
-    gm.write(tmpfa, tmpvcf, "x:0-10", "ingroup = 2;~ingroup:1_1=1;ingroup:1_2=1", 100000, ss, true);
-    gm.open(ss);
+            SUBCASE("VCF") {
 
-        CHECK_THROWS(gm.filter("sdf"));
+            std::string tmpvcf = "tmp_tc.vcf";
 
-        CHECK(gm.filter("ingroup").count() == 2);
-        CHECK((gm.filter("ingroup") && gm.filter("~ingroup")) == 0);
-        CHECK(gm.filter("ingroup:1_2").count() == 1);
-        CHECK((gm.filter("ingroup:1_2") && gm.filter("ingroup:~1_2")) == 0);
-        CHECK((gm.filter("ingroup") && gm.filter("~ingroup:1_1")) == 0);
-        CHECK(gm.filter("~ingroup:1_1").count() == 1);
+            // Write temp VCF file
+            {
+                std::ofstream vcfo(tmpvcf);
+                vcfo
+                    << "##fileformat=VCFv4.1" << endl
+                    << "##phasing=true" << endl
+                    << "##contig=<ID=x>" << endl
+                    << "##contig=<ID=y>" << endl
+                    << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+                    << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+                    << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
+                    << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+                    << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+                    << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+                    << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+                    << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+                    << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+                    << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1"
+                    << endl
+                    << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1"
+                    << endl
+                    << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1"
+                    << endl
+                    << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+            }
 
-        CHECK((gm.filter("ingroup") | gm.filter("~ingroup")).count() == 4);
-        CHECK((gm.filter("ingroup:1_2") | gm.filter("ingroup:~1_2")) == gm.filter("ingroup"));
+            std::stringstream ss;
+            Vargas::GraphManager gm;
+            gm.write_from_vcf(tmpfa,
+                              tmpvcf,
+                              "x:0-10",
+                              "ingroup = 2;~ingroup:1_1=1;ingroup:1_2=1;top=2t",
+                              100000,
+                              ss);
+            gm.open(ss);
 
-    {
-        auto in_graph = gm.make_subgraph("ingroup");
-            CHECK(in_graph.use_count() == 2);
-        gm.destroy("ingroup");
-            CHECK(in_graph.use_count() == 1);
-    }
+                CHECK_THROWS(gm.filter("sdf"));
 
-    {
-        auto in_graph = gm.make_subgraph("ingroup");
-            CHECK(in_graph.use_count() == 2);
-        gm.clear();
-            CHECK(in_graph.use_count() == 1);
+                CHECK(gm.filter("ingroup").count() == 2);
+                CHECK((gm.filter("ingroup") && gm.filter("~ingroup")) == 0);
+                CHECK(gm.filter("ingroup:1_2").count() == 1);
+                CHECK((gm.filter("ingroup:1_2") && gm.filter("ingroup:~1_2")) == 0);
+                CHECK((gm.filter("ingroup") && gm.filter("~ingroup:1_1")) == 0);
+                CHECK(gm.filter("~ingroup:1_1").count() == 1);
+
+                CHECK((gm.filter("ingroup") | gm.filter("~ingroup")).count() == 4);
+                CHECK((gm.filter("ingroup:1_2") | gm.filter("ingroup:~1_2")) == gm.filter("ingroup"));
+
+                CHECK(gm.filter("top").at(0) == 1);
+                CHECK(gm.filter("top").at(1) == 1);
+            for (int i = 2; i < gm.filter("top").size(); ++i) {
+                    CHECK(gm.filter("top").at(i) == 0);
+            }
+
+            {
+                auto in_graph = gm.make_subgraph("ingroup");
+                    CHECK(in_graph.use_count() == 2);
+                gm.destroy("ingroup");
+                    CHECK(in_graph.use_count() == 1);
+            }
+
+            {
+                auto in_graph = gm.make_subgraph("ingroup");
+                    CHECK(in_graph.use_count() == 2);
+                gm.clear();
+                    CHECK(in_graph.use_count() == 1);
+            }
+
+            remove(tmpvcf.c_str());
+        }
+
+            SUBCASE("KSNP") {
+            std::string tmpksnp = "tmp_tc.ksnp";
+
+            // Write temp VCF file
+            {
+                std::ofstream ko(tmpksnp);
+                ko
+                    << "22      10        T       G       0.125   99      1       rs79667666\n"
+                    << "22      15        T       G       0.125   99      2       rs577223570\n"
+                    << "22      20        A       G       0.125   99      1       rs560440826\n"
+                    << "22      25        A       A       0.125   99      1       rs542836275\n"
+                    << "22      30        T       A       0.125   99      1       rs2899171\n"
+                    << "22      35        A       C       0.375   99      1       rs531500837\n"
+                    << "22      40        T       G       0.625   99      1       rs60683537\n"
+                    << "22      12        G       T       0.125   99      1       rs527731052\n"
+                    << "22      13        G       T       0.125   99      1       rs536519999\n"
+                    << "22      14        G       G       0.125   99      1       rs138497313\n"
+                    << "22      15        T       C       0.250   99      2       rs569928668\n"
+                    << "22      16        G       A       0.125   99      1       rs562028339\n" // Line 12
+                    << "22      17        A       A       0.625   99      1       rs557479846\n"
+                    << "22      18        A       G       0.125   99      1       rs9609408\n";
+            }
+
+            Vargas::GraphManager gm;
+            std::stringstream ss;
+            gm.write_from_ksnp(tmpfa, tmpksnp, "x:0-10", "a=1;b=2;c=1t", 10000, ss);
+            gm.open(ss);
+
+                CHECK(gm.filter("a").count() == 1);
+                CHECK(gm.filter("b").count() == 2);
+                CHECK(gm.filter("c").count() == 1);
+                CHECK(gm.filter("c").at(0) == 1);
+                REQUIRE(gm.filter("c").size() == 14);
+            for (int i = 1; i < 14; ++i) {
+                    CHECK(gm.filter("c").at(i) == 0);
+            }
+
+
+            remove(tmpksnp.c_str());
+        }
     }
 
     remove(tmpfa.c_str());
-    remove(tmpvcf.c_str());
     remove((tmpfa + ".fai").c_str());
 
 }

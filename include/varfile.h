@@ -50,7 +50,10 @@ namespace Vargas {
        * @param min Minimum position, 0 indexed
        * @param max Max position, inclusive, 0 indexed
        */
-      VariantFile(std::string const &chr, int const min, int const max) : _chr(chr), _min_pos(min), _max_pos(max) {}
+      VariantFile(std::string const &chr,
+                  int const min,
+                  int const max) :
+          _chr(chr), _min_pos(min), _max_pos(max) {}
 
       virtual ~VariantFile() {};
 
@@ -64,7 +67,9 @@ namespace Vargas {
         * @param min Minimum position, 0 indexed
         * @param max Max position, inclusive, 0 indexed
      */
-      void set_region(std::string chr, int min, int max) {
+      void set_region(std::string chr,
+                      int min,
+                      int max) {
           _min_pos = min;
           _max_pos = max;
           _chr = chr;
@@ -85,21 +90,27 @@ namespace Vargas {
  * Get the minimum position.
  * @return 0 indexed minimum pos
  */
-      int region_lower() const { return _min_pos; }
+      int region_lower() const {
+          return _min_pos;
+      }
 
       /**
        * @brief
        * Get the maximum position.
        * @return 0 indexed maximum position
        */
-      int region_upper() const { return _max_pos; }
+      int region_upper() const {
+          return _max_pos;
+      }
 
       /**
  * @brief
  * Current contig filter.
  * @return ID of current CHROM filter
  */
-      std::string region_chr() const { return _chr; }
+      std::string region_chr() const {
+          return _chr;
+      }
 
       /**
        * @brief
@@ -131,29 +142,36 @@ namespace Vargas {
       virtual int pos() const = 0;
 
       /**
+       * @brief
        * Allele frequencies corresponding to alleles()
        * @return vector of freqs, 0-1
        */
       virtual const std::vector<float> &frequencies() const = 0;
 
       /**
-       * Number of samples in the file. If samples are unknown, an empty vector is returned.
+       * @brief
+       * Samples in the file. If samples are unknown, an empty vector is returned.
        * @return vector of sample names
        */
-      virtual const std::vector<std::string> &samples() const {
-          static const std::vector<std::string> def = {""};
-          return def;
-      }
+      virtual const std::vector<std::string> &samples() const = 0;
 
       /**
+       * @brief
+       * Number of samples in the file. For VCF, this is the number of individuals. for KSNP, this is
+       * the number of SNPs.
+       * @return
+       */
+      virtual int num_samples() const = 0;
+
+      /**
+       * @brief
        * Population that posseses the the given allele. If the variant source does not
        * have this information, {1, 1} is returned.
        * @return Population of the given allele at the current position.
        */
-      virtual const Population &allele_pop(const std::string) const {
-          static const Population def(2, true);
-          return def;
-      }
+      virtual const Population &allele_pop(const std::string) const = 0;
+
+
 
 
     protected:
@@ -206,7 +224,9 @@ namespace Vargas {
       /**
        * @param file VCF/BCF File name
        */
-      explicit VCF(std::string file) : _file_name(file) { _init(); }
+      explicit VCF(std::string file) : _file_name(file) {
+          _init();
+      }
 
       /**
        * @param file VCF/BCF File name
@@ -214,8 +234,13 @@ namespace Vargas {
        * @param min Min position, 0 indexed
        * @param max Max position, 0 indexed, inclusive
        */
-      VCF(std::string file, std::string chr, int min, int max) :
-          VariantFile(chr, min, max), _file_name(file) { _init(); }
+      VCF(std::string file,
+          std::string chr,
+          int min,
+          int max) :
+          VariantFile(chr, min, max), _file_name(file) {
+          _init();
+      }
 
       ~VCF() {
           close();
@@ -235,7 +260,9 @@ namespace Vargas {
            * @param rec current record
            * @param tag Field to get, e.g. "GT"
            */
-          FormatField(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag) : tag(tag) {
+          FormatField(bcf_hdr_t *hdr,
+                      bcf1_t *rec,
+                      std::string tag) : tag(tag) {
               if (!hdr || !rec || tag.length() == 0) throw std::invalid_argument("Invalid header, rec, or tag.");
 
               T *dst = nullptr;
@@ -259,13 +286,27 @@ namespace Vargas {
 
         private:
           // Change the parse type based on what kind of type we have
-          inline int _get_vals(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, int32_t **dst, int &ndst) {
+          inline int _get_vals(bcf_hdr_t *hdr,
+                               bcf1_t *rec,
+                               std::string tag,
+                               int32_t **dst,
+                               int &ndst) {
               return bcf_get_format_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_INT);
           }
-          inline int _get_vals(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, float **dst, int &ndst) {
+
+          inline int _get_vals(bcf_hdr_t *hdr,
+                               bcf1_t *rec,
+                               std::string tag,
+                               float **dst,
+                               int &ndst) {
               return bcf_get_format_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_REAL);
           }
-          inline int _get_vals(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, char **dst, int &ndst) {
+
+          inline int _get_vals(bcf_hdr_t *hdr,
+                               bcf1_t *rec,
+                               std::string tag,
+                               char **dst,
+                               int &ndst) {
               return bcf_get_format_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_STR);
           }
       };
@@ -285,7 +326,9 @@ namespace Vargas {
            * @param rec current record
            * @param tag Field to get, e.g. "GT"
            */
-          InfoField(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag) : tag(tag) {
+          InfoField(bcf_hdr_t *hdr,
+                    bcf1_t *rec,
+                    std::string tag) : tag(tag) {
               if (!hdr || !rec || tag.length() == 0) throw std::invalid_argument("Invalid header, rec, or tag.");
 
               T *dst = nullptr;
@@ -309,13 +352,27 @@ namespace Vargas {
 
         private:
           // Change the parse type based on what kind of type we have
-          inline int _bcf_get_info_values(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, int32_t **dst, int &ndst) {
+          inline int _bcf_get_info_values(bcf_hdr_t *hdr,
+                                          bcf1_t *rec,
+                                          std::string tag,
+                                          int32_t **dst,
+                                          int &ndst) {
               return bcf_get_info_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_INT);
           }
-          inline int _bcf_get_info_values(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, float **dst, int &ndst) {
+
+          inline int _bcf_get_info_values(bcf_hdr_t *hdr,
+                                          bcf1_t *rec,
+                                          std::string tag,
+                                          float **dst,
+                                          int &ndst) {
               return bcf_get_info_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_REAL);
           }
-          inline int _bcf_get_info_values(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, char **dst, int &ndst) {
+
+          inline int _bcf_get_info_values(bcf_hdr_t *hdr,
+                                          bcf1_t *rec,
+                                          std::string tag,
+                                          char **dst,
+                                          int &ndst) {
               return bcf_get_info_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_STR);
           }
       };
@@ -364,11 +421,13 @@ namespace Vargas {
       std::vector<std::string> sequences() const;
 
       /**
+       * @brief
+       * num_samples() counts each haplotype as distinct. num_samples() = samples().size() * 2
        * @return Number of samples the VCF has. Each sample represents two genotypes.
        */
-      int num_samples() const {
+      int num_samples() const override {
           if (!_header) return -1;
-          return bcf_hdr_nsamples(_header);
+          return bcf_hdr_nsamples(_header) * 2;
       }
 
       /**
@@ -433,9 +492,10 @@ namespace Vargas {
        * 0 based position, i.e. the VCF pos - 1.
        * @return position.
        */
-      int pos() const { return _curr_rec->pos; }
+      int pos() const {
+          return _curr_rec->pos;
+      }
 
-      // TODO Better handling policy of unknown elements?
       /**
        * @brief
        * Get a list of alleles for all samples (subject to sample set restriction).
@@ -590,7 +650,8 @@ namespace Vargas {
        * @param file_name ksnp file name
        * @param top_n only load the top n lines of file_name
        */
-      KSNP(std::string const &file_name, int const top_n = 0) {
+      KSNP(std::string const &file_name,
+           int const top_n = 0) {
           open(file_name, top_n);
       }
 
@@ -598,7 +659,8 @@ namespace Vargas {
        * @param input Input file stream
        * @param top_n only load the top n lines of input
        */
-      KSNP(std::istream &input, int const top_n = 0) {
+      KSNP(std::istream &input,
+           int const top_n = 0) {
           open(input, top_n);
       }
 
@@ -646,7 +708,8 @@ namespace Vargas {
        * @param file_name File name of ksnp file
        * @param top_n load top n lines
        */
-      void open(std::string const &file_name, int const top_n = 0) {
+      void open(std::string const &file_name,
+                int const top_n = 0) {
           std::ifstream in(file_name);
           if (!in.good()) throw std::invalid_argument("Error opening ksnp file \"" + file_name + "\"");
           open(in, top_n);
@@ -657,7 +720,8 @@ namespace Vargas {
        * @param in Input stream of ksnp file
        * @param top_n Load top n lines
        */
-      void open(std::istream &in, int const top_n = 0);
+      void open(std::istream &in,
+                int const top_n = 0);
 
       /**
        * @brief
@@ -666,6 +730,8 @@ namespace Vargas {
       void close() {
           _snps.clear();
           _curr_iter = _snps.end();
+          _curr_iter_idx = 0;
+          _all_sample_ids.clear();
       }
 
       /**
@@ -694,10 +760,33 @@ namespace Vargas {
           return _curr_iter->second.af;
       }
 
+      const Population &allele_pop(const std::string allele) const {
+          static Population al_p;
+          al_p = Population(num_samples(), false);
+          if (allele == _curr_iter->second.ref) return al_p;
+          auto al = std::find(_curr_iter->second.alt.begin(), _curr_iter->second.alt.end(), allele);
+          if (al == _curr_iter->second.alt.end()) throw std::invalid_argument("Allele: \"" + allele + "\" not found.");
+          al_p.set(_curr_iter_idx + (al - _curr_iter->second.alt.begin()));
+          return al_p;
+      }
+
+      /**
+       * @return Vector of SNP ID's
+       */
+      const std::vector<std::string> &samples() const {
+          return _all_sample_ids;
+      }
+
+      int num_samples() const {
+          return _all_sample_ids.size();
+      }
+
 
     private:
       std::map<uint32_t, ksnp_record> _snps;
       std::map<uint32_t, ksnp_record>::iterator _curr_iter;
+      std::vector<std::string> _all_sample_ids;
+      size_t _curr_iter_idx;
 
   };
 
@@ -733,7 +822,7 @@ namespace Vargas {
               SUBCASE("Unfiltered") {
               VCF vcf(tmpvcf);
               vcf.next();
-                  CHECK(vcf.num_samples() == 2);
+                  CHECK(vcf.num_samples() == 4);
                   CHECK(vcf.sequences().size() == 2);
                   CHECK(vcf.sequences()[0] == "x");
                   CHECK(vcf.sequences()[1] == "y");
@@ -760,12 +849,12 @@ namespace Vargas {
                   REQUIRE(vcf.genotypes().size() == 4);
                   CHECK(vcf.genotypes()[0] == "CC");
                   CHECK(vcf.genotypes()[1] == "CC");
-                  CHECK(vcf.genotypes()[2] == "C");
+                  CHECK(vcf.genotypes()[2] == "");
                   CHECK(vcf.genotypes()[3] == "CC");
                   REQUIRE(vcf.alleles().size() == 3);
                   CHECK(vcf.alleles()[0] == "C");
                   CHECK(vcf.alleles()[1] == "CC");
-                  CHECK(vcf.alleles()[2] == "C");
+                  CHECK(vcf.alleles()[2] == "");
                   CHECK(vcf.ref() == "C");
                   CHECK(vcf.pos() == 9);
 
@@ -825,7 +914,7 @@ namespace Vargas {
 
               vcf.next();
                   REQUIRE(vcf.genotypes().size() == 2);
-                  CHECK(vcf.genotypes()[0] == "C");
+                  CHECK(vcf.genotypes()[0] == "");
                   CHECK(vcf.genotypes()[1] == "CC");
 
               // Allele set should be complete, ingroup should reflect minimized set
@@ -912,7 +1001,7 @@ namespace Vargas {
       using std::endl;
       std::string tmpksnp = "tmp_tc.ksnp";
 
-      // Write temp VCF file
+      // Write temp KSNP file
       {
           std::ofstream ko(tmpksnp);
           ko
@@ -944,10 +1033,10 @@ namespace Vargas {
                   REQUIRE(ksnp.frequencies().size() == 1);
                   CHECK(ksnp.frequencies()[0] == 0.125);
                   CHECK(ksnp.pos() == 10);
-                  REQUIRE(ksnp.allele_pop("G").size() == 2);
+                  REQUIRE(ksnp.allele_pop("G").size() == 12);
                   CHECK(ksnp.allele_pop("G")[0] == 1);
-                  CHECK(ksnp.allele_pop("G")[1] == 1);
-                  CHECK(ksnp.allele_pop("sdfsdf").size() == 2);
+                  CHECK(ksnp.allele_pop("G")[1] == 0);
+                  CHECK_THROWS(ksnp.allele_pop("sdfsd"));
 
                   CHECK(ksnp.next() == true);
 
@@ -1006,8 +1095,8 @@ namespace Vargas {
               SUBCASE("Bad file") {
               std::stringstream ss;
               ss
-                  << "22      10        T       G       0.125   99      1       rs79667666\n"
-                  << "22      10        A       G       0.125   99      2       rs577223570\n";
+                  << "22  10  T  G  0.125  99  1  rs79667666\n"
+                  << "22  10  A  G  0.125  99  2  rs577223570\n";
 
               try {
                   KSNP ksnp(ss);

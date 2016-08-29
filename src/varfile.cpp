@@ -15,7 +15,9 @@ void Vargas::VariantFile::set_region(std::string region) {
     std::vector<std::string> regionSplit = split(region, ':');
 
     // Name
-    if (regionSplit.size() != 2) throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY");
+    if (regionSplit.size() != 2)
+        throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY");
+
     _chr = regionSplit[0];
 
     // Strip commas
@@ -23,7 +25,9 @@ void Vargas::VariantFile::set_region(std::string region) {
 
     // Range
     regionSplit = split(regionSplit[1], '-');
-    if (regionSplit.size() != 2) throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY");
+    if (regionSplit.size() != 2)
+        throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY");
+
     _min_pos = std::stoi(regionSplit[0]);
     _max_pos = std::stoi(regionSplit[1]);
 
@@ -127,7 +131,7 @@ int Vargas::VCF::_init() {
     if (!_header) return -2;
 
     // Load samples
-    for (int i = 0; i < num_samples(); ++i) {
+    for (int i = 0; i < num_samples() / 2; ++i) {
         _samples.push_back(_header->samples[i]);
     }
     create_ingroup(100);
@@ -145,8 +149,8 @@ void Vargas::VCF::_load_shared() {
             // Copy number
             if (allele.substr(1, 2) == "CN" && allele.at(3) != 'V') {
                 int copy = std::stoi(allele.substr(3, allele.length() - 4));
-                allele = ref; // TODO change this policy? if its CN0 make it ref.
-                for (int i = 0; i < copy - 1; ++i) allele += ref;
+                allele = "";
+                for (int i = 0; i < copy; ++i) allele += ref;
             } else {
                 // Other types are just subbed with the ref.
                 allele = ref;
@@ -181,6 +185,7 @@ void Vargas::VCF::_apply_ingroup_filter() {
     bcf_hdr_set_samples(_header, _ingroup_cstr, 0);
 }
 
+
 Vargas::KSNP::ksnp_record::ksnp_record(std::string line) {
     std::replace_if(line.begin(), line.end(), isspace, ',');
     std::vector<std::string> split_line = split(line, ',');
@@ -198,6 +203,7 @@ Vargas::KSNP::ksnp_record::ksnp_record(std::string line) {
     }
 }
 
+
 void Vargas::KSNP::open(std::istream &in, int const top_n) {
     close();
     std::string line;
@@ -208,14 +214,19 @@ void Vargas::KSNP::open(std::istream &in, int const top_n) {
         ++counter;
         if (top_n > 0 && counter == top_n) break;
     }
-    std::cerr << counter << " SNPs at " << _snps.size() << " sites loaded.\n";
     _curr_iter = _snps.begin();
+    _curr_iter_idx = 0;
+
+    for (const auto &r : _snps) {
+        _all_sample_ids.insert(_all_sample_ids.end(), r.second.id.begin(), r.second.id.end());
+    }
 }
 
 
 bool Vargas::KSNP::next() {
     if (_curr_iter == _snps.end()) return false;
     ++_curr_iter;
+    ++_curr_iter_idx;
     if (_curr_iter == _snps.end()) return false;
     return true;
 }

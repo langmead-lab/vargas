@@ -17,6 +17,7 @@
 
 uint32_t Vargas::Graph::Node::_newID = 0;
 
+
 Vargas::Graph::Graph(std::string ref_file, std::string vcf_file, std::string region, int max_node_len) {
     _IDMap = std::make_shared<std::unordered_map<uint32_t, nodeptr>>();
     GraphBuilder gb(ref_file);
@@ -25,6 +26,7 @@ Vargas::Graph::Graph(std::string ref_file, std::string vcf_file, std::string reg
     gb.node_len(max_node_len);
     gb.build(*this);
 }
+
 
 Vargas::Graph::Graph(const Vargas::Graph &g,
                      const Population &filter) {
@@ -111,6 +113,7 @@ void Vargas::Graph::_build_derived_edges(const Vargas::Graph &g,
     _root = g.root();
 }
 
+
 uint32_t Vargas::Graph::add_node(Node &n) {
     if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
     if (_IDMap->size() == 0) _root = n.id(); // first node added is default root
@@ -138,6 +141,7 @@ bool Vargas::Graph::add_edge(uint32_t n1,
     return true;
 }
 
+
 std::string Vargas::Graph::to_DOT(std::string name) const {
     std::ostringstream dot;
     dot << "// Each node has the sequence, followed by end_pos,allele_freq\n";
@@ -156,6 +160,7 @@ std::string Vargas::Graph::to_DOT(std::string name) const {
     dot << "}\n";
     return dot.str();
 }
+
 
 void Vargas::GraphBuilder::build(Vargas::Graph &g) {
     if (!_vf) throw std::invalid_argument("No variant file opened.");
@@ -176,7 +181,7 @@ void Vargas::GraphBuilder::build(Vargas::Graph &g) {
     std::unordered_set<uint32_t> curr_unconnected; // ID's of nodes added that are unconnected
     std::unordered_map<uint32_t, uint32_t> chain;
 
-    g.set_popsize(vf.samples().size() * 2);
+    g.set_popsize(vf.num_samples());
     const Graph::Population all_pop(g.pop_size(), true);
     g.set_filter(all_pop);
 
@@ -249,6 +254,7 @@ void Vargas::GraphBuilder::build(Vargas::Graph &g) {
     _vf.reset();
 }
 
+
 void Vargas::GraphBuilder::_build_edges(Vargas::Graph &g,
                                         std::unordered_set<uint32_t> &prev,
                                         std::unordered_set<uint32_t> &curr,
@@ -293,9 +299,10 @@ int Vargas::GraphBuilder::_build_linear_ref(Graph &g,
     return target;
 }
 
+
 std::vector<std::string> Vargas::GraphBuilder::_split_seq(std::string seq) {
     std::vector<std::string> split;
-    if (seq.length() <= _max_node_len && seq.size() > 0) {
+    if (seq.length() <= _max_node_len) {
         split.push_back(seq);
         return split;
     }
@@ -320,12 +327,14 @@ Vargas::Graph::Population Vargas::Graph::subset(int ingroup) const {
     return p;
 }
 
+
 bool Vargas::Graph::FilteringIter::operator==(const Vargas::Graph::FilteringIter &other) const {
     if (_type == END && other._type == END) return true; // All ends are equal
     if (_type != other._type) return false; // Same type of iterator
     if (&_graph != &other._graph) return false; // same base graph
     return _currID == other._currID;
 }
+
 
 bool Vargas::Graph::FilteringIter::operator!=(const Vargas::Graph::FilteringIter &other) const {
     if (_type != other._type) return true;
@@ -402,10 +411,12 @@ Vargas::Graph::FilteringIter &Vargas::Graph::FilteringIter::operator++() {
     return *this;
 }
 
+
 const Vargas::Graph::Node &Vargas::Graph::FilteringIter::operator*() const {
     if (_type == TOPO) return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
     return *(_graph._IDMap->at(_currID));
 }
+
 
 const std::vector<uint32_t> &Vargas::Graph::FilteringIter::incoming() {
     if (_type == TOPO) {
@@ -420,6 +431,7 @@ const std::vector<uint32_t> &Vargas::Graph::FilteringIter::incoming() {
     }
     return _incoming;
 }
+
 
 const std::vector<uint32_t> &Vargas::Graph::FilteringIter::outgoing() {
     if (_graph._prev_map.count(_currID) == 0) return _outgoing;

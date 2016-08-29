@@ -41,6 +41,7 @@ inline void split(const std::string &s, char delim, std::vector<std::string> &ve
 
 }
 
+
 std::string getLastLine(std::ifstream& in) {
   std::string line, ret = "";
   while (in >> std::ws && std::getline(in, line)) {
@@ -48,6 +49,7 @@ std::string getLastLine(std::ifstream& in) {
   }
   return ret;
 }
+
 
 int levenshtein_distance(const std::string &s1, const std::string &s2) {
   // To change the type this function manipulates and returns, change
@@ -78,6 +80,7 @@ int levenshtein_distance(const std::string &s1, const std::string &s2) {
   delete[] column;
   return result;
 }
+
 
 std::string current_date() {
   time_t t = time(0);

@@ -133,7 +133,8 @@ std::vector<std::string> split(const std::string &s, char delim);
  * @param delim split string at delim, discarding the delim
  * @param vec vector to store results in
  */
-void split(const std::string &s, char delim, std::vector<std::string> &vec);
+void split(const std::string &s,
+           char delim, std::vector<std::string> &vec);
 
 
 /**
@@ -172,7 +173,8 @@ char rand_base() {
  * @param s1 sequence a
  * @param s2 sequence b
  */
-int levenshtein_distance(const std::string &s1, const std::string &s2);
+int levenshtein_distance(const std::string &s1,
+                         const std::string &s2);
 
 std::string current_date();
 
@@ -183,7 +185,8 @@ std::string current_date();
  * @param vec vector to extract from
  */
 __INLINE__
-uint8_t extract(uint8_t i, const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
+uint8_t extract(uint8_t i,
+                const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
     return ((uint8_t *) &vec)[i];
 }
 
@@ -195,7 +198,9 @@ uint8_t extract(uint8_t i, const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
  * @param vec vector to insert in
  */
 __INLINE__
-void insert(uint8_t elem, uint8_t i, const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
+void insert(uint8_t elem,
+            uint8_t i,
+            const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
     ((uint8_t *) &vec)[i] = elem;
 }
 

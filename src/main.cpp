@@ -94,6 +94,8 @@ int define_main(const int argc, const char *argv[]) {
         dot_file = "";
 
     int node_len = 1000000;
+    bool is_ksnp = false;
+    int ksnp_limit = 0;
 
     args >> GetOpt::Option('f', "fasta", fasta_file)
          >> GetOpt::Option('v', "var", varfile)
@@ -101,7 +103,9 @@ int define_main(const int argc, const char *argv[]) {
          >> GetOpt::Option('l', "nodelen", node_len)
          >> GetOpt::Option('s', "subgraph", subgraph_def)
          >> GetOpt::Option('t', "out", out_file)
-         >> GetOpt::Option('d', "dot", dot_file);
+         >> GetOpt::Option('d', "dot", dot_file)
+         >> GetOpt::OptionPresent('k', "ksnp", is_ksnp)
+         >> GetOpt::Option('k', "ksnp", ksnp_limit);
 
     std::string subgraph_str = "";
 
@@ -117,7 +121,7 @@ int define_main(const int argc, const char *argv[]) {
     }
 
     Vargas::GraphManager gm;
-    gm.write(fasta_file, varfile, region, subgraph_str, node_len, out_file, false);
+    gm.write_from_vcf(fasta_file, varfile, region, subgraph_str, node_len, out_file);
     if (dot_file.length() > 0) gm.to_DOT(dot_file, "subgraphs");
 
     std::cerr << gm.size() << " subgraph definitions generated." << std::endl;
@@ -843,7 +847,8 @@ void define_help() {
     cerr << endl
          << "-------------------- Vargas define, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
     cerr << "-f\t--fasta         *<string> Reference filename.\n";
-    cerr << "-v\t--var           *<string> VCF/BCF filename.\n";
+    cerr << "-v\t--var           *<string> Variant file.\n";
+    cerr << "-k\t--ksnp          [int] -v specifies a .ksnp file, default V/BCF. Limit to top n records.";
     cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX.\n";
     cerr << "-l\t--nodelen       <int> Max node length, default 1,000,000\n";
     cerr << "-s\t--subgraph      *<string> Subgraph definition file. Default stdin.\n";

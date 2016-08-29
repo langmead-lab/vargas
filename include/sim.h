@@ -290,9 +290,13 @@ namespace Vargas {
       /**
        * @return current profile being used to filter reads.
        */
-      Profile get_profile() const { return _prof; }
+      Profile get_profile() const {
+          return _prof;
+      }
 
-      SAM::Record &get_read() { return _read; };
+      SAM::Record &get_read() {
+          return _read;
+      }
 
     private:
       const Vargas::Graph &_graph;
@@ -351,7 +355,8 @@ namespace Vargas {
    * @param rp Profile to print
    * @return output stream
    */
-  inline std::ostream &operator<<(std::ostream &os, const Sim::Profile &rp) {
+  inline std::ostream &operator<<(std::ostream &os,
+                                  const Sim::Profile &rp) {
       os << rp.to_string();
       return os;
   }

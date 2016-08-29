@@ -16,11 +16,13 @@ Vargas::GraphManager::GraphManager(std::string gdef_file) {
     if (!open(gdef_file)) throw std::invalid_argument("Invalid GDEF file \"" + gdef_file + "\"");
 }
 
+
 void Vargas::GraphManager::close() {
     _subgraph_filters.clear();
     _subgraphs.clear();
-    _ref_file = _vcf_file = _region = "";
+    _ref_file = _variant_file = _region = "";
 }
+
 
 bool Vargas::GraphManager::open(std::string file_name, bool build_base) {
     if (file_name.length() == 0) open(std::cin);
@@ -29,12 +31,21 @@ bool Vargas::GraphManager::open(std::string file_name, bool build_base) {
     return open(in, build_base);
 }
 
+
 bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
     close();
     std::string line;
 
     // Check file type, get next line
-    if (!std::getline(in, line) || line != GDEF_FILE_MARKER || !std::getline(in, line)) return false;
+    if (!std::getline(in, line)) return false;
+    {
+        auto split_line = split(line, GDEF_DELIM);
+        if (!split_line.size() || split_line[0] != GDEF_FILE_MARKER) return false;
+        if (split_line.size() == 1 || split_line[1] == VCF_TYPE) _type = VariantType::VCF;
+        else _type = VariantType::KSNP;
+    }
+
+    if (!std::getline(in, line)) return false;
 
     // Pull meta info
     {
@@ -46,7 +57,7 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
             const std::string &tag = tv_pair[0];
             const std::string &val = tv_pair[1];
             if (tag == GDEF_REF) _ref_file = val;
-            else if (tag == GDEF_VCF) _vcf_file = val;
+            else if (tag == GDEF_VAR) _variant_file = val;
             else if (tag == GDEF_REGION) _region = val;
             else if (tag == GDEF_NODELEN) _node_len = std::stoi(val);
         }
@@ -56,12 +67,21 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
     unsigned nsamps;
     {
         GraphBuilder gb(_ref_file);
-        gb.open_vcf(_vcf_file);
+
+        if (_type == VariantType::VCF) {
+            gb.open_vcf(_variant_file);
+            VCF vcf_stream(_variant_file);
+            nsamps = vcf_stream.num_samples();
+        } else if (_type == VariantType::KSNP) {
+            gb.open_ksnp(_variant_file);
+            KSNP ksnp_stream(_variant_file);
+            nsamps = ksnp_stream.num_samples();
+        }
+
         gb.region(_region);
         gb.node_len(_node_len);
+
         if (build_base) _subgraphs[GDEF_BASEGRAPH] = std::make_shared<Graph>(gb.build());
-        VCF vcf_stream(_vcf_file);
-        nsamps = vcf_stream.num_samples() * 2;
     }
 
     // subgraphs
@@ -71,10 +91,12 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
         while (std::getline(in, line)) {
             split(line, GDEF_ASSIGN, p_pair);
 
-            if (p_pair.size() != 2)
+            if (p_pair.size() != 2) {
                 throw std::invalid_argument("Invalid token: \"" + line + "\"");
+            }
+
             if (p_pair[1].length() != nsamps)
-                throw std::range_error("Population length does not match VCF file: \"" + p_pair[0] + "\"");
+                throw std::range_error("Population length does not match variant file: \"" + p_pair[0] + "\"");
 
             pop.reset();
             for (size_t i = 0; i < p_pair[1].length(); ++i) {
@@ -84,11 +106,14 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
                 throw std::invalid_argument("Duplicate definition: \"" + p_pair[0] + "\"");
 
             _subgraph_filters[p_pair[0]] = pop;
+
+
         }
     }
 
     return true;
 }
+
 
 std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_subgraph(std::string label) {
     if (!_subgraphs.count(GDEF_BASEGRAPH)) throw std::invalid_argument("No base graph built.");
@@ -109,12 +134,14 @@ std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_subgraph(std::st
     return _subgraphs.at(label);
 }
 
+
 std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::subgraph(std::string label) const {
     if (label == GDEF_BASEGRAPH) return base();
     label = GDEF_BASEGRAPH + GDEF_SCOPE + label;
     if (_subgraphs.count(label) == 0) return nullptr;
     return _subgraphs.at(label);
 }
+
 
 std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_ref(std::string const &label) {
     if (!_subgraphs.count(GDEF_BASEGRAPH)) throw std::invalid_argument("No base graph built.");
@@ -126,6 +153,7 @@ std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_ref(std::string 
     }
     return _subgraphs[label];
 }
+
 
 std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_maxaf(std::string const &label) {
     if (!_subgraphs.count(GDEF_BASEGRAPH)) throw std::invalid_argument("No base graph built.");
@@ -145,29 +173,34 @@ std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::base() const {
     return _subgraphs.at(GDEF_BASEGRAPH);
 }
 
+
 Vargas::Graph::Population Vargas::GraphManager::filter(std::string label) const {
     label = GDEF_BASEGRAPH + GDEF_SCOPE + label;
     if (!_subgraph_filters.count(label)) throw std::invalid_argument("Label \"" + label + "\" does not exist.");
     return _subgraph_filters.at(label);
 }
 
+
 bool Vargas::GraphManager::write(std::string ref_file,
-                                 std::string vcf_file,
+                                 std::string variant_file,
+                                 VariantType vartype,
                                  std::string region,
                                  const std::string &defs,
                                  int node_len,
                                  std::string out_file,
                                  bool build_base) {
     if (out_file.length() == 0)
-        return write(ref_file, vcf_file, region, defs, node_len, std::cout, build_base);
+        return write(ref_file, variant_file, vartype, region, defs, node_len, std::cout, build_base);
 
     std::ofstream out(out_file);
     if (!out.good()) throw std::invalid_argument("Invalid output file: \"" + out_file + "\".");
-    return write(ref_file, vcf_file, region, defs, node_len, out, build_base);
+    return write(ref_file, variant_file, vartype, region, defs, node_len, out, build_base);
 }
 
+
 bool Vargas::GraphManager::write(std::string ref_file,
-                                 std::string vcf_file,
+                                 std::string variant_file,
+                                 VariantType vartype,
                                  std::string region,
                                  std::string defs_str,
                                  int node_len,
@@ -177,12 +210,20 @@ bool Vargas::GraphManager::write(std::string ref_file,
 
     std::string out_str;
 
-    out_str = GDEF_FILE_MARKER + "\n"
+    out_str = GDEF_FILE_MARKER + GDEF_DELIM;
+    switch (vartype) {
+        case VariantType::VCF:
+            out_str += VCF_TYPE;
+            break;
+        case VariantType::KSNP:
+            out_str += KSNP_TYPE;
+            break;
+    }
+    out_str += "\n"
         + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM
-        + GDEF_VCF + GDEF_ASSIGN + vcf_file + GDEF_DELIM
+        + GDEF_VAR + GDEF_ASSIGN + variant_file + GDEF_DELIM
         + GDEF_REGION + GDEF_ASSIGN + region + GDEF_DELIM
         + GDEF_NODELEN + GDEF_ASSIGN + std::to_string(node_len) + '\n';
-
 
     // Replace new lines with the delim, remove any spaces
     std::replace(defs_str.begin(), defs_str.end(), '\n', GDEF_DELIM);
@@ -191,9 +232,15 @@ bool Vargas::GraphManager::write(std::string ref_file,
 
     // Get number of samples from VCF file
     if (nsamps == 0) {
-        VCF vcf(vcf_file);
-        if (!vcf.good()) throw std::invalid_argument("Invalid VCF file \"" + vcf_file + "\".");
-        nsamps = vcf.num_samples() * 2;
+        if (vartype == VariantType::VCF) {
+            VCF vf(variant_file);
+            if (!vf.good()) throw std::invalid_argument("Invalid VCF file \"" + variant_file + "\".");
+            nsamps = vf.num_samples();
+        } else {
+            KSNP vf(variant_file);
+            if (!vf.good()) throw std::invalid_argument("Invalid KSNP file \"" + variant_file + "\".");
+            nsamps = vf.num_samples();
+        }
     }
 
     std::unordered_map<std::string, Graph::Population> populations;
@@ -207,7 +254,7 @@ bool Vargas::GraphManager::write(std::string ref_file,
         std::string parent;
         size_t parent_end;
 
-        // Base graph "B" uses the full filter
+        // Base graph "BASE" uses the full filter
         {
             Graph::Population base(nsamps);
             base.set();
@@ -218,7 +265,6 @@ bool Vargas::GraphManager::write(std::string ref_file,
         for (auto def : defs) {
             split(def, GDEF_ASSIGN, pair);
             if (pair.size() != 2) throw std::invalid_argument("Invalid assignment: \"" + def + "\".");
-            pop.reset();
 
             pair[0] = GDEF_BASEGRAPH + GDEF_SCOPE + pair[0];
             parent_end = pair[0].find_last_of(GDEF_SCOPE);
@@ -230,31 +276,43 @@ bool Vargas::GraphManager::write(std::string ref_file,
             if (pair[0].at(parent_end + 1) == '~')
                 throw std::invalid_argument("Negative graphs cannot be defined explicitly: \"" + def + "\".");
 
+            bool top_n = false;
             if (pair[1].at(pair[1].length() - 1) == '%') {
                 count = (size_t) (((double) populations.at(parent).count() / 100) *
                     std::stoi(pair[1].substr(0, pair[1].length() - 1)));
+            } else if (pair[1].at(pair[1].length() - 1) == 't') {
+                top_n = true;
+                count = std::stoul(pair[1].substr(0, pair[1].length() - 1));
             } else count = std::stoul(pair[1]);
 
             if (count > populations.at(parent).count())
                 throw std::invalid_argument("Not enough samples available to pick " +
                     std::to_string(count) + " in definition \"" + def + "\".");
 
+            pop.reset();
 
             avail_set.clear();
             for (int j = 0; j < nsamps; ++j) {
                 if (populations.at(parent).at(j)) avail_set.push_back(j);
             }
 
-            added.clear();
-            for (size_t k = 0; k < count;) {
-                r = rand() % avail_set.size();
-                if (added.count(avail_set[r]) == 0) {
-                    ++k;
-                    pop.set(avail_set[r]);
-                    added.insert(avail_set[r]);
+            if (top_n) {
+                int k = 0;
+                for (int i : avail_set) {
+                    pop.set(i);
+                    if (++k == count) break;
+                }
+            } else {
+                added.clear();
+                for (size_t k = 0; k < count;) {
+                    r = rand() % avail_set.size();
+                    if (added.count(avail_set[r]) == 0) {
+                        ++k;
+                        pop.set(avail_set[r]);
+                        added.insert(avail_set[r]);
+                    }
                 }
             }
-
             populations[parent + GDEF_SCOPE + pair[0].substr(parent_end + 1)] = pop;
             populations[parent + GDEF_SCOPE + GDEF_NEGATE + pair[0].substr(parent_end + 1)] =
                 ~pop & populations.at(parent);
@@ -272,6 +330,7 @@ bool Vargas::GraphManager::write(std::string ref_file,
 
     return true;
 }
+
 
 std::string Vargas::GraphManager::to_DOT(std::string name) const {
     std::ostringstream dot;

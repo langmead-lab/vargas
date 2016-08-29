@@ -131,7 +131,10 @@ namespace Vargas {
            * @param id Unique ID for a given num
            * @param pct True if num is a percentage
            */
-          GID(int num, int id, bool pct = false) : num(num), id(id), pct(pct), outgroup(false) { }
+          GID(int num,
+              int id,
+              bool pct = false) :
+              num(num), id(id), pct(pct), outgroup(false) {}
 
           /**
            * @brief
@@ -209,12 +212,16 @@ namespace Vargas {
           /**
            * @return length of the sequence
            */
-          size_t length() const { return _seq.size(); } // Length of sequence
+          size_t length() const {
+              return _seq.size();
+          }
 
           /**
            * @return position of last base in seq, 0 indexed
            */
-          int end() const { return _endPos; } // Sequence end position in genome
+          int end() const {
+              return _endPos;
+          }
 
           /**
            * @brief
@@ -241,49 +248,63 @@ namespace Vargas {
            * Sequence as a vector of unsigned chars.
            * @return seq
            */
-          const std::vector<Base> &seq() const { return _seq; }
+          const std::vector<Base> &seq() const {
+              return _seq;
+          }
 
           /**
            * @brief
            * Sequence is stored numerically. Return as a string.
            * @return seq
            */
-          std::string seq_str() const { return num_to_seq(_seq); }
+          std::string seq_str() const {
+              return num_to_seq(_seq);
+          }
 
           /**
            * @brief
            * Size of the Population of the node. This should be consistant throughout the graph.
            * @return pop_size
            */
-          size_t pop_size() const { return _individuals.size(); }
+          size_t pop_size() const {
+              return _individuals.size();
+          }
 
           /**
            * @brief
            * Node id.
            * @return unique node ID
            */
-          uint32_t id() const { return _id; }
+          uint32_t id() const {
+              return _id;
+          }
 
           /**
            * @brief
            * True if node common to all individuals, or REF.
            * @return is_ref
            */
-          bool is_ref() const { return _ref; }
+          bool is_ref() const {
+              return _ref;
+          }
 
           /**
            * @brief
            * Allele frequency.
            * @return af
            */
-          float freq() const { return _af; }
+          float freq() const {
+              return _af;
+          }
 
           /**
            * @brief
            * Reference to the raw Population data member.
            * @return individuals
            */
-          const Population &individuals() const { return _individuals; }
+          const Population &individuals() const {
+              return _individuals;
+          }
 
           /**
            * @brief
@@ -302,14 +323,18 @@ namespace Vargas {
            * Set the position of the last base in the sequence.
            * @param pos 0-indexed
            */
-          void set_endpos(int pos) { this->_endPos = pos; }
+          void set_endpos(int pos) {
+              this->_endPos = pos;
+          }
 
           /**
            * @brief
            * Set the population from an existing Population
            * @param pop
            */
-          void set_population(const Population &pop) { _individuals = pop; }
+          void set_population(const Population &pop) {
+              _individuals = pop;
+          }
 
           /**
            * @brief
@@ -317,7 +342,9 @@ namespace Vargas {
            * @param pop
            */
           template<typename T>
-          void set_population(const std::vector<T> &pop) { _individuals = pop; }
+          void set_population(const std::vector<T> &pop) {
+              _individuals = pop;
+          }
 
           /**
            * @brief
@@ -325,21 +352,28 @@ namespace Vargas {
            * @param len number of genotypes
            * @param val true/false for each individual
            */
-          void set_population(size_t len, bool val) { _individuals = Population(len, val); }
+          void set_population(size_t len,
+                              bool val) {
+              _individuals = Population(len, val);
+          }
 
           /**
            * @brief
            * Set the stored node sequence. Sequence is converted to numeric form.
            * @param seq
            */
-          void set_seq(std::string seq) { _seq = seq_to_num(seq); }
+          void set_seq(std::string seq) {
+              _seq = seq_to_num(seq);
+          }
 
           /**
            * @brief
            * Set the stored node sequence
            * @param seq
            */
-          void set_seq(std::vector<Base> &seq) { this->_seq = seq; }
+          void set_seq(std::vector<Base> &seq) {
+              this->_seq = seq;
+          }
 
           /**
            * @brief
@@ -354,14 +388,18 @@ namespace Vargas {
            * @brief
            * Deselects node as a referene node, does not modify population.
            */
-          void set_not_ref() { _ref = false; }
+          void set_not_ref() {
+              _ref = false;
+          }
 
           /**
            * @brief
            * Set the allele frequency of the node. Used for MAXAF filtering.
            * @param af float frequency, between 0 and 1
            */
-          void set_af(float af) { _af = af; }
+          void set_af(float af) {
+              _af = af;
+          }
 
           /**
            * @brief
@@ -369,15 +407,22 @@ namespace Vargas {
            * it does not have an edge to a node after this node. All paths traverse
            * through this node.
            */
-          void pinch() { _pinch = true; }
-          void unpinch() { _pinch = false; }
+          void pinch() {
+              _pinch = true;
+          }
+
+          void unpinch() {
+              _pinch = false;
+          }
           /**
            * @brief
            * If true, then previous alignment seeds can be cleared as no nodes after the current
            * one depends on nodes before current one,in a topographical ordering.
            * @return true if pinched
            */
-          bool is_pinched() const { return _pinch; }
+          bool is_pinched() const {
+              return _pinch;
+          }
 
           static uint32_t _newID; /**< ID of the next instance to be created */
 
@@ -845,7 +890,8 @@ namespace Vargas {
           open_vcf(file_name);
       }
 
-      void open_ksnp(std::string const &file_name, const int limit = 0) {
+      void open_ksnp(std::string const &file_name,
+                     const int limit = 0) {
           _vf.reset();
           _vf = std::unique_ptr<VariantFile>(new KSNP(file_name, limit));
           if (!_vf->good()) throw std::invalid_argument("Invalid KSNP file: \"" + file_name + "\"");
@@ -927,7 +973,8 @@ namespace Vargas {
  * @param a Graph::GID a
  * @param b Graph::GID b
  */
-  inline bool operator<(const Graph::GID &a, const Graph::GID &b) {
+  inline bool operator<(const Graph::GID &a,
+                        const Graph::GID &b) {
       if (a.outgroup != b.outgroup) return a.outgroup < b.outgroup;
       if (a.pct != b.pct) return a.pct < b.pct;
       if (a.num != b.num) return a.num < b.num;
@@ -941,7 +988,8 @@ namespace Vargas {
    * @param os Output stream
    * @param gid gid to print
    */
-  inline std::ostream &operator<<(std::ostream &os, const Graph::GID &gid) {
+  inline std::ostream &operator<<(std::ostream &os,
+                                  const Graph::GID &gid) {
       os << (gid.outgroup ? 'o' : 'i') << ',' << gid.num << ',' << gid.id << ',' << gid.pct;
       return os;
   }
@@ -950,7 +998,8 @@ namespace Vargas {
    * @brief
    * Check if two GID's are equal.
    */
-  inline bool operator==(const Graph::GID &a, const Graph::GID &b) {
+  inline bool operator==(const Graph::GID &a,
+                         const Graph::GID &b) {
       if (a.outgroup != b.outgroup) return false;
       if (a.pct != b.pct) return false;
       if (a.num != b.num) return false;

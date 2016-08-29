@@ -588,6 +588,13 @@ namespace Vargas {
                       const _seed *s,
                       _seed *nxt) {
 
+          // Empty nodes repersents deletions
+          if (n.seq().size() == 0) {
+              nxt->I_col = s->I_col;
+              nxt->S_col = s->S_col;
+              return;
+          }
+
           assert(n.seq().size() <= _max_node_len);
 
           const Base *node_seq = n.seq().data();

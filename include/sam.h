@@ -106,7 +106,8 @@ namespace Vargas {
            * @param tag key
            * @param val value
            */
-          void set(std::string tag, char val) {
+          void set(std::string tag,
+                   char val) {
               aux[tag] = std::string(1, val);
               aux_fmt[tag] = 'A';
           }
@@ -117,7 +118,8 @@ namespace Vargas {
            * @param tag key
            * @param val value
            */
-          void set(std::string tag, int val) {
+          void set(std::string tag,
+                   int val) {
               aux[tag] = std::to_string(val);
               aux_fmt[tag] = 'i';
           }
@@ -128,7 +130,8 @@ namespace Vargas {
            * @param tag key
            * @param val value
            */
-          void set(std::string tag, float val) {
+          void set(std::string tag,
+                   float val) {
               aux[tag] = std::to_string(val);
               aux_fmt[tag] = 'f';
           }
@@ -139,7 +142,8 @@ namespace Vargas {
            * @param tag key
            * @param val value
            */
-          void set(std::string tag, std::string val) {
+          void set(std::string tag,
+                   std::string val) {
               aux[tag] = val;
               aux_fmt[tag] = 'Z';
           }
@@ -150,7 +154,8 @@ namespace Vargas {
            * @param val to store result in
            * @return false if key does not exist, or is the wrong type.
            */
-          bool get(std::string tag, char &val) const {
+          bool get(std::string tag,
+                   char &val) const {
               if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'A') return false;
               val = aux.at(tag).at(0);
               return true;
@@ -162,7 +167,8 @@ namespace Vargas {
            * @param val to store result in
            * @return false if key does not exist, or is the wrong type.
            */
-          bool get(std::string tag, int &val) const {
+          bool get(std::string tag,
+                   int &val) const {
               if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'i') return false;
               val = std::stoi(aux.at(tag));
               return true;
@@ -174,7 +180,8 @@ namespace Vargas {
            * @param val to store result in
            * @return false if key does not exist, or is the wrong type.
            */
-          bool get(std::string tag, float &val) const {
+          bool get(std::string tag,
+                   float &val) const {
               if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'f') return false;
               val = std::stof(aux.at(tag));
               return true;
@@ -186,7 +193,8 @@ namespace Vargas {
            * @param val to store result in
            * @return false if key does not exist, or is the wrong type.
            */
-          bool get(std::string tag, std::string &val) const {
+          bool get(std::string tag,
+                   std::string &val) const {
               if (aux.count(tag) == 0) return false;
               val = aux.at(tag);
               return true;
@@ -238,10 +246,11 @@ namespace Vargas {
                * Construct a sequence from a sequence header line.
                * @param line seq header line to parse
                */
-              Sequence(std::string line) { parse(line); }
+              Sequence(std::string line) {
+                  parse(line);
+              }
 
-              int len;
-              /**< Length of the sequence */
+              int len; /**< Length of the sequence */
               std::string genome_assembly = "", /**< Genome assembly identifier */
                   name, /**< name of of the sequence */
                   md5 = "", /**< MD5 checksum of sequence */
@@ -312,13 +321,17 @@ namespace Vargas {
                * Parse the given line.
                * @param line to parse.
                */
-              void operator<<(std::string line) { parse(line); }
+              void operator<<(std::string line) {
+                  parse(line);
+              }
 
               /**
                * @brief print the header line into the string.
                * @param line string to populate
                */
-              void operator>>(std::string &line) const { line = to_string(); }
+              void operator>>(std::string &line) const {
+                  line = to_string();
+              }
           };
 
           /**
@@ -333,7 +346,9 @@ namespace Vargas {
                * Construct a read group from a RG header line.
                * @param line RG line
                */
-              ReadGroup(std::string line) { parse(line); }
+              ReadGroup(std::string line) {
+                  parse(line);
+              }
 
               std::string seq_center = "", /**< Name of sequencing center producing the read */
                   desc = "", /**< Description */
@@ -449,13 +464,17 @@ namespace Vargas {
                * Parse the given line.
                * @param line to parse.
                */
-              void operator<<(std::string line) { parse(line); }
+              void operator<<(std::string line) {
+                  parse(line);
+              }
 
               /**
                * @brief print the header line into the string.
                * @param line string to populate
                */
-              void operator>>(std::string &line) const { line = to_string(); }
+              void operator>>(std::string &line) const {
+                  line = to_string();
+              }
           };
 
           /**
@@ -464,7 +483,10 @@ namespace Vargas {
            */
           struct Program {
               Program() { }
-              Program(std::string line) { parse(line); }
+
+              Program(std::string line) {
+                  parse(line);
+              }
 
               std::string name = "",
                   id = "",
@@ -538,13 +560,17 @@ namespace Vargas {
                * Parse the given line.
                * @param line to parse.
                */
-              void operator<<(std::string line) { parse(line); }
+              void operator<<(std::string line) {
+                  parse(line);
+              }
 
               /**
                * @brief print the header line into the string.
                * @param line string to populate
                */
-              void operator>>(std::string &line) const { line = to_string(); }
+              void operator>>(std::string &line) const {
+                  line = to_string();
+              }
           };
 
           /************************END TAGS************************/
@@ -653,30 +679,32 @@ namespace Vargas {
            * Parse the header.
            * @param hdr header to parse.
            */
-          void operator<<(std::string hdr) { parse(hdr); }
+          void operator<<(std::string hdr) {
+              parse(hdr);
+          }
 
           /**
            * @brief print the header into the string.
            * @param hdr string to populate
            */
-          void operator>>(std::string &hdr) const { hdr = to_string(); }
+          void operator>>(std::string &hdr) const {
+              hdr = to_string();
+          }
 
           /**
            * @brief
            * Load a string.
            * @param line header string
            */
-          void operator=(std::string line) { parse(line); }
+          void operator=(std::string line) {
+              parse(line);
+          }
 
-          std::string version;
-          /**< SAM spec version */
+          std::string version; /**< SAM spec version */
           std::string sorting_order = "", /**< Type of alignment sorting, default unknown */
-              grouping = "";
-          /**< Grouping of alignments. Default None */
-          std::unordered_map<std::string, Sequence> sequences;
-          /**< All sequence lines */
-          std::unordered_map<std::string, ReadGroup> read_groups;
-          /**< All Read Group lines */
+              grouping = ""; /**< Grouping of alignments. Default None */
+          std::unordered_map<std::string, Sequence> sequences; /**< All sequence lines */
+          std::unordered_map<std::string, ReadGroup> read_groups; /**< All Read Group lines */
           std::unordered_map<std::string, Program> programs; /**< ALl program lines */
 
       };
@@ -694,7 +722,9 @@ namespace Vargas {
            * Parse the given alignment line.
            * @param line
            */
-          Record(std::string line) { parse(line); }
+          Record(std::string line) {
+              parse(line);
+          }
 
           /**
            * @param
@@ -779,20 +809,26 @@ namespace Vargas {
                * Encode flags into an int
                * @param i int to store in.
                */
-              void operator>>(unsigned int &i) const { i = encode(); }
+              void operator>>(unsigned int &i) const {
+                  i = encode();
+              }
 
               /**
                * Decode bit flag into the struct.
                * @param i bits to decode.
                */
-              void operator<<(unsigned int i) { decode(i); }
+              void operator<<(unsigned int i) {
+                  decode(i);
+              }
 
               /**
                * @brief
                * Decode the integer into the struct.
                * @param i int to decode.
                */
-              void operator=(unsigned int i) { decode(i); }
+              void operator=(unsigned int i) {
+                  decode(i);
+              }
           };
 
           // Mandatory fields
@@ -801,14 +837,12 @@ namespace Vargas {
               cigar = "*", /**< Alignment CIGAR */
               ref_next = "*", /**< Refrence name of next mate/read */
               seq = "*", /**< segment sequence */
-              qual = "*";
-          /**< Phred Qual+33 */
+              qual = "*"; /**< Phred Qual+33 */
 
           int pos = 0, /**< 1 baset leftmost mapping position */
               mapq = 255, /**< mapping quality */
               pos_next = 0, /**< position of next mate/read */
-              tlen = 0;
-          /**< template length */
+              tlen = 0; /**< template length */
 
           Flag flag; /**< Bitwise flag */
 
@@ -879,14 +913,18 @@ namespace Vargas {
            * Populate fields from a line
            * @param line SAM record line
            */
-          void operator<<(std::string line) { parse(line); }
+          void operator<<(std::string line) {
+              parse(line);
+          }
 
           /**
            * @brief
            * Populate fields from a line
            * @param line SAM record line
            */
-          void operator=(std::string line) { parse(line); }
+          void operator=(std::string line) {
+              parse(line);
+          }
 
           /**
            * @brief
@@ -897,7 +935,9 @@ namespace Vargas {
            * @return true if tag exists
            */
           template<typename T>
-          bool read_group(const Header &hdr, const std::string &tag, T &val) const {
+          bool read_group(const Header &hdr,
+                          const std::string &tag,
+                          T &val) const {
               std::string rg;
               if (!aux.get("RG", rg))return false;
               if (hdr.read_groups.count(rg) == 0) return false;
@@ -925,9 +965,17 @@ namespace Vargas {
       /**
        * Read
        */
-      isam() { open(""); }
-      isam(std::string file_name) { open(file_name); }
-      ~isam() { close(); }
+      isam() {
+          open("");
+      }
+
+      isam(std::string file_name) {
+          open(file_name);
+      }
+
+      ~isam() {
+          close();
+      }
 
       /**
        * @brief
@@ -987,13 +1035,17 @@ namespace Vargas {
        * First record is available after opening the file.
        * @return current Record
        */
-      const SAM::Record &record() const { return _pprec; }
+      const SAM::Record &record() const {
+          return _pprec;
+      }
 
       /**
        * Get the SAM Header.
        * @return SAM::Header
        */
-      const SAM::Header &header() const { return _hdr; }
+      const SAM::Header &header() const {
+          return _hdr;
+      }
 
     private:
       std::string _curr_line;
@@ -1031,7 +1083,8 @@ namespace Vargas {
        * @param file_name file to write
        * @param hdr SAM::Header of the file
        */
-      osam(std::string file_name, const SAM::Header &hdr) {
+      osam(std::string file_name,
+           const SAM::Header &hdr) {
           _hdr = hdr;
           open(file_name);
       }
@@ -1073,7 +1126,9 @@ namespace Vargas {
       /**
        * @return true of output open.
        */
-      bool good() const { return out.good() || _use_stdio; }
+      bool good() const {
+          return out.good() || _use_stdio;
+      }
 
       /**
        * @brief

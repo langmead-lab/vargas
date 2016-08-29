@@ -67,7 +67,9 @@ namespace Vargas {
       /**
        * @param file_name output file
        */
-      ofasta(std::string file_name) { open(file_name); }
+      ofasta(std::string file_name) {
+          open(file_name);
+      }
 
       /**
        * @brief open a file for output
@@ -86,7 +88,9 @@ namespace Vargas {
           }
       }
 
-      void close() { _o.close(); }
+      void close() {
+          _o.close();
+      }
 
       /**
        * @brief
@@ -94,7 +98,8 @@ namespace Vargas {
        * @param name sequence name and any meta information.
        * @param sequence sequence string
        */
-      void write(const std::string &name, const std::string &sequence) {
+      void write(const std::string &name,
+                 const std::string &sequence) {
           (_use_stdio ? std::cout : _o) << '>' << name << '\n';
           size_t pos = 0;
           while (pos < sequence.length()) {
@@ -108,7 +113,9 @@ namespace Vargas {
        * Set the number of characters per line.
        * @param len maximum sequence line length
        */
-      void char_per_line(int len) { if (len > 0) _char_per_line = len; }
+      void char_per_line(int len) {
+          if (len > 0) _char_per_line = len;
+      }
 
 
     private:
@@ -146,7 +153,9 @@ namespace Vargas {
        * @param file filename
        * @param mode read or write mode, default read
        */
-      ifasta(std::string file) : _file_name(file) { open(file); }
+      ifasta(std::string file) : _file_name(file) {
+          open(file);
+      }
 
       ~ifasta() {
           close();
@@ -188,7 +197,9 @@ namespace Vargas {
       /**
        * @return opened file name.
        */
-      std::string file() { return _file_name; }
+      std::string file() {
+          return _file_name;
+      }
 
       /**
        * @brief
@@ -219,7 +230,9 @@ namespace Vargas {
        * @param end ending index, inclusive
        * @return subsequence string
        */
-      std::string subseq(const std::string &name, int beg, int end) const {
+      std::string subseq(const std::string &name,
+                         int beg,
+                         int end) const {
           int len;
           char *ss = faidx_fetch_seq(_index, name.c_str(), beg, end, &len);
           std::string ret(ss);
@@ -279,7 +292,9 @@ namespace Vargas {
       /**
        * @return true if FASTA index loaded
        */
-      bool good() const { return _index; }
+      bool good() const {
+          return _index;
+      }
 
       /**
        * @brief
@@ -295,37 +310,50 @@ namespace Vargas {
            * @param in ifasta handle
            * @param i index to start: 0 for begin, seq_len() for end
            */
-          iter(ifasta &in, int i) : _if(in), _i(i), _end(in.num_seq()) { }
+          iter(ifasta &in,
+               int i) : _if(in), _i(i), _end(in.num_seq()) {}
 
           /**
            * @return true if at same index
            */
-          bool operator==(const iter &other) const { return _i == other._i; }
+          bool operator==(const iter &other) const {
+              return _i == other._i;
+          }
 
           /**
            * @return true if not at same index
            */
-          bool operator!=(const iter &other) const { return !operator==(other); }
+          bool operator!=(const iter &other) const {
+              return !operator==(other);
+          }
 
           /*
            * @return true if index is lower than other
            */
-          bool operator<(const iter &other) const { return _i < other._i; }
+          bool operator<(const iter &other) const {
+              return _i < other._i;
+          }
 
           /*
            * @return true if index is greater than other
            */
-          bool operator>(const iter &other) const { return _i > other._i; }
+          bool operator>(const iter &other) const {
+              return _i > other._i;
+          }
 
           /*
            * @return true if index is lower than / equal other
            */
-          bool operator<=(const iter &other) const { return _i <= other._i; }
+          bool operator<=(const iter &other) const {
+              return _i <= other._i;
+          }
 
           /*
            * @return true if index is greater than / equal other
            */
-          bool operator>=(const iter &other) const { return _i >= other._i; }
+          bool operator>=(const iter &other) const {
+              return _i >= other._i;
+          }
 
           /**
            * @return iterator to next sequence
@@ -363,12 +391,16 @@ namespace Vargas {
       /**
        * @return iterator to first sequence in FASTA file
        */
-      iter begin() { return iter(*this, 0); }
+      iter begin() {
+          return iter(*this, 0);
+      }
 
       /**
        * @return iterator to end of FASTA file
        */
-      iter end() { return iter(*this, num_seq()); }
+      iter end() {
+          return iter(*this, num_seq());
+      }
 
       /**
        * @param seq_name sequence name to start at
