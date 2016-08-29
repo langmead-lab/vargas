@@ -153,7 +153,8 @@ TEST_CASE ("Coordinate matches") {
             << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
     }
 
-    Vargas::GraphBuilder gb(tmpfa, tmpvcf);
+    Vargas::GraphBuilder gb(tmpfa);
+    gb.open_vcf(tmpvcf);
     gb.node_len(5);
     gb.region("x:0-50");
     Vargas::Graph g = gb.build();
@@ -180,7 +181,7 @@ TEST_CASE ("Coordinate matches") {
     remove(tmpvcf.c_str());
 }
 
-TEST_CASE ("cor flag") {
+TEST_CASE ("Cor flag") {
     srand(1);
     Vargas::Graph::Node::_newID = 0;
     using std::endl;
@@ -230,7 +231,8 @@ TEST_CASE ("cor flag") {
         ro << "@HD\tVN:1.0\n*\t4\t*\t14\t255\t*\t*\t0\t0\tGAAATT\t*\n*\t4\t*\t17\t255\t*\t*\t0\t0\tATTTTC\t*";
     }
 
-    Vargas::GraphBuilder gb(tmpfa, tmpvcf);
+    Vargas::GraphBuilder gb(tmpfa);
+    gb.open_vcf(tmpvcf);
     gb.region("x:0-100");
     Vargas::Graph g = gb.build();
 

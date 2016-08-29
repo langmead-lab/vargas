@@ -55,7 +55,8 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
     // Build base graph
     unsigned nsamps;
     {
-        GraphBuilder gb(_ref_file, _vcf_file);
+        GraphBuilder gb(_ref_file);
+        gb.open_vcf(_vcf_file);
         gb.region(_region);
         gb.node_len(_node_len);
         if (build_base) _subgraphs[GDEF_BASEGRAPH] = std::make_shared<Graph>(gb.build());

@@ -697,7 +697,8 @@ int profile(const int argc, const char *argv[]) {
         throw std::invalid_argument("File does not exist.");
     }
 
-    Vargas::GraphBuilder gb(fasta, bcf);
+    Vargas::GraphBuilder gb(fasta);
+    gb.open_vcf(bcf);
     gb.region(region);
 
     auto start = std::clock();

@@ -791,28 +791,18 @@ namespace Vargas {
   class GraphBuilder {
 
     public:
-      /**
-       * Construct a graph from the given reference and variant file.
-       * @param reffile Reference FASTA file
-       * @param vcffile VCF or BCF variant file
-       */
-      GraphBuilder(std::string reffile,
-                   std::string vcffile) :
-          _fa_file(reffile),
-          _vf_file(vcffile) {}
 
       /**
-       * Use the provided files for graph building.
-       * @param ref FASTA reference
-       * @param vcf VCF/BCF variant file
+       * @brief
+       * Create a graph builder for the reference file.
+       * @param reffile
        */
-      void open(std::string ref,
-                std::string vcf) {
-          _fa_file = ref;
-          _vf_file = vcf;
-      }
+      GraphBuilder(std::string const &reffile) : _fa_file(reffile) {}
+
+      ~GraphBuilder() { _vf.reset(); }
 
       /**
+       * @brief
        * Set the region of the graph to build. Format should be
        * CHR:XX,XXX-YY,YYY
        * Where CHR is the sequence name, XX,XXX is the min pos and YY,YYY is the max pos.
@@ -820,10 +810,12 @@ namespace Vargas {
        * @param region
        */
       void region(std::string region) {
-          _vf.set_region(region);
+          if (!_vf) throw std::invalid_argument("No variant file opened.");
+          _vf->set_region(region);
       }
 
       /**
+       * @brief
        * Set the region of the sequence to build.
        * @param chr Chromosome/sequence of build
        * @param min min pos, inclusive
@@ -832,23 +824,43 @@ namespace Vargas {
       void region(std::string chr,
                   int min,
                   int max) {
-          _vf.set_region(chr, min, max);
+          if (!_vf) throw std::invalid_argument("No variant file opened.");
+          _vf->set_region(chr, min, max);
       }
 
       /**
+       * @brief
        * Set maximum node length. If <= 0, length is unbounded.
        * @param max maximum node length.
        */
       void node_len(int max) { _max_node_len = max; }
 
+      void open_vcf(std::string const &file_name) {
+          _vf.reset();
+          _vf = std::unique_ptr<VariantFile>(new VCF(file_name));
+          if (!_vf->good()) throw std::invalid_argument("Invalid VCF/BCF file: \"" + file_name + "\"");
+      }
+
+      void open_bcf(std::string const &file_name) {
+          open_vcf(file_name);
+      }
+
+      void open_ksnp(std::string const &file_name, const int limit = 0) {
+          _vf.reset();
+          _vf = std::unique_ptr<VariantFile>(new KSNP(file_name, limit));
+          if (!_vf->good()) throw std::invalid_argument("Invalid KSNP file: \"" + file_name + "\"");
+      }
+
       /**
-       * Apply the various parameters and build the Graph.
+       * @brief
+       * Apply the various parameters and build the Graph from a VCF and a FASTA.
        * @param g Graph to build into
        */
       void build(Graph &g);
 
       /**
-       * Build the graph using the specified params.
+       * @brief
+       * Build the graph using the specified params from a VCF and a FASTA.
        * @return Graph Built Graph
        */
       Graph build() {
@@ -859,6 +871,7 @@ namespace Vargas {
 
     protected:
       /**
+       * @brief
        * Builds edges between pending previous nodes and the current level. Each
        * prev is connected to each curr, and curr becomes the new prev.
        * @param g build edges for Graph g
@@ -873,6 +886,7 @@ namespace Vargas {
                         std::unordered_map<uint32_t, uint32_t> *chain = NULL);
 
       /**
+       * @brief
        * Builds a linear sequence of nodes set as reference nodes.
        * @param g Graph to build linear ref in
        * @param prev previous unconnected nodes (linked to main graph already)
@@ -889,6 +903,7 @@ namespace Vargas {
                             uint32_t target);
 
       /**
+       * @brief
        * Splits a sequence into multiple sequences if neccessary to conform to the
        * max_node_len spec.
        * @return vector of split sequences
@@ -897,8 +912,8 @@ namespace Vargas {
       std::vector<std::string> _split_seq(std::string seq);
 
     private:
-      std::string _fa_file, _vf_file;
-      VCF _vf;
+      std::string _fa_file;
+      std::unique_ptr<VariantFile> _vf;
       ifasta _fa;
       Graph g;
 
@@ -1280,69 +1295,73 @@ TEST_CASE ("Graph Builder") {
             << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
     }
 
-        SUBCASE("Basic Graph") {
-        Vargas::GraphBuilder gb(tmpfa, tmpvcf);
-        gb.node_len(5);
-        gb.region("x:0-15");
+        SUBCASE("File write wrapper") {
 
-        Vargas::Graph g;
-        gb.build(g);
+            SUBCASE("Basic Graph") {
+            Vargas::GraphBuilder gb(tmpfa);
+            gb.open_vcf(tmpvcf);
+            gb.node_len(5);
+            gb.region("x:0-15");
 
-        auto giter = g.begin();
+            Vargas::Graph g;
+            gb.build(g);
 
-            CHECK((*giter).seq_str() == "CAAAT");
-            CHECK((*giter).belongs(0) == true); // its a ref
-            CHECK((*giter).is_ref());
+            auto giter = g.begin();
 
-        ++giter;
-            CHECK((*giter).seq_str() == "AAG");
-            CHECK((*giter).belongs(0) == true); // its a ref
-            CHECK((*giter).is_ref());
+                CHECK((*giter).seq_str() == "CAAAT");
+                CHECK((*giter).belongs(0) == true); // its a ref
+                CHECK((*giter).is_ref());
 
-        ++giter;
-            CHECK((*giter).seq_str() == "G");
+            ++giter;
+                CHECK((*giter).seq_str() == "AAG");
+                CHECK((*giter).belongs(0) == true); // its a ref
+                CHECK((*giter).is_ref());
 
-        ++giter;
-            CHECK((*giter).seq_str() == "A");
+            ++giter;
+                CHECK((*giter).seq_str() == "G");
 
-        ++giter;
-            CHECK((*giter).seq_str() == "C");
+            ++giter;
+                CHECK((*giter).seq_str() == "A");
 
-        ++giter;
-            CHECK((*giter).seq_str() == "T");
-            CHECK(!(*giter).is_ref());
-            CHECK(!(*giter).belongs(0));
-            CHECK(!(*giter).belongs(1));
-            CHECK(!(*giter).belongs(2));
-            CHECK((*giter).belongs(3));
+            ++giter;
+                CHECK((*giter).seq_str() == "C");
+
+            ++giter;
+                CHECK((*giter).seq_str() == "T");
+                CHECK(!(*giter).is_ref());
+                CHECK(!(*giter).belongs(0));
+                CHECK(!(*giter).belongs(1));
+                CHECK(!(*giter).belongs(2));
+                CHECK((*giter).belongs(3));
+
+        }
+
+            SUBCASE("Deriving a Graph") {
+            Vargas::GraphBuilder gb(tmpfa);
+            gb.open_vcf(tmpvcf);
+            gb.node_len(5);
+            gb.region("x:0-15");
+
+            Vargas::Graph g;
+            gb.build(g);
+
+            std::vector<bool> filter = {0, 0, 0, 1};
+            Vargas::Graph g2(g, filter);
+            auto iter = g2.begin();
+
+                CHECK((*iter).seq_str() == "CAAAT");
+            ++iter;
+                CHECK((*iter).seq_str() == "AAG");
+            ++iter;
+                CHECK((*iter).seq_str() == "T");
+            ++iter;
+                CHECK((*iter).seq_str() == "CCCCC");
+            ++iter;
+                CHECK((*iter).seq_str() == "CC");
+
+        }
 
     }
-
-        SUBCASE("Deriving a Graph") {
-        Vargas::GraphBuilder gb(tmpfa, tmpvcf);
-        gb.node_len(5);
-        gb.region("x:0-15");
-
-        Vargas::Graph g;
-        gb.build(g);
-
-        std::vector<bool> filter = {0, 0, 0, 1};
-        Vargas::Graph g2(g, filter);
-        auto iter = g2.begin();
-
-            CHECK((*iter).seq_str() == "CAAAT");
-        ++iter;
-            CHECK((*iter).seq_str() == "AAG");
-        ++iter;
-            CHECK((*iter).seq_str() == "T");
-        ++iter;
-            CHECK((*iter).seq_str() == "CCCCC");
-        ++iter;
-            CHECK((*iter).seq_str() == "CC");
-
-    }
-
-
     remove(tmpfa.c_str());
     remove(tmpvcf.c_str());
     remove((tmpfa + ".fai").c_str());
