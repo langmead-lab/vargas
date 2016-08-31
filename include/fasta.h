@@ -151,7 +151,6 @@ namespace Vargas {
        * @brief
        * Load a given FASTA and its index, create one if none exists.
        * @param file filename
-       * @param mode read or write mode, default read
        */
       ifasta(std::string file) : _file_name(file) {
           open(file);
@@ -173,7 +172,7 @@ namespace Vargas {
       /**
        * @brief
        * Open a specified FASTA file and make an index.
-       * @param file filename
+       * @param file_name filename
        * @return -1 on index build error, -2 on open error, 0 otherwise
        */
       int open(const std::string &file_name) {

@@ -106,7 +106,7 @@ namespace Vargas {
        * @brief
        * Set scoring parameters.
        * @param max_node_len max node length
-       * @param rlen max read length
+       * @param read_len max read length
        * @param match match score
        * @param mismatch mismatch penalty
        * @param open gap open penalty

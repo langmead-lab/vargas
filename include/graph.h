@@ -139,7 +139,7 @@ namespace Vargas {
           /**
            * @brief
            * Build a GID from a string output from to_string
-           * @param std::string string form
+           * @param s string form
            */
           GID(std::string s) {
               try {

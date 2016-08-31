@@ -256,7 +256,7 @@ namespace Vargas {
        * @brief
        * Parse a defintion string a write a GDEF file. Also loads the generated file.
        * @param ref_file Reference file name
-       * @param vcf Variant file name
+       * @param vcf_file Variant file name
        * @param region Region in the format 'CHR:MIN-MAX'
        * @param defs subgraph definition string
        * @param max_node_len maximum graph node length.
@@ -276,7 +276,7 @@ namespace Vargas {
          * @brief
          * Parse a defintion string a write a GDEF file. Also loads the generated file.
          * @param ref_file Reference file name
-         * @param vcf Variant file name
+         * @param vcf_file Variant file name
          * @param region Region in the format 'CHR:MIN-MAX'
          * @param defs subgraph definition string
          * @param max_node_len maximum graph node length.
