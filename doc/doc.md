@@ -36,27 +36,41 @@ vargas is built with cmake.
 
 `vargas -h`
 
-	---------------------- vargas, Jun 27 2016. rgaddip1@jhu.edu ----------------------
-	Operating modes 'vargas MODE':
-		define      Define a set of graphs for use with sim/align.
-		sim         Simulate reads from a set of graphs.
-		align       Align reads to a set of graphs.
-		test        Run doctests.
-		profile     Run profiles.
+```
+---------------------- Vargas, Aug 31 2016. rgaddip1@jhu.edu ----------------------
+Operating modes 'Vargas MODE':
+	define      Define a set of graphs for use with sim/align.
+	sim         Simulate reads from a set of graphs.
+	align       Align reads to a set of graphs.
+	split       Split a SAM file into multiple files.
+	merge       Merge SAM files.
+	convert     Convert a SAM file to a CSV file.
+	test        Run doctests.
+	profile     Run profiles.
+```
 
 ## define {#define}
 
 `vargas define -h`
 
-	-------------------- vargas define, Jun 27 2016. rgaddip1@jhu.edu --------------------
-	-f	--fasta         *<string> Reference filename.
-	-v	--var           *<string> VCF/BCF filename.
-	-t	--out           *<string> Output filename.
-	-g	--region        *<string> Region of graph, format CHR:MIN-MAX.
-	-l	--nodelen       <int> Max node length, default 1,000,000
-	-i	--ingroup       <int, int...> Percent ingroup subgraphs.
-		                  Prefix with 'c' to interpret as number of individuals.
-	-n	--num           <int> Number of unique graphs to create for all -i. Default 1.
+```
+-------------------- Vargas define, Aug 31 2016. rgaddip1@jhu.edu --------------------
+-f	--fasta         *<string> Reference filename.
+-v	--vcf           <string> VCF or BCF file.
+-k	--ksnp          <string> KSNP File. Only one of -v or -k should be defined.
+-g	--region        *<string> Region of graph, format CHR:MIN-MAX.
+-l	--nodelen       <int> Max node length, default 1,000,000
+-s	--subgraph      *<string> Subgraph definition file. Default stdin.
+-t	--out           <string> Output file, default stdout.
+-d	--dot           <string> Output DOT graph to file.
+
+Subgraphs are defined using the format "label=N[%]".
+'N' is the number of samples / percentage of samples selected.
+The samples are selected from the parent graph, scoped with ':'.
+The base graph is implied as the root for all labels. Example:
+a=50;a:b=10;~a:c=5
+'~' indicates the complement graph. 'BASE' refers the the whole graph.
+```
 
 `define` is used to create a graph specification (*.gdf) for `sim` and `align` modes. Various subgraphs deriving off of a base graph are described. With `-i` and `-n` multiple subgraphs based on population filters are made. The original FASTA and variant files are needed in the same relative path when using the GDEF file.
 
@@ -79,21 +93,23 @@ The ingroup determines which samples are included in the graph. If a VCF file ha
 
 `vargas sim -h`
 
-	-------------------- vargas sim, Jun 27 2016. rgaddip1@jhu.edu --------------------
-	-g	--gdef          *<string> Graph definition file. Reads are simulated from Ingroups.
-	-t	--outfile       *<string> Alignment output file.
-	-o	--outgroup      Simulate from outgroup graphs.
-	-n	--numreads      <int> Number of reads to simulate from each subgraph, default 1000.
-	-m	--muterr        <float, float...> Read mutation error. Default 0.
-	-i	--indelerr      <float, float...> Read indel error. Default 0.
-	-v	--vnodes        <int, int...> Number of variant nodes, default any (*).
-	-b	--vbases        <int, int...> Number of variant bases, default any (*).
-	-l	--rlen          <int> Read length, default 50.
-	-a	--rate          Interpret -m, -i as rates, instead of exact number of errors.
-	-j	--threads       <int> Number of threads. 0 for maximum hardware concurrency.
+```
+-------------------- Vargas sim, Aug 31 2016. rgaddip1@jhu.edu --------------------
+-g	--gdef          *<string> Graph definition file. Default stdin.
+-s	--sub           *<string;string; ...> list of graphs to simulate from.
+-f	--file          -s specifies a file name.
+-t	--out           <string> Output file. Default stdout.
+-n	--numreads      <int> Number of reads to simulate from each profile, default 1000.
+-m	--muterr        <int/float, int/float...> Read mutation error. Default 0.
+-i	--indelerr      <int/float, int/float...> Read indel error. Default 0.
+-d	--vnodes        <int, int...> Number of variant nodes, default any (*).
+-b	--vbases        <int, int...> Number of variant bases, default any (*).
+-l	--rlen          <int> Read length, default 50.
+-a	--rate          Interpret -m, -i as rates, instead of exact number of errors.
+-j	--threads       <int> Number of threads. 0 for maximum hardware concurrency.
 
-	Comments preceded by '#'.
-	-n reads are produced for each -m, -i, -v, -b combination. If set to '*', any value is accepted.
+-n reads are produced for each -m, -i, -v, -b combination. If set to '*', any value is accepted.
+```
 
 
 `sim` uses a GDEF file and generates `-n` reads of each combination of `-m`, `-i`, `-v`, and `-b`. `-m` Introduces mutation errors, substituting n bases with an alternate base. Likewise, `-i` will delete a base or insert a random base. With `-a`, `-m` and `-i` are interpreted as rates (0 to 1). `-s` controls which subgraphs are used to generate reads. By default, all graphs in the GDEF file are used, and their complements (outgroup).
@@ -108,22 +124,21 @@ will generate 1000 reads for each combination of `-m`, `-v`, for each graph in `
 
 `vargas align -h`
 
-	------------------- vargas align, Jun 27 2016. rgaddip1@jhu.edu -------------------
-	-g	--gdef          *<string> Graph definition file.
-	-r	--reads         *<string, string...> Read files to align.
-	-t	--outfile       *<string> Alignment output file.
-	-l	--rlen          <int> Max read length. Default 50.
-	-R	                Align to reference graph.
-	-X	                Align to maximum allele frequency graph.
-	-I	                Align to ingroup graph.
-	-O	                Align to outgroup graph.
-	-m	--match         <int> Match score, default 2.
-	-n	--mismatch      <int> Mismatch penalty, default 2.
-	-o	--gap_open      <int> Gap opening penalty, default 3.
-	-e	--gap_extend    <int> Gap extend penalty, default 1.
-	-j	--threads       <int> Number of threads. 0 for maximum hardware concurrency.
-
-	Lines beginning with '#' are ignored.
+```
+------------------- Vargas align, Aug 31 2016. rgaddip1@jhu.edu -------------------
+-g	--gdef          *<string> Graph definition file.
+-r	--reads         *<string, string...> Read files to align. Default stdin.
+-a	--align         *<string> Alignment targets.
+-f	--file          -a specifies a file name.
+-t	--out           *<string> Alignment output file, default stdout.
+-l	--rlen          <int> Max read length. Default 50.
+-m	--match         <int> Match score, default 2.
+-n	--mismatch      <int> Mismatch penalty, default 2.
+-o	--gap_open      <int> Gap opening penalty, default 3.
+-e	--gap_extend    <int> Gap extend penalty, default 1.
+-j	--threads       <int> Number of threads. 0 for maximum hardware concurrency.
+            	            Optimal reads per subgraph: n * j * 16
+```
 
 
 Reads are aligned to graphs specified in the GDEF file. `-R` Aligns the reads to the reference sequence, `-X` to the maximum allele frequency graph, `-I` to the ingroup graph, and `-O` to the outgroup graph. If a set of reads is generated from the ingroup and outgroup using `vargas sim -o`, a subsequent alignment using `vargas align -O` will align all reads to the same outgroup graph. A `[rxio]` tag at the beginning of the alignment record indicates which alignment was done.
@@ -134,69 +149,18 @@ For example:
 
 Will align all the reads to both the reference graph and ingroup graphs, resulting in `2 * number_of_reads` alignments.
 
-# File Formats {#formats}
+## convert {#convert}
 
----
+`vargas convert -h`
 
-## GDEF {#gdef}
+```
+-------------------- Vargas convert, Aug 31 2016. rgaddip1@jhu.edu --------------------
+-s	--sam          <string> SAM input file. Default stdin.
+-f	--format       *<string,string...> Specify tags per column. Case sensitive.
 
-GDEF Files are produced with `vargas define`. Below is an example produced by:
+Output printed to stdout.
+Requred column names: QNAME, FLAG, RNAME, POS, MAPQ, CIGAR, RNEXT, PNEXT, TLEN, SEQ, QUAL
+Prefix with "RG:" to obtain a value from the associated read group.
+```
 
-`vargas define -f hs37d5_22.fa -v chr22.bcf -r 22:22,000,000-23,000,000 -i c1,c5 -n 2`
-
-	@gdef
-	ref=hs37d5_22.fa;var=chr22.bcf;reg=22:22,000,000-23,000,000;nlen=1000000
-	i,1,0,0:00010000000000000000000000000000000000
-	i,1,1,0:00000000000000000000000000100000000000
-	i,5,0,0:00010010000000000010001000100000000000
-	i,5,1,0:00010000000110000000000000000001010000
-
-Each gdef file begins with `@gdef`. The following line describes the source FASTA and VCF/BCF files, the region, and the maximum node length. Each following line describes an ingroup graph with the format:
-
-`i,num,id,pct:filter`
-
-where `num` indicates number of individuals if `pct=false` or percent when `pct=true`. The length of filter is equal to `num_samples * 2`
-
-## Reads {#reads}
-
-Reads from `vargas sim` are output in FASTA format.
-
-	>end=22422171 mut=0 indel=0 vnode=-1 vbase=-1 src=i,1,0,0
-	AAAAGGAAAAGAGATATCTGGACGCGCAGACAGAAAAAGATCCCAAAGAT
-	>end=37431030 mut=0 indel=0 vnode=-1 vbase=-1 src=i,1,0,0
-	ATGTTTCGTGTCCTGGTACCAGCACAGCAACTGACATGGATGGGGGGTTA
-	>end=44240012 mut=0 indel=0 vnode=-1 vbase=-1 src=i,1,0,0
-	GGGGGAGAAATCCCCAGCCTGTCCGCCACAGGAGGCCTCTGTGTTGACTC
-
-Where `end` is the position of the last base in the read, `mut` is the number of mutation errors, `indel` is the number of indel erros, `vnode` is number of variant nodes traversed, and `vbase` is number of variant bases. `src` corresponds to the graph (as defined in the GDEF file, or its complement) the read came from. Parameters correspond to the profiles used to generate them, so `vnode=-1` can mean any number of variant nodes were traversed.
-
-## Alignments {#aligns}
-
-The output alignment format is a CSV line.
-
-	r,o,25,0,1,TTGAGCTACNGAGTGGGGCACAGCNTCCCNCAGCCCAGGCTCCACGTACG,22453471,10,0,2,2,58,22453471,1,38,22453459,32,1
-	r,o,25,1,1,NAGGAGCCCTATAAACNGCTTTATGTNGGCCTACTAAGCTGAGGGGCGAG,22761414,10,0,2,2,62,22761414,1,51,22761466,2,1
-	i,i,25,0,0,ANAGGNGCAGTGCCTGCCTTNTCCGACTCACGTACCTCNGCCCNATGTGA,22554276,10,0,2,2,70,22554276,1,36,22554404,2,1
-	i,i,25,1,0,TTTTGCTATTTTATGGGTCAGNGACCAATCATCATGACNATCAGATTTGA,22590921,10,0,2,2,64,22590921,1,53,22590983,1,1
-
-The fields in the CSV line and there format:
-
-- alignment type [rxio]
-- read origin in/outgroup [io]
-- read origin graph number [0-9]+
-- read origin graph ID [0-9]+
-- read sequence [ACGT]+
-- read origin position [0-9]+
-- read substitution errors [0-9]+
-- read indel errors [0-9]+
-- read variant nodes [0-9]+
-- read variant bases [0-9]+
-- best score [0-9]+
-- best position [0-9]+
-- best score count [0-9]+
-- second best score [0-9]+
-- second best position [0-9]+
-- second best count [0-9]+
-- read origin correlation flag [012]
-
-Where the read origin correlation flag is 1 if the read origin position had the best score, 2 if it had the second best score, otherwise 0. 
+Convert a SAM file into a CSV file, outputting the specified fields.
