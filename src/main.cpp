@@ -94,18 +94,20 @@ int define_main(const int argc, const char *argv[]) {
         dot_file = "";
 
     int node_len = 1000000;
-    bool is_ksnp = false;
-    int ksnp_limit = 0;
+    Vargas::GraphManager::VariantType vtype = Vargas::GraphManager::VariantType::UNDEF;
 
     args >> GetOpt::Option('f', "fasta", fasta_file)
-         >> GetOpt::Option('v', "var", varfile)
          >> GetOpt::Option('g', "region", region)
          >> GetOpt::Option('l', "nodelen", node_len)
          >> GetOpt::Option('s', "subgraph", subgraph_def)
          >> GetOpt::Option('t', "out", out_file)
-         >> GetOpt::Option('d', "dot", dot_file)
-         >> GetOpt::OptionPresent('k', "ksnp", is_ksnp)
-         >> GetOpt::Option('k', "ksnp", ksnp_limit);
+         >> GetOpt::Option('d', "dot", dot_file);
+
+    if (args >> GetOpt::Option('v', "vcf", varfile) == args >> GetOpt::Option('k', "ksnp", varfile)) {
+        throw std::invalid_argument("Only one of -v or -k should be defined.");
+        if (args >> GetOpt::OptionPresent('v', "vcf")) vtype = Vargas::GraphManager::VariantType::VCF;
+        else vtype = Vargas::GraphManager::VariantType::KSNP;
+    }
 
     std::string subgraph_str = "";
 
@@ -121,7 +123,7 @@ int define_main(const int argc, const char *argv[]) {
     }
 
     Vargas::GraphManager gm;
-    gm.write_from_vcf(fasta_file, varfile, region, subgraph_str, node_len, out_file);
+    gm.write(fasta_file, varfile, vtype, region, subgraph_str, node_len, out_file);
     if (dot_file.length() > 0) gm.to_DOT(dot_file, "subgraphs");
 
     std::cerr << gm.size() << " subgraph definitions generated." << std::endl;
@@ -847,8 +849,8 @@ void define_help() {
     cerr << endl
          << "-------------------- Vargas define, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
     cerr << "-f\t--fasta         *<string> Reference filename.\n";
-    cerr << "-v\t--var           *<string> Variant file.\n";
-    cerr << "-k\t--ksnp          [int] -v specifies a .ksnp file, default V/BCF. Limit to top n records.";
+    cerr << "-v\t--vcf           <string> VCF or BCF file.\n";
+    cerr << "-k\t--ksnp          <string> KSNP File. Only one of -v or -k should be defined.\n";
     cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX.\n";
     cerr << "-l\t--nodelen       <int> Max node length, default 1,000,000\n";
     cerr << "-s\t--subgraph      *<string> Subgraph definition file. Default stdin.\n";

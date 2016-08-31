@@ -211,6 +211,7 @@ bool Vargas::GraphManager::write(std::string ref_file,
     std::string out_str;
 
     out_str = GDEF_FILE_MARKER + GDEF_DELIM;
+
     switch (vartype) {
         case VariantType::VCF:
             out_str += VCF_TYPE;
@@ -218,7 +219,11 @@ bool Vargas::GraphManager::write(std::string ref_file,
         case VariantType::KSNP:
             out_str += KSNP_TYPE;
             break;
+        default:
+            throw std::invalid_argument("Unsupported variant file type.");
+            break;
     }
+
     out_str += "\n"
         + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM
         + GDEF_VAR + GDEF_ASSIGN + variant_file + GDEF_DELIM

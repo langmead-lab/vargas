@@ -86,7 +86,7 @@ namespace Vargas {
   class GraphManager {
     public:
 
-      enum class VariantType { VCF, KSNP };
+      enum class VariantType { VCF, KSNP, UNDEF };
 
       GraphManager() {}
 
