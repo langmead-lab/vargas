@@ -1,11 +1,12 @@
 var searchData=
 [
-  ['pinch',['pinch',['../classvargas_1_1Graph_1_1Node.html#a3314cde81f1b53507530684c6f535cd8',1,'vargas::Graph::Node']]],
-  ['pop_5fsize',['pop_size',['../classvargas_1_1Graph_1_1Node.html#a71461f36c78d48083ce052a7418c4db7',1,'vargas::Graph::Node::pop_size()'],['../classvargas_1_1Graph.html#a1ec9b8dc3e7b2b47bbc80607bb429924',1,'vargas::Graph::pop_size()']]],
-  ['populations',['populations',['../classvargas_1_1Gdef.html#a49fefdf67b6c21a964f73182b41fa6c0',1,'vargas::Gdef']]],
-  ['pos',['pos',['../classvargas_1_1VarFile.html#a068c6d49cafede71409ddc067c989f41',1,'vargas::VarFile']]],
-  ['prev_5fmap',['prev_map',['../classvargas_1_1Graph.html#afb8bbf31f3c6cfe89cd83807e7ee0199',1,'vargas::Graph']]],
-  ['prof',['prof',['../classvargas_1_1ReadSim.html#af79c27679f75042bd5b8619bcf71550d',1,'vargas::ReadSim']]],
-  ['profile',['profile',['../main_8cpp.html#a6352cf8f72bab604f199de43e2c1892d',1,'profile(const int argc, const char *argv[]):&#160;main.cpp'],['../main_8h.html#a6352cf8f72bab604f199de43e2c1892d',1,'profile(const int argc, const char *argv[]):&#160;main.cpp']]],
-  ['push_5fback',['push_back',['../classdyn__bitset.html#a39a9fde36b368d0751a11e07fd473440',1,'dyn_bitset']]]
+  ['next',['next',['../classVargas_1_1isam.html#af6b71732201c8b8e6f5e5a9c50bb3b46',1,'Vargas::isam::next()'],['../classVargas_1_1VariantFile.html#aef42f1a62ec18098fd6919847fac6a46',1,'Vargas::VariantFile::next()'],['../classVargas_1_1VCF.html#a13585fb58bca321d93d1125b7635f56c',1,'Vargas::VCF::next()'],['../classVargas_1_1KSNP.html#aa642fadb860e6656a17687f7a7a4282d',1,'Vargas::KSNP::next()']]],
+  ['next_5fmap',['next_map',['../classVargas_1_1Graph.html#a0fa5d818aa680ef29b4f40bc5662fdf6',1,'Vargas::Graph']]],
+  ['node',['node',['../classVargas_1_1Graph.html#a5703e8e86ab9699210915570ebd400c3',1,'Vargas::Graph::node()'],['../classVargas_1_1Graph_1_1Node.html#af507f3c240d136a90b4b3e2e4f9404a4',1,'Vargas::Graph::Node::Node()']]],
+  ['node_5flen',['node_len',['../classVargas_1_1Graph.html#a671a03672874b0b8109b038a8d658629',1,'Vargas::Graph::node_len()'],['../classVargas_1_1GraphBuilder.html#a7a6d17f229a9bfa4cb48d13e85af8aa6',1,'Vargas::GraphBuilder::node_len()']]],
+  ['node_5fmap',['node_map',['../classVargas_1_1Graph.html#a642cf0b2920225b34452f36875073220',1,'Vargas::Graph']]],
+  ['num_5fsamples',['num_samples',['../classVargas_1_1VariantFile.html#a62491857f6b5aa1ba047d21ae6a4b56f',1,'Vargas::VariantFile::num_samples()'],['../classVargas_1_1VCF.html#a38c12c39e550e41dd427d883cd6bf2dc',1,'Vargas::VCF::num_samples()'],['../classVargas_1_1KSNP.html#a9683cb26d31339f7191940dc5db277f2',1,'Vargas::KSNP::num_samples()']]],
+  ['num_5fseq',['num_seq',['../classVargas_1_1ifasta.html#a5d2058d1589747055e18c4d832cdca8b',1,'Vargas::ifasta']]],
+  ['num_5fto_5fbase',['num_to_base',['../utils_8h.html#af5e47cf09a8981f95522616f5581f0b8',1,'utils.h']]],
+  ['num_5fto_5fseq',['num_to_seq',['../utils_8h.html#a2b8fb4633e83e1805f8267042e53526f',1,'utils.h']]]
 ];

@@ -46,7 +46,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </script>
   <div id="navrow1" class="tabs">
     <ul class="tablist">
-      <li><a href="index.html"><span>Main&#160;Page</span></a></li>
+      <li><a href="index.html"><span>Home</span></a></li>
       <li><a href="annotated.html"><span>Classes</span></a></li>
       <li class="current"><a href="files.html"><span>Files</span></a></li>
       <li>
@@ -94,15 +94,13 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#nested-classes">Classes</a> &#124;
-<a href="#func-members">Functions</a> &#124;
-<a href="#var-members">Variables</a>  </div>
+<a href="#nested-classes">Classes</a>  </div>
   <div class="headertitle">
 <div class="title">readsource.h File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p>Abstract class for objects that can be used as a source of reads (i.e. ReadSim and ReadFile).  
+<p>Abstract class for objects that can be used as a source of reads (i.e. Sim and ReadFile).  
 <a href="#details">More...</a></p>
 <div class="textblock"><code>#include &lt;string&gt;</code><br/>
 <code>#include &lt;sstream&gt;</code><br/>
@@ -115,53 +113,15 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvargas_1_1Read.html">vargas::Read</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Struct to represent a <a class="el" href="structvargas_1_1Read.html" title="Struct to represent a Read. ">Read</a>.  <a href="structvargas_1_1Read.html#details">More...</a><br/></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classVargas_1_1ReadSource.html">Vargas::ReadSource</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Class defining functions for read sources.  <a href="classVargas_1_1ReadSource.html#details">More...</a><br/></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1ReadSource.html">vargas::ReadSource</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Class defining functions for read sources.  <a href="classvargas_1_1ReadSource.html#details">More...</a><br/></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classVargas_1_1ReadBatch.html">Vargas::ReadBatch&lt; num_reads, T &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Container for a packaged batch of reads.  <a href="classVargas_1_1ReadBatch.html#details">More...</a><br/></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvargas_1_1ReadBatch.html">vargas::ReadBatch&lt; num_reads, T &gt;</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Container for a packaged batch of reads.  <a href="classvargas_1_1ReadBatch.html#details">More...</a><br/></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
-Functions</h2></td></tr>
-<tr class="memitem:abb17e0320bdc750f1e13cdf15e0bb70a"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><b>vargas::to_fasta</b> (const Read &amp;r)</td></tr>
-<tr class="memdesc:abb17e0320bdc750f1e13cdf15e0bb70a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Output two lines in FASTA format.  <a href="#abb17e0320bdc750f1e13cdf15e0bb70a">More...</a><br/></td></tr>
-<tr class="separator:abb17e0320bdc750f1e13cdf15e0bb70a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a734e00ddfa6602afb46c0831de5445bc"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><b>vargas::to_csv</b> (const Read &amp;r)</td></tr>
-<tr class="memdesc:a734e00ddfa6602afb46c0831de5445bc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert the read to a single line CSV.  <a href="#a734e00ddfa6602afb46c0831de5445bc">More...</a><br/></td></tr>
-<tr class="separator:a734e00ddfa6602afb46c0831de5445bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af11ff3bd42f04dc247dab1a022e1bbd7"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><b>vargas::operator&lt;&lt;</b> (std::ostream &amp;os, const Read &amp;r)</td></tr>
-<tr class="separator:af11ff3bd42f04dc247dab1a022e1bbd7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
-Variables</h2></td></tr>
-<tr class="memitem:ab1b3382653ad687a7e01ba0bd7b2e081"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="ab1b3382653ad687a7e01ba0bd7b2e081"></a>
-const std::string&#160;</td><td class="memItemRight" valign="bottom"><b>vargas::READ_META_END</b> = &quot;end&quot;</td></tr>
-<tr class="separator:ab1b3382653ad687a7e01ba0bd7b2e081"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a056a871e5f3243497182fc8af1e65169"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="a056a871e5f3243497182fc8af1e65169"></a>
-const std::string&#160;</td><td class="memItemRight" valign="bottom"><b>vargas::READ_META_MUT</b> = &quot;mut&quot;</td></tr>
-<tr class="separator:a056a871e5f3243497182fc8af1e65169"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adfa2cb511cf223712bb25f05d54d0de7"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="adfa2cb511cf223712bb25f05d54d0de7"></a>
-const std::string&#160;</td><td class="memItemRight" valign="bottom"><b>vargas::READ_META_INDEL</b> = &quot;indel&quot;</td></tr>
-<tr class="separator:adfa2cb511cf223712bb25f05d54d0de7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afff64a1c8d08120cbdfe73ec5406dabf"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="afff64a1c8d08120cbdfe73ec5406dabf"></a>
-const std::string&#160;</td><td class="memItemRight" valign="bottom"><b>vargas::READ_META_VARNODE</b> = &quot;vnode&quot;</td></tr>
-<tr class="separator:afff64a1c8d08120cbdfe73ec5406dabf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0eec62a4426c5a4ad08943a2d6d47635"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="a0eec62a4426c5a4ad08943a2d6d47635"></a>
-const std::string&#160;</td><td class="memItemRight" valign="bottom"><b>vargas::READ_META_VARBASE</b> = &quot;vbase&quot;</td></tr>
-<tr class="separator:a0eec62a4426c5a4ad08943a2d6d47635"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aee6604347b89b9d6955f3d6b7c355fd1"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="aee6604347b89b9d6955f3d6b7c355fd1"></a>
-const std::string&#160;</td><td class="memItemRight" valign="bottom"><b>vargas::READ_META_SRC</b> = &quot;src&quot;</td></tr>
-<tr class="separator:aee6604347b89b9d6955f3d6b7c355fd1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0063b4a13e4cb9995e702a0ebe9cd913"><td class="memItemLeft" align="right" valign="top"><a class="anchor" id="a0063b4a13e4cb9995e702a0ebe9cd913"></a>
-const char&#160;</td><td class="memItemRight" valign="bottom"><b>vargas::READ_FASTA_META_DELIM</b> = ' '</td></tr>
-<tr class="separator:a0063b4a13e4cb9995e702a0ebe9cd913"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Abstract class for objects that can be used as a source of reads (i.e. ReadSim and ReadFile). </p>
+<div class="textblock"><p>Abstract class for objects that can be used as a source of reads (i.e. Sim and ReadFile). </p>
 <p>Ravi Gaddipati June 22, 2016 <a href="#" onclick="location.href='mai'+'lto:'+'rga'+'dd'+'ip1'+'@j'+'hu.'+'ed'+'u'; return false;">rgadd<span style="display: none;">.nosp@m.</span>ip1@<span style="display: none;">.nosp@m.</span>jhu.e<span style="display: none;">.nosp@m.</span>du</a> </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.8-->

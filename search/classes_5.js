@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['infofield',['InfoField',['../classvargas_1_1VarFile_1_1InfoField.html',1,'vargas::VarFile']]]
+  ['header',['Header',['../structVargas_1_1SAM_1_1Header.html',1,'Vargas::SAM']]]
 ];

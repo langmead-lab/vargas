@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['population',['Population',['../classvargas_1_1Graph.html#af3720d965db7a9a6dd9d74a9aa7536b8',1,'vargas::Graph']]]
+  ['population',['Population',['../classVargas_1_1Graph.html#a859b29ce86abeade8c2e4b9c24028bc7',1,'Vargas::Graph']]]
 ];

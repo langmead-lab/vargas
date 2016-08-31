@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['gdef',['Gdef',['../classvargas_1_1Gdef.html',1,'vargas']]],
-  ['gid',['GID',['../structvargas_1_1GID.html',1,'vargas']]],
-  ['graph',['Graph',['../classvargas_1_1Graph.html',1,'vargas']]],
-  ['graphbuilder',['GraphBuilder',['../classvargas_1_1GraphBuilder.html',1,'vargas']]]
+  ['gid',['GID',['../structVargas_1_1Graph_1_1GID.html',1,'Vargas::Graph']]],
+  ['graph',['Graph',['../classVargas_1_1Graph.html',1,'Vargas']]],
+  ['graphbuilder',['GraphBuilder',['../classVargas_1_1GraphBuilder.html',1,'Vargas']]],
+  ['graphmanager',['GraphManager',['../classVargas_1_1GraphManager.html',1,'Vargas']]]
 ];

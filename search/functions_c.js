@@ -1,13 +1,8 @@
 var searchData=
 [
-  ['open',['open',['../classvargas_1_1FASTAFile.html#a676d34ce7472dcb868e02f5b390f665d',1,'vargas::FASTAFile::open()'],['../classvargas_1_1GraphBuilder.html#a4aa25d93e4dcbf0dc7f85b70864b93ae',1,'vargas::GraphBuilder::open()'],['../classvargas_1_1VarFile.html#a9b32aedf5c1bace8da242c87a37d5a6c',1,'vargas::VarFile::open()']]],
-  ['operator_21_3d',['operator!=',['../classvargas_1_1Graph_1_1FilteringIter.html#a39cedab74731bcd603a8ffe7cace2790',1,'vargas::Graph::FilteringIter']]],
-  ['operator_26_26',['operator&amp;&amp;',['../classdyn__bitset.html#ae32c2a83b01bb425332a07ea6cae1b2c',1,'dyn_bitset']]],
-  ['operator_2a',['operator*',['../classvargas_1_1Graph_1_1FilteringIter.html#a26bb08db76f6e367b154f5b81b20092d',1,'vargas::Graph::FilteringIter']]],
-  ['operator_2b_2b',['operator++',['../classvargas_1_1Graph_1_1FilteringIter.html#a891f4a05df4fc02ced78f82e6090402b',1,'vargas::Graph::FilteringIter']]],
-  ['operator_3d',['operator=',['../classdyn__bitset.html#a402b2ef8e981104f3e3c6f1d230847a9',1,'dyn_bitset']]],
-  ['operator_3d_3d',['operator==',['../classvargas_1_1Graph_1_1FilteringIter.html#abf7993b4602cd2171c7c3e1a8bebb941',1,'vargas::Graph::FilteringIter']]],
-  ['operator_5b_5d',['operator[]',['../classdyn__bitset.html#aa0c3498b7eba595a69f11359542bb1cb',1,'dyn_bitset::operator[]()'],['../classvargas_1_1ReadBatch.html#a05ed6a839567ffcce6119131dcff618c',1,'vargas::ReadBatch::operator[]()']]],
-  ['operator_7e',['operator~',['../classdyn__bitset.html#a4ecb0f014476f917eb94c02425886dd1',1,'dyn_bitset']]],
-  ['outgoing',['outgoing',['../classvargas_1_1Graph_1_1FilteringIter.html#a41443a6c508f7d41d017e2a0b940842a',1,'vargas::Graph::FilteringIter']]]
+  ['make_5fmaxaf',['make_maxaf',['../classVargas_1_1GraphManager.html#adb82f07a540f2f178f50b1ffd9cd73ff',1,'Vargas::GraphManager']]],
+  ['make_5fref',['make_ref',['../classVargas_1_1GraphManager.html#aeadb3400c1782a66a6870cae43cd40b0',1,'Vargas::GraphManager']]],
+  ['make_5fsubgraph',['make_subgraph',['../classVargas_1_1GraphManager.html#a3e7249081e5ab33870871a916004a8ec',1,'Vargas::GraphManager']]],
+  ['max_5fnode_5flen',['max_node_len',['../classVargas_1_1Graph.html#aca064e40fe6e7cba83c0877f0aa5d89a',1,'Vargas::Graph']]],
+  ['merge_5fmain',['merge_main',['../main_8cpp.html#a36d5f34ef2c522595e3bc388490c70ba',1,'merge_main(const int argc, const char *argv[]):&#160;main.cpp'],['../main_8h.html#a36d5f34ef2c522595e3bc388490c70ba',1,'merge_main(const int argc, const char *argv[]):&#160;main.cpp']]]
 ];

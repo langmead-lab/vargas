@@ -1,9 +1,8 @@
 var searchData=
 [
-  ['main_2ecpp',['main.cpp',['../main_8cpp.html',1,'']]],
-  ['main_2eh',['main.h',['../main_8h.html',1,'']]],
-  ['max_5flen',['max_len',['../classvargas_1_1ReadBatch.html#a7d02952aed977ecdb52e9a6d199b62ac',1,'vargas::ReadBatch']]],
-  ['max_5fnode_5flen',['max_node_len',['../classvargas_1_1Graph.html#a94ba8d5db2f1b6cd92505862c6d92d69',1,'vargas::Graph']]],
-  ['maxaf',['MAXAF',['../classvargas_1_1Graph.html#a1257a07882b0042b29dc497a0d7949bba4f69e087e742216bfc95b386270feaed',1,'vargas::Graph']]],
-  ['mut',['mut',['../structvargas_1_1ReadProfile.html#a72a5c2c3e9a2401305cd9d985c13827f',1,'vargas::ReadProfile']]]
+  ['key_5fseq',['key_seq',['../structVargas_1_1SAM_1_1Header_1_1ReadGroup.html#a5e9786dad68ebd0b2983c2ad78bb31ba',1,'Vargas::SAM::Header::ReadGroup']]],
+  ['ksnp',['KSNP',['../classVargas_1_1KSNP.html#a3fec3797c103df83474159f1ba1303b1',1,'Vargas::KSNP::KSNP(std::string const &amp;file_name, int const top_n=0)'],['../classVargas_1_1KSNP.html#a9e1769e1ca741e19340c3cb96e15f87a',1,'Vargas::KSNP::KSNP(std::istream &amp;input, int const top_n=0)']]],
+  ['ksnp',['KSNP',['../classVargas_1_1KSNP.html',1,'Vargas']]],
+  ['ksnp_5frecord',['ksnp_record',['../structVargas_1_1KSNP_1_1ksnp__record.html',1,'Vargas::KSNP']]],
+  ['ksnp_5frecord',['ksnp_record',['../structVargas_1_1KSNP_1_1ksnp__record.html#a4ee40cbd24c2856d892b004bbd0033ca',1,'Vargas::KSNP::ksnp_record']]]
 ];

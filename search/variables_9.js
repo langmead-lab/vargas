@@ -1,7 +1,6 @@
 var searchData=
 [
-  ['rand',['rand',['../structvargas_1_1ReadProfile.html#a8d6d6d84b4a1e5bc2be2166db35e695c',1,'vargas::ReadProfile']]],
-  ['read',['read',['../structvargas_1_1Read.html#a76e12aa894e53017ae3eb146251ff299',1,'vargas::Read']]],
-  ['read_5fnum',['read_num',['../structvargas_1_1Read.html#a473f170b3de3566c05cd2e1871634c06',1,'vargas::Read']]],
-  ['read_5forig',['read_orig',['../structvargas_1_1Read.html#ae12ce6c97faa1ccb534df0be3e0abaad',1,'vargas::Read']]]
+  ['last',['last',['../structVargas_1_1SAM_1_1Record_1_1Flag.html#a21ef2085a11b337e28eb441c3f3f9c35',1,'Vargas::SAM::Record::Flag']]],
+  ['len',['len',['../structVargas_1_1SAM_1_1Header_1_1Sequence.html#a9244d4cfa377536579a74197a6ad1c14',1,'Vargas::SAM::Header::Sequence::len()'],['../structVargas_1_1Sim_1_1Profile.html#ae1b28cd7502e814c7f1df6a80a74626d',1,'Vargas::Sim::Profile::len()']]],
+  ['library',['library',['../structVargas_1_1SAM_1_1Header_1_1ReadGroup.html#a61b75ba6b8bd55ab2478aef26cdc0bc8',1,'Vargas::SAM::Header::ReadGroup']]]
 ];

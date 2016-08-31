@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['end',['end',['../classvargas_1_1Graph_1_1Node.html#a96f75fd6046f406222995648cb4eea69',1,'vargas::Graph::Node::end()'],['../classvargas_1_1Graph.html#a6c10ed99c51311da8092220487d11e31',1,'vargas::Graph::end()']]],
-  ['extract',['extract',['../classvargas_1_1Aligner.html#a2f2d6d5815c6b31cfae0539345449771',1,'vargas::Aligner']]]
+  ['encode',['encode',['../structVargas_1_1SAM_1_1Record_1_1Flag.html#a2626d304f33b0b8b91f01e4bad73d68d',1,'Vargas::SAM::Record::Flag']]],
+  ['end',['end',['../classVargas_1_1ByteAligner_1_1AlignmentGroup.html#a660166cff119adec7e6cb9a37f22621d',1,'Vargas::ByteAligner::AlignmentGroup::end()'],['../classVargas_1_1ifasta.html#a43cf985ca28447f767a5d2c43aaef7e9',1,'Vargas::ifasta::end()'],['../classVargas_1_1Graph_1_1Node.html#afb98deeb58448417c60058fe790de5d6',1,'Vargas::Graph::Node::end()'],['../classVargas_1_1Graph.html#a57e76545e4fcccb5a430ed4cd046a77e',1,'Vargas::Graph::end()']]],
+  ['extract',['extract',['../utils_8h.html#a6a7d9a7b92db49194e1f70bf531b01d2',1,'utils.h']]]
 ];

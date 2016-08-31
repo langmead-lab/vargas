@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['aligner',['Aligner',['../classvargas_1_1Aligner.html',1,'vargas']]],
-  ['alignment',['Alignment',['../structvargas_1_1Alignment.html',1,'vargas']]]
+  ['bytealigner',['ByteAligner',['../classVargas_1_1ByteAligner.html',1,'Vargas']]]
 ];

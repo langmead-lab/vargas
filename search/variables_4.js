@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['len',['len',['../structvargas_1_1ReadProfile.html#a386b9641c2224d12a84f9d455655720f',1,'vargas::ReadProfile']]],
-  ['line',['line',['../classvargas_1_1ReadFile.html#a43f11cc7ed08d67d812a8c9d65e51142',1,'vargas::ReadFile']]]
+  ['end_5fpos',['end_pos',['../structVargas_1_1Sim_1_1Read.html#ab0d78ee40305f7562babb4c33f3f814f',1,'Vargas::Sim::Read']]]
 ];

@@ -1,0 +1,35 @@
+var hierarchy =
+[
+    [ "Vargas::Aligner< num_reads, CellType, NativeT >::_seed", "structVargas_1_1Aligner_1_1__seed.html", null ],
+    [ "Vargas::Aligner< num_reads, CellType, NativeT >", "classVargas_1_1Aligner.html", null ],
+    [ "Vargas::Aligner< num_reads, CellType, NativeT >::AlignmentGroup", "classVargas_1_1Aligner_1_1AlignmentGroup.html", null ],
+    [ "dyn_bitset< core_size >", "classdyn__bitset.html", null ],
+    [ "Vargas::FASTAFile", "classVargas_1_1FASTAFile.html", null ],
+    [ "Vargas::Graph::FilteringIter", "classVargas_1_1Graph_1_1FilteringIter.html", null ],
+    [ "Vargas::SAM::Record::Flag", "structVargas_1_1SAM_1_1Record_1_1Flag.html", null ],
+    [ "Vargas::VCF::FormatField< T >", "classVargas_1_1VCF_1_1FormatField.html", null ],
+    [ "Vargas::GDEF", "classVargas_1_1GDEF.html", null ],
+    [ "Vargas::Graph::GID", "structVargas_1_1Graph_1_1GID.html", null ],
+    [ "Vargas::Graph", "classVargas_1_1Graph.html", null ],
+    [ "Vargas::GraphBuilder", "classVargas_1_1GraphBuilder.html", null ],
+    [ "Vargas::SAM::Header", "structVargas_1_1SAM_1_1Header.html", null ],
+    [ "Vargas::VCF::InfoField< T >", "classVargas_1_1VCF_1_1InfoField.html", null ],
+    [ "Vargas::SAM::isam", "classVargas_1_1SAM_1_1isam.html", null ],
+    [ "Vargas::Graph::Node", "classVargas_1_1Graph_1_1Node.html", null ],
+    [ "Vargas::SAM::Optional", "structVargas_1_1SAM_1_1Optional.html", null ],
+    [ "Vargas::SAM::osam", "classVargas_1_1SAM_1_1osam.html", null ],
+    [ "Vargas::Sim::Profile", "structVargas_1_1Sim_1_1Profile.html", null ],
+    [ "Vargas::SAM::Header::Program", "structVargas_1_1SAM_1_1Header_1_1Program.html", null ],
+    [ "Vargas::Sim::Read", "structVargas_1_1Sim_1_1Read.html", null ],
+    [ "Vargas::ReadBatch< num_reads, T >", "classVargas_1_1ReadBatch.html", null ],
+    [ "Vargas::SAM::Header::ReadGroup", "structVargas_1_1SAM_1_1Header_1_1ReadGroup.html", null ],
+    [ "Vargas::ReadSource", "classVargas_1_1ReadSource.html", [
+      [ "Vargas::ReadFile", "classVargas_1_1ReadFile.html", null ]
+    ] ],
+    [ "Vargas::SAM::Record", "structVargas_1_1SAM_1_1Record.html", null ],
+    [ "Vargas::Aligner< num_reads, CellType, NativeT >::Results", "structVargas_1_1Aligner_1_1Results.html", null ],
+    [ "Vargas::SAM", "classVargas_1_1SAM.html", null ],
+    [ "Vargas::SAM::Header::Sequence", "structVargas_1_1SAM_1_1Header_1_1Sequence.html", null ],
+    [ "Vargas::Sim", "classVargas_1_1Sim.html", null ],
+    [ "Vargas::VCF", "classVargas_1_1VCF.html", null ]
+];

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['varfile',['VarFile',['../classvargas_1_1VarFile.html',1,'vargas']]]
+  ['node',['Node',['../classVargas_1_1Graph_1_1Node.html',1,'Vargas::Graph']]]
 ];

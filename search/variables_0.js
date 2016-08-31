@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['_5fnewid',['_newID',['../classvargas_1_1Graph_1_1Node.html#a87c284ea2e20b970fdf41bd64823e76e',1,'vargas::Graph::Node']]]
+  ['_5fnewid',['_newID',['../classVargas_1_1Graph_1_1Node.html#a188973d57d1199292b6a03473d9e30dd',1,'Vargas::Graph::Node']]]
 ];

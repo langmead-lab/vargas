@@ -1,0 +1,35 @@
+var classVargas_1_1Graph =
+[
+    [ "Population", "classVargas_1_1Graph.html#a859b29ce86abeade8c2e4b9c24028bc7", null ],
+    [ "Type", "classVargas_1_1Graph.html#a5b0a7ed1a377e894c43f5da3432ca23f", [
+      [ "TOPO", "classVargas_1_1Graph.html#a5b0a7ed1a377e894c43f5da3432ca23fa26f8fb0e40958c84518507c098fff3e4", null ],
+      [ "REF", "classVargas_1_1Graph.html#a5b0a7ed1a377e894c43f5da3432ca23fae4c8ab3e3189148947087b8b262ae924", null ],
+      [ "MAXAF", "classVargas_1_1Graph.html#a5b0a7ed1a377e894c43f5da3432ca23fa1dd7297139ee31db15fedc719fc401e0", null ],
+      [ "FILTER", "classVargas_1_1Graph.html#a5b0a7ed1a377e894c43f5da3432ca23fa8678517fb349c9dbd892fbd7070e7cd6", null ],
+      [ "END", "classVargas_1_1Graph.html#a5b0a7ed1a377e894c43f5da3432ca23faab4cc16c5ae9e268dec95b49d5b5d977", null ]
+    ] ],
+    [ "Graph", "classVargas_1_1Graph.html#a192de487eab5770cfda1058b795d7792", null ],
+    [ "Graph", "classVargas_1_1Graph.html#a5813528c3f5f708fe449749a268535af", null ],
+    [ "Graph", "classVargas_1_1Graph.html#aae248b5d1fa73c36d0bdb1337552f193", null ],
+    [ "add_edge", "classVargas_1_1Graph.html#a866c6b98a6ec949ddf3e64b9bde718a5", null ],
+    [ "add_node", "classVargas_1_1Graph.html#a462b73138604479ac83963fc597d501f", null ],
+    [ "begin", "classVargas_1_1Graph.html#a4d991b791ab8bd96a0cf8c436424b759", null ],
+    [ "begin", "classVargas_1_1Graph.html#abb42d64d937f5448f30f842d5b26930c", null ],
+    [ "begin", "classVargas_1_1Graph.html#a58d64fc90f9a647401553bb2a0cee890", null ],
+    [ "desc", "classVargas_1_1Graph.html#abe1bd0859a8c1b265cbdbce554944487", null ],
+    [ "end", "classVargas_1_1Graph.html#a57e76545e4fcccb5a430ed4cd046a77e", null ],
+    [ "max_node_len", "classVargas_1_1Graph.html#aca064e40fe6e7cba83c0877f0aa5d89a", null ],
+    [ "next_map", "classVargas_1_1Graph.html#a0fa5d818aa680ef29b4f40bc5662fdf6", null ],
+    [ "node", "classVargas_1_1Graph.html#a5703e8e86ab9699210915570ebd400c3", null ],
+    [ "node_len", "classVargas_1_1Graph.html#a671a03672874b0b8109b038a8d658629", null ],
+    [ "node_map", "classVargas_1_1Graph.html#a642cf0b2920225b34452f36875073220", null ],
+    [ "pop_size", "classVargas_1_1Graph.html#aadad6fe935b5d981ceecd728dc8ac4d2", null ],
+    [ "prev_map", "classVargas_1_1Graph.html#ab0bc4809c9fa3affc978f3a2c1e208ad", null ],
+    [ "root", "classVargas_1_1Graph.html#ac055284385e69ed6f3e231be871de803", null ],
+    [ "set_desc", "classVargas_1_1Graph.html#a1139c41b9c6bc0283558701a1fb5c9b6", null ],
+    [ "set_popsize", "classVargas_1_1Graph.html#a2230b04ababb343190b52de794db46d5", null ],
+    [ "set_root", "classVargas_1_1Graph.html#af7cf907564455981c59fb1a0898f94a5", null ],
+    [ "subset", "classVargas_1_1Graph.html#afc6ece12ab02c8a965f4c433f872eaee", null ],
+    [ "to_DOT", "classVargas_1_1Graph.html#a769369510dc30dc71c8f41bd9980398a", null ],
+    [ "to_DOT", "classVargas_1_1Graph.html#a96f6e9c59ff873382dc5fa5387744b97", null ]
+];

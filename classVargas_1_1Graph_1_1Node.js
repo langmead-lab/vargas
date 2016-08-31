@@ -1,0 +1,27 @@
+var classVargas_1_1Graph_1_1Node =
+[
+    [ "Node", "classVargas_1_1Graph_1_1Node.html#af507f3c240d136a90b4b3e2e4f9404a4", null ],
+    [ "belongs", "classVargas_1_1Graph_1_1Node.html#a5c0ecd844f3b278b9522e049149111c2", null ],
+    [ "belongs", "classVargas_1_1Graph_1_1Node.html#a6cab51074274a99615a923c02ba6479a", null ],
+    [ "end", "classVargas_1_1Graph_1_1Node.html#afb98deeb58448417c60058fe790de5d6", null ],
+    [ "freq", "classVargas_1_1Graph_1_1Node.html#a0ebe2f71934cb6ec8e46ed8a2fe671ac", null ],
+    [ "id", "classVargas_1_1Graph_1_1Node.html#a355848cb9768160c3a79227e1085ecdc", null ],
+    [ "individuals", "classVargas_1_1Graph_1_1Node.html#a61db16230bc3a067c52d9c56123f2ef0", null ],
+    [ "is_pinched", "classVargas_1_1Graph_1_1Node.html#ac57130da6a50de51445246046171d361", null ],
+    [ "is_ref", "classVargas_1_1Graph_1_1Node.html#ac57ace4274aa6c41449c63ed53dad145", null ],
+    [ "length", "classVargas_1_1Graph_1_1Node.html#ace2388e57719d97d2ab96d9b5f2b087a", null ],
+    [ "pinch", "classVargas_1_1Graph_1_1Node.html#a6431e34c3d1a8c983efc697ba8136ace", null ],
+    [ "pop_size", "classVargas_1_1Graph_1_1Node.html#afdbfc7ac2149584912a9be8515adbc4b", null ],
+    [ "seq", "classVargas_1_1Graph_1_1Node.html#ad18b84ecc97437a042df97527ddc2a67", null ],
+    [ "seq_str", "classVargas_1_1Graph_1_1Node.html#afbce8a078b7f0e9b9881802ebf21216a", null ],
+    [ "set_af", "classVargas_1_1Graph_1_1Node.html#a2ae4d4270780fd632d095f0ce426af70", null ],
+    [ "set_as_ref", "classVargas_1_1Graph_1_1Node.html#a15b2fa79cb9f3a2a478eb67ec404ebae", null ],
+    [ "set_endpos", "classVargas_1_1Graph_1_1Node.html#a948404ad1e6c60813096520ac12bfc3e", null ],
+    [ "set_not_ref", "classVargas_1_1Graph_1_1Node.html#a9e9e4a1e86fc28a7cb067289e225ad4e", null ],
+    [ "set_population", "classVargas_1_1Graph_1_1Node.html#a635d63d4a3bf7f568eb941af4bd491d7", null ],
+    [ "set_population", "classVargas_1_1Graph_1_1Node.html#a6632bda6a4a8f60bd9091980a7f9d62b", null ],
+    [ "set_population", "classVargas_1_1Graph_1_1Node.html#a917fcba51a8aced512c85a517d9d834f", null ],
+    [ "set_seq", "classVargas_1_1Graph_1_1Node.html#ae7bbde8b31c0e6ad7d9a3cea6f924bbd", null ],
+    [ "set_seq", "classVargas_1_1Graph_1_1Node.html#aa4fcc94d52cda740377ac6eebadbee50", null ],
+    [ "setID", "classVargas_1_1Graph_1_1Node.html#af2927171079438c9eb27e31bc8f30cdf", null ]
+];

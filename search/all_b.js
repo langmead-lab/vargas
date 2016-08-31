@@ -1,14 +1,10 @@
 var searchData=
 [
-  ['next',['next',['../classvargas_1_1VarFile.html#a043dc751b981cb5a2202ff64768699a8',1,'vargas::VarFile']]],
-  ['next_5fmap',['next_map',['../classvargas_1_1Graph.html#a387ed681b84cdc6d800f5e88eee0a862',1,'vargas::Graph']]],
-  ['node',['Node',['../classvargas_1_1Graph_1_1Node.html',1,'vargas::Graph']]],
-  ['node',['Node',['../classvargas_1_1Graph_1_1Node.html#abdd3b17dbb31489eaa0e6f9ad84f3216',1,'vargas::Graph::Node::Node()'],['../classvargas_1_1Graph.html#aa95251b2175ef321420ae549d63dfaec',1,'vargas::Graph::node()']]],
-  ['node_5flen',['node_len',['../classvargas_1_1Graph.html#a6e21aeff871860c8a5837310aba3374b',1,'vargas::Graph::node_len()'],['../classvargas_1_1GraphBuilder.html#abe89aa5cec7370c7dcd01a01834b50e3',1,'vargas::GraphBuilder::node_len()']]],
-  ['node_5fmap',['node_map',['../classvargas_1_1Graph.html#aaa79d918a7daefbfa0d85a5f3a822341',1,'vargas::Graph']]],
-  ['num',['num',['../structvargas_1_1GID.html#ad3ca2b9e297bbfaec26e0f4262c52959',1,'vargas::GID']]],
-  ['num_5fsamples',['num_samples',['../classvargas_1_1Gdef.html#a6f7911573ad8aff6d2269a95876d8724',1,'vargas::Gdef::num_samples()'],['../classvargas_1_1VarFile.html#ac4906d3e47e9cd2db02e1a8846e19333',1,'vargas::VarFile::num_samples()']]],
-  ['num_5fseq',['num_seq',['../classvargas_1_1FASTAFile.html#a647b81868e5f3cdf64c5ef03aae7087f',1,'vargas::FASTAFile']]],
-  ['num_5fto_5fbase',['num_to_base',['../utils_8h.html#af5e47cf09a8981f95522616f5581f0b8',1,'utils.h']]],
-  ['num_5fto_5fseq',['num_to_seq',['../utils_8h.html#a2b8fb4633e83e1805f8267042e53526f',1,'utils.h']]]
+  ['labels',['labels',['../classVargas_1_1GraphManager.html#ae02d0627a0fd3fb8c1752ea2ebd587f5',1,'Vargas::GraphManager']]],
+  ['last',['last',['../structVargas_1_1SAM_1_1Record_1_1Flag.html#a21ef2085a11b337e28eb441c3f3f9c35',1,'Vargas::SAM::Record::Flag']]],
+  ['len',['len',['../structVargas_1_1SAM_1_1Header_1_1Sequence.html#a9244d4cfa377536579a74197a6ad1c14',1,'Vargas::SAM::Header::Sequence::len()'],['../structVargas_1_1Sim_1_1Profile.html#ae1b28cd7502e814c7f1df6a80a74626d',1,'Vargas::Sim::Profile::len()']]],
+  ['length',['length',['../classVargas_1_1Graph_1_1Node.html#ace2388e57719d97d2ab96d9b5f2b087a',1,'Vargas::Graph::Node']]],
+  ['levenshtein_5fdistance',['levenshtein_distance',['../utils_8cpp.html#a39cb5bc10cf3c3c6561a688389ca6035',1,'levenshtein_distance(const std::string &amp;s1, const std::string &amp;s2):&#160;utils.cpp'],['../utils_8h.html#a39cb5bc10cf3c3c6561a688389ca6035',1,'levenshtein_distance(const std::string &amp;s1, const std::string &amp;s2):&#160;utils.cpp']]],
+  ['library',['library',['../structVargas_1_1SAM_1_1Header_1_1ReadGroup.html#a61b75ba6b8bd55ab2478aef26cdc0bc8',1,'Vargas::SAM::Header::ReadGroup']]],
+  ['load_5freads',['load_reads',['../classVargas_1_1ByteAligner_1_1AlignmentGroup.html#a1f6dc3dad3e7de7611272ae8ac81dc5e',1,'Vargas::ByteAligner::AlignmentGroup::load_reads(const std::vector&lt; std::string &gt; &amp;batch)'],['../classVargas_1_1ByteAligner_1_1AlignmentGroup.html#afdd339e8c64b895707505c5cacf318fe',1,'Vargas::ByteAligner::AlignmentGroup::load_reads(const std::vector&lt; std::vector&lt; Base &gt;&gt; &amp;batch)']]]
 ];

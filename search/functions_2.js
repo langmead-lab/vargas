@@ -1,10 +1,11 @@
 var searchData=
 [
+  ['base',['base',['../classVargas_1_1GraphManager.html#adebbaf7be3054dbf8533c535cbe9ac0c',1,'Vargas::GraphManager']]],
   ['base_5fto_5fnum',['base_to_num',['../utils_8h.html#a31fd2b9518e1b829d3c2899504b67c79',1,'utils.h']]],
-  ['batch',['batch',['../classvargas_1_1ReadSource.html#ac9e1bea5fbc0878b82233f3d45d87d95',1,'vargas::ReadSource']]],
-  ['batch_5fsize',['batch_size',['../classvargas_1_1ReadBatch.html#a69bb5092631095b5c465d3bf3aea6d77',1,'vargas::ReadBatch']]],
-  ['begin',['begin',['../classvargas_1_1Graph.html#af8b60176ddbad54df3bc0f9b285f353e',1,'vargas::Graph::begin() const '],['../classvargas_1_1Graph.html#ae583188403d97187db2db3d13f9a3232',1,'vargas::Graph::begin(const Population &amp;filter) const '],['../classvargas_1_1Graph.html#a37fc5889929ad01d629e8d13aa25b92e',1,'vargas::Graph::begin(Graph::Type type) const ']]],
-  ['belongs',['belongs',['../classvargas_1_1Graph_1_1Node.html#a24f982e057b17746a11342678953d6d4',1,'vargas::Graph::Node::belongs(uint idx) const '],['../classvargas_1_1Graph_1_1Node.html#ad51ba3f08a4020122e8c02bdf39ace41',1,'vargas::Graph::Node::belongs(const Population &amp;pop) const ']]],
+  ['batch',['batch',['../classVargas_1_1Sim.html#aa06c3b192f2f7e47c408452fffd83a2f',1,'Vargas::Sim']]],
+  ['begin',['begin',['../classVargas_1_1ByteAligner_1_1AlignmentGroup.html#ae841b92c266e2603b5321e54c54bd66b',1,'Vargas::ByteAligner::AlignmentGroup::begin()'],['../classVargas_1_1ifasta.html#a358fc0e64f59505852983a515078f4ab',1,'Vargas::ifasta::begin()'],['../classVargas_1_1ifasta.html#a087848140d0cc41dd5dc95cdd6b69459',1,'Vargas::ifasta::begin(std::string seq_name)'],['../classVargas_1_1Graph.html#a4d991b791ab8bd96a0cf8c436424b759',1,'Vargas::Graph::begin() const '],['../classVargas_1_1Graph.html#abb42d64d937f5448f30f842d5b26930c',1,'Vargas::Graph::begin(const Population &amp;filter) const '],['../classVargas_1_1Graph.html#a58d64fc90f9a647401553bb2a0cee890',1,'Vargas::Graph::begin(Graph::Type type) const ']]],
+  ['belongs',['belongs',['../classVargas_1_1Graph_1_1Node.html#a5c0ecd844f3b278b9522e049149111c2',1,'Vargas::Graph::Node::belongs(uint idx) const '],['../classVargas_1_1Graph_1_1Node.html#a6cab51074274a99615a923c02ba6479a',1,'Vargas::Graph::Node::belongs(const Population &amp;pop) const ']]],
   ['bitset',['bitset',['../classdyn__bitset.html#aa3286bbd8ce1251362cfdc8d85759da4',1,'dyn_bitset']]],
-  ['build',['build',['../classvargas_1_1GraphBuilder.html#a385a9924802f8c3c0b937847d680b0be',1,'vargas::GraphBuilder::build(Graph &amp;g)'],['../classvargas_1_1GraphBuilder.html#acd6020d0d42ae8ed98ab6655d061c797',1,'vargas::GraphBuilder::build()']]]
+  ['build',['build',['../classVargas_1_1GraphBuilder.html#a26ea8427fbfce689383c24991fed67f4',1,'Vargas::GraphBuilder::build(Graph &amp;g)'],['../classVargas_1_1GraphBuilder.html#a7a9fd2079c72741a089a0350cda01a71',1,'Vargas::GraphBuilder::build()']]],
+  ['bytealigner',['ByteAligner',['../classVargas_1_1ByteAligner.html#ae2638dc064dcd62b939b5bfc7dea8f43',1,'Vargas::ByteAligner::ByteAligner(size_t max_node_len, size_t read_len)'],['../classVargas_1_1ByteAligner.html#afe2e7b076ce43cf6cdc08c9efbe1b995',1,'Vargas::ByteAligner::ByteAligner(size_t max_node_len, size_t read_len, uint8_t match, uint8_t mismatch, uint8_t open, uint8_t extend)']]]
 ];

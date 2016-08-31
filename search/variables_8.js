@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['pct',['pct',['../structvargas_1_1GID.html#a95ba3a88f4678de5f420379576d2f9bd',1,'vargas::GID']]]
+  ['key_5fseq',['key_seq',['../structVargas_1_1SAM_1_1Header_1_1ReadGroup.html#a5e9786dad68ebd0b2983c2ad78bb31ba',1,'Vargas::SAM::Header::ReadGroup']]]
 ];
