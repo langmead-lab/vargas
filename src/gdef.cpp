@@ -37,15 +37,7 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
     std::string line;
 
     // Check file type, get next line
-    if (!std::getline(in, line)) return false;
-    {
-        auto split_line = split(line, GDEF_DELIM);
-        if (!split_line.size() || split_line[0] != GDEF_FILE_MARKER) return false;
-        if (split_line.size() == 1 || split_line[1] == VCF_TYPE) _type = VariantType::VCF;
-        else _type = VariantType::KSNP;
-    }
-
-    if (!std::getline(in, line)) return false;
+    if (!std::getline(in, line) || line != GDEF_FILE_MARKER || !std::getline(in, line)) return false;
 
     // Pull meta info
     {
@@ -64,19 +56,11 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
     }
 
     // Build base graph
-    unsigned nsamps;
+    int nsamps;
     {
         GraphBuilder gb(_ref_file);
 
-        if (_type == VariantType::VCF) {
-            gb.open_vcf(_variant_file);
-            VCF vcf_stream(_variant_file);
-            nsamps = vcf_stream.num_samples();
-        } else if (_type == VariantType::KSNP) {
-            gb.open_ksnp(_variant_file);
-            KSNP ksnp_stream(_variant_file);
-            nsamps = ksnp_stream.num_samples();
-        }
+        nsamps = gb.open_vcf(_variant_file);
 
         gb.region(_region);
         gb.node_len(_node_len);
@@ -183,24 +167,22 @@ Vargas::Graph::Population Vargas::GraphManager::filter(std::string label) const 
 
 bool Vargas::GraphManager::write(std::string ref_file,
                                  std::string variant_file,
-                                 VariantType vartype,
                                  std::string region,
                                  const std::string &defs,
                                  int node_len,
                                  std::string out_file,
                                  bool build_base) {
     if (out_file.length() == 0)
-        return write(ref_file, variant_file, vartype, region, defs, node_len, std::cout, build_base);
+        return write(ref_file, variant_file, region, defs, node_len, std::cout, build_base);
 
     std::ofstream out(out_file);
     if (!out.good()) throw std::invalid_argument("Invalid output file: \"" + out_file + "\".");
-    return write(ref_file, variant_file, vartype, region, defs, node_len, out, build_base);
+    return write(ref_file, variant_file, region, defs, node_len, out, build_base);
 }
 
 
 bool Vargas::GraphManager::write(std::string ref_file,
                                  std::string variant_file,
-                                 VariantType vartype,
                                  std::string region,
                                  std::string defs_str,
                                  int node_len,
@@ -210,21 +192,7 @@ bool Vargas::GraphManager::write(std::string ref_file,
 
     std::string out_str;
 
-    out_str = GDEF_FILE_MARKER + GDEF_DELIM;
-
-    switch (vartype) {
-        case VariantType::VCF:
-            out_str += VCF_TYPE;
-            break;
-        case VariantType::KSNP:
-            out_str += KSNP_TYPE;
-            break;
-        default:
-            throw std::invalid_argument("Unsupported variant file type.");
-            break;
-    }
-
-    out_str += "\n"
+    out_str = GDEF_FILE_MARKER + "\n"
         + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM
         + GDEF_VAR + GDEF_ASSIGN + variant_file + GDEF_DELIM
         + GDEF_REGION + GDEF_ASSIGN + region + GDEF_DELIM
@@ -237,15 +205,10 @@ bool Vargas::GraphManager::write(std::string ref_file,
 
     // Get number of samples from VCF file
     if (nsamps == 0) {
-        if (vartype == VariantType::VCF) {
+
             VCF vf(variant_file);
             if (!vf.good()) throw std::invalid_argument("Invalid VCF file \"" + variant_file + "\".");
             nsamps = vf.num_samples();
-        } else {
-            KSNP vf(variant_file);
-            if (!vf.good()) throw std::invalid_argument("Invalid KSNP file \"" + variant_file + "\".");
-            nsamps = vf.num_samples();
-        }
     }
 
     std::unordered_map<std::string, Graph::Population> populations;
@@ -292,7 +255,8 @@ bool Vargas::GraphManager::write(std::string ref_file,
 
             if (count > populations.at(parent).count())
                 throw std::invalid_argument("Not enough samples available to pick " +
-                    std::to_string(count) + " in definition \"" + def + "\".");
+                    std::to_string(count) + " in definition \"" + def + "\", "
+                                                + std::to_string(populations.at(parent).count()) + " available.");
 
             pop.reset();
 

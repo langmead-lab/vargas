@@ -169,14 +169,12 @@ namespace Vargas {
        * have this information, {1, 1} is returned.
        * @return Population of the given allele at the current position.
        */
-      virtual const Population &allele_pop(const std::string) const = 0;
-
-
+      virtual const Population &allele_pop(const std::string allele = "") const = 0;
 
 
     protected:
       std::string _chr;
-      int _min_pos, _max_pos;
+      int _min_pos = -1, _max_pos = -1;
   };
 
 /**
@@ -672,7 +670,7 @@ namespace Vargas {
        * Represets the data in a line of a ksnp file
        */
       struct ksnp_record {
-          ksnp_record() : count(0) {}
+          ksnp_record() : ref("N"), alt({"N"}), count(0) {}
 
           /**
            * @param line Parse a ksnp line into a record
@@ -683,11 +681,11 @@ namespace Vargas {
               if (count == 0) return *this = other;
               if (chr != other.chr || pos != other.pos) throw std::invalid_argument("SNPs are not at the same site.");
               if (ref != other.ref) throw std::invalid_argument("Inconsistent reference.");
-              if (count != other.count) throw std::invalid_argument("Inconsistent count.");
+              if (count != other.count)
+                  throw std::invalid_argument("Inconsistent count at position: " + std::to_string(pos));
               for (const auto &i : other.id) id.push_back(i);
               for (const auto &i : other.alt) alt.push_back(i);
               for (const auto &i : other.af) af.push_back(i);
-              count += other.count;
               return *this;
           }
 
@@ -730,7 +728,6 @@ namespace Vargas {
       void close() {
           _snps.clear();
           _curr_iter = _snps.end();
-          _curr_iter_idx = 0;
           _all_sample_ids.clear();
       }
 
@@ -749,7 +746,10 @@ namespace Vargas {
       }
 
       const std::vector<std::string> &alleles() const override {
-          return _curr_iter->second.alt;
+          static std::vector<std::string> alls;
+          alls = {_curr_iter->second.ref};
+          alls.insert(alls.end(), _curr_iter->second.alt.begin(), _curr_iter->second.alt.end());
+          return alls;
       }
 
       int pos() const override {
@@ -757,17 +757,15 @@ namespace Vargas {
       }
 
       const std::vector<float> &frequencies() const override {
-          return _curr_iter->second.af;
+          static std::vector<float> alls;
+          alls = {1};
+          alls.insert(alls.end(), _curr_iter->second.af.begin(), _curr_iter->second.af.end());
+          return alls;
       }
 
-      const Population &allele_pop(const std::string allele) const {
-          static Population al_p;
-          al_p = Population(num_samples(), false);
-          if (allele == _curr_iter->second.ref) return al_p;
-          auto al = std::find(_curr_iter->second.alt.begin(), _curr_iter->second.alt.end(), allele);
-          if (al == _curr_iter->second.alt.end()) throw std::invalid_argument("Allele: \"" + allele + "\" not found.");
-          al_p.set(_curr_iter_idx + (al - _curr_iter->second.alt.begin()));
-          return al_p;
+      const Population &allele_pop(const std::string) const {
+          static const Population single(1, true);
+          return single;
       }
 
       /**
@@ -778,7 +776,7 @@ namespace Vargas {
       }
 
       int num_samples() const {
-          return _all_sample_ids.size();
+          return 1;
       }
 
 
@@ -786,8 +784,6 @@ namespace Vargas {
       std::map<uint32_t, ksnp_record> _snps;
       std::map<uint32_t, ksnp_record>::iterator _curr_iter;
       std::vector<std::string> _all_sample_ids;
-      size_t _curr_iter_idx;
-
   };
 
   TEST_CASE ("VCF File handler") {
@@ -1027,53 +1023,53 @@ namespace Vargas {
               KSNP ksnp(tmpksnp, 12);
                   REQUIRE(ksnp.good() == true);
 
+              ksnp.next();
+
                   CHECK(ksnp.ref() == "T");
-                  REQUIRE(ksnp.alleles().size() == 1);
-                  CHECK(ksnp.alleles()[0] == "G");
-                  REQUIRE(ksnp.frequencies().size() == 1);
-                  CHECK(ksnp.frequencies()[0] == 0.125);
+                  REQUIRE(ksnp.alleles().size() == 2);
+                  CHECK(ksnp.alleles()[1] == "G");
+                  REQUIRE(ksnp.frequencies().size() == 2);
+                  CHECK(ksnp.frequencies()[1] == 0.125);
                   CHECK(ksnp.pos() == 10);
-                  REQUIRE(ksnp.allele_pop("G").size() == 12);
+                  REQUIRE(ksnp.allele_pop("G").size() == 1);
                   CHECK(ksnp.allele_pop("G")[0] == 1);
-                  CHECK(ksnp.allele_pop("G")[1] == 0);
-                  CHECK_THROWS(ksnp.allele_pop("sdfsd"));
 
                   CHECK(ksnp.next() == true);
 
                   CHECK(ksnp.ref() == "G");
-                  REQUIRE(ksnp.alleles().size() == 1);
-                  CHECK(ksnp.alleles()[0] == "T");
-                  REQUIRE(ksnp.frequencies().size() == 1);
-                  CHECK(ksnp.frequencies()[0] == 0.125);
+                  REQUIRE(ksnp.alleles().size() == 2);
+                  CHECK(ksnp.alleles()[1] == "T");
+                  REQUIRE(ksnp.frequencies().size() == 2);
+                  CHECK(ksnp.frequencies()[1] == 0.125);
                   CHECK(ksnp.pos() == 12);
 
                   CHECK(ksnp.next() == true);
 
                   CHECK(ksnp.ref() == "G");
-                  REQUIRE(ksnp.alleles().size() == 1);
-                  CHECK(ksnp.alleles()[0] == "T");
-                  REQUIRE(ksnp.frequencies().size() == 1);
-                  CHECK(ksnp.frequencies()[0] == 0.125);
+                  REQUIRE(ksnp.alleles().size() == 2);
+                  CHECK(ksnp.alleles()[1] == "T");
+                  REQUIRE(ksnp.frequencies().size() == 2);
+                  CHECK(ksnp.frequencies()[1] == 0.125);
                   CHECK(ksnp.pos() == 13);
 
                   CHECK(ksnp.next() == true);
 
                   CHECK(ksnp.ref() == "G");
-                  REQUIRE(ksnp.alleles().size() == 1);
-                  CHECK(ksnp.alleles()[0] == "G");
-                  REQUIRE(ksnp.frequencies().size() == 1);
-                  CHECK(ksnp.frequencies()[0] == 0.125);
+                  REQUIRE(ksnp.alleles().size() == 2);
+                  CHECK(ksnp.alleles()[1] == "G");
+                  REQUIRE(ksnp.frequencies().size() == 2);
+                  CHECK(ksnp.frequencies()[1] == 0.125);
                   CHECK(ksnp.pos() == 14);
 
                   CHECK(ksnp.next() == true);
 
                   CHECK(ksnp.ref() == "T");
-                  REQUIRE(ksnp.alleles().size() == 2);
-                  CHECK(ksnp.alleles()[0] == "G");
-                  CHECK(ksnp.alleles()[1] == "C");
-                  REQUIRE(ksnp.frequencies().size() == 2);
-                  CHECK(ksnp.frequencies()[0] == 0.125);
-                  CHECK(ksnp.frequencies()[1] == 0.250);
+                  REQUIRE(ksnp.alleles().size() == 3);
+                  CHECK(ksnp.alleles()[1] == "G");
+                  CHECK(ksnp.alleles()[2] == "C");
+                  REQUIRE(ksnp.frequencies().size() == 3);
+                  CHECK(ksnp.frequencies()[1] == 0.125);
+                  CHECK(ksnp.frequencies()[2] == 0.250);
                   CHECK(ksnp.pos() == 15);
 
                   CHECK(ksnp.next() == true);

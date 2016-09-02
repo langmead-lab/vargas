@@ -16,6 +16,7 @@
 #include <map>
 #include <fstream>
 #include "graph.h"
+#include "varfile.h"
 
 namespace Vargas {
 
@@ -36,9 +37,8 @@ namespace Vargas {
    * "~a:d=5" # Choose 5 samples from the complement population of 'a'
    * "a:~e=5" # Invalid, complement graphs are implicit and cannot be directly defined.
    * @endcode
-   * The assignment can also be suffixed with 't', to select the top n SNPs from a KSNP file.
    * @code{.unparsed}
-   * "a=10t" # Use the top 10 SNPs (KSNP file) OR first 10 haplotypes (VCF File)
+   * "a=10t" # Use the first 10 haplotypes (VCF File)
    * @endcode
    *
    * The following labels are reserved:
@@ -50,16 +50,11 @@ namespace Vargas {
    * GDEF file format:
    * @code{.unparsed}
    * @gdef[:TYPE]
-   * ref=REFERENCE,var=VCF/KSNP,reg=REGION,nlen=NODE_LEN
+   * ref=REFERENCE,var=VCF,reg=REGION,nlen=NODE_LEN
    * label=POP_FILTER
    * ...
    * label=POP_FILTER
    * @endcode
-   * \n
-   * Where Type indicates the graph source type. Default "VCF". The other valid option is "KSNP". When
-   * in VCF mode, the filter corresponds to the sample and genotype. When in KSNP mode, the filter corresponds to the
-   * n'th SNP in the ksnp file. As a result, the node population for a SNP will have a size of the number of lines in
-   * the KSNP file, with 1 bit set.
    * Usage:
    * @code{.cpp}
    * #include <gdef.h>
@@ -85,8 +80,6 @@ namespace Vargas {
    */
   class GraphManager {
     public:
-
-      enum class VariantType { VCF, KSNP, UNDEF };
 
       GraphManager() {}
 
@@ -122,7 +115,7 @@ namespace Vargas {
        * @brief
        * Read a GDEF file from an input stream
        * @param in input stream
-       * @param build_base If true, build the base graph
+       * @param build_base If true, build the base graph.
        * @return true on success
        * @throws std::invalid_argument Invalid token or a duplicate definition
        * @throws std::range_error Filter length does not match the number of samples in the VCF file
@@ -210,7 +203,6 @@ namespace Vargas {
        * Parse a defintion string a write a GDEF file. Also loads the generated file.
        * @param ref_file Reference file name
        * @param variant_file Variant file name
-       * @param vartype Type of variant source
        * @param region Region in the format 'CHR:MIN-MAX'
        * @param defs subgraph definition string
        * @param node_len maximum graph node length.
@@ -221,7 +213,6 @@ namespace Vargas {
        */
       bool write(std::string ref_file,
                  std::string variant_file,
-                 VariantType vartype,
                  std::string region,
                  const std::string &defs,
                  int node_len,
@@ -233,7 +224,6 @@ namespace Vargas {
        * Parse a defintion string a write a GDEF file. Also loads the generated file.
        * @param ref_file Reference file name
        * @param variant_file Variant file name
-       * @param vartype Type of variant source
        * @param region Region in the format 'CHR:MIN-MAX'
        * @param defs subgraph definition string
        * @param node_len maximum graph node length.
@@ -244,7 +234,6 @@ namespace Vargas {
        */
       bool write(std::string ref_file,
                  std::string variant_file,
-                 VariantType vartype,
                  std::string region,
                  std::string defs,
                  int node_len,
@@ -269,7 +258,7 @@ namespace Vargas {
                           std::string defs,
                           int max_node_len,
                           std::ostream &out) {
-          return write(ref_file, vcf_file, VariantType::VCF, region, defs, max_node_len, out, true);
+          return write(ref_file, vcf_file, region, defs, max_node_len, out, true);
       }
 
       /**
@@ -289,47 +278,7 @@ namespace Vargas {
                           std::string defs,
                           int max_node_len,
                           std::string out) {
-          return write(ref_file, vcf_file, VariantType::VCF, region, defs, max_node_len, out, true);
-      }
-
-      /**
-        * @brief
-        * Parse a defintion string a write a GDEF file. Also loads the generated file.
-        * @param ref_file Reference file name
-        * @param ksnp_file Variant file name
-        * @param region Region in the format 'CHR:MIN-MAX'
-        * @param defs subgraph definition string
-        * @param max_node_len maximum graph node length.
-        * @param out output file name
-        * @return true on success
-        */
-      bool write_from_ksnp(std::string ref_file,
-                           std::string ksnp_file,
-                           std::string region,
-                           std::string defs,
-                           int max_node_len,
-                           std::string out) {
-          return write(ref_file, ksnp_file, VariantType::KSNP, region, defs, max_node_len, out, true);
-      }
-
-      /**
-        * @brief
-        * Parse a defintion string a write a GDEF file. Also loads the generated file.
-        * @param ref_file Reference file name
-        * @param ksnp_file Variant file name
-        * @param region Region in the format 'CHR:MIN-MAX'
-        * @param defs subgraph definition string
-        * @param max_node_len maximum graph node length.
-        * @param out output stream
-        * @return true on success
-        */
-      bool write_from_ksnp(std::string ref_file,
-                           std::string ksnp_file,
-                           std::string region,
-                           std::string defs,
-                           int max_node_len,
-                           std::ostream &out) {
-          return write(ref_file, ksnp_file, VariantType::KSNP, region, defs, max_node_len, out, true);
+          return write(ref_file, vcf_file, region, defs, max_node_len, out, true);
       }
 
       /**
@@ -402,8 +351,6 @@ namespace Vargas {
       const std::string GDEF_BASEGRAPH = "BASE";
       const std::string GDEF_REFGRAPH = "REF";
       const std::string GDEF_MAXAFGRAPH = "MAXAF";
-      const std::string VCF_TYPE = "VCF";
-      const std::string KSNP_TYPE = "KSNP";
       const char GDEF_NEGATE = '~';
       const char GDEF_SCOPE = ':';
       const char GDEF_ASSIGN = '=';
@@ -413,15 +360,12 @@ namespace Vargas {
 
       /**
        * When using a VCF file, the mapped population is the length of the # of genotypes.
-       * When using a KSNP file, the length of the population is the number of snps in a KSNP file.
        */
       std::unordered_map<std::string, Graph::Population> _subgraph_filters;
       std::unordered_map<std::string, std::shared_ptr<const Graph>> _subgraphs;
 
       std::string _ref_file, _variant_file, _region;
       int _node_len;
-
-      VariantType _type = VariantType::VCF; // Default assumption is a VCF file
 
       inline bool _ends_with(std::string const &fullString,
                              std::string const &ending) {
@@ -430,6 +374,118 @@ namespace Vargas {
           else return false;
       }
 
+  };
+
+  class KSNPManager {
+    public:
+      KSNPManager() {}
+
+      KSNPManager(const std::string &ref_file, const std::string &var_file) {
+          open(ref_file, var_file);
+      }
+
+      KSNPManager(const std::string &ref_file,
+                  const std::string &var_file,
+                  const std::string &sorting,
+                  const std::string sorting_name = "") {
+          open(ref_file, var_file, sorting, sorting_name);
+      }
+
+      void close() {
+          _id_line_map.clear();
+          _ref_file = _var_file = "";
+          _sortings.clear();
+          _graphs.clear();
+      }
+
+      void open(std::string const &ref_file, std::string const &var_file) {
+          close();
+          _var_file = var_file;
+          _ref_file = ref_file;
+          std::ifstream in(_var_file);
+          if (!in.good()) throw std::invalid_argument("Error opening file: \"" + var_file + "\"");
+
+          std::string line;
+          std::string orig_sort = "";
+          while (std::getline(in, line)) {
+              KSNP::ksnp_record rec(line);
+              if (_id_line_map.count(rec.id[0])) throw std::invalid_argument("Duplicate ID: " + rec.id[0]);
+              _id_line_map[rec.id[0]] = line;
+              orig_sort += rec.id[0] + ',';
+          }
+          _sortings["BASE"] = split(orig_sort.substr(0, orig_sort.length() - 1), ',');
+      }
+
+      void add_sorting(std::string sort_str, std::string sorting_name) {
+          std::replace_if(sort_str.begin(), sort_str.end(), isspace, ',');
+          if (_sortings.count(sorting_name)) throw std::invalid_argument("Sorting label \"" + sorting_name + "exists.");
+          _sortings[sorting_name] = split(sort_str, ',');
+      }
+
+      void add_sorting_file(std::string const &sort_file, std::string sorting_name = "") {
+          if (sorting_name == "") sorting_name = sort_file;
+          std::string sort_str;
+          {
+              std::ifstream sort_in(sort_file);
+              if (!sort_in.good()) throw std::invalid_argument("Error opening file \"" + sort_file + "\"");
+              std::stringstream ss;
+              ss << sort_in.rdbuf();
+              sort_str = ss.str();
+          }
+          add_sorting(sort_str, sorting_name);
+      }
+
+
+      void open(std::string const &ref_file,
+                std::string const &var_file,
+                std::string const &sorting,
+                std::string sorting_name = "") {
+          open(ref_file, var_file);
+          add_sorting(sorting, sorting_name);
+      }
+
+      std::shared_ptr<const Graph> make_subgraph(std::string sorting_name = "BASE",
+                                                 int limit = 0) {
+          const std::string label = sorting_name + std::to_string(limit);
+          if (_graphs.count(label)) return _graphs[label];
+
+          if (_sortings.count(sorting_name) == 0)
+              throw std::invalid_argument("Sorting name does not exist: " + sorting_name);
+          std::stringstream ordered;
+          for (const auto i : _sortings[sorting_name]) {
+              if (!_id_line_map.count(i)) throw std::invalid_argument("ID does not exist: " + i);
+              ordered << _id_line_map.at(i) << '\n';
+          }
+          ordered.seekg(0);
+          #pragma omp critical(KSNP_build)
+          {
+              GraphBuilder gb(_ref_file);
+              gb.open_ksnp(ordered, limit);
+              gb.region(_region);
+              gb.node_len(_node_len);
+              _graphs[label] = std::make_shared<const Graph>(gb.build());
+          }
+          return _graphs[label];
+      }
+
+      std::shared_ptr<const Graph> subgraph(std::string const &label) const {
+          return _graphs.at(label);
+      }
+
+      void region(const std::string &region) {
+          _region = region;
+      }
+
+      void node_len(int node_len) {
+          _node_len = node_len;
+      }
+
+    private:
+      std::string _ref_file, _var_file, _region;
+      int _node_len = 100000;
+      std::unordered_map<std::string, std::vector<std::string>> _sortings; // Sorting name : vec of ID's
+      std::unordered_map<std::string, std::string> _id_line_map; // SNP ID : line from file
+      std::unordered_map<std::string, std::shared_ptr<const Graph>> _graphs;
   };
 
 }
@@ -532,45 +588,42 @@ TEST_CASE ("Graph Manager") {
         }
 
             SUBCASE("KSNP") {
-            std::string tmpksnp = "tmp_tc.ksnp";
+            const std::string tmpksnp = "tmp_tc.ksnp";
+            const std::string sort1 = "rs9609408,rs557479846,rs562028339,rs569928668,rs138497313";
+            const std::string sort2 = "rs2899171,rs60683537\nrs138497313\trs79667666\n";
 
-            // Write temp VCF file
             {
                 std::ofstream ko(tmpksnp);
                 ko
-                    << "22      10        T       G       0.125   99      1       rs79667666\n"
-                    << "22      15        T       G       0.125   99      2       rs577223570\n"
-                    << "22      20        A       G       0.125   99      1       rs560440826\n"
-                    << "22      25        A       A       0.125   99      1       rs542836275\n"
-                    << "22      30        T       A       0.125   99      1       rs2899171\n"
-                    << "22      35        A       C       0.375   99      1       rs531500837\n"
-                    << "22      40        T       G       0.625   99      1       rs60683537\n"
-                    << "22      12        G       T       0.125   99      1       rs527731052\n"
-                    << "22      13        G       T       0.125   99      1       rs536519999\n"
-                    << "22      14        G       G       0.125   99      1       rs138497313\n"
-                    << "22      15        T       C       0.250   99      2       rs569928668\n"
-                    << "22      16        G       A       0.125   99      1       rs562028339\n" // Line 12
-                    << "22      17        A       A       0.625   99      1       rs557479846\n"
-                    << "22      18        A       G       0.125   99      1       rs9609408\n";
+                    << "x      10        C       G       0.125   99      1       rs79667666\n"
+                    << "x      15        A       G       0.125   99      2       rs577223570\n"
+                    << "x      20        T       G       0.125   99      1       rs560440826\n"
+                    << "x      25        G       A       0.125   99      1       rs542836275\n"
+                    << "x      30        C       A       0.125   99      1       rs2899171\n"
+                    << "x      35        A       C       0.375   99      1       rs531500837\n"
+                    << "x      40        C       G       0.625   99      1       rs60683537\n"
+                    << "x      12        T       C       0.125   99      1       rs527731052\n"
+                    << "x      13        G       T       0.125   99      1       rs536519999\n"
+                    << "x      14        G       A       0.125   99      1       rs138497313\n"
+                    << "x      15        A       C       0.250   99      2       rs569928668\n"
+                    << "x      16        A       C       0.125   99      1       rs562028339\n" // Line 12
+                    << "x      17        A       T       0.625   99      1       rs557479846\n"
+                    << "x      18        T       G       0.125   99      1       rs9609408\n";
+
             }
 
-            Vargas::GraphManager gm;
-            std::stringstream ss;
-            gm.write_from_ksnp(tmpfa, tmpksnp, "x:0-10", "a=1;b=2;c=1t", 10000, ss);
-            gm.open(ss);
+            Vargas::KSNPManager ksnp(tmpfa, tmpksnp);
+            ksnp.region("x:12-18");
+            ksnp.add_sorting(sort1, "A");
+            ksnp.add_sorting(sort2, "B");
 
-                CHECK(gm.filter("a").count() == 1);
-                CHECK(gm.filter("b").count() == 2);
-                CHECK(gm.filter("c").count() == 1);
-                CHECK(gm.filter("c").at(0) == 1);
-                REQUIRE(gm.filter("c").size() == 14);
-            for (int i = 1; i < 14; ++i) {
-                    CHECK(gm.filter("c").at(i) == 0);
-            }
+            auto g = ksnp.make_subgraph("A");
 
+            g->to_DOT("t.dot", "x");
 
             remove(tmpksnp.c_str());
         }
+
     }
 
     remove(tmpfa.c_str());

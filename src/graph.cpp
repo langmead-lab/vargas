@@ -213,7 +213,7 @@ void Vargas::GraphBuilder::build(Vargas::Graph &g) {
             if (allele == vf.ref()) continue; // Remove duplicate nodes, REF is substituted in for unknown tags
             auto allele_split = _split_seq(allele);
             Graph::Population pop(vf.allele_pop(allele));
-            if (pop && all_pop) { // Only add if someone has the allele
+            if (g.pop_size() == 1 || (pop && all_pop)) { // Only add if someone has the allele. == 1 for KSNP
                 {
                     Graph::Node n;
                     n.set_endpos(curr - 1);

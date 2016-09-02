@@ -880,21 +880,45 @@ namespace Vargas {
        */
       void node_len(int max) { _max_node_len = max; }
 
-      void open_vcf(std::string const &file_name) {
+      /**
+       * Open the given file
+       * @param file_name
+       * @return Number of samples
+       */
+      int open_vcf(std::string const &file_name) {
           _vf.reset();
           _vf = std::unique_ptr<VariantFile>(new VCF(file_name));
           if (!_vf->good()) throw std::invalid_argument("Invalid VCF/BCF file: \"" + file_name + "\"");
+          return _vf->num_samples();
       }
 
-      void open_bcf(std::string const &file_name) {
-          open_vcf(file_name);
+      /**
+       * Open the given file
+       * @param file_name
+       * @return Number of samples
+       */
+      int open_bcf(std::string const &file_name) {
+          return open_vcf(file_name);
       }
 
-      void open_ksnp(std::string const &file_name,
+      /**
+       * Open the given file
+       * @param file_name
+       * @return Number of samples
+       */
+      int open_ksnp(std::string const &file_name,
                      const int limit = 0) {
           _vf.reset();
           _vf = std::unique_ptr<VariantFile>(new KSNP(file_name, limit));
           if (!_vf->good()) throw std::invalid_argument("Invalid KSNP file: \"" + file_name + "\"");
+          return _vf->num_samples();
+      }
+
+      int open_ksnp(std::istream &in, const int limit = 0) {
+          _vf.reset();
+          _vf = std::unique_ptr<VariantFile>(new KSNP(in, limit));
+          if (!_vf->good()) throw std::invalid_argument("Invalid KSNP stream");
+          return _vf->num_samples();
       }
 
       /**

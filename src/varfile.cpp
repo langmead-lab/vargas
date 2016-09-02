@@ -214,8 +214,8 @@ void Vargas::KSNP::open(std::istream &in, int const top_n) {
         ++counter;
         if (top_n > 0 && counter == top_n) break;
     }
+    _snps[0] += ksnp_record{}; // Dummy begin pad so we don't skip first one when using while(next()) {} loop
     _curr_iter = _snps.begin();
-    _curr_iter_idx = 0;
 
     for (const auto &r : _snps) {
         _all_sample_ids.insert(_all_sample_ids.end(), r.second.id.begin(), r.second.id.end());
@@ -226,7 +226,9 @@ void Vargas::KSNP::open(std::istream &in, int const top_n) {
 bool Vargas::KSNP::next() {
     if (_curr_iter == _snps.end()) return false;
     ++_curr_iter;
-    ++_curr_iter_idx;
     if (_curr_iter == _snps.end()) return false;
-    return true;
+    if ((_max_pos > 0 && _curr_iter->second.pos > _max_pos)
+        || (_min_pos >= 0 && _curr_iter->second.pos < _min_pos))
+        return next();
+    else return true;
 }

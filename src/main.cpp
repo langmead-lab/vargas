@@ -94,20 +94,15 @@ int define_main(const int argc, const char *argv[]) {
         dot_file = "";
 
     int node_len = 1000000;
-    Vargas::GraphManager::VariantType vtype = Vargas::GraphManager::VariantType::UNDEF;
 
     args >> GetOpt::Option('f', "fasta", fasta_file)
          >> GetOpt::Option('g', "region", region)
          >> GetOpt::Option('l', "nodelen", node_len)
          >> GetOpt::Option('s', "subgraph", subgraph_def)
          >> GetOpt::Option('t', "out", out_file)
-         >> GetOpt::Option('d', "dot", dot_file);
+         >> GetOpt::Option('d', "dot", dot_file)
+         >> GetOpt::Option('v', "vcf", varfile);
 
-    if (args >> GetOpt::Option('v', "vcf", varfile) == args >> GetOpt::Option('k', "ksnp", varfile)) {
-        throw std::invalid_argument("Only one of -v or -k should be defined.");
-        if (args >> GetOpt::OptionPresent('v', "vcf")) vtype = Vargas::GraphManager::VariantType::VCF;
-        else vtype = Vargas::GraphManager::VariantType::KSNP;
-    }
 
     std::string subgraph_str = "";
 
@@ -123,7 +118,7 @@ int define_main(const int argc, const char *argv[]) {
     }
 
     Vargas::GraphManager gm;
-    gm.write(fasta_file, varfile, vtype, region, subgraph_str, node_len, out_file);
+    gm.write(fasta_file, varfile, region, subgraph_str, node_len, out_file);
     if (dot_file.length() > 0) gm.to_DOT(dot_file, "subgraphs");
 
     std::cerr << gm.size() << " subgraph definitions generated." << std::endl;
