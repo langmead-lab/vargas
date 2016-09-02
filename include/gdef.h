@@ -604,7 +604,7 @@ TEST_CASE ("Graph Manager") {
                     << "x      40        C       G       0.625   99      1       rs60683537\n"
                     << "x      12        T       C       0.125   99      1       rs527731052\n"
                     << "x      13        G       T       0.125   99      1       rs536519999\n"
-                    << "x      14        G       A       0.125   99      1       rs138497313\n"
+                    << "x      14        A       G       0.125   99      1       rs138497313\n"
                     << "x      15        A       C       0.250   99      2       rs569928668\n"
                     << "x      16        A       C       0.125   99      1       rs562028339\n" // Line 12
                     << "x      17        A       T       0.625   99      1       rs557479846\n"
@@ -617,9 +617,47 @@ TEST_CASE ("Graph Manager") {
             ksnp.add_sorting(sort1, "A");
             ksnp.add_sorting(sort2, "B");
 
-            auto g = ksnp.make_subgraph("A");
+            {
+                auto g = ksnp.make_subgraph("B");
+                auto iter = g->begin();
+                    CHECK(iter->seq_str() == "GG");
+                    CHECK(iter->is_ref() == true);
+                ++iter;
+                    CHECK(iter->seq_str() == "A");
+                    CHECK(iter->is_ref() == true);
+                ++iter;
+                    CHECK(iter->seq_str() == "G");
+                    CHECK(iter->is_ref() == false);
+                ++iter;
+                    CHECK(iter->seq_str() == "AAT");
+                ++iter;
+                    CHECK(iter == g->end());
+            }
 
-            g->to_DOT("t.dot", "x");
+            {
+                auto g = ksnp.make_subgraph("A", 2);
+                auto iter = g->begin();
+
+                    CHECK(iter->seq_str() == "GGAAA");
+                    CHECK(iter->is_ref() == true);
+                ++iter;
+                    CHECK(iter->seq_str() == "A");
+                    CHECK(iter->is_ref() == true);
+                ++iter;
+                    CHECK(iter->seq_str() == "T");
+                    CHECK(iter->is_ref() == false);
+                ++iter;
+                    CHECK(iter->seq_str() == "T");
+                    CHECK(iter->is_ref() == true);
+                ++iter;
+                    CHECK(iter->seq_str() == "G");
+                    CHECK(iter->is_ref() == false);
+                ++iter;
+                    CHECK(iter->seq_str() == "T");
+                    CHECK(iter->is_ref() == true);
+                ++iter;
+                    CHECK(iter == g->end());
+            }
 
             remove(tmpksnp.c_str());
         }
