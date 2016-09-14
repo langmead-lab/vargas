@@ -123,7 +123,7 @@ namespace Vargas {
        * Default constructor indicates whole graph
        */
       struct GID {
-          GID() : num(100), id(0), pct(true), outgroup(false) { }
+          GID() : num(100), id(0), pct(true), outgroup(false) {}
 
           /**
            * @brief
@@ -180,10 +180,10 @@ namespace Vargas {
        */
       enum Type {
           TOPO, /**< Use a topographical ordering.*/
-              REF, /**< Only include reference nodes. */
-              MAXAF, /**< Keep the node with the highest AF at each branch. */
-              FILTER, /**< Use a given Population filter. */
-              END  /**< End iterator. */
+          REF, /**< Only include reference nodes. */
+          MAXAF, /**< Keep the node with the highest AF at each branch. */
+          FILTER, /**< Use a given Population filter. */
+          END  /**< End iterator. */
       };
 
       /**
@@ -200,14 +200,14 @@ namespace Vargas {
            * @brief
            * Make new node, and assign a unique ID.
            */
-          Node() : _id(_newID++) { }
+          Node() : _id(_newID++) {}
 
           Node(int pos,
                const std::string &seq,
                const Population &pop,
                bool ref,
                float af) :
-              _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) { }
+              _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) {}
 
           /**
            * @return length of the sequence
@@ -444,7 +444,7 @@ namespace Vargas {
        * Default constructor inits a new Graph, including a new node map.
        */
       Graph() : _IDMap(std::make_shared<std::unordered_map<uint32_t, nodeptr>>(std::unordered_map<uint32_t,
-                                                                                                  nodeptr>())) { }
+                                                                                                  nodeptr>())) {}
 
       /**
        * @brief
@@ -629,7 +629,7 @@ namespace Vargas {
            * @ param g Graph
            */
           explicit FilteringIter(const Graph &g) :
-              _graph(g), _type(TOPO), _currID(0) { }
+              _graph(g), _type(TOPO), _currID(0) {}
 
           /**
            * @brief
@@ -640,7 +640,7 @@ namespace Vargas {
            * the Node is returned.
            */
           explicit FilteringIter(const Graph &g, const Population &filter) :
-              _graph(g), _filter(filter), _type(FILTER), _currID(g._root) { }
+              _graph(g), _filter(filter), _type(FILTER), _currID(g._root) {}
 
           /**
            * @brief
@@ -892,6 +892,23 @@ namespace Vargas {
           return _vf->num_samples();
       }
 
+      int add_sample_filter(std::string filter, bool invert = false) {
+          if (!_vf) throw std::invalid_argument("No VCF file opened, cannot add filter.");
+          std::vector<std::string> filt;
+          filter.erase(std::remove_if(filter.begin(), filter.end(), isspace), filter.end());
+          if (invert) {
+              const auto s = _vf->samples();
+              auto vcf_samples = std::unordered_set<std::string>(s.begin(), s.end());
+              const auto filter_samples = split(filter, ',');
+              for (const auto &f : filter_samples) vcf_samples.erase(f);
+              filt = std::vector<std::string>(vcf_samples.begin(), vcf_samples.end());
+          } else {
+              split(filter, ',', filt);
+          }
+          _vf->create_ingroup(filt);
+          return _vf->num_samples();
+      }
+
       /**
        * Open the given file
        * @param file_name
@@ -907,7 +924,7 @@ namespace Vargas {
        * @return Number of samples
        */
       int open_ksnp(std::string const &file_name,
-                     const int limit = 0) {
+                    const int limit = 0) {
           _vf.reset();
           _vf = std::unique_ptr<VariantFile>(new KSNP(file_name, limit));
           if (!_vf->good()) throw std::invalid_argument("Invalid KSNP file: \"" + file_name + "\"");
@@ -1432,6 +1449,106 @@ TEST_CASE ("Graph Builder") {
             ++iter;
                 CHECK((*iter).seq_str() == "CC");
 
+        }
+
+            SUBCASE("Sample filtering") {
+            Vargas::GraphBuilder gb(tmpfa);
+                CHECK_THROWS(gb.add_sample_filter("-"));
+            gb.open_vcf(tmpvcf);
+            gb.node_len(5);
+            gb.region("x:0-15");
+
+                SUBCASE("No inversion") {
+                gb.add_sample_filter("s1");
+                auto g = gb.build();
+
+                auto giter = g.begin();
+                    CHECK((*giter).seq_str() == "CAAAT");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "AAG");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "G");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "A");
+
+            }
+
+                SUBCASE("No inversion 2") {
+                gb.add_sample_filter("s2");
+                auto g = gb.build();
+
+                auto giter = g.begin();
+                    CHECK((*giter).seq_str() == "CAAAT");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "AAG");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "G");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "C");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "T");
+            }
+
+                SUBCASE("Inversion") {
+                gb.add_sample_filter("s2", true);
+                auto g = gb.build();
+
+                auto giter = g.begin();
+                    CHECK((*giter).seq_str() == "CAAAT");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "AAG");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "G");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "A");
+
+            }
+
+                SUBCASE("Inversion 2") {
+                gb.add_sample_filter("s1", true);
+                auto g = gb.build();
+
+                auto giter = g.begin();
+                    CHECK((*giter).seq_str() == "CAAAT");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "AAG");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "G");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "C");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "T");
+            }
         }
 
     }

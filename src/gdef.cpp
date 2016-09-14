@@ -52,6 +52,8 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
             else if (tag == GDEF_VAR) _variant_file = val;
             else if (tag == GDEF_REGION) _region = val;
             else if (tag == GDEF_NODELEN) _node_len = std::stoi(val);
+            else if (tag == GDEF_SAMPLE_FILTER) _sample_filter = val;
+            else if (tag == GDEF_NEGATE_FILTER) _invert_filter = val == "1";
         }
     }
 
@@ -59,8 +61,11 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
     int nsamps;
     {
         GraphBuilder gb(_ref_file);
-
         nsamps = gb.open_vcf(_variant_file);
+        if (_sample_filter != "-") {
+            nsamps = gb.add_sample_filter(_sample_filter, _invert_filter);
+        }
+
 
         gb.region(_region);
         gb.node_len(_node_len);
@@ -196,7 +201,8 @@ bool Vargas::GraphManager::write(std::string ref_file,
         + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM
         + GDEF_VAR + GDEF_ASSIGN + variant_file + GDEF_DELIM
         + GDEF_REGION + GDEF_ASSIGN + region + GDEF_DELIM
-        + GDEF_NODELEN + GDEF_ASSIGN + std::to_string(node_len) + '\n';
+        + GDEF_NODELEN + GDEF_ASSIGN + std::to_string(node_len)
+        + GDEF_SAMPLE_FILTER + _sample_filter + '\n';
 
     // Replace new lines with the delim, remove any spaces
     std::replace(defs_str.begin(), defs_str.end(), '\n', GDEF_DELIM);

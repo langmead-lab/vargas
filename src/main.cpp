@@ -91,7 +91,10 @@ int define_main(const int argc, const char *argv[]) {
         region = "",
         subgraph_def = "",
         out_file = "",
-        dot_file = "";
+        dot_file = "",
+        sample_filter = "";
+
+    bool invert_filter = false;
 
     int node_len = 1000000;
 
@@ -101,7 +104,9 @@ int define_main(const int argc, const char *argv[]) {
          >> GetOpt::Option('s', "subgraph", subgraph_def)
          >> GetOpt::Option('t', "out", out_file)
          >> GetOpt::Option('d', "dot", dot_file)
-         >> GetOpt::Option('v', "vcf", varfile);
+         >> GetOpt::Option('v', "vcf", varfile)
+         >> GetOpt::Option('p', "filter", sample_filter)
+         >> GetOpt::OptionPresent('x', "invert", invert_filter);
 
 
     std::string subgraph_str = "";
@@ -118,6 +123,7 @@ int define_main(const int argc, const char *argv[]) {
     }
 
     Vargas::GraphManager gm;
+    gm.set_filter(sample_filter, invert_filter);
     gm.write(fasta_file, varfile, region, subgraph_str, node_len, out_file);
     if (dot_file.length() > 0) gm.to_DOT(dot_file, "subgraphs");
 
@@ -845,8 +851,9 @@ void define_help() {
          << "-------------------- Vargas define, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
     cerr << "-f\t--fasta         *<string> Reference filename.\n";
     cerr << "-v\t--vcf           <string> VCF or BCF file.\n";
-    cerr << "-k\t--ksnp          <string> KSNP File. Only one of -v or -k should be defined.\n";
     cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX.\n";
+    cerr << "-p\t--filter        <string> Filename of sample filter.\n";
+    cerr << "-x\t--invert        Invert sample filter.\n";
     cerr << "-l\t--nodelen       <int> Max node length, default 1,000,000\n";
     cerr << "-s\t--subgraph      *<string> Subgraph definition file. Default stdin.\n";
     cerr << "-t\t--out           <string> Output file, default stdout.\n";

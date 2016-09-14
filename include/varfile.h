@@ -112,6 +112,10 @@ namespace Vargas {
           return _chr;
       }
 
+      virtual void create_ingroup(const std::vector<std::string> &) {
+          throw std::invalid_argument("No default impl.");
+      };
+
       /**
        * @brief
        * Load the next VCF record. All information is unpacked,
@@ -583,7 +587,7 @@ namespace Vargas {
        * Include only the provided sample names in the Graph.
        * @param samples vector of sample names
        */
-      void create_ingroup(const std::vector<std::string> &samples) {
+      void create_ingroup(const std::vector<std::string> &samples) override {
           _ingroup = samples;
           _apply_ingroup_filter();
       }
@@ -736,6 +740,10 @@ namespace Vargas {
        * @return true if SNP was updated.
        */
       bool next() override;
+
+      void create_ingroup(const std::vector<std::string>) {
+          throw std::invalid_argument("No ingroup notion in KSNP file.");
+      }
 
       bool good() override {
           return _curr_iter != _snps.end();

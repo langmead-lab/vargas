@@ -200,6 +200,24 @@ namespace Vargas {
 
       /**
        * @brief
+       * Limit samples used from VCF.
+       * @param filter list of sample names to include
+       */
+      void set_filter(std::string filter, bool invert = false) {
+          if (filter.length() == 0) filter = "-";
+          else {
+              filter.erase(std::remove_if(filter.begin(), filter.end(), isspace), filter.end());
+          }
+          _sample_filter = filter;
+          _invert_filter = invert;
+      }
+
+      void clear_filter() {
+          _sample_filter = "-";
+      }
+
+      /**
+       * @brief
        * Parse a defintion string a write a GDEF file. Also loads the generated file.
        * @param ref_file Reference file name
        * @param variant_file Variant file name
@@ -351,6 +369,8 @@ namespace Vargas {
       const std::string GDEF_BASEGRAPH = "BASE";
       const std::string GDEF_REFGRAPH = "REF";
       const std::string GDEF_MAXAFGRAPH = "MAXAF";
+      const std::string GDEF_SAMPLE_FILTER = "FILTER";
+      const std::string GDEF_NEGATE_FILTER = "INVERT";
       const char GDEF_NEGATE = '~';
       const char GDEF_SCOPE = ':';
       const char GDEF_ASSIGN = '=';
@@ -364,7 +384,8 @@ namespace Vargas {
       std::unordered_map<std::string, Graph::Population> _subgraph_filters;
       std::unordered_map<std::string, std::shared_ptr<const Graph>> _subgraphs;
 
-      std::string _ref_file, _variant_file, _region;
+      std::string _ref_file, _variant_file, _region, _sample_filter = "-";
+      bool _invert_filter;
       int _node_len;
 
       inline bool _ends_with(std::string const &fullString,
