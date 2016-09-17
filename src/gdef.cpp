@@ -201,8 +201,19 @@ bool Vargas::GraphManager::write(std::string ref_file,
         + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM
         + GDEF_VAR + GDEF_ASSIGN + variant_file + GDEF_DELIM
         + GDEF_REGION + GDEF_ASSIGN + region + GDEF_DELIM
-        + GDEF_NODELEN + GDEF_ASSIGN + std::to_string(node_len)
-        + GDEF_SAMPLE_FILTER + _sample_filter + '\n';
+        + GDEF_NODELEN + GDEF_ASSIGN + std::to_string(node_len) + GDEF_DELIM
+        + GDEF_SAMPLE_FILTER + GDEF_ASSIGN;
+
+    if (_sample_filter != "-") {
+        std::ifstream sfil(_sample_filter);
+        if (!sfil.good()) throw std::invalid_argument("Error opening sample filter file: " + _sample_filter);
+        std::stringstream ss;
+        ss << sfil.rdbuf();
+        out_str += ss.str();
+    } else {
+        out_str += _sample_filter;
+    }
+    out_str += '\n';
 
     // Replace new lines with the delim, remove any spaces
     std::replace(defs_str.begin(), defs_str.end(), '\n', GDEF_DELIM);
