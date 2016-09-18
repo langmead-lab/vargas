@@ -94,7 +94,7 @@ int define_main(const int argc, const char *argv[]) {
         dot_file = "",
         sample_filter = "";
 
-    bool invert_filter = false;
+    bool invert_filter = false, build_base = false;
 
     int node_len = 1000000;
 
@@ -106,7 +106,8 @@ int define_main(const int argc, const char *argv[]) {
          >> GetOpt::Option('d', "dot", dot_file)
          >> GetOpt::Option('v', "vcf", varfile)
          >> GetOpt::Option('p', "filter", sample_filter)
-         >> GetOpt::OptionPresent('x', "invert", invert_filter);
+         >> GetOpt::OptionPresent('x', "invert", invert_filter)
+         >> GetOpt::OptionPresent('b', "base", build_base);
 
 
     std::string subgraph_str = "";
@@ -123,8 +124,15 @@ int define_main(const int argc, const char *argv[]) {
     }
 
     Vargas::GraphManager gm;
+    if (sample_filter.length()) {
+        std::ifstream in(sample_filter);
+        if (!in.good()) throw std::invalid_argument("Error opening file: \"" + sample_filter + "\"");
+        std::stringstream ss;
+        ss << in.rdbuf();
+        sample_filter = ss.str();
+    }
     gm.set_filter(sample_filter, invert_filter);
-    gm.write(fasta_file, varfile, region, subgraph_str, node_len, out_file);
+    gm.write(fasta_file, varfile, region, subgraph_str, node_len, out_file, build_base);
     if (dot_file.length() > 0) gm.to_DOT(dot_file, "subgraphs");
 
     std::cerr << gm.size() << " subgraph definitions generated." << std::endl;
@@ -857,7 +865,8 @@ void define_help() {
     cerr << "-l\t--nodelen       <int> Max node length, default 1,000,000\n";
     cerr << "-s\t--subgraph      *<string> Subgraph definition file. Default stdin.\n";
     cerr << "-t\t--out           <string> Output file, default stdout.\n";
-    cerr << "-d\t--dot           <string> Output DOT graph to file.\n" << endl;
+    cerr << "-d\t--dot           <string> Output DOT graph to file.\n";
+    cerr << "-b\t--base          Build base graph, used for debugging.\n" << endl;
 
     cerr << "Subgraphs are defined using the format \"label=N[%]\".\n"
          << "\'N\' is the number of samples / percentage of samples selected.\n"

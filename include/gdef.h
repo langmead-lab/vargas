@@ -206,7 +206,10 @@ namespace Vargas {
       void set_filter(std::string filter, bool invert = false) {
           if (filter.length() == 0) filter = "-";
           else {
-              filter.erase(std::remove_if(filter.begin(), filter.end(), isspace), filter.end());
+              filter.erase(std::unique(filter.begin(), filter.end(),
+                                       [](const char &l, const char &r) { return std::isspace(l) && std::isspace(r); }),
+                           filter.end());
+              std::replace_if(filter.begin(), filter.end(), isspace, ',');
           }
           _sample_filter = filter;
           _invert_filter = invert;

@@ -85,7 +85,8 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
             }
 
             if (p_pair[1].length() != nsamps)
-                throw std::range_error("Population length does not match variant file: \"" + p_pair[0] + "\"");
+                throw std::range_error("Population length does not match variant file: \"" + p_pair[0] + "\","
+                    " expected " + std::to_string(nsamps) + " got " + std::to_string(p_pair[1].length()));
 
             pop.reset();
             for (size_t i = 0; i < p_pair[1].length(); ++i) {
@@ -195,25 +196,13 @@ bool Vargas::GraphManager::write(std::string ref_file,
                                  bool build_base,
                                  int nsamps) {
 
-    std::string out_str;
-
-    out_str = GDEF_FILE_MARKER + "\n"
+    std::string out_str = GDEF_FILE_MARKER + "\n"
         + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM
         + GDEF_VAR + GDEF_ASSIGN + variant_file + GDEF_DELIM
         + GDEF_REGION + GDEF_ASSIGN + region + GDEF_DELIM
         + GDEF_NODELEN + GDEF_ASSIGN + std::to_string(node_len) + GDEF_DELIM
-        + GDEF_SAMPLE_FILTER + GDEF_ASSIGN;
-
-    if (_sample_filter != "-") {
-        std::ifstream sfil(_sample_filter);
-        if (!sfil.good()) throw std::invalid_argument("Error opening sample filter file: " + _sample_filter);
-        std::stringstream ss;
-        ss << sfil.rdbuf();
-        out_str += ss.str();
-    } else {
-        out_str += _sample_filter;
-    }
-    out_str += '\n';
+        + GDEF_NEGATE_FILTER + GDEF_ASSIGN + (_invert_filter ? "1" : "0") + GDEF_DELIM
+        + GDEF_SAMPLE_FILTER + GDEF_ASSIGN + _sample_filter + '\n';
 
     // Replace new lines with the delim, remove any spaces
     std::replace(defs_str.begin(), defs_str.end(), '\n', GDEF_DELIM);
@@ -222,10 +211,9 @@ bool Vargas::GraphManager::write(std::string ref_file,
 
     // Get number of samples from VCF file
     if (nsamps == 0) {
-
-            VCF vf(variant_file);
-            if (!vf.good()) throw std::invalid_argument("Invalid VCF file \"" + variant_file + "\".");
-            nsamps = vf.num_samples();
+        GraphBuilder gb(ref_file);
+        gb.open_vcf(variant_file);
+        nsamps = gb.add_sample_filter(_sample_filter, _invert_filter);
     }
 
     std::unordered_map<std::string, Graph::Population> populations;

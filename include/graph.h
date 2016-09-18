@@ -894,6 +894,7 @@ namespace Vargas {
 
       int add_sample_filter(std::string filter, bool invert = false) {
           if (!_vf) throw std::invalid_argument("No VCF file opened, cannot add filter.");
+          if (filter.length() == 0 || filter == "-") return _vf->num_samples();
           std::vector<std::string> filt;
           filter.erase(std::remove_if(filter.begin(), filter.end(), isspace), filter.end());
           if (invert) {
