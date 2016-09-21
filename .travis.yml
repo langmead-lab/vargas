@@ -11,7 +11,7 @@ addons:
     - gcc-4.8
     - g++-4.8
 script:
-- cd htslib && autoconf && ./configure && make && cd ../
+- cd htslib && autoheader && autoconf && ./configure && make && cd ../
 - mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make && cd ../
 - bin/vargas test
 notifications:
