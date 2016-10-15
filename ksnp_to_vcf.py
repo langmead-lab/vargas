@@ -1,3 +1,9 @@
+'''
+Ravi Gaddipati
+
+Consumes a KSNP file and outputs a VCF file.
+'''
+
 import sys
 import pprint as pp
 
@@ -52,21 +58,23 @@ def main():
 	python ksnp_to_vcf.py snps.ksnp sortfile 1,2,4,8,16 output
 	'''
 
-	if (len(sys.argv) < 5):
+	if (len(sys.argv) < 2):
 		print("Format should be:")
-		print("python ksnp_to_vcf.py snps.ksnp sortfile 1,2,4,8,16 output")
+		print("python ksnp_to_vcf.py snps.ksnp [sortfile 1,2,4,8,16] output")
 		exit(1)
 
 	ksnp_file = sys.argv[1]
 	ksnp_sort = None
+	num_k = None
 
-	ksnp_sort = sys.argv[2]
+	if (len(sys.argv) == 5):
+		ksnp_sort = sys.argv[2]
+		num_k = sorted([int(i) for i in sys.argv[3].split(',')])
+		prefix = sys.argv[4]
+	elif (len(sys.argv) == 3):
+		prefix = sys.argv[2]
 
-	num_k = sorted([int(i) for i in sys.argv[3].split(',')])
-
-	prefix = sys.argv[4]
-
-	ksnps = load_ksnps(ksnp_file)
+	ksnps = load_ksnps(ksnp_file);
 
 	max_alts = 0
 	for k in ksnps:
@@ -74,8 +82,9 @@ def main():
 			max_alts = len(ksnps[k][1])
 
 	vcf_header = "##fileformat=VCFv4\n##KSNPFILE=" + ksnp_file 
-	vcf_header += "\n##KSNP_SORT=" + ksnp_sort + "\n##KSNP_NUM="
-	vcf_header += pp.pformat(num_k).replace('\n', '') + '\n'
+	if ksnp_sort is not None:
+		vcf_header += "\n##KSNP_SORT=" + ksnp_sort + "\n##KSNP_NUM="
+		vcf_header += pp.pformat(num_k).replace('\n', '') + '\n'
 	vcf_header += "##contig=<ID=" + CHROM + ",assembly=b37,length="+ CHROM_LEN + ">\n"
 	vcf_header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
 	vcf_header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n"
@@ -89,12 +98,18 @@ def main():
 
 	
 	sorting = []
-	with open(ksnp_sort, 'r') as file:
-		lines = file.readlines()[0]
-		sorting = [int(i) for i in lines.split(',')]
+	if ksnp_sort is None:
+		sorting = sorted([p for p in ksnps])
+		num_k = [len(sorting)]
+	else:
+		with open(ksnp_sort, 'r') as file:
+			lines = file.readlines()[0]
+			sorting = [int(i) for i in lines.split(',')]
 
 	rec_num = 0
 	file_core = {}
+	file_core_pos = sorted([p for p in ksnps])
+	
 	added_pos = set()
 	num_k_i = 0
 
@@ -110,15 +125,18 @@ def main():
 		rec_num += 1
 
 		if rec_num == num_k[num_k_i]:
-			with open(prefix + '_' + str(num_k[num_k_i]) + '.vcf', 'w') as o:
-				with open(prefix + '_' + str(num_k[num_k_i]) + '_out.vcf', 'w') as oout:
+			suffix = ""
+			if (len(num_k) > 1):
+				suffix = '_' + str(num_k[num_k_i])
+			with open(prefix + suffix + '.vcf', 'w') as o:
+				with open(prefix + suffix + '_out.vcf', 'w') as oout:
 					o.write(vcf_header)
 					oout.write(vcf_header)
-					for k in file_core:
-						if k in added_pos:
-							o.write(file_core[k] + '\n')
+					for p in file_core_pos:
+						if p in added_pos:
+							o.write(file_core[p] + '\n')
 						else:
-							oout.write(file_core[k] + '\n')
+							oout.write(file_core[p] + '\n')
 
 			if num_k_i == len(num_k) - 1:
 				exit(0) # Done
