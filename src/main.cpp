@@ -50,13 +50,15 @@ int main(const int argc, const char *argv[]) {
             }
             else if (!strcmp(argv[1], "split")) {
                 return split_main(argc, argv);
+            } else if (!strcmp(argv[1], "export")) {
+                return export_main(argc, argv);
             }
-            else if (!strcmp(argv[1], "convert")) {
-                return sam2csv(argc, argv);
-            }
-            else if (!strcmp(argv[1], "merge")) {
-                return merge_main(argc, argv);
-            }
+//            else if (!strcmp(argv[1], "convert")) {
+//                return sam2csv(argc, argv);
+//            }
+//            else if (!strcmp(argv[1], "merge")) {
+//                return merge_main(argc, argv);
+//            }
         }
     } catch (std::exception &e) {
         std::cerr << "\033[1;31m"
@@ -835,6 +837,29 @@ int profile(const int argc, const char *argv[]) {
     return 0;
 }
 
+int export_main(const int argc, const char *argv[]) {
+    GetOpt::GetOpt_pp args(argc, argv);
+
+    if (args >> GetOpt::OptionPresent('h', "help")) {
+        export_help();
+        return 0;
+    }
+
+    // Load parameters
+    std::string subgraph = "BASE";
+    std::string file = "";
+
+    args >> GetOpt::Option('g', "graph", subgraph)
+         >> GetOpt::Option('t', "out", file);
+
+    if (file.length() == 0) throw std::invalid_argument("No output file specified.");
+
+    Vargas::GraphManager gm(std::cin);
+    auto g = gm.make_subgraph(subgraph);
+    g->to_DOT(file, "g");
+    return 0;
+}
+
 void main_help() {
     using std::cerr;
     using std::endl;
@@ -844,11 +869,24 @@ void main_help() {
     cerr << "\tdefine      Define a set of graphs for use with sim/align.\n";
     cerr << "\tsim         Simulate reads from a set of graphs.\n";
     cerr << "\talign       Align reads to a set of graphs.\n";
-    cerr << "\tsplit       Split a SAM file into multiple files.\n";
-    cerr << "\tmerge       Merge SAM files.\n";
+    cerr << "\texport      Export graph to DOT format.\n";
+//    cerr << "\tsplit       Split a SAM file into multiple files.\n";
+//    cerr << "\tmerge       Merge SAM files.\n";
     cerr << "\tconvert     Convert a SAM file to a CSV file.\n";
     cerr << "\ttest        Run doctests.\n";
-    cerr << "\tprofile     Run profiles.\n" << endl;
+//    cerr << "\tprofile     Run profiles.\n" << endl;
+}
+
+void export_help() {
+    using std::cerr;
+    using std::endl;
+
+    cerr << endl
+         << "-------------------- Vargas export, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
+    cerr << "-t\t--out           Output filename.\n";
+    cerr << "-g\t--graph         Subgraph to export, default BASE\n\n";
+    cerr << "vargas export -g \"IN\" -t out.dot < graph_definition.gdef\n" << std::endl;
+
 }
 
 void define_help() {

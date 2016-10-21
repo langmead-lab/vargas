@@ -67,26 +67,17 @@ int merge_main(const int argc, const char *argv[]);
  */
 int sam2csv(const int argc, const char *argv[]);
 
-
 /**
- * Aligns the given vector of reads to the given graph,
- * using the provided aligners.
- * @param label Label to prepend to output
- * @param subgraph Graph to align to
- * @param reads Reads to align
- * @param aligners Use the given aligners. Size should be equal to number of threads
- * @param out Stream to output result to
- * @param threads number of execution threads.
+ * @brief
+ * Export the graph in DOT format.
+ * @param argc CL arg count
+ * @param argv CL args
  */
-void align_to_graph(std::string label,
-                    const Vargas::Graph &subgraph,
-                    const std::vector<std::string> &reads,
-                    const std::vector<std::shared_ptr<Vargas::ByteAligner>> &aligners,
-                    std::ostream &out,
-                    unsigned int threads);
+int export_main(const int argc, const char *argv[]);
 
 // Menus
 void main_help();
+void export_help();
 void profile_help();
 void align_help();
 void sim_help();

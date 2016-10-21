@@ -91,6 +91,8 @@ namespace Vargas {
        */
       GraphManager(std::string gdef_file);
 
+      GraphManager(std::istream &in) { open(in); }
+
       ~GraphManager() {
           close();
       }

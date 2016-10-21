@@ -4,8 +4,8 @@ Ravi Gaddipati
 Consumes a KSNP file and outputs a VCF file.
 '''
 
-import sys
 import pprint as pp
+import sys
 
 CHROM = str(22)
 CHROM_LEN = str(51304566)
@@ -60,19 +60,25 @@ def main():
 
 	if (len(sys.argv) < 2):
 		print("Format should be:")
-		print("python ksnp_to_vcf.py snps.ksnp [sortfile 1,2,4,8,16] output")
+        print("python ksnp_to_vcf.py snps.ksnp [sortfile 1,2,4,8,16] output minpos maxpos")
 		exit(1)
 
 	ksnp_file = sys.argv[1]
 	ksnp_sort = None
 	num_k = None
+    minpos = None
+    maxpos = None
 
-	if (len(sys.argv) == 5):
+    if (len(sys.argv) == 7):
 		ksnp_sort = sys.argv[2]
 		num_k = sorted([int(i) for i in sys.argv[3].split(',')])
 		prefix = sys.argv[4]
-	elif (len(sys.argv) == 3):
+        minpos = int(sys.argv[5])
+        maxpos = int(sys.argv[6])
+    elif (len(sys.argv) == 5):
 		prefix = sys.argv[2]
+        minpos = int(sys.argv[3])
+        maxpos = int(sys.argv[4])
 
 	ksnps = load_ksnps(ksnp_file);
 
@@ -99,12 +105,14 @@ def main():
 	
 	sorting = []
 	if ksnp_sort is None:
-		sorting = sorted([p for p in ksnps])
+        sorting = sorted([p for p in ksnps if p >= minpos and p <= maxpos])
 		num_k = [len(sorting)]
+        print("Number of positions: " + str(num_k[0]))
 	else:
 		with open(ksnp_sort, 'r') as file:
 			lines = file.readlines()[0]
-			sorting = [int(i) for i in lines.split(',')]
+            sorting = [int(p) for p in lines.split(',') if int(p) >= minpos and int(p) <= maxpos]
+
 
 	rec_num = 0
 	file_core = {}
@@ -118,29 +126,28 @@ def main():
 
 	for p in sorting:
 		if p not in ksnps:
-			print(str(p) + " does not exist in KSNP dict.")
-			exit(1)
+            print(str(p) + " does not exist in KSNP dict, excluding")
+        else:
+            added_pos.add(p)
+            rec_num += 1
 
-		added_pos.add(p)
-		rec_num += 1
+            if rec_num == num_k[num_k_i]:
+                suffix = ""
+                if (len(num_k) > 1):
+                    suffix = '_' + str(num_k[num_k_i])
+                with open(prefix + suffix + '.vcf', 'w') as o:
+                    with open(prefix + suffix + '_out.vcf', 'w') as oout:
+                        o.write(vcf_header)
+                        oout.write(vcf_header)
+                        for p in file_core_pos:
+                            if p in added_pos:
+                                o.write(file_core[p] + '\n')
+                            else:
+                                oout.write(file_core[p] + '\n')
 
-		if rec_num == num_k[num_k_i]:
-			suffix = ""
-			if (len(num_k) > 1):
-				suffix = '_' + str(num_k[num_k_i])
-			with open(prefix + suffix + '.vcf', 'w') as o:
-				with open(prefix + suffix + '_out.vcf', 'w') as oout:
-					o.write(vcf_header)
-					oout.write(vcf_header)
-					for p in file_core_pos:
-						if p in added_pos:
-							o.write(file_core[p] + '\n')
-						else:
-							oout.write(file_core[p] + '\n')
-
-			if num_k_i == len(num_k) - 1:
-				exit(0) # Done
-			num_k_i += 1
+                if num_k_i == len(num_k) - 1:
+                    exit(0)  # Done
+                num_k_i += 1
 
 
 if __name__ == '__main__':

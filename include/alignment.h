@@ -41,6 +41,11 @@
 #define ALIGN_SAM_SUB_COUNT_TAG "sc"
 #define ALIGN_SAM_COR_FLAG_TAG "cf"
 
+// Number of elements per SIMD vector
+#define VEC_SIZE SIMDPP_FAST_INT8_SIZE
+
+#define TOL_FACTOR 2 // _tol = _read_len / TOL_FACTOR. If the pos is +- tol, count as correct alignment
+
 namespace Vargas {
 
   /**
@@ -80,7 +85,7 @@ namespace Vargas {
 
   class ByteAligner {
     public:
-      typedef typename std::vector<simdpp::uint8<SIMDPP_FAST_INT8_SIZE>> VecType;
+      typedef typename std::vector<simdpp::uint8<VEC_SIZE>> VecType;
 
       /**
        * @brief
@@ -95,6 +100,7 @@ namespace Vargas {
       ByteAligner(size_t max_node_len,
                   size_t read_len) :
           _read_len(read_len),
+          _tol(read_len / TOL_FACTOR),
           _match_vec(simdpp::splat(2)),
           _mismatch_vec(simdpp::splat(2)),
           _gap_open_extend_vec(simdpp::splat(4)),
@@ -119,6 +125,7 @@ namespace Vargas {
                   uint8_t open,
                   uint8_t extend) :
           _read_len(read_len),
+          _tol(read_len / TOL_FACTOR),
           _match_vec(simdpp::splat(match)),
           _mismatch_vec(simdpp::splat(mismatch)),
           _gap_open_extend_vec(simdpp::splat(open + extend)),
@@ -137,9 +144,9 @@ namespace Vargas {
        * Reads are interleaved so each SIMD vector
        * contains bases from all reads, respective to the base number. For example AlignmentGroup[0]
        * would contain the first bases of every read. All reads must be the same length. Minimal error checking.
-       * @tparam SIMDPP_FAST_INT8_SIZE max number of reads. If a non-default T is used, this should be set to
+       * @tparam VEC_SIZE max number of reads. If a non-default T is used, this should be set to
        *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
-       *    SIMDPP_FAST_INT8_SIZE
+       *    VEC_SIZE
        */
       class AlignmentGroup {
         public:
@@ -171,16 +178,16 @@ namespace Vargas {
            * Return the i'th base of every read in a simdpp vector.
            * @param i base index.
            */
-          const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &at(int i) const {
+          const simdpp::uint8<VEC_SIZE> &at(int i) const {
               return _packaged_reads.at(i);
           }
 
           /**
            * @brief
            * Pointer to raw packaged read data.
-           * @return simdpp::uint8<SIMDPP_FAST_INT8_SIZE> pointer
+           * @return simdpp::uint8<VEC_SIZE> pointer
            */
-          const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> *data() const {
+          const simdpp::uint8<VEC_SIZE> *data() const {
               return _packaged_reads.data();
           }
 
@@ -189,7 +196,7 @@ namespace Vargas {
            * Non const version of at(i).
            * @param i base index
            */
-          simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &operator[](int i) {
+          simdpp::uint8<VEC_SIZE> &operator[](int i) {
               return _packaged_reads.at(i);
           }
 
@@ -198,19 +205,19 @@ namespace Vargas {
            * Returns optimal number of reads in a batch based on SIMD architecture.
            * @return batch size.
            */
-          size_t group_size() const { return SIMDPP_FAST_INT8_SIZE; }
+          size_t group_size() const { return VEC_SIZE; }
 
           /**
            * @return iterator to the beginning of the packaged reads.
            */
-          typename std::vector<simdpp::uint8<SIMDPP_FAST_INT8_SIZE>>::const_iterator begin() const {
+          typename std::vector<simdpp::uint8<VEC_SIZE>>::const_iterator begin() const {
               return _packaged_reads.begin();
           }
 
           /**
            * @return iterator to the end of the packaged reads.
            */
-          typename std::vector<simdpp::uint8<SIMDPP_FAST_INT8_SIZE>>::const_iterator end() const {
+          typename std::vector<simdpp::uint8<VEC_SIZE>>::const_iterator end() const {
               return _packaged_reads.end();
           }
 
@@ -224,7 +231,7 @@ namespace Vargas {
            * where as the length of _packaged_reads[i] is the number
            * of reads.
            */
-          std::vector<simdpp::uint8<SIMDPP_FAST_INT8_SIZE>> _packaged_reads;
+          std::vector<simdpp::uint8<VEC_SIZE>> _packaged_reads;
 
           /**
            * Interleaves reads so all same-index base positions are in one
@@ -232,7 +239,7 @@ namespace Vargas {
            * @param _reads vector of reads to package
            */
           __INLINE__ void _package_reads(const std::vector<std::vector<Base>> &_reads) {
-              assert(_reads.size() <= SIMDPP_FAST_INT8_SIZE);
+              assert(_reads.size() <= VEC_SIZE);
               // Interleave reads
               // For each read (read[i] is in _packaged_reads[0..n][i]
               for (size_t r = 0; r < _reads.size(); ++r) {
@@ -244,7 +251,7 @@ namespace Vargas {
               }
 
               // Pad underful batches
-              for (size_t r = _reads.size(); r < SIMDPP_FAST_INT8_SIZE; ++r) {
+              for (size_t r = _reads.size(); r < VEC_SIZE; ++r) {
                   for (size_t p = 0; p < _read_len; ++p) {
                       insert(Base::N, r, _packaged_reads[p]);
                   }
@@ -259,23 +266,16 @@ namespace Vargas {
        * Struct to return the alignment results
        */
       struct Results {
-          std::vector<uint32_t> max_pos;
-          /**< Best positions */
-          std::vector<uint32_t> sub_pos;
-          /**< Second best positions */
+          std::vector<uint32_t> max_pos; /**< Best positions */
+          std::vector<uint32_t> sub_pos; /**< Second best positions */
 
-          std::vector<uint8_t> max_count;
-          /**< Occurances of max_pos */
-          std::vector<uint8_t> sub_count;
-          /**< Occurances of _sub_pos */
+          std::vector<uint8_t> max_count; /**< Occurances of max_pos */
+          std::vector<uint8_t> sub_count; /**< Occurances of _sub_pos */
 
-          std::vector<uint8_t> max_score;
-          /**< Best scores */
-          std::vector<uint8_t> sub_score;
-          /**< Second best scores */
+          std::vector<uint8_t> max_score; /**< Best scores */
+          std::vector<uint8_t> sub_score; /**< Second best scores */
 
-          std::vector<uint8_t> cor_flag;
-          /**< 1 for target matching best score, 2 for matching sub score, 0 otherwise */
+          std::vector<uint8_t> cor_flag; /**< 1 for target matching best score, 2 for matching sub score, 0 otherwise */
 
           /**
            * @brief
@@ -315,7 +315,7 @@ namespace Vargas {
       /**
        * @return maximum number of reads that can be aligned at once.
        */
-      inline size_t read_capacity() const { return SIMDPP_FAST_INT8_SIZE; }
+      inline static constexpr size_t read_capacity() { return VEC_SIZE; }
 
       /**
        * @brief
@@ -363,7 +363,7 @@ namespace Vargas {
        * @param end iterator to end of graph
        * @param aligns Results packet to populate
        */
-      inline void align_into(const std::vector<std::string> read_group,
+      inline void align_into(const std::vector<std::string> &read_group,
                              std::vector<uint32_t> targets,
                              Graph::FilteringIter begin,
                              Graph::FilteringIter end,
@@ -376,7 +376,12 @@ namespace Vargas {
               std::fill(targets.begin(), targets.end(), 0);
           }
 
-          size_t num_groups = read_group.size() / SIMDPP_FAST_INT8_SIZE; // Full alignment groups
+          _targets_lower.resize(targets.size());
+          _targets_upper.resize(targets.size());
+          std::transform(targets.begin(), targets.end(), _targets_lower.begin(), [=](uint32_t &x) { return x - _tol; });
+          std::transform(targets.begin(), targets.end(), _targets_upper.begin(), [=](uint32_t &x) { return x + _tol; });
+
+          size_t num_groups = read_group.size() / VEC_SIZE; // Full alignment groups
           aligns.resize(read_group.size());
           std::fill(aligns.cor_flag.begin(), aligns.cor_flag.end(), 0);
 
@@ -387,8 +392,8 @@ namespace Vargas {
               seed_map.clear();
 
               // Subset of read set
-              const size_t beg_offset = group * SIMDPP_FAST_INT8_SIZE;
-              const size_t end_offset = (group + 1) * SIMDPP_FAST_INT8_SIZE;
+              const size_t beg_offset = group * VEC_SIZE;
+              const size_t end_offset = (group + 1) * VEC_SIZE;
               _alignment_group.load_reads(read_group, beg_offset, end_offset);
               _max_score = ZERO_CT;
               _sub_score = ZERO_CT;
@@ -398,7 +403,9 @@ namespace Vargas {
               _max_count = aligns.max_count.data() + beg_offset;
               _sub_count = aligns.sub_count.data() + beg_offset;
               _cor_flag = aligns.cor_flag.data() + beg_offset;
-              _targets = targets.data() + beg_offset;
+
+              _targets_lower_ptr = _targets_lower.data() + beg_offset;
+              _targets_upper_ptr = _targets_upper.data() + beg_offset;
 
               for (auto gi = begin; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, &seed);
@@ -407,38 +414,41 @@ namespace Vargas {
                   seed_map.emplace(gi->id(), nxt);
               }
 
-              memcpy(aligns.max_score.data() + beg_offset, &_max_score, SIMDPP_FAST_INT8_SIZE * sizeof(uint8_t));
-              memcpy(aligns.sub_score.data() + beg_offset, &_sub_score, SIMDPP_FAST_INT8_SIZE * sizeof(uint8_t));
+              memcpy(aligns.max_score.data() + beg_offset, &_max_score, VEC_SIZE * sizeof(uint8_t));
+              memcpy(aligns.sub_score.data() + beg_offset, &_sub_score, VEC_SIZE * sizeof(uint8_t));
           }
 
           // If we need a padded group at the end
-          if (read_group.size() % SIMDPP_FAST_INT8_SIZE) {
+          if (read_group.size() % VEC_SIZE) {
               seed_map.clear();
 
-              const size_t len = read_group.size() - (num_groups * SIMDPP_FAST_INT8_SIZE);
-              const size_t offset = num_groups * SIMDPP_FAST_INT8_SIZE;
+              const size_t len = read_group.size() - (num_groups * VEC_SIZE);
+              const size_t offset = num_groups * VEC_SIZE;
 
-              _alignment_group.load_reads(read_group, num_groups * SIMDPP_FAST_INT8_SIZE, read_group.size());
+              _alignment_group.load_reads(read_group, num_groups * VEC_SIZE, read_group.size());
               _max_score = ZERO_CT;
               _sub_score = ZERO_CT;
 
               std::vector<uint32_t>
-                  tmp_targets(SIMDPP_FAST_INT8_SIZE),
-                  tmp_max_pos(SIMDPP_FAST_INT8_SIZE),
-                  tmp_sub_pos(SIMDPP_FAST_INT8_SIZE);
+                  tmp_targets_upper(VEC_SIZE),
+                  tmp_targets_lower(VEC_SIZE),
+                  tmp_max_pos(VEC_SIZE),
+                  tmp_sub_pos(VEC_SIZE);
               std::vector<uint8_t>
-                  tmp_max_count(SIMDPP_FAST_INT8_SIZE),
-                  tmp_sub_count(SIMDPP_FAST_INT8_SIZE),
-                  tmp_cor_flag(SIMDPP_FAST_INT8_SIZE);
+                  tmp_max_count(VEC_SIZE),
+                  tmp_sub_count(VEC_SIZE),
+                  tmp_cor_flag(VEC_SIZE);
 
               _max_pos = tmp_max_pos.data();
               _sub_pos = tmp_sub_pos.data();
               _max_count = tmp_max_count.data();
               _sub_count = tmp_sub_count.data();
               _cor_flag = tmp_cor_flag.data();
-              _targets = tmp_targets.data();
+              _targets_upper_ptr = tmp_targets_upper.data();
+              _targets_lower_ptr = tmp_targets_lower.data();
 
-              memcpy(_targets, targets.data() + offset, len * sizeof(uint32_t));
+              memcpy(_targets_upper_ptr, _targets_upper.data() + offset, len * sizeof(uint32_t));
+              memcpy(_targets_lower_ptr, _targets_lower.data() + offset, len * sizeof(uint32_t));
 
 
               for (auto &gi = begin; gi != end; ++gi) {
@@ -462,7 +472,7 @@ namespace Vargas {
 
       /**
        * @brief
-       * Ensures that the graph is topographically sorted.
+       * Ensures that the graph is topologically sorted.
        * @param begin Graph begin iterator
        * @param end Graph end iterator
        */
@@ -507,10 +517,10 @@ namespace Vargas {
       __INLINE__
       void _get_seed(const std::vector<uint32_t> &prev_ids,
                      const std::unordered_map<uint32_t, _seed> &seed_map,
-                     _seed *seed) {
+                     _seed *seed) const {
           using namespace simdpp;
 
-          const _seed *ns;
+          static const _seed *ns;
 
           try {
               for (size_t i = 0; i < _read_len; ++i) {
@@ -539,20 +549,8 @@ namespace Vargas {
           if (_Db) delete _Db;
           if (_Ia) delete _Ia;
           if (_Ib) delete _Ib;
-
-          _Sa = nullptr;
-          _Sb = nullptr;
-          _Da = nullptr;
-          _Db = nullptr;
-          _Ia = nullptr;
-          _Ib = nullptr;
-
-          _S_prev = nullptr;
-          _S_curr = nullptr;
-          _D_prev = nullptr;
-          _D_curr = nullptr;
-          _I_prev = nullptr;
-          _I_curr = nullptr;
+          _Sa = _Sb = _Da = _Db = _Ia = _Ib = nullptr;
+          _S_prev = _S_curr = _D_prev = _D_curr = _I_prev = _I_curr = nullptr;
       }
 
       /**
@@ -583,6 +581,7 @@ namespace Vargas {
        * @param s seeds from previous nodes
        * @param nxt seed for next nodes
        */
+      __INLINE__
       void _fill_node(const Graph::Node &n,
                       const AlignmentGroup &read_group,
                       const _seed *s,
@@ -598,7 +597,7 @@ namespace Vargas {
           assert(n.seq().size() <= _max_node_len);
 
           const Base *node_seq = n.seq().data();
-          const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> *read_ptr = read_group.data();
+          const simdpp::uint8<VEC_SIZE> *read_ptr = read_group.data();
           const size_t seq_size = n.seq().size();
           const size_t node_origin = n.end() - seq_size + 2;
 
@@ -655,7 +654,7 @@ namespace Vargas {
        * @param s alignment seed from previous node
        */
       __INLINE__
-      void _fill_cell_rzcz(const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &read_base,
+      void _fill_cell_rzcz(const simdpp::uint8<VEC_SIZE> &read_base,
                            const Base &ref,
                            const _seed *s) {
           _D(0, ZERO_CT, ZERO_CT);
@@ -671,7 +670,7 @@ namespace Vargas {
        * @param col _curr_posent column in matrix
        */
       __INLINE__
-      void _fill_cell_rz(const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &read_base,
+      void _fill_cell_rz(const simdpp::uint8<VEC_SIZE> &read_base,
                          const Base &ref,
                          const uint32_t &col) {
           _D(col, ZERO_CT, ZERO_CT);
@@ -688,7 +687,7 @@ namespace Vargas {
        * @param s alignment seed from previous node
        */
       __INLINE__
-      void _fill_cell_cz(const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &read_base,
+      void _fill_cell_cz(const simdpp::uint8<VEC_SIZE> &read_base,
                          const Base &ref,
                          const uint32_t &row,
                          const _seed *s) {
@@ -706,7 +705,7 @@ namespace Vargas {
        * @param col _curr_posent column in matrix
        */
       __INLINE__
-      void _fill_cell(const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &read_base,
+      void _fill_cell(const simdpp::uint8<VEC_SIZE> &read_base,
                       const Base &ref,
                       const uint32_t &row,
                       const uint32_t &col) {
@@ -725,8 +724,8 @@ namespace Vargas {
        */
       __INLINE__
       void _D(const uint32_t &col,
-              const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &Dp,
-              const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &Sp) {
+              const simdpp::uint8<VEC_SIZE> &Dp,
+              const simdpp::uint8<VEC_SIZE> &Sp) {
           using namespace simdpp;
 
           // D(i,j) = D(i-1,j) - gap_extend
@@ -747,7 +746,7 @@ namespace Vargas {
        */
       __INLINE__
       void _I(const uint32_t &row,
-              const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &Sc) {
+              const simdpp::uint8<VEC_SIZE> &Sc) {
           using namespace simdpp;
 
           // I(i,j) = I(i,j-1) - gap_extend
@@ -769,9 +768,9 @@ namespace Vargas {
        */
       __INLINE__
       void _M(uint32_t col,
-              const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &read,
+              const simdpp::uint8<VEC_SIZE> &read,
               const Base &ref,
-              const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &Sp) {
+              const simdpp::uint8<VEC_SIZE> &Sp) {
           using namespace simdpp;
 
           if (ref != Base::N) {
@@ -813,8 +812,6 @@ namespace Vargas {
                              const uint32_t &node_origin) {
           using namespace simdpp;
 
-
-
           // S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
           _S_curr[col] = max(_D_curr[col], _S_curr[col]);
           _S_curr[col] = max(_I_curr[row], _S_curr[col]);
@@ -825,7 +822,7 @@ namespace Vargas {
           if (extract_bits_any(_tmp0)) {
               // Check for new or equal high scores
               _max_score = max(_S_curr[col], _max_score);
-              for (int i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
+              for (int i = 0; i < VEC_SIZE; ++i) {
                   if (_tmp0_ptr[i]) {
                       // Demote old max to submax
                       if (_curr_pos > _max_pos[i] + _read_len) {
@@ -843,11 +840,11 @@ namespace Vargas {
           _tmp0 = cmp_eq(_S_curr[col], _max_score);
           if (extract_bits_any(_tmp0)) {
               // Check for equal max score.
-              for (uint8_t i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
+              for (uint8_t i = 0; i < VEC_SIZE; ++i) {
                   if (_tmp0_ptr[i]) {
                       _max_count[i] += _curr_pos > (_max_pos[i] + _read_len);
                       _max_pos[i] = _curr_pos;
-                      if (_max_pos[i] == _targets[i]) _cor_flag[i] = 1;
+                      if (_curr_pos >= _targets_lower_ptr[i] && _curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 1;
                   }
               }
           }
@@ -857,12 +854,12 @@ namespace Vargas {
           _tmp0 = (_S_curr[col] > _sub_score) & (_S_curr[col] < _max_score);
           if (extract_bits_any(_tmp0)) {
               // new second best score
-              for (uint8_t i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
+              for (uint8_t i = 0; i < VEC_SIZE; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
                       _sub_score_ptr[i] = extract(i, _S_curr[col]);
                       _sub_count[i] = 1;
                       _sub_pos[i] = _curr_pos;
-                      if (_curr_pos == _targets[i]) _cor_flag[i] = 2;
+                      if (_curr_pos >= _targets_lower_ptr[i] && _curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 2;
                       else _cor_flag[i] = _cor_flag[i] == 1;
                   }
               }
@@ -871,11 +868,11 @@ namespace Vargas {
           _tmp0 = cmp_eq(_S_curr[col], _sub_score);
           if (extract_bits_any(_tmp0)) {
               // Repeat sub score
-              for (uint8_t i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
+              for (uint8_t i = 0; i < VEC_SIZE; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
                       _sub_count[i] += _curr_pos > (_sub_pos[i] + _read_len);
                       _sub_pos[i] = _curr_pos;
-                      if (_curr_pos == _targets[i]) _cor_flag[i] = 2;
+                      if (_curr_pos >= _targets_lower_ptr[i] && _curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 2;
                   }
               }
           }
@@ -883,13 +880,14 @@ namespace Vargas {
 
       /*********************************** Variables ***********************************/
 
-      size_t _read_len; /**< Maximum read length. */
+      const size_t _read_len; /**< Maximum read length. */
+      const size_t _tol; /**< If within +- this of target, indicate correct alignment */
 
       // Zero vector
-      const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> ZERO_CT = simdpp::splat(0);
-      const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> _N_VEC = simdpp::splat(Base::N);
+      const simdpp::uint8<VEC_SIZE> ZERO_CT = simdpp::splat(0);
+      const simdpp::uint8<VEC_SIZE> _N_VEC = simdpp::splat(Base::N);
 
-      simdpp::uint8<SIMDPP_FAST_INT8_SIZE>
+      simdpp::uint8<VEC_SIZE>
           _match_vec,
           _mismatch_vec,
           _gap_open_extend_vec,
@@ -909,7 +907,7 @@ namespace Vargas {
           *_Ia = nullptr,    /**< Insertion vector */
           *_Ib = nullptr;
 
-      simdpp::uint8<SIMDPP_FAST_INT8_SIZE>
+      simdpp::uint8<VEC_SIZE>
           *_S_prev = nullptr,    /**< _S_prev[n] => S(i-1, n) */
           *_S_curr = nullptr,
           *_D_prev = nullptr,    /**< _D_prev[n] => D(i-1, n) */
@@ -918,7 +916,7 @@ namespace Vargas {
           *_I_curr = nullptr,
           *_swp_tmp0;
 
-      simdpp::uint8<SIMDPP_FAST_INT8_SIZE>
+      simdpp::uint8<VEC_SIZE>
           _tmp0, /**< temporary for use within functions */
           _Ceq,  /**< Match score when read_base == ref_base */
           _Cneq; /**< mismatch penalty */
@@ -926,12 +924,12 @@ namespace Vargas {
       uint32_t _curr_pos;
 
       // Optimal alignment info
-      simdpp::uint8<SIMDPP_FAST_INT8_SIZE> _max_score;
+      simdpp::uint8<VEC_SIZE> _max_score;
       uint32_t *_max_pos;
       uint8_t *_max_count;
 
       // Suboptimal alignment info
-      simdpp::uint8<SIMDPP_FAST_INT8_SIZE> _sub_score;
+      simdpp::uint8<VEC_SIZE> _sub_score;
       uint32_t *_sub_pos;
       uint8_t *_sub_count;
 
@@ -940,7 +938,8 @@ namespace Vargas {
       uint8_t *_sub_score_ptr = (uint8_t *) &_sub_score;
 
       uint8_t *_cor_flag;
-      uint32_t *_targets;
+      std::vector<uint32_t> _targets_lower, _targets_upper;
+      uint32_t *_targets_lower_ptr, *_targets_upper_ptr;
 
       size_t _max_node_len;
 
