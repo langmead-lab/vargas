@@ -48,14 +48,14 @@ int main(const int argc, const char *argv[]) {
             else if (!strcmp(argv[1], "align")) {
                 return align_main(argc, argv);
             }
-            else if (!strcmp(argv[1], "split")) {
-                return split_main(argc, argv);
-            } else if (!strcmp(argv[1], "export")) {
-                return export_main(argc, argv);
-            }
-//            else if (!strcmp(argv[1], "convert")) {
-//                return sam2csv(argc, argv);
+//            else if (!strcmp(argv[1], "split")) {
+//                return split_main(argc, argv);
 //            }
+            else if (!strcmp(argv[1], "export")) {
+                return export_main(argc, argv);
+            } else if (!strcmp(argv[1], "convert")) {
+                return sam2csv(argc, argv);
+            }
 //            else if (!strcmp(argv[1], "merge")) {
 //                return merge_main(argc, argv);
 //            }
@@ -714,7 +714,7 @@ int profile(const int argc, const char *argv[]) {
         throw std::invalid_argument("File does not exist.");
     }
 
-    Vargas::GraphBuilder gb(fasta);
+    Vargas::GraphFactory gb(fasta);
     gb.open_vcf(bcf);
     gb.region(region);
 
@@ -896,7 +896,7 @@ void define_help() {
     cerr << endl
          << "-------------------- Vargas define, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
     cerr << "-f\t--fasta         *<string> Reference filename.\n";
-    cerr << "-v\t--vcf           <string> VCF or BCF file.\n";
+    cerr << "-v\t--vcf           *<string> VCF or BCF file.\n";
     cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX.\n";
     cerr << "-p\t--filter        <string> Filename of sample filter.\n";
     cerr << "-x\t--invert        Invert sample filter.\n";

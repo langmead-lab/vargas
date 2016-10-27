@@ -406,7 +406,7 @@ TEST_CASE ("Read sim") {
             << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
     }
 
-    Vargas::GraphBuilder gb(tmpfa);
+    Vargas::GraphFactory gb(tmpfa);
     gb.open_vcf(tmpvcf);
     gb.node_len(5);
     gb.region("x:0-50");

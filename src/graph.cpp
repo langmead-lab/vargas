@@ -20,7 +20,7 @@ uint32_t Vargas::Graph::Node::_newID = 0;
 
 Vargas::Graph::Graph(std::string ref_file, std::string vcf_file, std::string region, int max_node_len) {
     _IDMap = std::make_shared<std::unordered_map<uint32_t, nodeptr>>();
-    GraphBuilder gb(ref_file);
+    GraphFactory gb(ref_file);
     gb.open_vcf(vcf_file);
     gb.region(region);
     gb.node_len(max_node_len);
@@ -162,7 +162,7 @@ std::string Vargas::Graph::to_DOT(std::string name) const {
 }
 
 
-void Vargas::GraphBuilder::build(Vargas::Graph &g) {
+void Vargas::GraphFactory::build(Vargas::Graph &g) {
     if (!_vf) throw std::invalid_argument("No variant file opened.");
     g = Vargas::Graph();
     _fa.open(_fa_file);
@@ -255,7 +255,7 @@ void Vargas::GraphBuilder::build(Vargas::Graph &g) {
 }
 
 
-void Vargas::GraphBuilder::_build_edges(Vargas::Graph &g,
+void Vargas::GraphFactory::_build_edges(Vargas::Graph &g,
                                         std::unordered_set<uint32_t> &prev,
                                         std::unordered_set<uint32_t> &curr,
                                         std::unordered_map<uint32_t, uint32_t> *chain) {
@@ -276,7 +276,7 @@ void Vargas::GraphBuilder::_build_edges(Vargas::Graph &g,
 }
 
 
-int Vargas::GraphBuilder::_build_linear_ref(Graph &g,
+int Vargas::GraphFactory::_build_linear_ref(Graph &g,
                                             std::unordered_set<uint32_t> &prev,
                                             std::unordered_set<uint32_t> &curr,
                                             uint32_t pos,
@@ -300,7 +300,7 @@ int Vargas::GraphBuilder::_build_linear_ref(Graph &g,
 }
 
 
-std::vector<std::string> Vargas::GraphBuilder::_split_seq(std::string seq) {
+std::vector<std::string> Vargas::GraphFactory::_split_seq(std::string seq) {
     std::vector<std::string> split;
     if (seq.length() <= _max_node_len) {
         split.push_back(seq);

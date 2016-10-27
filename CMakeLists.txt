@@ -25,11 +25,24 @@ set(MAIN_SOURCES
         src/varfile.cpp
         src/sim.cpp)
 
+set(HEADERS
+        include/alignment.h
+        include/dyn_bitset.h
+        include/fasta.h
+        include/gdef.h
+        include/graph.h
+        include/getopt_pp.h
+        include/main.h
+        include/sam.h
+        include/sim.h
+        include/utils.h
+        include/varfile.h)
+
 
 include(libsimdpp/cmake/SimdppMultiarch.cmake)
 simdpp_get_runnable_archs(RUNNABLE_ARCHS)
 
-add_executable(vargas ${MAIN_SOURCES})
+add_executable(vargas ${MAIN_SOURCES} ${HEADERS})
 target_link_libraries(vargas hts)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4 -std=c++11")

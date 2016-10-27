@@ -60,7 +60,7 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
     // Build base graph
     int nsamps;
     {
-        GraphBuilder gb(_ref_file);
+        GraphFactory gb(_ref_file);
         nsamps = gb.open_vcf(_variant_file);
         if (_sample_filter != "-") {
             nsamps = gb.add_sample_filter(_sample_filter, _invert_filter);
@@ -211,7 +211,7 @@ bool Vargas::GraphManager::write(std::string ref_file,
 
     // Get number of samples from VCF file
     if (nsamps == 0) {
-        GraphBuilder gb(ref_file);
+        GraphFactory gb(ref_file);
         gb.open_vcf(variant_file);
         nsamps = gb.add_sample_filter(_sample_filter, _invert_filter);
     }

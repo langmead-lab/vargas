@@ -833,7 +833,7 @@ namespace Vargas {
    * Vargas::Graph g = gb.build();
    * @endcode
    */
-  class GraphBuilder {
+  class GraphFactory {
 
     public:
 
@@ -842,9 +842,17 @@ namespace Vargas {
        * Create a graph builder for the reference file.
        * @param reffile
        */
-      GraphBuilder(std::string const &reffile) : _fa_file(reffile) {}
+      GraphFactory(std::string const &reffile) : _fa_file(reffile) {}
 
-      ~GraphBuilder() { _vf.reset(); }
+      /**
+       * @param fafile FASTA file
+       * @param varfile VCF or BCF file.
+       */
+      GraphFactory(std::string const &fafile, std::string const &varfile) : _fa_file(fafile) {
+          open_bcf(varfile);
+      }
+
+      ~GraphFactory() { _vf.reset(); }
 
       /**
        * @brief
@@ -866,9 +874,9 @@ namespace Vargas {
        * @param min min pos, inclusive
        * @param max max pos, inclusive
        */
-      void region(std::string chr,
-                  int min,
-                  int max) {
+      void set_region(std::string chr,
+                      int min,
+                      int max) {
           if (!_vf) throw std::invalid_argument("No variant file opened.");
           _vf->set_region(chr, min, max);
       }
@@ -878,7 +886,7 @@ namespace Vargas {
        * Set maximum node length. If <= 0, length is unbounded.
        * @param max maximum node length.
        */
-      void node_len(int max) { _max_node_len = max; }
+      void node_len(size_t max) { _max_node_len = max; }
 
       /**
        * Open the given file
@@ -917,26 +925,6 @@ namespace Vargas {
        */
       int open_bcf(std::string const &file_name) {
           return open_vcf(file_name);
-      }
-
-      /**
-       * Open the given file
-       * @param file_name
-       * @return Number of samples
-       */
-      int open_ksnp(std::string const &file_name,
-                    const int limit = 0) {
-          _vf.reset();
-          _vf = std::unique_ptr<VariantFile>(new KSNP(file_name, limit));
-          if (!_vf->good()) throw std::invalid_argument("Invalid KSNP file: \"" + file_name + "\"");
-          return _vf->num_samples();
-      }
-
-      int open_ksnp(std::istream &in, const int limit = 0) {
-          _vf.reset();
-          _vf = std::unique_ptr<VariantFile>(new KSNP(in, limit));
-          if (!_vf->good()) throw std::invalid_argument("Invalid KSNP stream");
-          return _vf->num_samples();
       }
 
       /**
@@ -1006,7 +994,7 @@ namespace Vargas {
       Graph g;
 
       // Graph construction parameters
-      unsigned int _max_node_len = 10000000; // If a node is longer, split into multiple nodes
+      size_t _max_node_len = 10000000; // If a node is longer, split into multiple nodes
   };
 
   /**
@@ -1389,7 +1377,7 @@ TEST_CASE ("Graph Builder") {
         SUBCASE("File write wrapper") {
 
             SUBCASE("Basic Graph") {
-            Vargas::GraphBuilder gb(tmpfa);
+            Vargas::GraphFactory gb(tmpfa);
             gb.open_vcf(tmpvcf);
             gb.node_len(5);
             gb.region("x:0-15");
@@ -1428,7 +1416,7 @@ TEST_CASE ("Graph Builder") {
         }
 
             SUBCASE("Deriving a Graph") {
-            Vargas::GraphBuilder gb(tmpfa);
+            Vargas::GraphFactory gb(tmpfa);
             gb.open_vcf(tmpvcf);
             gb.node_len(5);
             gb.region("x:0-15");
@@ -1453,7 +1441,7 @@ TEST_CASE ("Graph Builder") {
         }
 
             SUBCASE("Sample filtering") {
-            Vargas::GraphBuilder gb(tmpfa);
+            Vargas::GraphFactory gb(tmpfa);
                 CHECK_THROWS(gb.add_sample_filter("-"));
             gb.open_vcf(tmpvcf);
             gb.node_len(5);
