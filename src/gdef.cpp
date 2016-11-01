@@ -11,21 +11,20 @@
  */
 
 #include "gdef.h"
-#include "utils.h"
 
-Vargas::GraphManager::GraphManager(std::string gdef_file) {
+vargas::GraphManager::GraphManager(std::string gdef_file) {
     if (!open(gdef_file)) throw std::invalid_argument("Invalid GDEF file \"" + gdef_file + "\"");
 }
 
 
-void Vargas::GraphManager::close() {
+void vargas::GraphManager::close() {
     _subgraph_filters.clear();
     _subgraphs.clear();
     _ref_file = _variant_file = _region = "";
 }
 
 
-bool Vargas::GraphManager::open(std::string file_name, bool build_base) {
+bool vargas::GraphManager::open(std::string file_name, bool build_base) {
     if (file_name.length() == 0) open(std::cin);
     std::ifstream in(file_name);
     if (!in.good()) return false;
@@ -33,7 +32,7 @@ bool Vargas::GraphManager::open(std::string file_name, bool build_base) {
 }
 
 
-bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
+bool vargas::GraphManager::open(std::istream &in, bool build_base) {
     close();
     std::string line;
 
@@ -106,7 +105,7 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
 }
 
 
-std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_subgraph(std::string label) {
+std::shared_ptr<const vargas::Graph> vargas::GraphManager::make_subgraph(std::string label) {
     if (!_subgraphs.count(GDEF_BASEGRAPH)) throw std::invalid_argument("No base graph built.");
     if (label == GDEF_BASEGRAPH) return base();
     label = GDEF_BASEGRAPH + GDEF_SCOPE + label;
@@ -126,7 +125,7 @@ std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_subgraph(std::st
 }
 
 
-std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::subgraph(std::string label) const {
+std::shared_ptr<const vargas::Graph> vargas::GraphManager::subgraph(std::string label) const {
     if (label == GDEF_BASEGRAPH) return base();
     label = GDEF_BASEGRAPH + GDEF_SCOPE + label;
     if (_subgraphs.count(label) == 0) return nullptr;
@@ -134,7 +133,7 @@ std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::subgraph(std::string 
 }
 
 
-std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_ref(std::string const &label) {
+std::shared_ptr<const vargas::Graph> vargas::GraphManager::make_ref(std::string const &label) {
     if (!_subgraphs.count(GDEF_BASEGRAPH)) throw std::invalid_argument("No base graph built.");
     if (_subgraphs.count(label)) return _subgraphs.at(label);
     std::string root = label.substr(0, label.length() - GDEF_REFGRAPH.length() - 1);
@@ -146,7 +145,7 @@ std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_ref(std::string 
 }
 
 
-std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_maxaf(std::string const &label) {
+std::shared_ptr<const vargas::Graph> vargas::GraphManager::make_maxaf(std::string const &label) {
     if (!_subgraphs.count(GDEF_BASEGRAPH)) throw std::invalid_argument("No base graph built.");
     if (_subgraphs.count(label)) return _subgraphs.at(label);
     std::string root = label.substr(0, label.length() - GDEF_REFGRAPH.length() - 1);
@@ -159,20 +158,20 @@ std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_maxaf(std::strin
 }
 
 
-std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::base() const {
+std::shared_ptr<const vargas::Graph> vargas::GraphManager::base() const {
     if (!_subgraphs.count(GDEF_BASEGRAPH)) return nullptr;
     return _subgraphs.at(GDEF_BASEGRAPH);
 }
 
 
-Vargas::Graph::Population Vargas::GraphManager::filter(std::string label) const {
+vargas::Graph::Population vargas::GraphManager::filter(std::string label) const {
     label = GDEF_BASEGRAPH + GDEF_SCOPE + label;
     if (!_subgraph_filters.count(label)) throw std::invalid_argument("Label \"" + label + "\" does not exist.");
     return _subgraph_filters.at(label);
 }
 
 
-bool Vargas::GraphManager::write(std::string ref_file,
+bool vargas::GraphManager::write(std::string ref_file,
                                  std::string variant_file,
                                  std::string region,
                                  const std::string &defs,
@@ -188,7 +187,7 @@ bool Vargas::GraphManager::write(std::string ref_file,
 }
 
 
-bool Vargas::GraphManager::write(std::string ref_file,
+bool vargas::GraphManager::write(std::string ref_file,
                                  std::string variant_file,
                                  std::string region,
                                  std::string defs_str,
@@ -307,7 +306,7 @@ bool Vargas::GraphManager::write(std::string ref_file,
 }
 
 
-std::string Vargas::GraphManager::to_DOT(std::string name) const {
+std::string vargas::GraphManager::to_DOT(std::string name) const {
     std::ostringstream dot;
     dot << "digraph " << name << " {\n";
     std::string node_label;
@@ -332,7 +331,7 @@ std::string Vargas::GraphManager::to_DOT(std::string name) const {
     return dot.str();
 }
 
-void Vargas::GraphManager::set_filter(std::string filter, bool invert) {
+void vargas::GraphManager::set_filter(std::string filter, bool invert) {
     if (filter.length() == 0) filter = "-";
     else {
         filter.erase(std::unique(filter.begin(), filter.end(),

@@ -15,10 +15,10 @@
 #include "graph.h"
 
 
-uint32_t Vargas::Graph::Node::_newID = 0;
+uint32_t vargas::Graph::Node::_newID = 0;
 
 
-Vargas::Graph::Graph(std::string ref_file, std::string vcf_file, std::string region, int max_node_len) {
+vargas::Graph::Graph(std::string ref_file, std::string vcf_file, std::string region, int max_node_len) {
     _IDMap = std::make_shared<std::unordered_map<uint32_t, nodeptr>>();
     GraphFactory gb(ref_file);
     gb.open_vcf(vcf_file);
@@ -28,7 +28,7 @@ Vargas::Graph::Graph(std::string ref_file, std::string vcf_file, std::string reg
 }
 
 
-Vargas::Graph::Graph(const Vargas::Graph &g,
+vargas::Graph::Graph(const vargas::Graph &g,
                      const Population &filter) {
     _IDMap = g._IDMap;
     _pop_size = g.pop_size();
@@ -53,7 +53,7 @@ Vargas::Graph::Graph(const Vargas::Graph &g,
 }
 
 
-Vargas::Graph::Graph(const Graph &g, GraphIterator::Type type) {
+vargas::Graph::Graph(const Graph &g, GraphIterator::Type type) {
     _IDMap = g._IDMap;
     _pop_size = g.pop_size();
     _filter = Population(_pop_size, true);
@@ -93,7 +93,7 @@ Vargas::Graph::Graph(const Graph &g, GraphIterator::Type type) {
 }
 
 
-void Vargas::Graph::_build_derived_edges(const Vargas::Graph &g,
+void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
                                          const std::unordered_map<uint32_t, nodeptr> &includedNodes) {
     // Add all edges for included nodes
     for (auto &n : includedNodes) {
@@ -113,7 +113,7 @@ void Vargas::Graph::_build_derived_edges(const Vargas::Graph &g,
 }
 
 
-uint32_t Vargas::Graph::add_node(Node &n) {
+uint32_t vargas::Graph::add_node(Node &n) {
     if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
     if (_IDMap->size() == 0) _root = n.id(); // first node added is default root
 
@@ -123,7 +123,7 @@ uint32_t Vargas::Graph::add_node(Node &n) {
 }
 
 
-bool Vargas::Graph::add_edge(uint32_t n1,
+bool vargas::Graph::add_edge(uint32_t n1,
                              uint32_t n2) {
     // Check if the nodes exist
     if (_IDMap->count(n1) == 0 || _IDMap->count(n2) == 0) return false;
@@ -141,7 +141,7 @@ bool Vargas::Graph::add_edge(uint32_t n1,
 }
 
 
-std::string Vargas::Graph::to_DOT(std::string name) const {
+std::string vargas::Graph::to_DOT(std::string name) const {
     std::ostringstream dot;
     dot << "// Each node has the sequence, followed by end_pos,allele_freq\n";
     dot << "digraph " << name << " {\n";
@@ -161,9 +161,9 @@ std::string Vargas::Graph::to_DOT(std::string name) const {
 }
 
 
-void Vargas::GraphFactory::build(Vargas::Graph &g) {
+void vargas::GraphFactory::build(vargas::Graph &g) {
     if (!_vf) throw std::invalid_argument("No variant file opened.");
-    g = Vargas::Graph();
+    g = vargas::Graph();
     _fa.open(_fa_file);
 
     auto &vf = *_vf;
@@ -267,7 +267,7 @@ void Vargas::GraphFactory::build(Vargas::Graph &g) {
 }
 
 
-void Vargas::GraphFactory::_build_edges(Vargas::Graph &g,
+void vargas::GraphFactory::_build_edges(vargas::Graph &g,
                                         std::unordered_set<uint32_t> &prev,
                                         std::unordered_set<uint32_t> &curr,
                                         std::unordered_map<uint32_t, uint32_t> *chain) {
@@ -288,7 +288,7 @@ void Vargas::GraphFactory::_build_edges(Vargas::Graph &g,
 }
 
 
-int Vargas::GraphFactory::_build_linear_ref(Graph &g,
+int vargas::GraphFactory::_build_linear_ref(Graph &g,
                                             std::unordered_set<uint32_t> &prev,
                                             std::unordered_set<uint32_t> &curr,
                                             uint32_t pos,
@@ -312,7 +312,7 @@ int Vargas::GraphFactory::_build_linear_ref(Graph &g,
 }
 
 
-std::vector<std::string> Vargas::GraphFactory::_split_seq(std::string seq) {
+std::vector<std::string> vargas::GraphFactory::_split_seq(std::string seq) {
     std::vector<std::string> split;
     if (seq.length() <= _max_node_len) {
         split.push_back(seq);
@@ -331,8 +331,8 @@ std::vector<std::string> Vargas::GraphFactory::_split_seq(std::string seq) {
 }
 
 
-Vargas::Graph::Population Vargas::Graph::subset(int ingroup) const {
-    Vargas::Graph::Population p(_pop_size);
+vargas::Graph::Population vargas::Graph::subset(int ingroup) const {
+    vargas::Graph::Population p(_pop_size);
     for (size_t i = 0; i < _pop_size; ++i) {
         if (rand() % 100 < ingroup) p.set(i);
     }
@@ -340,7 +340,7 @@ Vargas::Graph::Population Vargas::Graph::subset(int ingroup) const {
 }
 
 
-bool Vargas::Graph::GraphIterator::operator==(const Vargas::Graph::GraphIterator &other) const {
+bool vargas::Graph::GraphIterator::operator==(const vargas::Graph::GraphIterator &other) const {
     if (_type == Type::END && other._type == Type::END) return true; // All ends are equal
     if (_type != other._type) return false; // Same type of iterator
     if (&_graph != &other._graph) return false; // same base graph
@@ -348,7 +348,7 @@ bool Vargas::Graph::GraphIterator::operator==(const Vargas::Graph::GraphIterator
 }
 
 
-bool Vargas::Graph::GraphIterator::operator!=(const Vargas::Graph::GraphIterator &other) const {
+bool vargas::Graph::GraphIterator::operator!=(const vargas::Graph::GraphIterator &other) const {
     if (_type != other._type) return true;
     if (_type == other._type) return false;
     if (&_graph != &other._graph) return true;
@@ -356,7 +356,7 @@ bool Vargas::Graph::GraphIterator::operator!=(const Vargas::Graph::GraphIterator
 }
 
 
-Vargas::Graph::GraphIterator &Vargas::Graph::GraphIterator::operator++() {
+vargas::Graph::GraphIterator &vargas::Graph::GraphIterator::operator++() {
     // If end of graph has been reached
     if (_type == Type::END) return *this;
 
@@ -423,13 +423,13 @@ Vargas::Graph::GraphIterator &Vargas::Graph::GraphIterator::operator++() {
 }
 
 
-const Vargas::Graph::Node &Vargas::Graph::GraphIterator::operator*() const {
+const vargas::Graph::Node &vargas::Graph::GraphIterator::operator*() const {
     if (_type == Type::TOPO) return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
     return *(_graph._IDMap->at(_currID));
 }
 
 
-const std::vector<uint32_t> &Vargas::Graph::GraphIterator::incoming() {
+const std::vector<uint32_t> &vargas::Graph::GraphIterator::incoming() {
     if (_type == Type::TOPO) {
         const uint32_t nid = _graph._add_order.at(_currID);
         if (_graph._prev_map.count(nid) == 0) return _incoming;
@@ -444,7 +444,7 @@ const std::vector<uint32_t> &Vargas::Graph::GraphIterator::incoming() {
 }
 
 
-const std::vector<uint32_t> &Vargas::Graph::GraphIterator::outgoing() {
+const std::vector<uint32_t> &vargas::Graph::GraphIterator::outgoing() {
     if (_graph._prev_map.count(_currID) == 0) return _outgoing;
     return _graph._next_map.at(_graph._add_order.at(_currID));
 }

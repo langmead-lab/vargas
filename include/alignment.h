@@ -46,7 +46,7 @@
 
 #define TOL_FACTOR 2 // _tol = _read_len / TOL_FACTOR. If the pos is +- tol, count as correct alignment
 
-namespace Vargas {
+namespace vargas {
 
   /**
    * @brief Main SIMD SW Aligner.
@@ -956,8 +956,8 @@ namespace Vargas {
 TEST_CASE ("Alignment") {
 
         SUBCASE("Graph Alignment") {
-        Vargas::Graph::Node::_newID = 0;
-        Vargas::Graph g;
+        vargas::Graph::Node::_newID = 0;
+        vargas::Graph g;
 
         /**
         *     GGG
@@ -968,7 +968,7 @@ TEST_CASE ("Alignment") {
         */
 
         {
-            Vargas::Graph::Node n;
+            vargas::Graph::Node n;
             n.set_endpos(2);
             n.set_as_ref();
             std::vector<bool> a = {0, 1, 1};
@@ -978,7 +978,7 @@ TEST_CASE ("Alignment") {
         }
 
         {
-            Vargas::Graph::Node n;
+            vargas::Graph::Node n;
             n.set_endpos(5);
             n.set_as_ref();
             std::vector<bool> a = {0, 0, 1};
@@ -989,7 +989,7 @@ TEST_CASE ("Alignment") {
         }
 
         {
-            Vargas::Graph::Node n;
+            vargas::Graph::Node n;
             n.set_endpos(5);
             n.set_not_ref();
             std::vector<bool> a = {0, 1, 0};
@@ -1000,7 +1000,7 @@ TEST_CASE ("Alignment") {
         }
 
         {
-            Vargas::Graph::Node n;
+            vargas::Graph::Node n;
             n.set_endpos(9);
             n.set_as_ref();
             std::vector<bool> a = {0, 1, 1};
@@ -1026,10 +1026,10 @@ TEST_CASE ("Alignment") {
         reads.push_back("AAATTTA");
         reads.push_back("AAAGCCC");
 
-        Vargas::ByteAligner a(5, 7);
+        vargas::ByteAligner a(5, 7);
 
         std::vector<uint32_t> origins = {8, 8, 5, 5, 7, 6, 10, 4};
-        Vargas::ByteAligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
+        vargas::ByteAligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
             CHECK(aligns.max_score[0] == 8);
             CHECK(aligns.max_pos[0] == 8);
             CHECK((int) aligns.cor_flag[0] == 1);

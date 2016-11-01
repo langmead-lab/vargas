@@ -45,7 +45,7 @@
 #include "graph.h"
 #include "doctest.h"
 
-namespace Vargas {
+namespace vargas {
 
   /**
    * @brief
@@ -299,7 +299,7 @@ namespace Vargas {
       }
 
     private:
-      const Vargas::Graph &_graph;
+      const vargas::Graph &_graph;
       Profile _prof;
       const std::unordered_map<uint32_t, Graph::nodeptr> &_nodes;
       const std::unordered_map<uint32_t, std::vector<uint32_t>> &_next;
@@ -365,7 +365,7 @@ namespace Vargas {
 
 TEST_CASE ("Read sim") {
     srand(1);
-    Vargas::Graph::Node::_newID = 0;
+    vargas::Graph::Node::_newID = 0;
     using std::endl;
     std::string tmpfa = "tmp_tc.fa";
     {
@@ -406,14 +406,14 @@ TEST_CASE ("Read sim") {
             << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
     }
 
-    Vargas::GraphFactory gb(tmpfa);
+    vargas::GraphFactory gb(tmpfa);
     gb.open_vcf(tmpvcf);
     gb.node_len(5);
     gb.set_region("x:0-50");
-    Vargas::Graph g = gb.build();
+    vargas::Graph g = gb.build();
 
-    Vargas::Sim sim(g);
-    Vargas::Sim::Profile prof;
+    vargas::Sim sim(g);
+    vargas::Sim::Profile prof;
     prof.len = 5;
 
     sim.set_prof(prof);

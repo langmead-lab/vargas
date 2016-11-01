@@ -18,7 +18,7 @@
 #include "graph.h"
 #include "varfile.h"
 
-namespace Vargas {
+namespace vargas {
 
   /**
    * @brief
@@ -458,7 +458,7 @@ TEST_CASE ("Graph Manager") {
             }
 
             std::stringstream ss;
-            Vargas::GraphManager gm;
+            vargas::GraphManager gm;
             gm.write_from_vcf(tmpfa,
                               tmpvcf,
                               "x:0-10",

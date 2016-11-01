@@ -125,7 +125,7 @@ int define_main(const int argc, const char *argv[]) {
         subgraph_str = buff.str();
     }
 
-    Vargas::GraphManager gm;
+    vargas::GraphManager gm;
     if (sample_filter.length()) {
         std::ifstream in(sample_filter);
         if (!in.good()) throw std::invalid_argument("Error opening file: \"" + sample_filter + "\"");
@@ -151,10 +151,10 @@ int sim_main(const int argc, const char *argv[]) {
         return 0;
     }
 
-    Vargas::SAM::Header sam_hdr;
+    vargas::SAM::Header sam_hdr;
 
     {
-        Vargas::SAM::Header::Program pg;
+        vargas::SAM::Header::Program pg;
         std::ostringstream ss;
         for (int i = 0; i < argc; ++i) ss << std::string(argv[i]) << " ";
         pg.command_line = ss.str();
@@ -198,7 +198,7 @@ int sim_main(const int argc, const char *argv[]) {
     if (threads) omp_set_num_threads(threads);
 
 
-    Vargas::GraphManager gm;
+    vargas::GraphManager gm;
 
     const std::vector<std::string>
         mut_split = split(mut, ','),
@@ -233,17 +233,17 @@ int sim_main(const int argc, const char *argv[]) {
     // Map a graph label to a vector of read group ID's/profiles
     std::unordered_map<std::string, // Graph label
                        std::vector<std::pair<std::string, // Read Group ID
-                                             Vargas::Sim::Profile>>> // Sim profile
+                                             vargas::Sim::Profile>>> // Sim profile
         queue;
 
     int rg_id = 0;
-    Vargas::SAM::Header::ReadGroup rg;
+    vargas::SAM::Header::ReadGroup rg;
     rg.seq_center = "vargas_sim";
     rg.date = current_date();
     rg.aux.set(SIM_SAM_REF_TAG, gm.reference());
     rg.aux.set(SIM_SAM_VCF_TAG, gm.variants());
 
-    Vargas::Sim::Profile prof;
+    vargas::Sim::Profile prof;
     prof.len = read_len;
     prof.rand = use_rate;
     for (const std::string &vbase : vbase_split) {
@@ -282,7 +282,7 @@ int sim_main(const int argc, const char *argv[]) {
               << chrono_duration(start_time)
               << " seconds." << std::endl;
 
-    Vargas::osam out(out_file, sam_hdr);
+    vargas::osam out(out_file, sam_hdr);
     if (!out.good()) throw std::invalid_argument("Error opening output file \"" + out_file + "\"");
 
     std::cerr << "Simulating... " << std::flush;
@@ -291,14 +291,14 @@ int sim_main(const int argc, const char *argv[]) {
 
     std::vector<std::pair<std::string, // Graph label
                           std::pair<std::string, // RG ID
-                                    Vargas::Sim::Profile>>> // sim prof
+                                    vargas::Sim::Profile>>> // sim prof
         task_list;
 
     for (size_t k = 0; k < subdef_split.size(); ++k) {
         for (size_t i = 0; i < queue.at(subdef_split[k]).size(); ++i) {
             auto &p = queue.at(subdef_split[k]).at(i);
-            task_list.push_back(std::pair<std::string, std::pair<std::string, Vargas::Sim::Profile>>
-                                    (subdef_split[k], std::pair<std::string, Vargas::Sim::Profile>(p.first, p.second)));
+            task_list.push_back(std::pair<std::string, std::pair<std::string, vargas::Sim::Profile>>
+                                    (subdef_split[k], std::pair<std::string, vargas::Sim::Profile>(p.first, p.second)));
         }
     }
 
@@ -307,7 +307,7 @@ int sim_main(const int argc, const char *argv[]) {
     for (size_t n = 0; n < num_tasks; ++n) {
         const std::string label = task_list.at(n).first;
         const auto subgraph_ptr = gm.make_subgraph(label);
-        Vargas::Sim sim(*subgraph_ptr, task_list.at(n).second.second);
+        vargas::Sim sim(*subgraph_ptr, task_list.at(n).second.second);
         auto results = sim.get_batch(num_reads);
         gm.destroy(label);
         for (auto &r : results) r.aux.set("RG", task_list.at(n).second.first);
@@ -364,14 +364,14 @@ int align_main(const int argc, const char *argv[]) {
     std::cerr << "Loading reads... " << std::endl;
     auto start_time = std::chrono::steady_clock::now();
 
-    std::vector<std::pair<std::string, std::vector<Vargas::SAM::Record>>> task_list;
-    Vargas::SAM::Header reads_hdr;
+    std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> task_list;
+    vargas::SAM::Header reads_hdr;
     size_t total = 0;
     {
         // Maps a read group ID to a vector of reads
-        std::unordered_map<std::string, std::vector<Vargas::SAM::Record>> alignment_reads;
+        std::unordered_map<std::string, std::vector<vargas::SAM::Record>> alignment_reads;
         {
-            Vargas::isam reads(read_file);
+            vargas::isam reads(read_file);
             reads_hdr = reads.header();
             std::string read_group;
             do {
@@ -411,7 +411,7 @@ int align_main(const int argc, const char *argv[]) {
             for (const std::string &rgid : sub_rg_pair.second) {
                 if (alignment_reads.count(rgid)) {
                     // If there is a header line that there are no reads associated with, skip
-                    task_list.push_back(std::pair<std::string, std::vector<Vargas::SAM::Record>>(sub_rg_pair.first,
+                    task_list.push_back(std::pair<std::string, std::vector<vargas::SAM::Record>>(sub_rg_pair.first,
                                                                                                  alignment_reads.at(rgid)));
                     std::cerr << '\t' << sub_rg_pair.first << '\t' << alignment_reads.at(rgid).size() << '\n';
                     total += alignment_reads.at(rgid).size();
@@ -429,12 +429,12 @@ int align_main(const int argc, const char *argv[]) {
 
     std::cerr << "Loading graphs... \n" << std::endl;
     start_time = std::chrono::steady_clock::now();
-    Vargas::GraphManager gm(gdf_file);
+    vargas::GraphManager gm(gdf_file);
     std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
 
 
     {
-        Vargas::SAM::Header::Program pg;
+        vargas::SAM::Header::Program pg;
         std::ostringstream ss;
         for (int i = 0; i < argc; ++i) ss << std::string(argv[i]) << " ";
         pg.command_line = ss.str();
@@ -452,7 +452,7 @@ int align_main(const int argc, const char *argv[]) {
 
     const size_t num_tasks = task_list.size();
 
-    Vargas::osam aligns_out(out_file, reads_hdr);
+    vargas::osam aligns_out(out_file, reads_hdr);
 
     #pragma omp parallel for
     for (size_t l = 0; l < num_tasks; ++l) {
@@ -464,12 +464,12 @@ int align_main(const int argc, const char *argv[]) {
             read_seqs[i] = r.seq;
             targets[i] = r.pos + r.seq.length() - 1;
         }
-        Vargas::ByteAligner aligner(gm.node_len(), read_len, match, mismatch, gopen, gext);
+        vargas::ByteAligner aligner(gm.node_len(), read_len, match, mismatch, gopen, gext);
         task_list.at(l).first;
         auto subgraph = gm.make_subgraph(task_list.at(l).first);
         auto aligns = aligner.align(read_seqs, targets, subgraph->begin(), subgraph->end());
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
-            Vargas::SAM::Record &rec = task_list.at(l).second.at(j);
+            vargas::SAM::Record &rec = task_list.at(l).second.at(j);
             rec.ref_name = task_list.at(l).first;
             rec.aux.set(ALIGN_SAM_MAX_POS_TAG, (int) aligns.max_pos[j]);
             rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
@@ -520,7 +520,7 @@ int split_main(const int argc, const char *argv[]) {
     else if (prefix.length() == 0) prefix = sam_file + ".";
 
     size_t suffix = 0;
-    Vargas::isam input(sam_file);
+    vargas::isam input(sam_file);
 
     auto start_time = std::chrono::steady_clock::now();
 
@@ -585,11 +585,11 @@ int merge_main(const int argc, const char *argv[]) {
 
     auto start_time = std::chrono::steady_clock::now();
 
-    Vargas::isam in(argv[2]);
-    Vargas::osam out(out_file, in.header());
+    vargas::isam in(argv[2]);
+    vargas::osam out(out_file, in.header());
 
     for (int j = 2; j < argc; ++j) {
-        Vargas::isam in(argv[j]);
+        vargas::isam in(argv[j]);
         if (!in.good()) throw std::invalid_argument("Error opening SAM file \"" + std::string(argv[j]) + "\"");
         do {
             out.add_record(in.record());
@@ -623,7 +623,7 @@ int sam2csv(const int argc, const char *argv[]) {
 
     std::unordered_set<std::string> warned;
 
-    Vargas::isam input(sam_file);
+    vargas::isam input(sam_file);
 
     std::string buff, val;
     do {
@@ -714,14 +714,14 @@ int profile(const int argc, const char *argv[]) {
         throw std::invalid_argument("File does not exist.");
     }
 
-    Vargas::GraphFactory gb(fasta);
+    vargas::GraphFactory gb(fasta);
     gb.open_vcf(bcf);
     gb.set_region(region);
 
     auto start = std::clock();
 
     std::cerr << "Initial Build:\n\t";
-    Vargas::Graph g;
+    vargas::Graph g;
     gb.build(g);
     std::vector<bool> filter;
     for (size_t i = 0; i < g.pop_size(); ++i) filter.push_back(rand() % 100 > 95);
@@ -753,7 +753,7 @@ int profile(const int argc, const char *argv[]) {
     {
         num = 0;
         std::cerr << "Filtering traversal, 5% in:\n\t";
-        Vargas::Graph::Population filt(filter);
+        vargas::Graph::Population filt(filter);
         start = std::clock();
 
         for (auto i = g.begin(filt); i != g.end(); ++i) {
@@ -766,7 +766,7 @@ int profile(const int argc, const char *argv[]) {
         num = 0;
         std::cerr << "REF traversal:\n\t";
         start = std::clock();
-        for (auto i = g.begin(Vargas::Graph::GraphIterator::Type::REF); i != g.end(); ++i) {
+        for (auto i = g.begin(vargas::Graph::GraphIterator::Type::REF); i != g.end(); ++i) {
             ++num;
         }
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
@@ -776,7 +776,7 @@ int profile(const int argc, const char *argv[]) {
         num = 0;
         std::cerr << "MAXAF traversal:\n\t";
         start = std::clock();
-        for (auto i = g.begin(Vargas::Graph::GraphIterator::Type::MAXAF); i != g.end(); ++i) { ;
+        for (auto i = g.begin(vargas::Graph::GraphIterator::Type::MAXAF); i != g.end(); ++i) { ;
         }
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
@@ -785,21 +785,21 @@ int profile(const int argc, const char *argv[]) {
         std::cerr << "Filter constructor:\n\t";
         auto pop_filt = g.subset(ingroup);
         start = std::clock();
-        Vargas::Graph g2(g, pop_filt);
+        vargas::Graph g2(g, pop_filt);
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
     {
         std::cerr << "REF constructor:\n\t";
         start = std::clock();
-        Vargas::Graph g2(g, Vargas::Graph::GraphIterator::Type::REF);
+        vargas::Graph g2(g, vargas::Graph::GraphIterator::Type::REF);
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
     {
         std::cerr << "MAXAF constructor:\n\t";
         start = std::clock();
-        Vargas::Graph g2(g, Vargas::Graph::GraphIterator::Type::MAXAF);
+        vargas::Graph g2(g, vargas::Graph::GraphIterator::Type::MAXAF);
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
@@ -819,17 +819,17 @@ int profile(const int argc, const char *argv[]) {
             for (size_t i = 0; i < split_str.size(); ++i) reads[i] = split_str[i];
         }
 
-        Vargas::ByteAligner a(g.max_node_len(), 50);
+        vargas::ByteAligner a(g.max_node_len(), 50);
 
         std::cerr << SIMDPP_FAST_INT8_SIZE << " read alignment:\n";
 
 
         {
             start = std::clock();
-            Vargas::Graph g2(g, g.subset(ingroup));
+            vargas::Graph g2(g, g.subset(ingroup));
             std::cerr << "\tDerived Graph (" << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s)\n\t";
             start = std::clock();
-            Vargas::ByteAligner::Results aligns = a.align(reads, g2.begin(), g2.end());
+            vargas::ByteAligner::Results aligns = a.align(reads, g2.begin(), g2.end());
             std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
         }
 
@@ -854,7 +854,7 @@ int export_main(const int argc, const char *argv[]) {
 
     if (file.length() == 0) throw std::invalid_argument("No output file specified.");
 
-    Vargas::GraphManager gm(std::cin);
+    vargas::GraphManager gm(std::cin);
     auto g = gm.make_subgraph(subgraph);
     g->to_DOT(file, "g");
     return 0;

@@ -20,7 +20,7 @@
 #include "htslib/faidx.h"
 
 
-namespace Vargas {
+namespace vargas {
 
   /**
    * @brief
@@ -441,7 +441,7 @@ TEST_CASE ("FASTA Reading") {
                 << ">y" << endl
                 << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
         }
-        Vargas::ifasta fa(tmpfa);
+        vargas::ifasta fa(tmpfa);
 
             CHECK(fa.num_seq() == 2);
             REQUIRE(fa.sequence_names().size() == 2);
@@ -461,7 +461,7 @@ TEST_CASE ("FASTA Reading") {
         }
 
             SUBCASE("Normal iterator") {
-            Vargas::ifasta fin(tmpfa);
+            vargas::ifasta fin(tmpfa);
             auto i = fin.begin();
 
                 CHECK(i->first == "a");
@@ -482,7 +482,7 @@ TEST_CASE ("FASTA Reading") {
         }
 
             SUBCASE("Resuming iterator") {
-            Vargas::ifasta fin(tmpfa);
+            vargas::ifasta fin(tmpfa);
             {
                 auto i = fin.begin("B");
                     CHECK(i == fin.end());
@@ -511,7 +511,7 @@ TEST_CASE ("FASTA Reading") {
 TEST_CASE ("FASTA Writing") {
         SUBCASE("open constructor") {
         {
-            Vargas::ofasta fa("tmp_tc_wr.fa");
+            vargas::ofasta fa("tmp_tc_wr.fa");
             fa.char_per_line(5);
             fa.write("a", "AAAAA");
             fa.write("b", "TT");

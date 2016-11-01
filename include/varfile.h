@@ -32,7 +32,7 @@
 #include "htslib/hts.h"
 #include "doctest.h"
 
-namespace Vargas {
+namespace vargas {
 
   /**
    * @brief

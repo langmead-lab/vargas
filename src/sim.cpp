@@ -11,7 +11,7 @@
 
 #include "sim.h"
 
-bool Vargas::Sim::_update_read() {
+bool vargas::Sim::_update_read() {
 
     uint32_t curr_indiv;
 

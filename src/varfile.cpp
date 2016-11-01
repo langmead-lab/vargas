@@ -11,7 +11,7 @@
 
 #include "varfile.h"
 
-void Vargas::VariantFile::set_region(std::string region) {
+void vargas::VariantFile::set_region(std::string region) {
     std::vector<std::string> regionSplit = split(region, ':');
 
     // Name
@@ -38,7 +38,7 @@ void Vargas::VariantFile::set_region(std::string region) {
 }
 
 
-std::vector<std::string> Vargas::VCF::sequences() const {
+std::vector<std::string> vargas::VCF::sequences() const {
     if (!_header) return std::vector<std::string>(0);
     std::vector<std::string> ret;
     int num;
@@ -55,7 +55,7 @@ std::vector<std::string> Vargas::VCF::sequences() const {
 }
 
 
-bool Vargas::VCF::next() {
+bool vargas::VCF::next() {
     if (!_header || !_bcf) return false;
     if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
     unpack_all();
@@ -70,7 +70,7 @@ bool Vargas::VCF::next() {
 }
 
 
-const std::vector<std::string> &Vargas::VCF::genotypes() {
+const std::vector<std::string> &vargas::VCF::genotypes() {
     FormatField<int> gt(_header, _curr_rec, "GT");
     _genotypes.resize(gt.values.size());
     for (size_t i = 0; i < _genotypes.size(); ++i) {
@@ -90,7 +90,7 @@ const std::vector<std::string> &Vargas::VCF::genotypes() {
 }
 
 
-const std::vector<float> &Vargas::VCF::frequencies() const {
+const std::vector<float> &vargas::VCF::frequencies() const {
     InfoField<float> af(_header, _curr_rec, "AF");
     static std::vector<float> _allele_freqs;
     const auto &val = af.values;
@@ -108,7 +108,7 @@ const std::vector<float> &Vargas::VCF::frequencies() const {
 }
 
 
-void Vargas::VCF::create_ingroup(int percent) {
+void vargas::VCF::create_ingroup(int percent) {
     _ingroup.clear();
 
     if (percent == 100) {
@@ -123,7 +123,7 @@ void Vargas::VCF::create_ingroup(int percent) {
 }
 
 
-int Vargas::VCF::_init() {
+int vargas::VCF::_init() {
     _bcf = bcf_open(_file_name.c_str(), "r");
     if (!_bcf) return -1;
 
@@ -139,7 +139,7 @@ int Vargas::VCF::_init() {
 }
 
 
-void Vargas::VCF::_load_shared() {
+void vargas::VCF::_load_shared() {
     _alleles.clear();
     for (int i = 0; i < _curr_rec->n_allele; ++i) {
         std::string allele(_curr_rec->d.allele[i]);
@@ -161,7 +161,7 @@ void Vargas::VCF::_load_shared() {
 }
 
 
-void Vargas::VCF::_apply_ingroup_filter() {
+void vargas::VCF::_apply_ingroup_filter() {
     if (!_header) {
         throw std::logic_error("Ingroup filter should only be applied after loading header!");
     }
