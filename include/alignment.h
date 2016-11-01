@@ -153,14 +153,14 @@ namespace Vargas {
 
           AlignmentGroup(size_t read_len) : _read_len(read_len), _packaged_reads(read_len) {}
 
-          __INLINE__ void load_reads(const std::vector<std::string> &reads, size_t begin, size_t end) {
+          __RG_STRONG_INLINE__ void load_reads(const std::vector<std::string> &reads, size_t begin, size_t end) {
               load_reads(std::vector<std::string>(reads.begin() + begin, reads.begin() + end));
           }
 
           /**
            * @param batch load the given vector of reads.
            */
-          __INLINE__ void load_reads(const std::vector<std::string> &batch) {
+          __RG_STRONG_INLINE__ void load_reads(const std::vector<std::string> &batch) {
               std::vector<std::vector<Base>> _reads;
               for (auto &b : batch) _reads.push_back(seq_to_num(b));
               load_reads(_reads);
@@ -169,7 +169,7 @@ namespace Vargas {
           /**
            * @param batch load the given vector of reads.
            */
-          __INLINE__ void load_reads(const std::vector<std::vector<Base>> &batch) {
+          __RG_STRONG_INLINE__ void load_reads(const std::vector<std::vector<Base>> &batch) {
               _package_reads(batch);
           }
 
@@ -238,7 +238,7 @@ namespace Vargas {
            * vector. Empty spaces are padded with Base::N.
            * @param _reads vector of reads to package
            */
-          __INLINE__ void _package_reads(const std::vector<std::vector<Base>> &_reads) {
+          __RG_STRONG_INLINE__ void _package_reads(const std::vector<std::vector<Base>> &_reads) {
               assert(_reads.size() <= VEC_SIZE);
               // Interleave reads
               // For each read (read[i] is in _packaged_reads[0..n][i]
@@ -327,8 +327,8 @@ namespace Vargas {
        * @return Results packet
        */
       Results align(const std::vector<std::string> &read_group,
-                    Graph::FilteringIter begin,
-                    Graph::FilteringIter end) {
+                    Graph::GraphIterator begin,
+                    Graph::GraphIterator end) {
           std::vector<uint32_t> targets(read_group.size());
           std::fill(targets.begin(), targets.end(), 0);
           return align(read_group, targets, begin, end);
@@ -346,8 +346,8 @@ namespace Vargas {
        */
       Results align(const std::vector<std::string> &read_group,
                     const std::vector<uint32_t> &targets,
-                    Graph::FilteringIter begin,
-                    Graph::FilteringIter end) {
+                    Graph::GraphIterator begin,
+                    Graph::GraphIterator end) {
           Results aligns;
           align_into(read_group, targets, begin, end, aligns);
           return aligns;
@@ -365,8 +365,8 @@ namespace Vargas {
        */
       inline void align_into(const std::vector<std::string> &read_group,
                              std::vector<uint32_t> targets,
-                             Graph::FilteringIter begin,
-                             Graph::FilteringIter end,
+                             Graph::GraphIterator begin,
+                             Graph::GraphIterator end,
                              Results &aligns) {
           using namespace simdpp;
 
@@ -476,8 +476,8 @@ namespace Vargas {
        * @param begin Graph begin iterator
        * @param end Graph end iterator
        */
-      bool validate(Graph::FilteringIter begin,
-                    Graph::FilteringIter end) {
+      bool validate(Graph::GraphIterator begin,
+                    Graph::GraphIterator end) {
           std::unordered_set<size_t> filled;
           bool ret = true;
           for (auto &gi = begin; gi != end; ++gi) {
@@ -514,7 +514,7 @@ namespace Vargas {
        * @param seed best seed to populate
        * @throws std::logic_error if a node listed as a previous node but it has not been encountered yet. i.e. not topographically sorted.
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       void _get_seed(const std::vector<uint32_t> &prev_ids,
                      const std::unordered_map<uint32_t, _seed> &seed_map,
                      _seed *seed) const {
@@ -581,13 +581,13 @@ namespace Vargas {
        * @param s seeds from previous nodes
        * @param nxt seed for next nodes
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       void _fill_node(const Graph::Node &n,
                       const AlignmentGroup &read_group,
                       const _seed *s,
                       _seed *nxt) {
 
-          // Empty nodes repersents deletions
+          // Empty nodes represents deletions
           if (n.seq().size() == 0) {
               nxt->I_col = s->I_col;
               nxt->S_col = s->S_col;
@@ -653,7 +653,7 @@ namespace Vargas {
        * @param ref reference sequence base
        * @param s alignment seed from previous node
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       void _fill_cell_rzcz(const simdpp::uint8<VEC_SIZE> &read_base,
                            const Base &ref,
                            const _seed *s) {
@@ -669,7 +669,7 @@ namespace Vargas {
        * @param ref reference sequence base
        * @param col _curr_posent column in matrix
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       void _fill_cell_rz(const simdpp::uint8<VEC_SIZE> &read_base,
                          const Base &ref,
                          const uint32_t &col) {
@@ -686,7 +686,7 @@ namespace Vargas {
        * @param row _curr_posent row in matrix
        * @param s alignment seed from previous node
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       void _fill_cell_cz(const simdpp::uint8<VEC_SIZE> &read_base,
                          const Base &ref,
                          const uint32_t &row,
@@ -704,7 +704,7 @@ namespace Vargas {
        * @param row _curr_posent row in matrix
        * @param col _curr_posent column in matrix
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       void _fill_cell(const simdpp::uint8<VEC_SIZE> &read_base,
                       const Base &ref,
                       const uint32_t &row,
@@ -722,7 +722,7 @@ namespace Vargas {
        * @param Dp Previous D value at _curr_posent col.
        * @param Sp Previous S value at _curr_posent col.
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       void _D(const uint32_t &col,
               const simdpp::uint8<VEC_SIZE> &Dp,
               const simdpp::uint8<VEC_SIZE> &Sp) {
@@ -744,7 +744,7 @@ namespace Vargas {
        * @param row _curr_posent row
        * @param Sc Previous S value (cell to the left)
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       void _I(const uint32_t &row,
               const simdpp::uint8<VEC_SIZE> &Sc) {
           using namespace simdpp;
@@ -766,7 +766,7 @@ namespace Vargas {
        * @param ref reference sequence base
        * @param Sp Previous S val at col-1 (upper left cell)
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       void _M(uint32_t col,
               const simdpp::uint8<VEC_SIZE> &read,
               const Base &ref,
@@ -806,7 +806,7 @@ namespace Vargas {
        * @param col _curr_posent column
        * @param node_origin Current position, used to get absolute alignment position
        */
-      __INLINE__ __UNROLL__
+      __RG_STRONG_INLINE__ __RG_UNROLL__
       void _fill_cell_finish(const uint32_t &row,
                              const uint32_t &col,
                              const uint32_t &node_origin) {

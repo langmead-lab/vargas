@@ -86,18 +86,6 @@ void split_help();
 void merge_help();
 void sam2csv_help();
 
-template<typename T>
-inline double chrono_duration(const std::chrono::time_point<T> &start_time) {
-    return std::chrono::duration_cast<std::chrono::duration<double>>
-        (std::chrono::steady_clock::now() - start_time).count();
-}
-
-template<typename T>
-inline double chrono_duration(const std::chrono::time_point<T> &start_time, const std::chrono::time_point<T> &end) {
-    return std::chrono::duration_cast<std::chrono::duration<double>>
-        (end - start_time).count();
-}
-
 #endif //VARGAS_MAIN_H
 
 // Checks to see if coordinate systems between the simulator and aligner line up.
@@ -147,7 +135,7 @@ TEST_CASE ("Coordinate matches") {
     Vargas::GraphFactory gb(tmpfa);
     gb.open_vcf(tmpvcf);
     gb.node_len(5);
-    gb.region("x:0-50");
+    gb.set_region("x:0-50");
     Vargas::Graph g = gb.build();
 
     Vargas::Sim::Profile prof;
@@ -224,7 +212,7 @@ TEST_CASE ("Cor flag") {
 
     Vargas::GraphFactory gb(tmpfa);
     gb.open_vcf(tmpvcf);
-    gb.region("x:0-100");
+    gb.set_region("x:0-100");
     Vargas::Graph g = gb.build();
 
     Vargas::ByteAligner aligner(g.max_node_len(), 6);

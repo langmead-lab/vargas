@@ -91,6 +91,11 @@ namespace Vargas {
        */
       GraphManager(std::string gdef_file);
 
+      /**
+       * @brief
+       * Open a GDEF file from a stream.
+       * @param in
+       */
       GraphManager(std::istream &in) { open(in); }
 
       ~GraphManager() {
@@ -205,18 +210,12 @@ namespace Vargas {
        * Limit samples used from VCF.
        * @param filter list of sample names to include
        */
-      void set_filter(std::string filter, bool invert = false) {
-          if (filter.length() == 0) filter = "-";
-          else {
-              filter.erase(std::unique(filter.begin(), filter.end(),
-                                       [](const char &l, const char &r) { return std::isspace(l) && std::isspace(r); }),
-                           filter.end());
-              std::replace_if(filter.begin(), filter.end(), isspace, ',');
-          }
-          _sample_filter = filter;
-          _invert_filter = invert;
-      }
+      void set_filter(std::string filter, bool invert = false);
 
+      /**
+       * @brief
+       * Remove the sample filter.
+       */
       void clear_filter() {
           _sample_filter = "-";
       }
@@ -350,14 +349,23 @@ namespace Vargas {
           return _subgraph_filters.size();
       }
 
+      /*
+       * @return Configured maximum node length
+       */
       int node_len() const {
           return _node_len;
       }
 
+      /**
+       * @return Reference file fame
+       */
       std::string reference() const {
           return _ref_file;
       }
 
+      /**
+       * @return Variant file name
+       */
       std::string variants() const {
           return _variant_file;
       }
@@ -392,13 +400,6 @@ namespace Vargas {
       std::string _ref_file, _variant_file, _region, _sample_filter = "-";
       bool _invert_filter;
       int _node_len;
-
-      inline bool _ends_with(std::string const &fullString,
-                             std::string const &ending) {
-          if (fullString.length() >= ending.length())
-              return 0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending);
-          else return false;
-      }
 
   };
 

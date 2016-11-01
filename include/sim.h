@@ -409,7 +409,7 @@ TEST_CASE ("Read sim") {
     Vargas::GraphFactory gb(tmpfa);
     gb.open_vcf(tmpvcf);
     gb.node_len(5);
-    gb.region("x:0-50");
+    gb.set_region("x:0-50");
     Vargas::Graph g = gb.build();
 
     Vargas::Sim sim(g);

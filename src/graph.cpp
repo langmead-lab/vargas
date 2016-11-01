@@ -22,7 +22,7 @@ Vargas::Graph::Graph(std::string ref_file, std::string vcf_file, std::string reg
     _IDMap = std::make_shared<std::unordered_map<uint32_t, nodeptr>>();
     GraphFactory gb(ref_file);
     gb.open_vcf(vcf_file);
-    gb.region(region);
+    gb.set_region(region);
     gb.node_len(max_node_len);
     gb.build(*this);
 }
@@ -53,14 +53,13 @@ Vargas::Graph::Graph(const Vargas::Graph &g,
 }
 
 
-Vargas::Graph::Graph(const Graph &g,
-                     Type type) {
+Vargas::Graph::Graph(const Graph &g, GraphIterator::Type type) {
     _IDMap = g._IDMap;
     _pop_size = g.pop_size();
     _filter = Population(_pop_size, true);
     std::unordered_map<uint32_t, nodeptr> includedNodes;
 
-    if (type == REF) {
+    if (type == GraphIterator::Type::REF) {
         for (auto &nid : g._add_order) {
             auto &n = (*_IDMap)[nid];
             if (n->is_ref()) {
@@ -69,7 +68,7 @@ Vargas::Graph::Graph(const Graph &g,
             }
         }
         _desc = g.desc() + "\n#filter: REF";
-    } else if (type == MAXAF) {
+    } else if (type == GraphIterator::Type::MAXAF) {
         uint32_t curr = g.root();
         uint32_t maxid, size;
         while (true) {
@@ -185,14 +184,27 @@ void Vargas::GraphFactory::build(Vargas::Graph &g) {
     const Graph::Population all_pop(g.pop_size(), true);
     g.set_filter(all_pop);
 
+    std::string ref_check;
+
+    int nwarn = 0;
     while (vf.next()) {
         auto &af = vf.frequencies();
 
         curr = _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.pos());
+        ref_check = _fa.subseq(_vf->region_chr(), curr, curr + vf.ref().length() - 1);
+        if (vf.ref() != ref_check) {
+            std::cerr << "Warning: Variant File and and FASTA Reference does not match.\tPOS:"
+                      << curr << " Variant:" << vf.ref() << " FASTA:" << ref_check << std::endl;
+            if (nwarn++ == _abort_after_warns) {
+                throw std::invalid_argument(std::to_string(nwarn) + " warnings occurred, aborting.");
+            }
+        }
+
+        curr += vf.ref().length();
 
         // Add variant nodes
         // Positions of variant nodes are referenced to ref node
-        curr += vf.ref().length();
+
 
         // ref node
         {
@@ -285,7 +297,7 @@ int Vargas::GraphFactory::_build_linear_ref(Graph &g,
     if (target == 0) target = _fa.seq_len(_vf->region_chr());
     if (pos == target) return target; // For adjacent var positions
     auto split_seq = _split_seq(_fa.subseq(_vf->region_chr(), pos, target - 1));
-    for (auto s : split_seq) {
+    for (const auto s : split_seq) {
         Graph::Node n;
         n.pinch();
         n.set_population(g.pop_size(), true);
@@ -328,15 +340,15 @@ Vargas::Graph::Population Vargas::Graph::subset(int ingroup) const {
 }
 
 
-bool Vargas::Graph::FilteringIter::operator==(const Vargas::Graph::FilteringIter &other) const {
-    if (_type == END && other._type == END) return true; // All ends are equal
+bool Vargas::Graph::GraphIterator::operator==(const Vargas::Graph::GraphIterator &other) const {
+    if (_type == Type::END && other._type == Type::END) return true; // All ends are equal
     if (_type != other._type) return false; // Same type of iterator
     if (&_graph != &other._graph) return false; // same base graph
     return _currID == other._currID;
 }
 
 
-bool Vargas::Graph::FilteringIter::operator!=(const Vargas::Graph::FilteringIter &other) const {
+bool Vargas::Graph::GraphIterator::operator!=(const Vargas::Graph::GraphIterator &other) const {
     if (_type != other._type) return true;
     if (_type == other._type) return false;
     if (&_graph != &other._graph) return true;
@@ -344,18 +356,18 @@ bool Vargas::Graph::FilteringIter::operator!=(const Vargas::Graph::FilteringIter
 }
 
 
-Vargas::Graph::FilteringIter &Vargas::Graph::FilteringIter::operator++() {
+Vargas::Graph::GraphIterator &Vargas::Graph::GraphIterator::operator++() {
     // If end of graph has been reached
-    if (_type == END) return *this;
+    if (_type == Type::END) return *this;
 
-    if (_type == TOPO) {
+    if (_type == Type::TOPO) {
         ++_currID;
-        if (_currID == _add_order_size) _type = END;
+        if (_currID == _add_order_size) _type = Type::END;
         return *this;
     }
 
     if (_graph._next_map.count(_currID) == 0) {
-        _type = END;
+        _type = Type::END;
         return *this;
     }
 
@@ -363,7 +375,7 @@ Vargas::Graph::FilteringIter &Vargas::Graph::FilteringIter::operator++() {
     const auto &graph_map = *(_graph._IDMap);
 
     switch (_type) {
-        case REF:
+        case Type::REF:
             for (const uint32_t &nextID : next_vec) {
                 if (graph_map.at(nextID)->is_ref()) {
                     _insert_queue(nextID);
@@ -372,14 +384,14 @@ Vargas::Graph::FilteringIter &Vargas::Graph::FilteringIter::operator++() {
             }
             break;
 
-        case FILTER:
+        case Type::FILTER:
             for (const uint32_t &nextID : next_vec) {
                 // Add all nodes that intersect with filter
                 if (graph_map.at(nextID)->belongs(_filter)) _insert_queue(nextID);
             }
             break;
 
-        case MAXAF: {
+        case Type::MAXAF: {
             uint32_t max_id = graph_map.at(next_vec.at(0))->id();
             float max_af = graph_map.at(next_vec.at(0))->freq();
             float freq;
@@ -398,9 +410,8 @@ Vargas::Graph::FilteringIter &Vargas::Graph::FilteringIter::operator++() {
             throw std::logic_error("Invalid type.");
     }
 
-
     if (_queue.empty()) {
-        _type = END;
+        _type = Type::END;
         return *this;
     }
 
@@ -412,14 +423,14 @@ Vargas::Graph::FilteringIter &Vargas::Graph::FilteringIter::operator++() {
 }
 
 
-const Vargas::Graph::Node &Vargas::Graph::FilteringIter::operator*() const {
-    if (_type == TOPO) return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
+const Vargas::Graph::Node &Vargas::Graph::GraphIterator::operator*() const {
+    if (_type == Type::TOPO) return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
     return *(_graph._IDMap->at(_currID));
 }
 
 
-const std::vector<uint32_t> &Vargas::Graph::FilteringIter::incoming() {
-    if (_type == TOPO) {
+const std::vector<uint32_t> &Vargas::Graph::GraphIterator::incoming() {
+    if (_type == Type::TOPO) {
         const uint32_t nid = _graph._add_order.at(_currID);
         if (_graph._prev_map.count(nid) == 0) return _incoming;
         return _graph._prev_map.at(nid);
@@ -433,7 +444,7 @@ const std::vector<uint32_t> &Vargas::Graph::FilteringIter::incoming() {
 }
 
 
-const std::vector<uint32_t> &Vargas::Graph::FilteringIter::outgoing() {
+const std::vector<uint32_t> &Vargas::Graph::GraphIterator::outgoing() {
     if (_graph._prev_map.count(_currID) == 0) return _outgoing;
     return _graph._next_map.at(_graph._add_order.at(_currID));
 }

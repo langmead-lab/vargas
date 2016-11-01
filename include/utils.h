@@ -13,31 +13,32 @@
 #define VARGAS_UTILS_H
 
 #ifdef __GNUC__
-#define LIKELY(x) __builtin_expect((x),1)
-#define UNLIKELY(x) __builtin_expect((x),0)
-#define __UNROLL__ __attribute__((optimize("unroll-loops")))
-#define __INLINE__ __attribute__((always_inline)) inline
+// expr x is likely to evalute true
+#define __RG_LIKELY__(x) __builtin_expect((x),1)
+// expr x is unlikely to evalue true
+#define __RG_UNLIKELY__(x) __builtin_expect((x),0)
+#define __RG_UNROLL__ __attribute__((optimize("unroll-loops")))
+#define __RG_STRONG_INLINE__ __attribute__((always_inline)) inline
 #else
-#define LIKELY(x) (x)
-#define UNLIKELY(x) (x)
-#define __UNROLL__
-#define __INLINE__ inline
+#define __RG_LIKELY__(x) (x)
+#define __RG_UNLIKELY__(x) (x)
+#define __RG_UNROLL__
+#define __RG_STRONG_INLINE__ inline
 #endif
 
 #include <vector>
 #include <fstream>
 #include <algorithm>
 #include <sstream>
+#include <chrono>
 #include "simdpp/simd.h"
-
-typedef unsigned char uchar;
 
 /**
  * @enum Base
  * @brief
  * Maps Base characters to integers.
  */
-enum Base: uchar { A = 0, C = 1, G = 2, T = 3, N = 4 };
+enum Base: unsigned char { A = 0, C = 1, G = 2, T = 3, N = 4 };
 
 /**
  * @brief
@@ -45,24 +46,24 @@ enum Base: uchar { A = 0, C = 1, G = 2, T = 3, N = 4 };
  * @param c character
  * @return numeral representation
  */
-__INLINE__
+__RG_STRONG_INLINE__
 Base base_to_num(char c) {
-  switch (c) {
-    case 'A':
-    case 'a':
-      return Base::A;
-    case 'C':
-    case 'c':
-      return Base::C;
-    case 'G':
-    case 'g':
-      return Base::G;
-    case 'T':
-    case 't':
-      return Base::T;
-    default:
-      return Base::N;
-  }
+    switch (c) {
+        case 'A':
+        case 'a':
+            return Base::A;
+        case 'C':
+        case 'c':
+            return Base::C;
+        case 'G':
+        case 'g':
+            return Base::G;
+        case 'T':
+        case 't':
+            return Base::T;
+        default:
+            return Base::N;
+    }
 }
 
 /**
@@ -72,20 +73,20 @@ Base base_to_num(char c) {
  * @param num numeric form
  * @return char in [A,C,G,T,N]
  */
-__INLINE__
+__RG_STRONG_INLINE__
 char num_to_base(Base num) {
-  switch (num) {
-    case Base::A:
-      return 'A';
-    case Base::C:
-      return 'C';
-    case Base::G:
-      return 'G';
-    case Base::T:
-      return 'T';
-    default:
-      return 'N';
-  }
+    switch (num) {
+        case Base::A:
+            return 'A';
+        case Base::C:
+            return 'C';
+        case Base::G:
+            return 'G';
+        case Base::T:
+            return 'T';
+        default:
+            return 'N';
+    }
 }
 
 /**
@@ -94,11 +95,11 @@ char num_to_base(Base num) {
  * @param seq Sequence string
  * @return vector of numerals
  */
-__INLINE__
+__RG_STRONG_INLINE__
 std::vector<Base> seq_to_num(const std::string &seq) {
-  std::vector<Base> num(seq.length());
-  std::transform(seq.begin(), seq.end(), num.begin(), base_to_num);
-  return num;
+    std::vector<Base> num(seq.length());
+    std::transform(seq.begin(), seq.end(), num.begin(), base_to_num);
+    return num;
 }
 
 /**
@@ -107,13 +108,13 @@ std::vector<Base> seq_to_num(const std::string &seq) {
  * @param num Numeric vector
  * @return sequence string, Sigma={A,G,T,C,N}
  */
-__INLINE__
+__RG_STRONG_INLINE__
 std::string num_to_seq(const std::vector<Base> &num) {
-  std::ostringstream builder;
-  for (auto &n : num) {
-    builder << num_to_base(n);
-  }
-  return builder.str();
+    std::ostringstream builder;
+    for (auto &n : num) {
+        builder << num_to_base(n);
+    }
+    return builder.str();
 }
 
 
@@ -143,27 +144,27 @@ void split(const std::string &s,
  * @param filename File to check if valid.
  */
 inline bool file_exists(std::string filename) {
-  std::ifstream f(filename);
-  return f.good();
+    std::ifstream f(filename);
+    return f.good();
 }
 
 /**
  * @return random base character in [ACGTN].
  */
-__INLINE__
+__RG_STRONG_INLINE__
 char rand_base() {
-  switch (rand() % 5) {
-    case 0:
-      return 'A';
-    case 1:
-      return 'T';
-    case 2:
-      return 'C';
-    case 3:
-      return 'G';
-    default:
-      return 'N';
-  }
+    switch (rand() % 5) {
+        case 0:
+            return 'A';
+        case 1:
+            return 'T';
+        case 2:
+            return 'C';
+        case 3:
+            return 'G';
+        default:
+            return 'N';
+    }
 }
 
 /**
@@ -184,7 +185,7 @@ std::string current_date();
  * @param i index of element
  * @param vec vector to extract from
  */
-__INLINE__
+__RG_STRONG_INLINE__
 uint8_t extract(uint8_t i,
                 const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
     return ((uint8_t *) &vec)[i];
@@ -197,11 +198,34 @@ uint8_t extract(uint8_t i,
  * @param i index of element
  * @param vec vector to insert in
  */
-__INLINE__
+__RG_STRONG_INLINE__
 void insert(uint8_t elem,
             uint8_t i,
             const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
     ((uint8_t *) &vec)[i] = elem;
+}
+
+
+template<typename T>
+__RG_STRONG_INLINE__
+double chrono_duration(const std::chrono::time_point<T> &start_time) {
+    return std::chrono::duration_cast<std::chrono::duration<double>>
+        (std::chrono::steady_clock::now() - start_time).count();
+}
+
+template<typename T>
+__RG_STRONG_INLINE__
+double chrono_duration(const std::chrono::time_point<T> &start_time, const std::chrono::time_point<T> &end) {
+    return std::chrono::duration_cast<std::chrono::duration<double>>
+        (end - start_time).count();
+}
+
+__RG_STRONG_INLINE__
+bool ends_with(std::string const &fullString,
+               std::string const &ending) {
+    if (fullString.length() >= ending.length())
+        return 0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending);
+    else return false;
 }
 
 #endif //VARGAS_UTILS_H

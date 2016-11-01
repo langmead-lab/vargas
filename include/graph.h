@@ -172,21 +172,6 @@ namespace Vargas {
       typedef VCF::Population Population;
 
       /**
-       * @enum Type
-       * When a normal population filter is not used, a flag can be used. REF includes
-       * only reference alleles, MAXAF picks the allele with the highest frequency.
-       * Both result in linear graphs.
-       * Filter used as a placeholder, it should never be passed as a param.
-       */
-      enum Type {
-          TOPO, /**< Use a topographical ordering.*/
-          REF, /**< Only include reference nodes. */
-          MAXAF, /**< Keep the node with the highest AF at each branch. */
-          FILTER, /**< Use a given Population filter. */
-          END  /**< End iterator. */
-      };
-
-      /**
        * @brief
        * Represents a node in the directed graphs.
        * @details
@@ -362,7 +347,7 @@ namespace Vargas {
            * Set the stored node sequence. Sequence is converted to numeric form.
            * @param seq
            */
-          void set_seq(std::string seq) {
+          void set_seq(const std::string &seq) {
               _seq = seq_to_num(seq);
           }
 
@@ -471,20 +456,6 @@ namespace Vargas {
        */
       Graph(const Graph &g,
             const Population &filter);
-
-      /**
-       * @brief
-       * Construct a graph using a base graph and a filter.
-       * @details
-       * Constructs a graph using filter tags, one of:
-       * Graph::REF, or Graph::MAXAF
-       * The former keeps reference nodes, the later picks the node with the highest allele
-       * frequency. Both result in linear graphs.
-       * @param g Graph to derive from
-       * @param t one of Graph::REF, Graph::MAXAF
-       */
-      Graph(const Graph &g,
-            Type t);
 
       /**
        * @brief
@@ -620,16 +591,31 @@ namespace Vargas {
        * REF: Only return reference nodes \n
        * MAXAF: Return the node with the highest allele frequency. \n
        */
-      class FilteringIter {
+      class GraphIterator {
         public:
+
+          /**
+         * @enum Type
+         * When a normal population filter is not used, a flag can be used. REF includes
+         * only reference alleles, MAXAF picks the allele with the highest frequency.
+         * Both result in linear graphs.
+         * Filter used as a placeholder, it should never be passed as a param.
+         */
+          enum class Type : char {
+              TOPO, /**< Use a topographical ordering.*/
+              REF, /**< Only include reference nodes. */
+              MAXAF, /**< Keep the node with the highest AF at each branch. */
+              FILTER, /**< Use a given Population filter. */
+              END  /**< End iterator. */
+          };
 
           /**
            * @brief
            * Accept all nodes.
            * @ param g Graph
            */
-          explicit FilteringIter(const Graph &g) :
-              _graph(g), _type(TOPO), _currID(0) {}
+          explicit GraphIterator(const Graph &g) :
+              _graph(g), _type(Type::TOPO), _currID(0) {}
 
           /**
            * @brief
@@ -639,8 +625,8 @@ namespace Vargas {
            * @param filter Population the node is checked against. If there is an intersection,
            * the Node is returned.
            */
-          explicit FilteringIter(const Graph &g, const Population &filter) :
-              _graph(g), _filter(filter), _type(FILTER), _currID(g._root) {}
+          explicit GraphIterator(const Graph &g, const Population &filter) :
+              _graph(g), _filter(filter), _type(Type::FILTER), _currID(g._root) {}
 
           /**
            * @brief
@@ -648,10 +634,10 @@ namespace Vargas {
            * @param g graph
            * @param type one of Graph::MAXAF, Graph::REF
            */
-          explicit FilteringIter(const Graph &g, Graph::Type type)
+          explicit GraphIterator(const Graph &g, Type type)
               : _graph(g), _type(type), _currID(g._root) {
-              if (_type == TOPO) _currID = 0;
-              if (_type == END) _currID = g._add_order.size() - 1;
+              if (_type == Type::TOPO) _currID = 0;
+              if (_type == Type::END) _currID = g._add_order.size() - 1;
           }
 
           /**
@@ -665,14 +651,14 @@ namespace Vargas {
            * @return true when underlying Graph address is the same and current Node ID's
            * are the same. Two end iterators always compare equal.
            */
-          bool operator==(const FilteringIter &other) const;
+          bool operator==(const GraphIterator &other) const;
 
           /**
            * @return true when current Node ID's are not the same or if the
            * underlying graph is not the same. Two end iterators always compare
            * false.
            */
-          bool operator!=(const FilteringIter &other) const;
+          bool operator!=(const GraphIterator &other) const;
 
           /**
            * @brief
@@ -680,7 +666,7 @@ namespace Vargas {
            * Once the end of the graph is reached, _end is set.
            * @return iterator to the next Node.
            */
-          FilteringIter &operator++();
+          GraphIterator &operator++();
 
           /**
            * @return iterator filtering Type
@@ -721,7 +707,7 @@ namespace Vargas {
            * Inserts the ID into the queue if it's unique.
            * @param id node id to insert
            */
-          __INLINE__
+          __RG_STRONG_INLINE__
           void _insert_queue(uint32_t id) {
               if (_queue_unique.count(id) == 0) {
                   _queue_unique.insert(id);
@@ -731,7 +717,7 @@ namespace Vargas {
 
           const Graph &_graph; // Underlying graph
           Population _filter; // Nodes that intersect with _filter are included if _type == FILTER
-          Graph::Type _type; // Set to MAXAF or REF for linear subgraph traversals
+          Graph::GraphIterator::Type _type; // Set to MAXAF or REF for linear subgraph traversals
           uint32_t _currID;
           std::queue<uint32_t> _queue;
           std::unordered_set<uint32_t> _queue_unique; // Used to make sure we don't repeat nodes
@@ -743,12 +729,25 @@ namespace Vargas {
       };
 
       /**
+     * @brief
+     * Construct a graph using a base graph and a filter.
+     * @details
+     * Constructs a graph using filter tags, one of:
+     * Graph::REF, or Graph::MAXAF
+     * The former keeps reference nodes, the later picks the node with the highest allele
+     * frequency. Both result in linear graphs.
+     * @param g Graph to derive from
+     * @param t one of Graph::REF, Graph::MAXAF
+     */
+      Graph(const Graph &g, GraphIterator::Type t);
+
+      /**
        * @brief
        * Provides an iterator to the whole graph.
        * @return reference to the root node.
        */
-      FilteringIter begin() const {
-          return FilteringIter(*this);
+      GraphIterator begin() const {
+          return GraphIterator(*this);
       }
 
       /**
@@ -756,8 +755,8 @@ namespace Vargas {
        * Iterator when conditions are applied.
        * @param filter population to compare nodes to
        */
-      FilteringIter begin(const Population &filter) const {
-          return FilteringIter(*this, filter);
+      GraphIterator begin(const Population &filter) const {
+          return GraphIterator(*this, filter);
       }
 
       /**
@@ -765,15 +764,15 @@ namespace Vargas {
        * Linear subgraph interator.
        * @param type one of Graph::REF, Graph::MAXAF
        */
-      FilteringIter begin(Graph::Type type) const {
-          return FilteringIter(*this, type);
+      GraphIterator begin(GraphIterator::Type type) const {
+          return GraphIterator(*this, type);
       }
 
       /**
        * @return end iterator.
        */
-      FilteringIter end() const {
-          return FilteringIter(*this, END);
+      GraphIterator end() const {
+          return GraphIterator(*this, Graph::GraphIterator::Type::END);
       }
 
       /**
@@ -862,7 +861,7 @@ namespace Vargas {
        * Both are inclusive.
        * @param region
        */
-      void region(std::string region) {
+      void set_region(std::string region) {
           if (!_vf) throw std::invalid_argument("No variant file opened.");
           _vf->set_region(region);
       }
@@ -900,6 +899,13 @@ namespace Vargas {
           return _vf->num_samples();
       }
 
+      /**
+       * @brief
+       * Limit the samples used from the VCF file.
+       * @param filter CSV list of sample names to keep.
+       * @param invert Use the samples not specified in filter
+       * @return Number of samples in the filter.
+       */
       int add_sample_filter(std::string filter, bool invert = false) {
           if (!_vf) throw std::invalid_argument("No VCF file opened, cannot add filter.");
           if (filter.length() == 0 || filter == "-") return _vf->num_samples();
@@ -955,7 +961,7 @@ namespace Vargas {
        * @param curr current unconnected nodes
        * @param chain if a single linear node is split, map the beginning of the sequence to the end.
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       void _build_edges(Graph &g,
                         std::unordered_set<uint32_t> &prev,
                         std::unordered_set<uint32_t> &curr,
@@ -971,7 +977,7 @@ namespace Vargas {
        * @param target build linear sequence up to this position
        * @return ending position
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       int _build_linear_ref(Graph &g,
                             std::unordered_set<uint32_t> &prev,
                             std::unordered_set<uint32_t> &curr,
@@ -984,7 +990,7 @@ namespace Vargas {
        * max_node_len spec.
        * @return vector of split sequences
        */
-      __INLINE__
+      __RG_STRONG_INLINE__
       std::vector<std::string> _split_seq(std::string seq);
 
     private:
@@ -992,6 +998,8 @@ namespace Vargas {
       std::unique_ptr<VariantFile> _vf;
       ifasta _fa;
       Graph g;
+
+      int _abort_after_warns = 10; // Abort after N warnings, -1 means never.
 
       // Graph construction parameters
       size_t _max_node_len = 10000000; // If a node is longer, split into multiple nodes
@@ -1201,7 +1209,7 @@ TEST_CASE ("Graph class") {
             SUBCASE("Filtering Iterator") {
             Vargas::Graph::Population filter(3, false);
             filter.set(2);
-            Vargas::Graph::FilteringIter i = g.begin(filter);
+            Vargas::Graph::GraphIterator i = g.begin(filter);
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "CCC");
@@ -1217,7 +1225,7 @@ TEST_CASE ("Graph class") {
             Vargas::Graph::Population filter(3, false);
             filter.set(2);
             filter.set(1);
-            Vargas::Graph::FilteringIter i = g.begin(filter);
+            Vargas::Graph::GraphIterator i = g.begin(filter);
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
             // Order of these two don't matter
@@ -1236,7 +1244,7 @@ TEST_CASE ("Graph class") {
         }
 
             SUBCASE("Filtering Ierator: REF") {
-            Vargas::Graph::FilteringIter i = g.begin(Vargas::Graph::REF);
+            Vargas::Graph::GraphIterator i = g.begin(Vargas::Graph::GraphIterator::Type::REF);
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "CCC");
@@ -1249,7 +1257,7 @@ TEST_CASE ("Graph class") {
         }
 
             SUBCASE("Filtering Ierator: MAXAF") {
-            Vargas::Graph::FilteringIter i = g.begin(Vargas::Graph::MAXAF);
+            Vargas::Graph::GraphIterator i = g.begin(Vargas::Graph::GraphIterator::Type::MAXAF);
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "GGG");
@@ -1265,7 +1273,7 @@ TEST_CASE ("Graph class") {
 
         SUBCASE("Graph iterator") {
         // Node visit order should be topological
-        Vargas::Graph::FilteringIter i = g.begin();
+        Vargas::Graph::GraphIterator i = g.begin();
 
             CHECK(num_to_seq((*i).seq()) == "AAA");
         ++i;
@@ -1304,8 +1312,8 @@ TEST_CASE ("Graph class") {
     }
 
         SUBCASE("REF graph") {
-        Vargas::Graph g2(g, Vargas::Graph::REF);
-        Vargas::Graph::FilteringIter iter(g2);
+        Vargas::Graph g2(g, Vargas::Graph::GraphIterator::Type::REF);
+        Vargas::Graph::GraphIterator iter(g2);
 
             CHECK((*iter).seq_str() == "AAA");
         ++iter;
@@ -1317,8 +1325,8 @@ TEST_CASE ("Graph class") {
     }
 
         SUBCASE("MAXAF graph") {
-        Vargas::Graph g2(g, Vargas::Graph::MAXAF);
-        Vargas::Graph::FilteringIter iter(g2);
+        Vargas::Graph g2(g, Vargas::Graph::GraphIterator::Type::MAXAF);
+        Vargas::Graph::GraphIterator iter(g2);
 
             CHECK((*iter).seq_str() == "AAA");
         ++iter;
@@ -1332,7 +1340,7 @@ TEST_CASE ("Graph class") {
 
 }
 
-TEST_CASE ("Graph Builder") {
+TEST_CASE ("Graph Factory") {
     using std::endl;
     std::string tmpfa = "tmp_tc.fa";
     {
@@ -1380,7 +1388,7 @@ TEST_CASE ("Graph Builder") {
             Vargas::GraphFactory gb(tmpfa);
             gb.open_vcf(tmpvcf);
             gb.node_len(5);
-            gb.region("x:0-15");
+            gb.set_region("x:0-15");
 
             Vargas::Graph g;
             gb.build(g);
@@ -1413,13 +1421,30 @@ TEST_CASE ("Graph Builder") {
                 CHECK(!(*giter).belongs(2));
                 CHECK((*giter).belongs(3));
 
+            ++giter;
+                CHECK((*giter).seq_str() == "C");
+                CHECK(giter->is_ref());
+
+            ++giter;
+                CHECK((*giter).seq_str() == "CCCCC");
+                CHECK(!giter->is_ref());
+            ++giter;
+                CHECK((*giter).seq_str() == "CC");
+                CHECK(!giter->is_ref());
+
+            ++giter;
+                CHECK(giter->seq_str() == "");
+
+            ++giter;
+                CHECK(giter->seq_str() == "TTG");
+
         }
 
             SUBCASE("Deriving a Graph") {
             Vargas::GraphFactory gb(tmpfa);
             gb.open_vcf(tmpvcf);
             gb.node_len(5);
-            gb.region("x:0-15");
+            gb.set_region("x:0-15");
 
             Vargas::Graph g;
             gb.build(g);
@@ -1445,7 +1470,7 @@ TEST_CASE ("Graph Builder") {
                 CHECK_THROWS(gb.add_sample_filter("-"));
             gb.open_vcf(tmpvcf);
             gb.node_len(5);
-            gb.region("x:0-15");
+            gb.set_region("x:0-15");
 
                 SUBCASE("No inversion") {
                 gb.add_sample_filter("s1");

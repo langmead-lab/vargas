@@ -716,7 +716,7 @@ int profile(const int argc, const char *argv[]) {
 
     Vargas::GraphFactory gb(fasta);
     gb.open_vcf(bcf);
-    gb.region(region);
+    gb.set_region(region);
 
     auto start = std::clock();
 
@@ -766,7 +766,7 @@ int profile(const int argc, const char *argv[]) {
         num = 0;
         std::cerr << "REF traversal:\n\t";
         start = std::clock();
-        for (auto i = g.begin(Vargas::Graph::REF); i != g.end(); ++i) {
+        for (auto i = g.begin(Vargas::Graph::GraphIterator::Type::REF); i != g.end(); ++i) {
             ++num;
         }
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
@@ -776,7 +776,7 @@ int profile(const int argc, const char *argv[]) {
         num = 0;
         std::cerr << "MAXAF traversal:\n\t";
         start = std::clock();
-        for (auto i = g.begin(Vargas::Graph::MAXAF); i != g.end(); ++i) { ;
+        for (auto i = g.begin(Vargas::Graph::GraphIterator::Type::MAXAF); i != g.end(); ++i) { ;
         }
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
@@ -792,14 +792,14 @@ int profile(const int argc, const char *argv[]) {
     {
         std::cerr << "REF constructor:\n\t";
         start = std::clock();
-        Vargas::Graph g2(g, Vargas::Graph::REF);
+        Vargas::Graph g2(g, Vargas::Graph::GraphIterator::Type::REF);
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
     {
         std::cerr << "MAXAF constructor:\n\t";
         start = std::clock();
-        Vargas::Graph g2(g, Vargas::Graph::MAXAF);
+        Vargas::Graph g2(g, Vargas::Graph::GraphIterator::Type::MAXAF);
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 

@@ -11,6 +11,7 @@
  */
 
 #include "gdef.h"
+#include "utils.h"
 
 Vargas::GraphManager::GraphManager(std::string gdef_file) {
     if (!open(gdef_file)) throw std::invalid_argument("Invalid GDEF file \"" + gdef_file + "\"");
@@ -67,7 +68,7 @@ bool Vargas::GraphManager::open(std::istream &in, bool build_base) {
         }
 
 
-        gb.region(_region);
+        gb.set_region(_region);
         gb.node_len(_node_len);
 
         if (build_base) _subgraphs[GDEF_BASEGRAPH] = std::make_shared<Graph>(gb.build());
@@ -110,8 +111,8 @@ std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_subgraph(std::st
     if (label == GDEF_BASEGRAPH) return base();
     label = GDEF_BASEGRAPH + GDEF_SCOPE + label;
 
-    if (_ends_with(label, GDEF_REFGRAPH)) return make_ref(label);
-    if (_ends_with(label, GDEF_MAXAFGRAPH)) return make_maxaf(label);
+    if (ends_with(label, GDEF_REFGRAPH)) return make_ref(label);
+    if (ends_with(label, GDEF_MAXAFGRAPH)) return make_maxaf(label);
 
     if (_subgraphs.count(label)) return _subgraphs.at(label);
 
@@ -139,7 +140,7 @@ std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_ref(std::string 
     std::string root = label.substr(0, label.length() - GDEF_REFGRAPH.length() - 1);
     #pragma omp critical(_gdef_make_subgraph)
     {
-        _subgraphs[label] = std::make_shared<const Graph>(*make_subgraph(root), Graph::REF);
+        _subgraphs[label] = std::make_shared<const Graph>(*make_subgraph(root), Graph::GraphIterator::Type::REF);
     }
     return _subgraphs[label];
 }
@@ -152,7 +153,7 @@ std::shared_ptr<const Vargas::Graph> Vargas::GraphManager::make_maxaf(std::strin
 
     #pragma omp critical(_gdef_make_subgraph)
     {
-        _subgraphs[label] = std::make_shared<const Graph>(*make_subgraph(root), Graph::MAXAF);
+        _subgraphs[label] = std::make_shared<const Graph>(*make_subgraph(root), Graph::GraphIterator::Type::MAXAF);
     }
     return _subgraphs[label];
 }
@@ -329,4 +330,16 @@ std::string Vargas::GraphManager::to_DOT(std::string name) const {
     }
     dot << "labelloc=\"t\";\nlabel=\"Subgraph Name : Population Size\";\n}\n";
     return dot.str();
+}
+
+void Vargas::GraphManager::set_filter(std::string filter, bool invert) {
+    if (filter.length() == 0) filter = "-";
+    else {
+        filter.erase(std::unique(filter.begin(), filter.end(),
+                                 [](const char &l, const char &r) { return std::isspace(l) && std::isspace(r); }),
+                     filter.end());
+        std::replace_if(filter.begin(), filter.end(), isspace, ',');
+    }
+    _sample_filter = filter;
+    _invert_filter = invert;
 }
