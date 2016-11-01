@@ -90,8 +90,8 @@ def main():
     vcf_header = "##fileformat=VCFv4\n##KSNPFILE=" + ksnp_file 
     if ksnp_sort is not None:
         vcf_header += "\n##KSNP_SORT=" + ksnp_sort + "\n##KSNP_NUM="
-        vcf_header += pp.pformat(num_k).replace('\n', '') + '\n'
-    vcf_header += "##contig=<ID=" + CHROM + ",assembly=b37,length="+ CHROM_LEN + ">\n"
+        vcf_header += pp.pformat(num_k).replace('\n', '')
+    vcf_header += "\n##contig=<ID=" + CHROM + ",assembly=b37,length=" + CHROM_LEN + ">\n"
     vcf_header += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
     vcf_header += "##FILTER=<ID=PASS,Description=\"All filters passed\">\n"
     vcf_header += "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Estimated allele frequency in the range (0,1)\">\n"

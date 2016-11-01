@@ -973,8 +973,8 @@ namespace Vargas {
        * @param g Graph to build linear ref in
        * @param prev previous unconnected nodes (linked to main graph already)
        * @param curr current unconnected nodes
-       * @param pos current position
-       * @param target build linear sequence up to this position
+       * @param pos current position, inclusive
+       * @param target build linear sequence up to this position, exclusive
        * @return ending position
        */
       __RG_STRONG_INLINE__

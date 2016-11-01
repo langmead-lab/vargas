@@ -158,6 +158,7 @@ TEST_CASE ("Coordinate matches") {
 
     remove(tmpfa.c_str());
     remove(tmpvcf.c_str());
+    remove((tmpfa + ".fai").c_str());
 }
 
 TEST_CASE ("Cor flag") {
@@ -245,6 +246,7 @@ TEST_CASE ("Cor flag") {
     for (auto &r : records) align_out.add_record(r);
 
     remove(tmpfa.c_str());
+    remove((tmpfa + ".fai").c_str());
     remove(tmpvcf.c_str());
     remove(reads_file.c_str());
     remove("tmp_aout.sam");

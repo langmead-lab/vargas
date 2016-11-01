@@ -153,14 +153,16 @@ namespace Vargas {
 
           AlignmentGroup(size_t read_len) : _read_len(read_len), _packaged_reads(read_len) {}
 
-          __RG_STRONG_INLINE__ void load_reads(const std::vector<std::string> &reads, size_t begin, size_t end) {
+          __RG_STRONG_INLINE__
+          void load_reads(const std::vector<std::string> &reads, size_t begin, size_t end) {
               load_reads(std::vector<std::string>(reads.begin() + begin, reads.begin() + end));
           }
 
           /**
            * @param batch load the given vector of reads.
            */
-          __RG_STRONG_INLINE__ void load_reads(const std::vector<std::string> &batch) {
+          __RG_STRONG_INLINE__
+          void load_reads(const std::vector<std::string> &batch) {
               std::vector<std::vector<Base>> _reads;
               for (auto &b : batch) _reads.push_back(seq_to_num(b));
               load_reads(_reads);
@@ -169,7 +171,8 @@ namespace Vargas {
           /**
            * @param batch load the given vector of reads.
            */
-          __RG_STRONG_INLINE__ void load_reads(const std::vector<std::vector<Base>> &batch) {
+          __RG_STRONG_INLINE__
+          void load_reads(const std::vector<std::vector<Base>> &batch) {
               _package_reads(batch);
           }
 
@@ -238,7 +241,8 @@ namespace Vargas {
            * vector. Empty spaces are padded with Base::N.
            * @param _reads vector of reads to package
            */
-          __RG_STRONG_INLINE__ void _package_reads(const std::vector<std::vector<Base>> &_reads) {
+          __RG_STRONG_INLINE__
+          void _package_reads(const std::vector<std::vector<Base>> &_reads) {
               assert(_reads.size() <= VEC_SIZE);
               // Interleave reads
               // For each read (read[i] is in _packaged_reads[0..n][i]

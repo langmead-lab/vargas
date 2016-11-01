@@ -225,7 +225,7 @@ namespace Vargas {
        * Return a subsequence of a FASTA sequence, 0 based indexing.
        * The position is not relative to the min/max params.
        * @param name Name of sequence to extract from
-       * @param beg beginning index
+       * @param beg beginning index, inclusive
        * @param end ending index, inclusive
        * @return subsequence string
        */
@@ -234,7 +234,11 @@ namespace Vargas {
                          int end) const {
           int len;
           char *ss = faidx_fetch_seq(_index, name.c_str(), beg, end, &len);
-          std::string ret(ss);
+          if (len < 0) {
+              throw std::invalid_argument("faidx_fetch_seq error (-2 if c_name not present, -1 general error): " +
+                  std::to_string(len));
+          }
+          std::string ret(ss, len);
           free(ss);
           return ret;
       }
@@ -257,7 +261,7 @@ namespace Vargas {
        * @return sequence name
        * @throws std::range_error i is out of sequence index range
        */
-      std::string seq_name(size_t i) const {
+      std::string seq_name(const size_t i) const {
           if (i > num_seq()) throw std::range_error("Out of sequence index range.");
           return std::string(faidx_iseq(_index, i));
       }
@@ -292,7 +296,7 @@ namespace Vargas {
        * @return true if FASTA index loaded
        */
       bool good() const {
-          return _index;
+          return _index != 0;
       }
 
       /**
@@ -309,8 +313,7 @@ namespace Vargas {
            * @param in ifasta handle
            * @param i index to start: 0 for begin, seq_len() for end
            */
-          iter(ifasta &in,
-               int i) : _if(in), _i(i), _end(in.num_seq()) {}
+          iter(ifasta &in, size_t i) : _if(in), _i(i), _end(in.num_seq()) {}
 
           /**
            * @return true if at same index
