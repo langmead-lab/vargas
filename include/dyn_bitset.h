@@ -32,8 +32,8 @@ class dyn_bitset {
      * @param len bitset length
      * @param val true/false
      */
-    explicit dyn_bitset(size_t len,
-                        bool val = false) : _bitset(std::vector<std::bitset<core_size>>((len / core_size) + 1)) {
+    dyn_bitset(size_t len,
+               bool val = false) : _bitset(std::vector<std::bitset<core_size>>((len / core_size) + 1)) {
         for (std::bitset<core_size> &n : _bitset) {
             if (val) n.set();
             else n.reset();
@@ -66,7 +66,7 @@ class dyn_bitset {
     /**
      * @return right padding of the rightmost element in the vector
      */
-    int right_pad() const { return _right_pad; }
+    size_t right_pad() const { return _right_pad; }
 
     /**
      * @return number of bits used.

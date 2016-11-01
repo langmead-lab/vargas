@@ -82,7 +82,6 @@ namespace vargas {
    * // CCNT, score:8 pos:80
    * @endcode
    */
-
   class ByteAligner {
     public:
       typedef typename std::vector<simdpp::uint8<VEC_SIZE>> VecType;
@@ -154,7 +153,7 @@ namespace vargas {
           AlignmentGroup(size_t read_len) : _read_len(read_len), _packaged_reads(read_len) {}
 
           __RG_STRONG_INLINE__
-          void load_reads(const std::vector<std::string> &reads, size_t begin, size_t end) {
+          void load_reads(const std::vector<std::string> &reads, const size_t begin, const size_t end) {
               load_reads(std::vector<std::string>(reads.begin() + begin, reads.begin() + end));
           }
 
@@ -181,7 +180,7 @@ namespace vargas {
            * Return the i'th base of every read in a simdpp vector.
            * @param i base index.
            */
-          const simdpp::uint8<VEC_SIZE> &at(int i) const {
+          const simdpp::uint8<VEC_SIZE> &at(const int i) const {
               return _packaged_reads.at(i);
           }
 
@@ -199,7 +198,7 @@ namespace vargas {
            * Non const version of at(i).
            * @param i base index
            */
-          simdpp::uint8<VEC_SIZE> &operator[](int i) {
+          simdpp::uint8<VEC_SIZE> &operator[](const int i) {
               return _packaged_reads.at(i);
           }
 
@@ -498,12 +497,13 @@ namespace vargas {
       }
 
     private:
+
       /**
        * @brief
        * Ending vectors from a previous node
        */
       struct _seed {
-          _seed(int _read_len) : S_col(_read_len), I_col(_read_len) { }
+          _seed(const size_t _read_len) : S_col(_read_len), I_col(_read_len) {}
           VecType S_col;
           /**< Last column of score matrix.*/
           VecType I_col;
@@ -521,7 +521,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _get_seed(const std::vector<uint32_t> &prev_ids,
                      const std::unordered_map<uint32_t, _seed> &seed_map,
-                     _seed *seed) const {
+                     _seed *const seed) const {
           using namespace simdpp;
 
           static const _seed *ns;
@@ -589,7 +589,7 @@ namespace vargas {
       void _fill_node(const Graph::Node &n,
                       const AlignmentGroup &read_group,
                       const _seed *s,
-                      _seed *nxt) {
+                      _seed *const nxt) {
 
           // Empty nodes represents deletions
           if (n.seq().size() == 0) {
@@ -660,7 +660,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell_rzcz(const simdpp::uint8<VEC_SIZE> &read_base,
                            const Base &ref,
-                           const _seed *s) {
+                           const _seed *const s) {
           _D(0, ZERO_CT, ZERO_CT);
           _I(0, s->S_col[0]);
           _M(0, read_base, ref, ZERO_CT);
@@ -694,7 +694,7 @@ namespace vargas {
       void _fill_cell_cz(const simdpp::uint8<VEC_SIZE> &read_base,
                          const Base &ref,
                          const uint32_t &row,
-                         const _seed *s) {
+                         const _seed *const s) {
           _D(0, _D_prev[0], _S_prev[0]);
           _I(row, s->S_col[row]);
           _M(0, read_base, ref, s->S_col[row - 1]);

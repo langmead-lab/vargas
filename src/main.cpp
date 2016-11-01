@@ -12,8 +12,6 @@
 #define SIMDPP_ARCH_X86_SSE4_1 // SSE support
 #define DOCTEST_CONFIG_IMPLEMENT // User controlled test execution
 
-#define TIME_ALIGNMENT 0 // Disable output and report time to align
-
 #include <iostream>
 #include <thread>
 #include <algorithm>
@@ -48,17 +46,11 @@ int main(const int argc, const char *argv[]) {
             else if (!strcmp(argv[1], "align")) {
                 return align_main(argc, argv);
             }
-//            else if (!strcmp(argv[1], "split")) {
-//                return split_main(argc, argv);
-//            }
             else if (!strcmp(argv[1], "export")) {
                 return export_main(argc, argv);
             } else if (!strcmp(argv[1], "convert")) {
                 return sam2csv(argc, argv);
             }
-//            else if (!strcmp(argv[1], "merge")) {
-//                return merge_main(argc, argv);
-//            }
         }
     } catch (std::exception &e) {
         std::cerr << "\033[1;31m"
@@ -498,111 +490,6 @@ int align_main(const int argc, const char *argv[]) {
     return 0;
 }
 
-int split_main(const int argc, const char *argv[]) {
-    GetOpt::GetOpt_pp args(argc, argv);
-
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        split_help();
-        return 0;
-    }
-
-    std::string sam_file = "", prefix = "";
-    size_t lines = 0, num_files = 0;
-    args >> GetOpt::Option('s', "sam", sam_file)
-         >> GetOpt::Option('p', "prefix", prefix)
-         >> GetOpt::Option('l', "lines", lines)
-         >> GetOpt::Option('n', "num", num_files);
-
-    if ((lines && num_files) || (!lines && !num_files))
-        throw std::invalid_argument("One of -n and -l should be defined.");
-
-    if (prefix.length() == 0 && sam_file.length() == 0) prefix = "sam_split.";
-    else if (prefix.length() == 0) prefix = sam_file + ".";
-
-    size_t suffix = 0;
-    vargas::isam input(sam_file);
-
-    auto start_time = std::chrono::steady_clock::now();
-
-    if (lines) {
-        std::ofstream out;
-        size_t l = lines;
-        do {
-            if (l == lines) {
-                out.close();
-                out.open(prefix + std::to_string(suffix));
-                std::cerr << "\"" << prefix << std::to_string(suffix) << "\" ..." << std::endl;
-                out << input.header().to_string();
-                ++suffix;
-                l = 0;
-            }
-            out << input.record().to_string() << "\n";
-            ++l;
-        } while (input.next());
-
-    }
-
-    if (num_files) {
-        std::vector<std::ofstream *> outs;
-        for (size_t i = 0; i < num_files; ++i) {
-            outs.push_back(new std::ofstream(prefix + std::to_string(suffix++)));
-            if (!outs.back()->good())
-                throw std::invalid_argument("Error opening output file \"" + prefix + std::to_string(suffix) + "\"");
-            *(outs.back()) << input.header().to_string();
-        }
-        suffix = 0;
-        do {
-            *(outs[suffix++]) << input.record().to_string();
-            if (suffix == outs.size()) suffix = 0;
-        } while (input.next());
-
-        for (auto p : outs) {
-            p->close();
-            delete p;
-        }
-    }
-
-    std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
-        std::chrono::steady_clock::now() - start_time).count()
-              << " seconds." << std::endl;
-
-    return 0;
-}
-
-int merge_main(const int argc, const char *argv[]) {
-
-    GetOpt::GetOpt_pp args(argc, argv);
-
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        merge_help();
-        return 0;
-    }
-
-    if (argc < 3) throw std::invalid_argument("No SAM files specified.");
-
-    std::string out_file = "";
-    args >> GetOpt::Option('t', "out", out_file);
-
-    auto start_time = std::chrono::steady_clock::now();
-
-    vargas::isam in(argv[2]);
-    vargas::osam out(out_file, in.header());
-
-    for (int j = 2; j < argc; ++j) {
-        vargas::isam in(argv[j]);
-        if (!in.good()) throw std::invalid_argument("Error opening SAM file \"" + std::string(argv[j]) + "\"");
-        do {
-            out.add_record(in.record());
-        } while (in.next());
-    }
-
-    std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
-        std::chrono::steady_clock::now() - start_time).count()
-              << " seconds." << std::endl;
-
-    return 0;
-}
-
 int sam2csv(const int argc, const char *argv[]) {
     GetOpt::GetOpt_pp args(argc, argv);
 
@@ -969,33 +856,6 @@ void sim_help() {
 
     cerr << "-n reads are produced for each -m, -i, -v, -b combination. If set to \'*\', any value is accepted."
          << endl << endl;
-}
-
-void split_help() {
-    using std::cerr;
-    using std::endl;
-
-    cerr << endl
-         << "-------------------- Vargas split, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
-    cerr << "-s\t--sam           <string> SAM input file. Default stdin.\n";
-    cerr << "-l\t--lines         <int> Maximum number of lines per file.\n";
-    cerr << "-n\t--num           <int> Number of files to distribute records to.\n";
-    cerr << "-p\t--prefix        <string> Prefix of output files. Numeric suffix will be appended.\n\n";
-    cerr << "-n distributes records round-robin style.\n" << endl;
-
-}
-
-void merge_help() {
-    using std::cerr;
-    using std::endl;
-
-    cerr << endl
-         << "-------------------- Vargas merge, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
-    cerr << "Usage:\n";
-    cerr << "\tvargas merge [-t out.sam] [f1.sam f2.sam ... fn.sam]\n";
-    cerr << "-t\t--out           <string> Output file. Default stdout.\n";
-    cerr << "\nNote: It is assumed that all SAM files share the same header, i.e. files were produced with\n"
-         << "        vargas split.\n" << endl;
 }
 
 void sam2csv_help() {

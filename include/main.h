@@ -47,20 +47,6 @@ int define_main(const int argc, const char *argv[]);
 int profile(const int argc, const char *argv[]);
 
 /**
- * Split a SAM file into multiple files. All files have the same header.
- * @param argc CL arg count
- * @param argv CL args
- */
-int split_main(const int argc, const char *argv[]);
-
-/**
- * Merge multiple SAM files that have the same header.
- * @param argc CL arg count
- * @param argv CL args
- */
-int merge_main(const int argc, const char *argv[]);
-
-/**
  * Extract fields from a SAM file and export them to a CSV file.
  * @param argc CL arg count
  * @param argv CL args
@@ -82,8 +68,6 @@ void profile_help();
 void align_help();
 void sim_help();
 void define_help();
-void split_help();
-void merge_help();
 void sam2csv_help();
 
 #endif //VARGAS_MAIN_H
