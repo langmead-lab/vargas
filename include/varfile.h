@@ -55,7 +55,7 @@ namespace vargas {
                   int const max) :
           _chr(chr), _min_pos(min), _max_pos(max) {}
 
-      virtual ~VariantFile() {};
+      virtual ~VariantFile() = default;
 
       typedef dyn_bitset<64> Population;
 
@@ -244,7 +244,7 @@ namespace vargas {
           _init();
       }
 
-      ~VCF() {
+      ~VCF() override {
           close();
       }
 
@@ -392,9 +392,15 @@ namespace vargas {
 
       void close() {
           if (_bcf) bcf_close(_bcf);
-          if (_header) bcf_hdr_destroy(_header);
-          if (_curr_rec) bcf_destroy(_curr_rec);
-          if (_ingroup_cstr) free(_ingroup_cstr);
+          if (_header != nullptr) {
+              bcf_hdr_destroy(_header);
+          }
+          if (_curr_rec != nullptr) {
+              bcf_destroy(_curr_rec);
+          }
+          if (_ingroup_cstr != nullptr) {
+              free(_ingroup_cstr);
+          }
           _bcf = nullptr;
           _header = nullptr;
           _curr_rec = nullptr;
@@ -428,7 +434,9 @@ namespace vargas {
        * @return Number of samples the VCF has. Each sample represents two genotypes.
        */
       int num_samples() const override {
-          if (!_header) return -1;
+          if (_header == nullptr) {
+              return -1;
+          }
           return bcf_hdr_nsamples(_header) * 2;
       }
 

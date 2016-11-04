@@ -60,7 +60,9 @@ bool vargas::VCF::next() {
     if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
     unpack_all();
     // Check if its within the filter range
-    if (_max_pos > 0 && _curr_rec->pos > _max_pos) return false;
+    if (_max_pos > 0 && _curr_rec->pos > _max_pos) {
+        return false;
+    }
     if (_curr_rec->pos < _min_pos ||
         (_chr.length() != 0 && strcmp(_chr.c_str(), bcf_hdr_id2name(_header, _curr_rec->rid)))) {
         return next();
@@ -128,7 +130,9 @@ int vargas::VCF::_init() {
     if (!_bcf) return -1;
 
     _header = bcf_hdr_read(_bcf);
-    if (!_header) return -2;
+    if (_header == nullptr) {
+        return -2;
+    }
 
     // Load samples
     for (int i = 0; i < num_samples() / 2; ++i) {
@@ -162,22 +166,28 @@ void vargas::VCF::_load_shared() {
 
 
 void vargas::VCF::_apply_ingroup_filter() {
-    if (!_header) {
+    if (_header == nullptr) {
         throw std::logic_error("Ingroup filter should only be applied after loading header!");
     }
 
     if (_ingroup.size() == 0) {
-        if (_ingroup_cstr) free(_ingroup_cstr);
-        _ingroup_cstr = NULL;
+        if (_ingroup_cstr != nullptr) {
+            free(_ingroup_cstr);
+        }
+        _ingroup_cstr = nullptr;
     } else if (_ingroup.size() == _samples.size()) {
-        if (_ingroup_cstr) free(_ingroup_cstr);
+        if (_ingroup_cstr != nullptr) {
+            free(_ingroup_cstr);
+        }
         _ingroup_cstr = (char *) malloc(2);
         strcpy(_ingroup_cstr, "-");
     } else {
         std::ostringstream ss;
         for (auto s : _ingroup) ss << s << ',';
         std::string smps = ss.str().substr(0, ss.str().length() - 1);
-        if (_ingroup_cstr) free(_ingroup_cstr);
+        if (_ingroup_cstr != nullptr) {
+            free(_ingroup_cstr);
+        }
         _ingroup_cstr = (char *) malloc(smps.length() + 1);
         strcpy(_ingroup_cstr, smps.c_str());
     }

@@ -25,7 +25,7 @@ template<unsigned int core_size>
 class dyn_bitset {
 
   public:
-    dyn_bitset() { }
+    dyn_bitset() = default;
     /**
      * @brief
      * Initilize a bitset of length len, all set to val.
@@ -205,7 +205,9 @@ class dyn_bitset {
             throw std::invalid_argument("Incompatible dimension");
         for (size_t i = 0; i < _bitset.size(); ++i) {
             std::bitset<core_size> t = _bitset[i] & db._bitset[i];
-            if (t.any()) return true;
+            if (t.any()) {
+                return true;
+            }
         }
         return false;
     }
@@ -223,7 +225,9 @@ class dyn_bitset {
             throw std::range_error("Incompatible dimension");
         dyn_bitset<core_size> ret(size());
         for (int i = 0; i < size(); ++i) {
-            if (at(i) && other.at(i)) ret.set(i);
+            if (at(i) && other.at(i)) {
+                ret.set(i);
+            }
         }
         return ret;
     }
@@ -241,7 +245,9 @@ class dyn_bitset {
             throw std::range_error("Incompatible dimension");
         dyn_bitset<core_size> ret(size());
         for (int i = 0; i < size(); ++i) {
-            if (at(i) || other.at(i)) ret.set(i);
+            if (at(i) || other.at(i)) {
+                ret.set(i);
+            }
         }
         return ret;
     }
