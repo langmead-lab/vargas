@@ -96,7 +96,7 @@ class dyn_bitset {
      * @param val value to set bit to.
      * @throws std::range_error bit is out of range of bitset size
      */
-    void set(const int bit,
+    void set(const size_t bit,
              bool val = true) {
         if (bit > size() || bit < 0) throw std::range_error("Index out of bounds.");
         _bitset[bit / core_size][bit % core_size] = val;
@@ -118,7 +118,7 @@ class dyn_bitset {
      * @param bit bit index
      * @throws std::range_error bit is out of range
      */
-    void flip(const int bit) {
+    void flip(const size_t bit) {
         if (bit > size() || bit < 0) throw std::range_error("Index out of bounds.");
         _bitset[bit / core_size][bit % core_size] = !_bitset[bit / core_size][bit % core_size];
     }
@@ -129,7 +129,7 @@ class dyn_bitset {
      * @param bit bit index
      * @throws std::range_error bit is out of range
      */
-    bool at(const int bit) const {
+    bool at(const size_t bit) const {
         if (bit > size() || bit < 0) throw std::range_error("Index out of bounds.");
         return _bitset[bit / core_size][bit % core_size];
     }
@@ -139,7 +139,7 @@ class dyn_bitset {
      * Alias for at(). Does not allow setting.
      * @param bit index of bit to get
      */
-    bool operator[](const int bit) const {
+    bool operator[](const size_t bit) const {
         return at(bit);
     }
 
@@ -161,7 +161,7 @@ class dyn_bitset {
      * Add a bit.
      * @param val 0/1 bit
      */
-    void push_back(bool val) {
+    void push_back(const bool val) {
         if (_right_pad == 0) {
             _bitset.push_back(std::bitset<core_size>());
             _right_pad = core_size;
@@ -224,7 +224,7 @@ class dyn_bitset {
         if (size() != other.size())
             throw std::range_error("Incompatible dimension");
         dyn_bitset<core_size> ret(size());
-        for (int i = 0; i < size(); ++i) {
+        for (size_t i = 0; i < size(); ++i) {
             if (at(i) && other.at(i)) {
                 ret.set(i);
             }
@@ -244,7 +244,7 @@ class dyn_bitset {
         if (size() != other.size())
             throw std::range_error("Incompatible dimension");
         dyn_bitset<core_size> ret(size());
-        for (int i = 0; i < size(); ++i) {
+        for (size_t i = 0; i < size(); ++i) {
             if (at(i) || other.at(i)) {
                 ret.set(i);
             }
@@ -268,7 +268,7 @@ class dyn_bitset {
      */
     size_t count() const {
         size_t count = 0;
-        for (int i = 0; i < size(); ++i) {
+        for (size_t i = 0; i < size(); ++i) {
             if (at(i)) ++count;
         }
         return count;

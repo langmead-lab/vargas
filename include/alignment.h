@@ -490,7 +490,7 @@ namespace vargas {
               for (auto i : gi.incoming()) {
                   if (filled.count(i) == 0) {
                       ret = false;
-                      std::cerr << "Node (ID:" << gi->id() << ", POS:" << gi->end() << ")"
+                      std::cerr << "Node (ID:" << gi->id() << ", POS:" << gi->end_pos() << ")"
                                 << " hit before previous node " << i << std::endl;
                   }
               }
@@ -605,7 +605,7 @@ namespace vargas {
           const Base *node_seq = n.seq().data();
           const simdpp::uint8<VEC_SIZE> *read_ptr = read_group.data();
           const size_t seq_size = n.seq().size();
-          const size_t node_origin = n.end() - seq_size + 2;
+          const size_t node_origin = n.end_pos() - seq_size + 2;
 
           // top left corner
           _fill_cell_rzcz(read_ptr[0], node_seq[0], s);

@@ -18,7 +18,10 @@
 uint32_t vargas::Graph::Node::_newID = 0;
 
 
-vargas::Graph::Graph(std::string ref_file, std::string vcf_file, std::string region, int max_node_len) {
+vargas::Graph::Graph(const std::string &ref_file,
+                     const std::string &vcf_file,
+                     const std::string &region,
+                     const int max_node_len) {
     _IDMap = std::make_shared<std::unordered_map<uint32_t, nodeptr>>();
     GraphFactory gb(ref_file);
     gb.open_vcf(vcf_file);
@@ -113,7 +116,7 @@ void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
 }
 
 
-uint32_t vargas::Graph::add_node(Node &n) {
+uint32_t vargas::Graph::add_node(const Node &n) {
     if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
     if (_IDMap->size() == 0) _root = n.id(); // first node added is default root
 
@@ -123,8 +126,8 @@ uint32_t vargas::Graph::add_node(Node &n) {
 }
 
 
-bool vargas::Graph::add_edge(uint32_t n1,
-                             uint32_t n2) {
+bool vargas::Graph::add_edge(const uint32_t n1,
+                             const uint32_t n2) {
     // Check if the nodes exist
     if (_IDMap->count(n1) == 0 || _IDMap->count(n2) == 0) return false;
 
@@ -147,7 +150,7 @@ std::string vargas::Graph::to_DOT(std::string name) const {
     dot << "digraph " << name << " {\n";
     for (auto n : *_IDMap) {
         dot << n.second->id() << "[label=\"" << n.second->seq_str()
-            << "\nP:" << n.second->end() << ", F:" << n.second->freq() << ", R:" << n.second->is_ref()
+            << "\nP:" << n.second->end_pos() << ", F:" << n.second->freq() << ", R:" << n.second->is_ref()
             << "\n[" << n.second->individuals().to_string() << "]"
             << "\"];\n";
     }
@@ -337,6 +340,59 @@ vargas::Graph::Population vargas::Graph::subset(int ingroup) const {
         if (rand() % 100 < ingroup) p.set(i);
     }
     return p;
+}
+
+vargas::Graph vargas::Graph::subgraph(const size_t min, const size_t max) const {
+    Graph ret;
+    std::unordered_map<size_t, size_t> new_to_old, old_to_new;
+    size_t new_id;
+    for (const Node &n : *this) {
+        if (n.end_pos() < min) continue;
+        if (n.is_pinched() && n.begin_pos() > max) break;
+
+        // begin in range
+        if (n.begin_pos() >= min) {
+            if (n.end_pos() <= max) {
+                new_id = ret.add_node(n);
+                new_to_old[new_id] = n.id();
+                old_to_new[n.id()] = new_id;
+            } else {
+                Node cpy = n;
+                std::vector<Base> cropped = n.seq();
+                cropped.resize(n.end_pos() - max + 1);
+                cpy.set_seq(cropped);
+                cpy.set_endpos(max);
+                new_id = ret.add_node(cpy);
+                new_to_old[new_id] = n.id();
+                old_to_new[n.id()] = new_id;
+            }
+        }
+
+            // Begin out of range
+        else if (n.end_pos() <= max) {
+            Node cpy = n;
+            std::vector<Base> seq = n.seq();
+            std::vector<Base> cropped(seq.begin() + min - n.begin_pos(), seq.end());
+            cpy.set_seq(cropped);
+            new_id = ret.add_node(cpy);
+            new_to_old[new_id] = n.id();
+            old_to_new[n.id()] = new_id;
+        }
+    }
+
+    // Build Edges
+    for (const auto &ids : new_to_old) {
+        const auto &nid = ids.first;
+        const auto &oid = ids.second;
+        if (_next_map.count(oid)) {
+            for (const auto &next : _next_map.at(oid)) {
+                if (old_to_new.count(next)) ret.add_edge(nid, old_to_new[next]);
+            }
+        }
+    }
+
+    ret.set_desc(_desc + "\n subgraph min:" + std::to_string(min) + " max:" + std::to_string(max));
+    return ret;
 }
 
 

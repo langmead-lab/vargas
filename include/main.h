@@ -61,6 +61,14 @@ int sam2csv(const int argc, const char *argv[]);
  */
 int export_main(const int argc, const char *argv[]);
 
+/**
+ * @brief
+ * Query sequence files
+ * @param argc CL arg count
+ * @param argv CL args
+ */
+int query_main(const int argc, const char *argv[]);
+
 // Menus
 void main_help();
 void export_help();
@@ -69,6 +77,7 @@ void align_help();
 void sim_help();
 void define_help();
 void sam2csv_help();
+void query_help();
 
 #endif //VARGAS_MAIN_H
 

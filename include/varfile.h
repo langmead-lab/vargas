@@ -36,6 +36,25 @@ namespace vargas {
 
   /**
    * @brief
+   * Packet to represent a parsed region string.
+   */
+  struct Region {
+      std::string seq_name;
+      size_t min, max;
+  };
+
+  /**
+   * @brief
+   * Parse a region in the format:
+   * SEQ_NAME:MIN_POS-MAX_POS
+   * Commas are stripped.
+   * @param region_str
+   * @return Region packet.
+   */
+  Region parse_region(const std::string &region_str);
+
+  /**
+   * @brief
    * Base class for files representing variants in a reference. Provides an interface
    * to iterate through variants, and encapsulates a reference region.
    */
@@ -165,7 +184,7 @@ namespace vargas {
        * the number of SNPs.
        * @return
        */
-      virtual int num_samples() const = 0;
+      virtual size_t num_samples() const = 0;
 
       /**
        * @brief
@@ -433,11 +452,11 @@ namespace vargas {
        * num_samples() counts each haplotype as distinct. num_samples() = samples().size() * 2
        * @return Number of samples the VCF has. Each sample represents two genotypes.
        */
-      int num_samples() const override {
+      size_t num_samples() const override {
           if (_header == nullptr) {
-              return -1;
+              throw std::invalid_argument("No VCF file loaded.");
           }
-          return bcf_hdr_nsamples(_header) * 2;
+          return (size_t) bcf_hdr_nsamples(_header) * 2;
       }
 
       /**
@@ -645,6 +664,12 @@ namespace vargas {
       char *_ingroup_cstr = nullptr;
 
   };
+
+  inline std::ostream &operator<<(std::ostream &os, const VCF &vcf) {
+      os << "POS: " << vcf.pos() << " REF: " << vcf.ref() << " ALTS: ";
+      for (const auto &al : vcf.alleles()) os << al << ' ';
+      return os;
+  }
 
 
   TEST_CASE ("VCF File handler") {

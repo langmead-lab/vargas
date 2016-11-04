@@ -58,7 +58,7 @@ bool vargas::GraphManager::open(std::istream &in, bool build_base) {
     }
 
     // Build base graph
-    int nsamps;
+    size_t nsamps;
     {
         GraphFactory gb(_ref_file);
         nsamps = gb.open_vcf(_variant_file);
@@ -271,7 +271,7 @@ bool vargas::GraphManager::write(std::string ref_file,
             }
 
             if (top_n) {
-                int k = 0;
+                size_t k = 0;
                 for (int i : avail_set) {
                     pop.set(i);
                     if (++k == count) break;

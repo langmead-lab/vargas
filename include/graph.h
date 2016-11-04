@@ -204,8 +204,12 @@ namespace vargas {
           /**
            * @return position of last base in seq, 0 indexed
            */
-          int end() const {
+          size_t end_pos() const {
               return _endPos;
+          }
+
+          size_t begin_pos() const {
+              return _endPos - _seq.size() + 1;
           }
 
           /**
@@ -296,10 +300,10 @@ namespace vargas {
            * Set the id of the node, should rarely be used as unique ID's are generated.
            * @param id
            */
-          void setID(uint32_t id) {
+          void setID(const uint32_t id) {
               if (id >= _newID) {
                   this->_id = id;
-                  _newID = ++id;
+                  _newID = id + 1;
               }
           }
 
@@ -308,7 +312,7 @@ namespace vargas {
            * Set the position of the last base in the sequence.
            * @param pos 0-indexed
            */
-          void set_endpos(int pos) {
+          void set_endpos(const size_t pos) {
               this->_endPos = pos;
           }
 
@@ -412,7 +416,7 @@ namespace vargas {
           static uint32_t _newID; /**< ID of the next instance to be created */
 
         private:
-          int _endPos; // End position of the sequence
+          size_t _endPos; // End position of the sequence
           std::vector<Base> _seq; // sequence in numeric form
           Population _individuals; // Each bit marks an individual, 1 if they have this node
           bool _ref = false; // Part of the reference sequence if true
@@ -439,10 +443,10 @@ namespace vargas {
        * @param region region in the format chromosome:start-end
        * @param max_node_len Maximum graph node length
        */
-      Graph(std::string ref_file,
-            std::string vcf_file,
-            std::string region,
-            int max_node_len = 1000000);
+      Graph(const std::string &ref_file,
+            const std::string &vcf_file,
+            const std::string &region,
+            const int max_node_len = 1000000);
 
       /**
        * @brief
@@ -464,8 +468,9 @@ namespace vargas {
        * A new node is created so the original can be destroyed.
        * The first node added is set as the Graph root. Nodes must be added in topographical order.
        * @param n node to add, ID of original node is preserved.
+       * @return ID of the inserted node
        */
-      uint32_t add_node(Node &n);
+      uint32_t add_node(const Node &n);
 
       /**
        * @brief
@@ -474,15 +479,15 @@ namespace vargas {
        * @param n1 Node one ID
        * @param n2 Node two ID
        */
-      bool add_edge(uint32_t n1,
-                    uint32_t n2);
+      bool add_edge(const uint32_t n1,
+                    const uint32_t n2);
 
       /**
        * @brief
        * Sets the root of the Graph.
        * @param id ID of root node
        */
-      void set_root(uint32_t id) {
+      void set_root(const uint32_t id) {
           _root = id;
       }
 
@@ -491,7 +496,7 @@ namespace vargas {
        * Set the graph description.
        * @param description
        */
-      void set_desc(std::string description) { _desc = description; }
+      void set_desc(const std::string &description) { _desc = description; }
 
       /**
        * @brief
@@ -543,7 +548,7 @@ namespace vargas {
        * Exports the graph in DOT format.
        * @param name graph name
        */
-      std::string to_DOT(std::string name = "g") const;
+      std::string to_DOT(const std::string name = "g") const;
 
       /**
        * @brief
@@ -552,20 +557,30 @@ namespace vargas {
        * @param name of the graph
        * @throws std::invalid_argument if output file cannot be opened
        */
-      void to_DOT(std::string filename, std::string name) const {
+      void to_DOT(const std::string filename, const std::string name) const {
           std::ofstream out(filename);
           if (!out.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
           out << to_DOT(name);
       }
+
 
       /**
        * @brief
        * Define the graph population size.
        * @param popsize number of genotypes
        */
-      void set_popsize(int popsize) { _pop_size = popsize; }
+      void set_popsize(const size_t popsize) { _pop_size = popsize; }
 
+      /**
+       * @brief
+       * Associate a filter with the graph.
+       * @param filter
+       */
       void set_filter(const Population &filter) { _filter = filter; }
+
+      /**
+       * @return assosciated filter
+       */
       const Population &filter() const { return _filter; }
 
       /**
@@ -578,7 +593,7 @@ namespace vargas {
        * Return a Population of a subset of the graph.
        * @return Population with ingroup % indivduals set.
        */
-      Population subset(int ingroup) const;
+      Population subset(const int ingroup) const;
 
       /**
        * @brief
@@ -777,6 +792,15 @@ namespace vargas {
 
       /**
        * @brief
+       * Create a subgraph including bases from min to max.
+       * @param min
+       * @param max
+       * @return Graph
+       */
+      Graph subgraph(const size_t min, const size_t max) const;
+
+      /**
+       * @brief
        * Set the maximum node length of the graph.
        * @param len max node length
        */
@@ -892,7 +916,7 @@ namespace vargas {
        * @param file_name
        * @return Number of samples
        */
-      int open_vcf(std::string const &file_name) {
+      size_t open_vcf(std::string const &file_name) {
           _vf.reset();
           _vf = std::unique_ptr<VariantFile>(new VCF(file_name));
           if (!_vf->good()) throw std::invalid_argument("Invalid VCF/BCF file: \"" + file_name + "\"");
@@ -1073,7 +1097,7 @@ TEST_CASE ("Node class") {
             CHECK(n1.seq()[2] == Base::G);
             CHECK(n1.seq()[3] == Base::T);
             CHECK(n1.seq()[4] == Base::N);
-            CHECK(n1.end() == 100);
+            CHECK(n1.end_pos() == 100);
             CHECK(!n1.is_ref());
             CHECK(!n1.belongs(0));
             CHECK(!n1.belongs(1));
@@ -1333,6 +1357,21 @@ TEST_CASE ("Graph class") {
             CHECK((*iter).seq_str() == "GGG");
         ++iter;
             CHECK((*iter).seq_str() == "TTT");
+        ++iter;
+            CHECK(iter == g2.end());
+
+    }
+
+        SUBCASE("Subgraph") {
+        auto g2 = g.subgraph(2, 8);
+        auto iter = g2.begin();
+            CHECK(iter->seq_str() == "AA");
+        ++iter;
+            CHECK(iter->seq_str() == "CCC");
+        ++iter;
+            CHECK(iter->seq_str() == "GGG");
+        ++iter;
+            CHECK(iter->seq_str() == "TT");
         ++iter;
             CHECK(iter == g2.end());
 

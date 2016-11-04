@@ -590,12 +590,14 @@ int profile(const int argc, const char *argv[]) {
         return 0;
     }
 
-    args >> GetOpt::Option('f', "fasta", fasta)
-         >> GetOpt::Option('v', "var", bcf)
-         >> GetOpt::Option('g', "region", region)
-         >> GetOpt::Option('i', "ingroup", ingroup)
-         >> GetOpt::Option('s', "string", read);
+    if (!(args >> GetOpt::Option('f', "fasta", fasta)
+               >> GetOpt::Option('v', "var", bcf)
+               >> GetOpt::Option('g', "region", region))) {
+        throw std::invalid_argument("FASTA & Variant File with region required.");
+    }
 
+    args >> GetOpt::Option('i', "ingroup", ingroup)
+         >> GetOpt::Option('s', "string", read);
 
     if (!file_exists(fasta) || !file_exists(bcf)) {
         throw std::invalid_argument("File does not exist.");
@@ -747,21 +749,81 @@ int export_main(const int argc, const char *argv[]) {
     return 0;
 }
 
+int query_main(const int argc, const char *argv[]) {
+    GetOpt::GetOpt_pp args(argc, argv);
+
+    if (args >> GetOpt::OptionPresent('h', "help")) {
+        query_help();
+        return 0;
+    }
+
+    std::string region, file;
+
+    if (!(args >> GetOpt::Option('g', "region", region))) {
+        throw std::invalid_argument("Region argument required!");
+    }
+
+    auto reg = vargas::parse_region(region);
+
+    if (args >> GetOpt::Option('f', "fasta", file)) {
+        vargas::ifasta in(file);
+        std::cout << file << ", " << region << " :\n" << in.subseq(reg.seq_name, reg.min, reg.max) << std::endl;
+    }
+
+    if (args >> GetOpt::Option('v', "vcf", file)) {
+        vargas::VCF vcf(file);
+        vcf.set_region(region);
+        std::cout << file << ", " << region << " :\n";
+        while (vcf.next()) {
+            std::cout << vcf << '\n';
+        }
+    }
+
+    if (args >> GetOpt::Option('g', "gdef", file)) {
+        vargas::GraphManager gm(file);
+        std::string subgraph = gm.GDEF_BASEGRAPH, out = "";
+
+        args >> GetOpt::Option('s', "subgraph", subgraph)
+             >> GetOpt::Option('t', "out", out);
+
+        auto sg = gm.make_subgraph(subgraph)->subgraph(reg.min, reg.max);
+        if (out.length() == 0) std::cout << sg.to_DOT();
+        else {
+            std::ofstream o(out);
+            o << sg.to_DOT();
+        }
+    }
+
+    return 0;
+
+}
+
+void query_help() {
+    using std::cerr;
+    using std::endl;
+    cerr << endl
+         << "-------------------- vargas query, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
+    cerr << "-g\t--region        *<string> Region to export, format CHR:MIN-MAX\n";
+    cerr << "-f\t--fasta         <string> Get a subsequence.\n";
+    cerr << "-v\t--vcf           <string> VCF or BCF file.\n";
+    cerr << "-g\t--gdef          <string> Query a graph, export DOT format.\n";
+    cerr << "-t\t--out           <string> DOT output file for -g.\n";
+    cerr << "-s\t--subgraph      <string> Subgraph of GDEF to query, default is the whole graph.\n";
+}
+
 void main_help() {
     using std::cerr;
     using std::endl;
     cerr << endl
-         << "---------------------- Vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------\n";
-    cerr << "Operating modes \'Vargas MODE\':" << endl;
-    cerr << "\tdefine      Define a set of graphs for use with sim/align.\n";
+         << "---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------\n";
+    cerr << "Operating modes \'vargas MODE\':" << endl;
+    cerr << "\tdefine      Define a set of graphs for use with sim and align.\n";
     cerr << "\tsim         Simulate reads from a set of graphs.\n";
     cerr << "\talign       Align reads to a set of graphs.\n";
     cerr << "\texport      Export graph to DOT format.\n";
-//    cerr << "\tsplit       Split a SAM file into multiple files.\n";
-//    cerr << "\tmerge       Merge SAM files.\n";
     cerr << "\tconvert     Convert a SAM file to a CSV file.\n";
-    cerr << "\ttest        Run doctests.\n";
-//    cerr << "\tprofile     Run profiles.\n" << endl;
+    cerr << "\ttest        Run unit tests.\n";
+    cerr << "\tprofile     Run profiles (debug).\n" << endl;
 }
 
 void export_help() {
@@ -769,7 +831,7 @@ void export_help() {
     using std::endl;
 
     cerr << endl
-         << "-------------------- Vargas export, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
+         << "-------------------- vargas export, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
     cerr << "-t\t--out           Output filename.\n";
     cerr << "-g\t--graph         Subgraph to export, default BASE\n\n";
     cerr << "vargas export -g \"IN\" -t out.dot < graph_definition.gdef\n" << std::endl;
@@ -781,7 +843,7 @@ void define_help() {
     using std::endl;
 
     cerr << endl
-         << "-------------------- Vargas define, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
+         << "-------------------- vargas define, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
     cerr << "-f\t--fasta         *<string> Reference filename.\n";
     cerr << "-v\t--vcf           *<string> VCF or BCF file.\n";
     cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX.\n";
@@ -805,11 +867,11 @@ void profile_help() {
     using std::cerr;
     using std::endl;
     cerr << endl
-         << "---------------------- Vargas profile, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------"
+         << "---------------------- vargas profile, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------"
          << endl;
-    cerr << "-f\t--fasta         <string> Reference filename." << endl;
-    cerr << "-v\t--var           <string> VCF/BCF filename." << endl;
-    cerr << "-g\t--region        <string> Region of graph, format CHR:MIN-MAX." << endl;
+    cerr << "-f\t--fasta         *<string> Reference filename." << endl;
+    cerr << "-v\t--var           *<string> VCF/BCF filename." << endl;
+    cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX." << endl;
     cerr << "-i\t--ingroup       <int> Percent of genotypes to include in alignment." << endl;
     cerr << "-s\t--string        <string,string..> Include reads in alignment. Rest will be random." << endl << endl;
 }
@@ -819,7 +881,7 @@ void align_help() {
     using std::endl;
 
     cerr << endl
-         << "------------------- Vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------\n";;
+         << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------\n";;
     cerr << "-g\t--gdef          *<string> Graph definition file.\n";
     cerr << "-r\t--reads         *<string, string...> Read files to align. Default stdin.\n";
     cerr << "-a\t--align         *<string> Alignment targets.\n";
@@ -839,7 +901,7 @@ void sim_help() {
     using std::endl;
 
     cerr << endl
-         << "-------------------- Vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
+         << "-------------------- vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
     cerr << "-g\t--gdef          *<string> Graph definition file. Default stdin.\n";
     cerr << "-s\t--sub           *<string;string; ...> list of graphs to simulate from.\n";
     cerr << "-f\t--file          -s specifies a file name.\n";
@@ -863,7 +925,7 @@ void sam2csv_help() {
     using std::endl;
 
     cerr << endl
-         << "-------------------- Vargas convert, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
+         << "-------------------- vargas convert, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
     cerr << "-s\t--sam          <string> SAM input file. Default stdin.\n";
     cerr << "-f\t--format       *<string,string...> Specify tags per column. Case sensitive.\n";
     cerr << "\nOutput printed to stdout.\n";

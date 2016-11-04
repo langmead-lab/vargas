@@ -146,7 +146,7 @@ bool vargas::Sim::_update_read() {
     _read.aux.set(SIM_SAM_SUB_ERR_TAG, sub_err);
 
     // +1 from length being 1 indexed but end() being zero indexed, +1 since POS is 1 indexed.
-    _read.pos = _nodes.at(curr_node)->end() - _nodes.at(curr_node)->length() + 2 + curr_pos - _prof.len;
+    _read.pos = _nodes.at(curr_node)->end_pos() - _nodes.at(curr_node)->length() + 2 + curr_pos - _prof.len;
 
     _read.aux.set(SIM_SAM_READ_ORIG_TAG, read_str);
 

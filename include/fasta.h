@@ -235,8 +235,8 @@ namespace vargas {
           int len;
           char *ss = faidx_fetch_seq(_index, name.c_str(), beg, end, &len);
           if (len < 0) {
-              throw std::invalid_argument("faidx_fetch_seq error (-2 if c_name not present, -1 general error): " +
-                  std::to_string(len));
+              if (len == -2) throw std::invalid_argument("Sequence \"" + name + "\" does not exist.");
+              throw std::invalid_argument("htslib general error");
           }
           std::string ret(ss, len);
           free(ss);

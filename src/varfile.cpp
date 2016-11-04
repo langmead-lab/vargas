@@ -11,14 +11,16 @@
 
 #include "varfile.h"
 
-void vargas::VariantFile::set_region(std::string region) {
-    std::vector<std::string> regionSplit = split(region, ':');
+vargas::Region vargas::parse_region(const std::string &region_str) {
+    vargas::Region ret;
+
+    std::vector<std::string> regionSplit = split(region_str, ':');
 
     // Name
     if (regionSplit.size() != 2)
         throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY");
 
-    _chr = regionSplit[0];
+    ret.seq_name = regionSplit[0];
 
     // Strip commas
     regionSplit[1].erase(std::remove(regionSplit[1].begin(), regionSplit[1].end(), ','), regionSplit[1].end());
@@ -28,13 +30,20 @@ void vargas::VariantFile::set_region(std::string region) {
     if (regionSplit.size() != 2)
         throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY");
 
-    _min_pos = std::stoi(regionSplit[0]);
-    _max_pos = std::stoi(regionSplit[1]);
+    ret.min = std::stoul(regionSplit[0]);
+    ret.max = std::stoul(regionSplit[1]);
 
-    if (_min_pos > _max_pos) {
-        throw std::invalid_argument("Invalid region.");
+    if (ret.min > ret.max) {
+        throw std::invalid_argument("Invalid region, min > max.");
     }
+    return ret;
+}
 
+void vargas::VariantFile::set_region(std::string region) {
+    auto parsed = parse_region(region);
+    _chr = parsed.seq_name;
+    _min_pos = parsed.min;
+    _max_pos = parsed.max;
 }
 
 
@@ -135,7 +144,7 @@ int vargas::VCF::_init() {
     }
 
     // Load samples
-    for (int i = 0; i < num_samples() / 2; ++i) {
+    for (size_t i = 0; i < num_samples() / 2; ++i) {
         _samples.push_back(_header->samples[i]);
     }
     create_ingroup(100);

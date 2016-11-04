@@ -481,7 +481,7 @@ TEST_CASE ("Graph Manager") {
 
                 CHECK(gm.filter("top").at(0) == 1);
                 CHECK(gm.filter("top").at(1) == 1);
-            for (int i = 2; i < gm.filter("top").size(); ++i) {
+            for (size_t i = 2; i < gm.filter("top").size(); ++i) {
                     CHECK(gm.filter("top").at(i) == 0);
             }
 
