@@ -199,7 +199,7 @@ namespace vargas {
            * @param i base index
            */
           simdpp::uint8<VEC_SIZE> &operator[](const int i) {
-              return _packaged_reads.at(i);
+              return _packaged_reads[i];
           }
 
           /**
@@ -207,11 +207,12 @@ namespace vargas {
            * Returns optimal number of reads in a batch based on SIMD architecture.
            * @return batch size.
            */
-          size_t group_size() const { return VEC_SIZE; }
+          static constexpr size_t group_size() { return VEC_SIZE; }
 
           /**
            * @return iterator to the beginning of the packaged reads.
            */
+          inline
           typename std::vector<simdpp::uint8<VEC_SIZE>>::const_iterator begin() const {
               return _packaged_reads.begin();
           }
@@ -219,6 +220,7 @@ namespace vargas {
           /**
            * @return iterator to the end of the packaged reads.
            */
+          inline
           typename std::vector<simdpp::uint8<VEC_SIZE>>::const_iterator end() const {
               return _packaged_reads.end();
           }

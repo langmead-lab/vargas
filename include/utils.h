@@ -13,9 +13,9 @@
 #define VARGAS_UTILS_H
 
 #ifdef __GNUC__
-// expr x is likely to evalute true
+// expr x is likely to evaluate true
 #define __RG_LIKELY__(x) __builtin_expect((x),1)
-// expr x is unlikely to evalue true
+// expr x is unlikely to evaluate true
 #define __RG_UNLIKELY__(x) __builtin_expect((x),0)
 #define __RG_UNROLL__ __attribute__((optimize("unroll-loops")))
 #define __RG_STRONG_INLINE__ __attribute__((always_inline)) inline
