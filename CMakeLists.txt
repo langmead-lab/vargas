@@ -25,7 +25,9 @@ set(MAIN_SOURCES
         src/graph.cpp
         src/utils.cpp
         src/varfile.cpp
-        src/sim.cpp)
+        src/sim.cpp
+        src/fasta.cpp
+        src/sam.cpp)
 
 set(HEADERS
         include/alignment.h

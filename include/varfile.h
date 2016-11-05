@@ -86,29 +86,23 @@ namespace vargas {
         * @param min Minimum position, 0 indexed
         * @param max Max position, inclusive, 0 indexed
      */
-      void set_region(std::string chr,
-                      int min,
-                      int max) {
-          _min_pos = min;
-          _max_pos = max;
-          _chr = chr;
-      }
+      void set_region(std::string chr, int min, int max);
 
       /**
- * @brief
- * Parse a region string in the format: \n
- * CHR:XX,XXX-YY,YYY \n
- * commas are stripped, range is inclusive. 0 indexed.
- * If max is <= 0, go until end.
- * @param region region string
- */
+     * @brief
+     * Parse a region string in the format: \n
+     * CHR:XX,XXX-YY,YYY \n
+     * commas are stripped, range is inclusive. 0 indexed.
+     * If max is <= 0, go until end.
+     * @param region region string
+     */
       void set_region(std::string region);
 
       /**
- * @brief
- * Get the minimum position.
- * @return 0 indexed minimum pos
- */
+     * @brief
+     * Get the minimum position.
+     * @return 0 indexed minimum pos
+     */
       int region_lower() const {
           return _min_pos;
       }
@@ -409,22 +403,7 @@ namespace vargas {
           return _init();
       }
 
-      void close() {
-          if (_bcf) bcf_close(_bcf);
-          if (_header != nullptr) {
-              bcf_hdr_destroy(_header);
-          }
-          if (_curr_rec != nullptr) {
-              bcf_destroy(_curr_rec);
-          }
-          if (_ingroup_cstr != nullptr) {
-              free(_ingroup_cstr);
-          }
-          _bcf = nullptr;
-          _header = nullptr;
-          _curr_rec = nullptr;
-          _ingroup_cstr = nullptr;
-      }
+      void close();
 
       bool good() override {
           return _header && _bcf;
@@ -452,12 +431,7 @@ namespace vargas {
        * num_samples() counts each haplotype as distinct. num_samples() = samples().size() * 2
        * @return Number of samples the VCF has. Each sample represents two genotypes.
        */
-      size_t num_samples() const override {
-          if (_header == nullptr) {
-              throw std::invalid_argument("No VCF file loaded.");
-          }
-          return (size_t) bcf_hdr_nsamples(_header) * 2;
-      }
+      size_t num_samples() const override;
 
       /**
        * @brief

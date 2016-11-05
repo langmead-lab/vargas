@@ -76,17 +76,7 @@ namespace vargas {
        * @param file_name
        * @throws std::invalid_argument Error opening a file
        */
-      void open(std::string file_name) {
-          close();
-          if (file_name.length() == 0) {
-              _use_stdio = true;
-          }
-          else {
-              _use_stdio = false;
-              _o.open(file_name);
-              if (!_o.good()) throw std::invalid_argument("Error opening file \"" + file_name + "\"");
-          }
-      }
+      void open(std::string file_name);
 
       void close() {
           _o.close();
@@ -99,14 +89,7 @@ namespace vargas {
        * @param sequence sequence string
        */
       void write(const std::string &name,
-                 const std::string &sequence) {
-          (_use_stdio ? std::cout : _o) << '>' << name << '\n';
-          size_t pos = 0;
-          while (pos < sequence.length()) {
-              (_use_stdio ? std::cout : _o) << sequence.substr(pos, _char_per_line) << '\n';
-              pos += _char_per_line;
-          }
-      }
+                 const std::string &sequence);
 
       /**
        * @brief
@@ -114,7 +97,9 @@ namespace vargas {
        * @param len maximum sequence line length
        */
       void char_per_line(int len) {
-          if (len > 0) _char_per_line = len;
+          if (len > 0) {
+              _char_per_line = len;
+          }
       }
 
 
@@ -165,7 +150,9 @@ namespace vargas {
        * Close any opened file and flush any outputs.
        */
       void close() {
-          if (_index) fai_destroy(_index);
+          if (_index != nullptr) {
+              fai_destroy(_index);
+          }
           _index = nullptr;
       }
 
@@ -175,23 +162,7 @@ namespace vargas {
        * @param file_name filename
        * @return -1 on index build error, -2 on open error, 0 otherwise
        */
-      int open(const std::string &file_name) {
-          // Check if a Fasta index exists. If it doesn't build it.
-          if (!file_exists(file_name + ".fai")) {
-              if (fai_build(file_name.c_str()) != 0) {
-                  return -1;
-              }
-          }
-          _index = fai_load(file_name.c_str());
-          if (!_index) return -2;
-          _file_name = file_name;
-
-          _seq_names.clear();
-          for (size_t i = 0; i < num_seq(); ++i) {
-              _seq_names.push_back(seq_name(i));
-          }
-          return 0;
-      }
+      int open(const std::string &file_name);
 
       /**
        * @return opened file name.
@@ -229,19 +200,7 @@ namespace vargas {
        * @param end ending index, inclusive
        * @return subsequence string
        */
-      std::string subseq(const std::string &name,
-                         int beg,
-                         int end) const {
-          int len;
-          char *ss = faidx_fetch_seq(_index, name.c_str(), beg, end, &len);
-          if (len < 0) {
-              if (len == -2) throw std::invalid_argument("Sequence \"" + name + "\" does not exist.");
-              throw std::invalid_argument("htslib general error");
-          }
-          std::string ret(ss, len);
-          free(ss);
-          return ret;
-      }
+      std::string subseq(const std::string &name, int beg, int end) const;
 
       /**
        * @brief
@@ -261,10 +220,7 @@ namespace vargas {
        * @return sequence name
        * @throws std::range_error i is out of sequence index range
        */
-      std::string seq_name(const size_t i) const {
-          if (i > num_seq()) throw std::range_error("Out of sequence index range.");
-          return std::string(faidx_iseq(_index, i));
-      }
+      std::string seq_name(const size_t i) const;
 
       /**
        * @brief
@@ -282,21 +238,13 @@ namespace vargas {
        * @return vector of std::pair<seq_name, seq>
        * @throws std::invalid_argument No file is loaded
        */
-      std::vector<std::pair<std::string, std::string>> sequences() const {
-          if (!_index) throw std::invalid_argument("No file loaded.");
-          std::vector<std::pair<std::string, std::string>> ret;
-          for (size_t i = 0; i < num_seq(); ++i) {
-              std::string name = std::string(faidx_iseq(_index, i));
-              ret.push_back(std::pair<std::string, std::string>(name, seq(name)));
-          }
-          return ret;
-      }
+      std::vector<std::pair<std::string, std::string>> sequences() const;
 
       /**
        * @return true if FASTA index loaded
        */
       bool good() const {
-          return _index != 0;
+          return _index != nullptr;
       }
 
       /**
@@ -420,6 +368,7 @@ namespace vargas {
       std::string _file_name;
       faidx_t *_index = nullptr;
   };
+
 }
 
 TEST_CASE ("FASTA Reading") {

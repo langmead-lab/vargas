@@ -50,6 +50,8 @@ int main(const int argc, const char *argv[]) {
                 return export_main(argc, argv);
             } else if (!strcmp(argv[1], "convert")) {
                 return sam2csv(argc, argv);
+            } else if (!strcmp(argv[1], "query")) {
+                return query_main(argc, argv);
             }
         }
     } catch (std::exception &e) {
@@ -765,21 +767,7 @@ int query_main(const int argc, const char *argv[]) {
 
     auto reg = vargas::parse_region(region);
 
-    if (args >> GetOpt::Option('f', "fasta", file)) {
-        vargas::ifasta in(file);
-        std::cout << file << ", " << region << " :\n" << in.subseq(reg.seq_name, reg.min, reg.max) << std::endl;
-    }
-
-    if (args >> GetOpt::Option('v', "vcf", file)) {
-        vargas::VCF vcf(file);
-        vcf.set_region(region);
-        std::cout << file << ", " << region << " :\n";
-        while (vcf.next()) {
-            std::cout << vcf << '\n';
-        }
-    }
-
-    if (args >> GetOpt::Option('g', "gdef", file)) {
+    if (args >> GetOpt::Option('d', "gdef", file)) {
         vargas::GraphManager gm(file);
         std::string subgraph = gm.GDEF_BASEGRAPH, out = "";
 
@@ -792,6 +780,44 @@ int query_main(const int argc, const char *argv[]) {
             std::ofstream o(out);
             o << sg.to_DOT();
         }
+
+        std::cout << std::endl;
+
+        vargas::ifasta in(gm.reference());
+        std::cout << gm.reference() << ", " << region
+                  << " \n----------------------------------------\n"
+                  << in.subseq(reg.seq_name, reg.min, reg.max) << "\n\n";
+
+        vargas::VCF vcf(gm.variants());
+        vcf.set_region(region);
+        std::cout << gm.variants() << ", "
+                  << region << "\n----------------------------------------\n";
+
+        while (vcf.next()) {
+            std::cout << vcf << '\n';
+        }
+
+        std::cout << std::endl;
+
+    }
+
+    if (args >> GetOpt::Option('f', "fasta", file)) {
+        vargas::ifasta in(file);
+        std::cout << file << ", " << region
+                  << "\n----------------------------------------\n"
+                  << in.subseq(reg.seq_name, reg.min, reg.max)
+                  << '\n' << std::endl;
+    }
+
+    if (args >> GetOpt::Option('v', "vcf", file)) {
+        vargas::VCF vcf(file);
+        vcf.set_region(region);
+        std::cout << file << ", " << region
+                  << "\n----------------------------------------\n";
+        while (vcf.next()) {
+            std::cout << vcf << '\n';
+        }
+        std::cout << '\n' << std::endl;
     }
 
     return 0;
@@ -806,9 +832,9 @@ void query_help() {
     cerr << "-g\t--region        *<string> Region to export, format CHR:MIN-MAX\n";
     cerr << "-f\t--fasta         <string> Get a subsequence.\n";
     cerr << "-v\t--vcf           <string> VCF or BCF file.\n";
-    cerr << "-g\t--gdef          <string> Query a graph, export DOT format.\n";
+    cerr << "-d\t--gdef          <string> Query a graph, export DOT format.\n";
     cerr << "-t\t--out           <string> DOT output file for -g.\n";
-    cerr << "-s\t--subgraph      <string> Subgraph of GDEF to query, default is the whole graph.\n";
+    cerr << "-s\t--subgraph      <string> Subgraph of GDEF to query, default is the whole graph.\n" << endl;
 }
 
 void main_help() {
@@ -822,6 +848,7 @@ void main_help() {
     cerr << "\talign       Align reads to a set of graphs.\n";
     cerr << "\texport      Export graph to DOT format.\n";
     cerr << "\tconvert     Convert a SAM file to a CSV file.\n";
+    cerr << "\tquery       Pull a region from a GDEF/VCF/FASTA file.\n";
     cerr << "\ttest        Run unit tests.\n";
     cerr << "\tprofile     Run profiles (debug).\n" << endl;
 }

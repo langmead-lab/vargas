@@ -18,7 +18,7 @@ vargas::Region vargas::parse_region(const std::string &region_str) {
 
     // Name
     if (regionSplit.size() != 2)
-        throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY");
+        throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY\n\t" + region_str);
 
     ret.seq_name = regionSplit[0];
 
@@ -28,7 +28,7 @@ vargas::Region vargas::parse_region(const std::string &region_str) {
     // Range
     regionSplit = split(regionSplit[1], '-');
     if (regionSplit.size() != 2)
-        throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY");
+        throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY\n\t" + region_str);
 
     ret.min = std::stoul(regionSplit[0]);
     ret.max = std::stoul(regionSplit[1]);
@@ -36,6 +36,7 @@ vargas::Region vargas::parse_region(const std::string &region_str) {
     if (ret.min > ret.max) {
         throw std::invalid_argument("Invalid region, min > max.");
     }
+
     return ret;
 }
 
@@ -44,6 +45,12 @@ void vargas::VariantFile::set_region(std::string region) {
     _chr = parsed.seq_name;
     _min_pos = parsed.min;
     _max_pos = parsed.max;
+}
+
+void vargas::VariantFile::set_region(std::string chr, int min, int max) {
+    _min_pos = min;
+    _max_pos = max;
+    _chr = chr;
 }
 
 
@@ -202,4 +209,28 @@ void vargas::VCF::_apply_ingroup_filter() {
     }
 
     bcf_hdr_set_samples(_header, _ingroup_cstr, 0);
+}
+
+size_t vargas::VCF::num_samples() const {
+    if (_header == nullptr) {
+        throw std::invalid_argument("No VCF file loaded.");
+    }
+    return (size_t) bcf_hdr_nsamples(_header) * 2;
+}
+
+void vargas::VCF::close() {
+    if (_bcf) bcf_close(_bcf);
+    if (_header != nullptr) {
+        bcf_hdr_destroy(_header);
+    }
+    if (_curr_rec != nullptr) {
+        bcf_destroy(_curr_rec);
+    }
+    if (_ingroup_cstr != nullptr) {
+        free(_ingroup_cstr);
+    }
+    _bcf = nullptr;
+    _header = nullptr;
+    _curr_rec = nullptr;
+    _ingroup_cstr = nullptr;
 }

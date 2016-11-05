@@ -152,3 +152,70 @@ bool vargas::Sim::_update_read() {
 
     return true;
 }
+bool vargas::Sim::update_read() {
+    // Call internal function. update_read is a wrapper to prevent stack overflow
+    size_t counter = 0;
+    while (!_update_read()) {
+        ++counter;
+        if (counter == _abort_after) {
+            std::cerr << "Failed to generate read after " << _abort_after
+                      << " tries.\n" << "Profile: " << _prof.to_string() << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+const std::vector<vargas::SAM::Record> &vargas::Sim::get_batch(int size) {
+    if (size <= 0) size = 1;
+    _batch.clear();
+    for (int i = 0; i < size; ++i) {
+        if (!update_read()) break;
+        _batch.push_back(_read);
+    }
+    return _batch;
+}
+void vargas::Sim::_init() {
+    uint64_t total = 0;
+    for (auto giter = _graph.begin(); giter != _graph.end(); ++giter) {
+        total += giter->length();
+        _node_weights.push_back(total);
+        _node_ids.push_back(giter->id());
+    }
+    std::random_device rd;
+    _rand_generator = std::mt19937(rd());
+    _node_weight_dist = std::uniform_int_distribution<uint64_t>(0, total);
+}
+std::string vargas::Sim::Read::to_fasta() const {
+    std::ostringstream ss;
+    ss << ">"
+       << READ_META_END << ":" << end_pos << READ_META_FASTA_DELIM
+       << READ_META_MUT << ":" << sub_err << READ_META_FASTA_DELIM
+       << READ_META_INDEL << ":" << indel_err << READ_META_FASTA_DELIM
+       << READ_META_VARNODE << ":" << var_nodes << READ_META_FASTA_DELIM
+       << READ_META_VARBASE << ":" << var_bases << READ_META_FASTA_DELIM
+       << READ_META_SRC << ":" << src
+       << std::endl
+       << read;
+    return ss.str();
+}
+std::string vargas::Sim::Read::to_csv() const {
+    std::ostringstream ss;
+    ss << src << ','
+       << read << ','
+       << end_pos << ','
+       << sub_err << ','
+       << indel_err << ','
+       << var_nodes << ','
+       << var_bases;
+    return ss.str();
+}
+std::string vargas::Sim::Profile::to_string() const {
+    std::ostringstream os;
+    os << "len=" << len
+       << ";mut=" << mut
+       << ";indel=" << indel
+       << ";vnode=" << var_nodes
+       << ";vbase=" << var_bases
+       << ";rand=" << rand;
+    return os.str();
+}
