@@ -28,19 +28,6 @@
 #include "graph.h"
 #include "doctest.h"
 
-#define ALIGN_SAM_TYPE_REF "REF"
-#define ALIGN_SAM_TYPE_MAXAF "MAXAF"
-#define ALIGN_SAM_TYPE_IN "IN"
-#define ALIGN_SAM_TYPE_OUT "OUT"
-#define ALIGN_SAM_TYPE_TAG "tp"
-#define ALIGN_SAM_MAX_POS_TAG "mp"
-#define ALIGN_SAM_SUB_POS_TAG "sp"
-#define ALIGN_SAM_MAX_SCORE_TAG "ms"
-#define ALIGN_SAM_SUB_SCORE_TAG "ss"
-#define ALIGN_SAM_MAX_COUNT_TAG "mc"
-#define ALIGN_SAM_SUB_COUNT_TAG "sc"
-#define ALIGN_SAM_COR_FLAG_TAG "cf"
-
 // Number of elements per SIMD vector
 #define VEC_SIZE SIMDPP_FAST_INT8_SIZE
 
@@ -61,7 +48,7 @@ namespace vargas {
    * #include "graph.h"
    * #include "alignment.h"
    *
-   * Vargas::GraphBuilder gb("reference.fa", "var.bcf");
+   * Vargas::GraphFactory gb("reference.fa", "var.bcf");
    * gb.node_len(5);
    * gb.ingroup(100);
    * gb.region("x:0-15");
@@ -69,8 +56,8 @@ namespace vargas {
    * Vargas::Graph g = gb.build();
    * std::vector<std::string> reads = {"ACGT", "GGGG", "ATTA", "CCNT"};
    *
-   * Vargas::ByteAligner a(g.max_node_len(), 4);
-   * Vargas::ByteAligner::Results res = a.align(reads, g.begin(), g.end());
+   * Vargas::Aligner a(g.max_node_len(), 4);
+   * Vargas::Aligner::Results res = a.align(reads, g.begin(), g.end());
    *
    * for (int i = 0; i < reads.size(); ++i) {
    *    std::cout << reads[i] << ", score:" << res._max_score[i] << " pos:" << res._max_pos[i] << std::endl;
@@ -82,7 +69,7 @@ namespace vargas {
    * // CCNT, score:8 pos:80
    * @endcode
    */
-  class ByteAligner {
+  class Aligner {
     public:
       typedef typename std::vector<simdpp::uint8<VEC_SIZE>> VecType;
 
@@ -96,8 +83,8 @@ namespace vargas {
        * @param max_node_len maximum node length
        * @param read_len maximum read length
        */
-      ByteAligner(size_t max_node_len,
-                  size_t read_len) :
+      Aligner(size_t max_node_len,
+              size_t read_len) :
           _read_len(read_len),
           _tol(read_len / TOL_FACTOR),
           _match_vec(simdpp::splat(2)),
@@ -117,12 +104,12 @@ namespace vargas {
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
-      ByteAligner(size_t max_node_len,
-                  size_t read_len,
-                  uint8_t match,
-                  uint8_t mismatch,
-                  uint8_t open,
-                  uint8_t extend) :
+      Aligner(size_t max_node_len,
+              size_t read_len,
+              uint8_t match,
+              uint8_t mismatch,
+              uint8_t open,
+              uint8_t extend) :
           _read_len(read_len),
           _tol(read_len / TOL_FACTOR),
           _match_vec(simdpp::splat(match)),
@@ -132,7 +119,7 @@ namespace vargas {
           _max_node_len(max_node_len),
           _alignment_group(read_len) { _alloc(); }
 
-      ~ByteAligner() {
+      ~Aligner() {
           _dealloc();
       }
 
@@ -180,7 +167,7 @@ namespace vargas {
            * Return the i'th base of every read in a simdpp vector.
            * @param i base index.
            */
-          const simdpp::uint8<VEC_SIZE> &at(const int i) const {
+          const simdpp::uint8<VEC_SIZE> &at(const size_t i) const {
               return _packaged_reads.at(i);
           }
 
@@ -280,7 +267,8 @@ namespace vargas {
           std::vector<uint8_t> max_score; /**< Best scores */
           std::vector<uint8_t> sub_score; /**< Second best scores */
 
-          std::vector<uint8_t> cor_flag; /**< 1 for target matching best score, 2 for matching sub score, 0 otherwise */
+          std::vector<uint8_t>
+              correctness_flag; /**< 1 for target matching best score, 2 for matching sub score, 0 otherwise */
 
           /**
            * @brief
@@ -293,7 +281,7 @@ namespace vargas {
               sub_count.resize(size);
               max_score.resize(size);
               sub_score.resize(size);
-              cor_flag.resize(size);
+              correctness_flag.resize(size);
           }
       };
 
@@ -382,7 +370,7 @@ namespace vargas {
        * Align a batch of reads to a graph range, return a vector of alignments
        * corresponding to the reads.
        * @param read_group vector of reads to align to
-       * @param targets Origin of read, determines cor_flag
+       * @param targets Origin of read, determines correctness_flag
        * @param begin iterator to beginning of graph
        * @param end iterator to end of graph
        * @param aligns Results packet to populate
@@ -407,7 +395,7 @@ namespace vargas {
 
           size_t num_groups = read_group.size() / VEC_SIZE; // Full alignment groups
           aligns.resize(read_group.size());
-          std::fill(aligns.cor_flag.begin(), aligns.cor_flag.end(), 0);
+          std::fill(aligns.correctness_flag.begin(), aligns.correctness_flag.end(), 0);
 
           std::unordered_map<uint32_t, _seed> seed_map; // Maps node ID's to the ending matrix columns of the node
           _seed seed(_read_len), nxt(_read_len);
@@ -426,7 +414,7 @@ namespace vargas {
               _sub_pos = aligns.sub_pos.data() + beg_offset;
               _max_count = aligns.max_count.data() + beg_offset;
               _sub_count = aligns.sub_count.data() + beg_offset;
-              _cor_flag = aligns.cor_flag.data() + beg_offset;
+              _cor_flag = aligns.correctness_flag.data() + beg_offset;
 
               _targets_lower_ptr = _targets_lower.data() + beg_offset;
               _targets_upper_ptr = _targets_upper.data() + beg_offset;
@@ -489,7 +477,7 @@ namespace vargas {
               memcpy(aligns.max_count.data() + offset, tmp_max_count.data(), len * sizeof(uint8_t));
               memcpy(aligns.sub_pos.data() + offset, tmp_sub_pos.data(), len * sizeof(uint32_t));
               memcpy(aligns.sub_count.data() + offset, tmp_sub_count.data(), len * sizeof(uint8_t));
-              memcpy(aligns.cor_flag.data() + offset, tmp_cor_flag.data(), len * sizeof(uint8_t));
+              memcpy(aligns.correctness_flag.data() + offset, tmp_cor_flag.data(), len * sizeof(uint8_t));
           }
 
       }
@@ -1047,41 +1035,41 @@ TEST_CASE ("Alignment") {
         reads.push_back("AAATTTA");
         reads.push_back("AAAGCCC");
 
-        vargas::ByteAligner a(5, 7);
+        vargas::Aligner a(5, 7);
 
         std::vector<uint32_t> origins = {8, 8, 5, 5, 7, 6, 10, 4};
-        vargas::ByteAligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
+        vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
             CHECK(aligns.max_score[0] == 8);
             CHECK(aligns.max_pos[0] == 8);
-            CHECK((int) aligns.cor_flag[0] == 1);
+            CHECK((int) aligns.correctness_flag[0] == 1);
 
             CHECK(aligns.max_score[1] == 8);
             CHECK(aligns.max_pos[1] == 8);
-            CHECK((int) aligns.cor_flag[1] == 1);
+            CHECK((int) aligns.correctness_flag[1] == 1);
 
             CHECK(aligns.max_score[2] == 8);
             CHECK(aligns.max_pos[2] == 5);
-            CHECK((int) aligns.cor_flag[2] == 1);
+            CHECK((int) aligns.correctness_flag[2] == 1);
 
             CHECK(aligns.max_score[3] == 8);
             CHECK(aligns.max_pos[3] == 5);
-            CHECK((int) aligns.cor_flag[3] == 1);
+            CHECK((int) aligns.correctness_flag[3] == 1);
 
             CHECK(aligns.max_score[4] == 10);
             CHECK(aligns.max_pos[4] == 7);
-            CHECK((int) aligns.cor_flag[4] == 1);
+            CHECK((int) aligns.correctness_flag[4] == 1);
 
             CHECK(aligns.max_score[5] == 4);
             CHECK(aligns.max_pos[5] == 6);
-            CHECK((int) aligns.cor_flag[5] == 1);
+            CHECK((int) aligns.correctness_flag[5] == 1);
 
             CHECK(aligns.max_score[6] == 8);
             CHECK(aligns.max_pos[6] == 10);
-            CHECK((int) aligns.cor_flag[6] == 1);
+            CHECK((int) aligns.correctness_flag[6] == 1);
 
             CHECK(aligns.max_score[7] == 8);
             CHECK(aligns.max_pos[7] == 4);
-            CHECK((int) aligns.cor_flag[7] == 1);
+            CHECK((int) aligns.correctness_flag[7] == 1);
 
     }
 }

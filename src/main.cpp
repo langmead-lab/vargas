@@ -106,11 +106,12 @@ int define_main(const int argc, const char *argv[]) {
          >> GetOpt::OptionPresent('b', "base", build_base);
 
 
-    std::string subgraph_str = "";
+    std::string subgraph_str;
 
     if (subgraph_def.length() == 0) {
-        std::string line;
-        while (std::getline(std::cin, line)) subgraph_str += line + "\n";
+        subgraph_str = "";
+    } else if (vargas::GraphManager::is_definition(subgraph_def)) {
+        subgraph_str = subgraph_def;
     } else {
         std::ifstream in(subgraph_def);
         if (!in.good()) throw std::invalid_argument("Error opening file \"" + subgraph_def + "\".");
@@ -207,18 +208,29 @@ int sim_main(const int argc, const char *argv[]) {
         ss << in.rdbuf();
         sim_src = ss.str();
     }
-    std::replace(sim_src.begin(), sim_src.end(), '\n', gm.GDEF_DELIM);
-    sim_src.erase(std::remove_if(sim_src.begin(), sim_src.end(), isspace), sim_src.end());
-    const std::vector<std::string> subdef_split = split(sim_src, gm.GDEF_DELIM);
 
     std::cerr << "Loading base graph... " << std::flush;
     auto start_time = std::chrono::steady_clock::now();
     gm.open(gdf_file);
     std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
+    std::cerr << gdf_file
+              << "- FASTA: " << gm.reference()
+              << " VCF: " << gm.variants()
+              << " REGION: " << gm.region() << std::endl;
 
-    // validate graph labels
-    for (const std::string &l : subdef_split) {
-        gm.filter(l); // Will throw if l does not exist
+    std::vector<std::string> subdef_split;
+    if (sim_src.length() == 0) {
+        subdef_split = gm.labels();
+    } else {
+        std::replace(sim_src.begin(), sim_src.end(), '\n', gm.GDEF_DELIM);
+        sim_src.erase(std::remove_if(sim_src.begin(), sim_src.end(), isspace), sim_src.end());
+        subdef_split = split(sim_src, gm.GDEF_DELIM);
+
+        // validate graph labels
+        for (const std::string &l : subdef_split) {
+            gm.filter(l); // Will throw if l does not exist
+        }
+
     }
 
     std::cerr << "Building profiles... " << std::flush;
@@ -272,9 +284,10 @@ int sim_main(const int argc, const char *argv[]) {
             }
         }
     }
-    std::cerr << sam_hdr.read_groups.size() << " read groups over " << subdef_split.size() << " subgraphs. "
-              << chrono_duration(start_time)
-              << " seconds." << std::endl;
+    std::cerr << chrono_duration(start_time)
+              << " seconds. "
+              << sam_hdr.read_groups.size() << " read groups over "
+              << subdef_split.size() << " subgraphs. " << std::endl;
 
     vargas::osam out(out_file, sam_hdr);
     if (!out.good()) throw std::invalid_argument("Error opening output file \"" + out_file + "\"");
@@ -358,7 +371,7 @@ int align_main(const int argc, const char *argv[]) {
     std::replace(align_targets.begin(), align_targets.end(), '\n', ';');
     const std::vector<std::string> alignment_pairs = split(align_targets, ';');
 
-    std::cerr << "Loading reads... " << std::endl;
+    std::cerr << "\nLoading reads... " << std::flush;
     auto start_time = std::chrono::steady_clock::now();
 
     std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> task_list;
@@ -383,7 +396,7 @@ int align_main(const int argc, const char *argv[]) {
             std::vector<std::string> pair;
             std::string tag, val, target_val;
             for (const std::string &p : alignment_pairs) {
-                split(p, '\t', pair);
+                split(p, pair);
                 if (pair.size() != 2)
                     throw std::invalid_argument("Malformed alignment pair \"" + p + "\".");
                 if (pair[0].at(2) != ':')
@@ -401,16 +414,19 @@ int align_main(const int argc, const char *argv[]) {
             }
         }
 
-        std::cerr << '\t' << "Graph\t# Reads" << std::endl;
+        std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
+        std::cerr << "\tSubgraph\t# Reads\tRG ID" << std::endl;
 
         // graph label to vector of reads
         for (const auto &sub_rg_pair : alignment_rg_map) {
             for (const std::string &rgid : sub_rg_pair.second) {
                 if (alignment_reads.count(rgid)) {
                     // If there is a header line that there are no reads associated with, skip
-                    task_list.push_back(std::pair<std::string, std::vector<vargas::SAM::Record>>(sub_rg_pair.first,
+                    task_list.push_back(std::pair<std::string,
+                                                  std::vector<vargas::SAM::Record>>(sub_rg_pair.first,
                                                                                                  alignment_reads.at(rgid)));
-                    std::cerr << '\t' << sub_rg_pair.first << '\t' << alignment_reads.at(rgid).size() << '\n';
+                    std::cerr << '\t' << sub_rg_pair.first << '\t' << alignment_reads.at(rgid).size()
+                              << '\t' << rgid << '\n';
                     total += alignment_reads.at(rgid).size();
                 }
             }
@@ -420,11 +436,10 @@ int align_main(const int argc, const char *argv[]) {
         std::cerr << '\t' << alignment_reads.size() << " Read groups.\n"
                   << '\t' << alignment_rg_map.size() << " Subgraphs.\n"
                   << '\t' << task_list.size() << " Tasks.\n"
-                  << '\t' << total << " Total alignments.\n"
-                  << chrono_duration(start_time) << " seconds.\n" << std::endl;
+                  << '\t' << total << " Total alignments.\n";
     }
 
-    std::cerr << "Loading graphs... \n" << std::endl;
+    std::cerr << "Loading graphs... " << std::flush;
     start_time = std::chrono::steady_clock::now();
     vargas::GraphManager gm(gdf_file);
     std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
@@ -443,7 +458,7 @@ int align_main(const int argc, const char *argv[]) {
     }
 
 
-    std::cerr << "Aligning... " << std::endl;
+    std::cerr << "Aligning with " << threads << " thread(s)..." << std::endl;
     start_time = std::chrono::steady_clock::now();
     auto start_cpu = std::clock();
 
@@ -461,7 +476,7 @@ int align_main(const int argc, const char *argv[]) {
             read_seqs[i] = r.seq;
             targets[i] = r.pos + r.seq.length() - 1;
         }
-        vargas::ByteAligner aligner(gm.node_len(), read_len, match, mismatch, gopen, gext);
+        vargas::Aligner aligner(gm.node_len(), read_len, match, mismatch, gopen, gext);
         aligner.set_correctness_tolerance(tolerance);
         task_list.at(l).first;
         auto subgraph = gm.make_subgraph(task_list.at(l).first);
@@ -475,7 +490,7 @@ int align_main(const int argc, const char *argv[]) {
             rec.aux.set(ALIGN_SAM_SUB_POS_TAG, (int) aligns.sub_pos[j]);
             rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
             rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
-            rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.cor_flag[j]);
+            rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correctness_flag[j]);
         }
         gm.destroy(task_list.at(l).first);
 
@@ -489,9 +504,9 @@ int align_main(const int argc, const char *argv[]) {
 
     auto end_time = std::chrono::steady_clock::now();
     auto cput = (std::clock() - start_cpu) / (double) CLOCKS_PER_SEC;
-    std::cerr << chrono_duration(start_time, end_time) << " s\n"
-              << cput << " CPU s\n"
-              << cput / total << " CPU s / alignment.\n" << std::endl;
+    std::cerr << chrono_duration(start_time, end_time) << " seconds, "
+              << cput << " CPU seconds, "
+              << cput / total << " CPU s/alignment.\n" << std::endl;
 
     return 0;
 }
@@ -584,7 +599,7 @@ int sam2csv(const int argc, const char *argv[]) {
 }
 
 int profile(const int argc, const char *argv[]) {
-    std::string bcf = "chr22.bcf", fasta = "hs37d5_22.fa";
+    std::string bcf, fasta;
     std::string region = "22:25,000,000-25,500,000";
     std::string read;
     int ingroup = 100;
@@ -615,7 +630,7 @@ int profile(const int argc, const char *argv[]) {
 
     auto start = std::clock();
 
-    std::cerr << "Initial Build:\n\t";
+    std::cerr << "Initial Graph Build:\n\t";
     vargas::Graph g;
     gb.build(g);
     std::vector<bool> filter;
@@ -636,7 +651,7 @@ int profile(const int argc, const char *argv[]) {
 
     {
         num = 0;
-        std::cerr << "Filtering traversal, 100% in:\n\t";
+        std::cerr << "Filtering traversal, 100% ingroup:\n\t";
         start = std::clock();
 
         for (auto i = g.begin(g.subset(100)); i != g.end(); ++i) {
@@ -647,7 +662,7 @@ int profile(const int argc, const char *argv[]) {
 
     {
         num = 0;
-        std::cerr << "Filtering traversal, 5% in:\n\t";
+        std::cerr << "Filtering traversal, 5% ingroup:\n\t";
         vargas::Graph::Population filt(filter);
         start = std::clock();
 
@@ -714,7 +729,7 @@ int profile(const int argc, const char *argv[]) {
             for (size_t i = 0; i < split_str.size(); ++i) reads[i] = split_str[i];
         }
 
-        vargas::ByteAligner a(g.max_node_len(), 50);
+        vargas::Aligner a(g.max_node_len(), 50);
 
         std::cerr << SIMDPP_FAST_INT8_SIZE << " read alignment:\n";
 
@@ -724,7 +739,7 @@ int profile(const int argc, const char *argv[]) {
             vargas::Graph g2(g, g.subset(ingroup));
             std::cerr << "\tDerived Graph (" << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s)\n\t";
             start = std::clock();
-            vargas::ByteAligner::Results aligns = a.align(reads, g2.begin(), g2.end());
+            vargas::Aligner::Results aligns = a.align(reads, g2.begin(), g2.end());
             std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
         }
 
@@ -878,19 +893,19 @@ void define_help() {
     cerr << "-f\t--fasta         *<string> Reference filename.\n";
     cerr << "-v\t--vcf           *<string> VCF or BCF file.\n";
     cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX.\n";
+    cerr << "-s\t--subgraph      <string> Subgraph definition or filename.\n";
     cerr << "-p\t--filter        <string> Filename of sample filter.\n";
     cerr << "-x\t--invert        Invert sample filter.\n";
     cerr << "-l\t--nodelen       <int> Max node length, default 1,000,000\n";
-    cerr << "-s\t--subgraph      *<string> Subgraph definition file. Default stdin.\n";
     cerr << "-t\t--out           <string> Output file, default stdout.\n";
-    cerr << "-d\t--dot           <string> Output DOT graph to file.\n";
-    cerr << "-b\t--base          Build base graph, used for debugging.\n" << endl;
+    cerr << "-d\t--dot           <string> Output DOT graph of subgraph hierarchy to file.\n\n";
+    //cerr << "-b\t--base          Build base graph, used for debugging.\n" << endl;
 
-    cerr << "Subgraphs are defined using the format \"label=N[%]\".\n"
-         << "\'N\' is the number of samples / percentage of samples selected.\n"
+    cerr << "Subgraphs are defined using the format \"label=N[%t]\".\n"
+         << "\t where \'N\' is the number of samples / percentage of samples selected.\n"
          << "The samples are selected from the parent graph, scoped with \':\'.\n"
-         << "The base graph is implied as the root for all labels. Example:\n"
-         << "a=50;a:b=10;~a:c=5\n"
+         << "The BASE graph is implied as the root for all labels. Example:\n"
+         << "\ta=50;a:b=10%;~a:c=5\n"
          << "\'~\' indicates the complement graph. \'BASE\' refers the the whole graph.\n" << endl;
 }
 
@@ -914,8 +929,8 @@ void align_help() {
     cerr << endl
          << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------\n";;
     cerr << "-g\t--gdef          *<string> Graph definition file.\n";
-    cerr << "-r\t--reads         *<string, string...> Read files to align. Default stdin.\n";
-    cerr << "-a\t--align         *<string> Alignment targets.\n";
+    cerr << "-r\t--reads         *<string> SAM file to align. Default stdin.\n";
+    cerr << "-a\t--align         *<string:string> Alignment targets, origin graph : target graph.\n";
     cerr << "-f\t--file          -a specifies a file name.\n";
     cerr << "-t\t--out           *<string> Alignment output file, default stdout.\n";
     cerr << "-l\t--rlen          <int> Max read length. Default 50.\n";
@@ -923,9 +938,8 @@ void align_help() {
     cerr << "-n\t--mismatch      <int> Mismatch penalty, default 2.\n";
     cerr << "-o\t--gap_open      <int> Gap opening penalty, default 3.\n";
     cerr << "-e\t--gap_extend    <int> Gap extend penalty, default 1.\n";
-    cerr << "-c\t--tolerance     <int> Count an alignment as correct if within this. Default (read_len / 2).\n";
-    cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n";
-    cerr << "                          Optimal reads per subgraph: n * j * " << SIMDPP_FAST_INT8_SIZE << endl << endl;
+    cerr << "-c\t--tolerance     <int> Count an alignment as correct if within this. Default (read_len/2).\n";
+    cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
 }
 
 void sim_help() {
@@ -935,7 +949,7 @@ void sim_help() {
     cerr << endl
          << "-------------------- vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
     cerr << "-g\t--gdef          *<string> Graph definition file. Default stdin.\n";
-    cerr << "-s\t--sub           *<string;string; ...> list of graphs to simulate from.\n";
+    cerr << "-s\t--sub           <string(;string)*> list of graphs to simulate from. Default all.\n";
     cerr << "-f\t--file          -s specifies a file name.\n";
     cerr << "-t\t--out           <string> Output file. Default stdout.\n";
     cerr << "-n\t--numreads      <int> Number of reads to simulate from each profile, default 1000.\n";
@@ -946,7 +960,6 @@ void sim_help() {
     cerr << "-l\t--rlen          <int> Read length, default 50.\n";
     cerr << "-a\t--rate          Interpret -m, -i as rates, instead of exact number of errors.\n";
     cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
-
 
     cerr << "-n reads are produced for each -m, -i, -v, -b combination. If set to \'*\', any value is accepted."
          << endl << endl;

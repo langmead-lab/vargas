@@ -12,6 +12,14 @@
 #ifndef VARGAS_MAIN_H
 #define VARGAS_MAIN_H
 
+#define ALIGN_SAM_MAX_POS_TAG "mp"
+#define ALIGN_SAM_SUB_POS_TAG "sp"
+#define ALIGN_SAM_MAX_SCORE_TAG "ms"
+#define ALIGN_SAM_SUB_SCORE_TAG "ss"
+#define ALIGN_SAM_MAX_COUNT_TAG "mc"
+#define ALIGN_SAM_SUB_COUNT_TAG "sc"
+#define ALIGN_SAM_COR_FLAG_TAG "cf"
+
 
 #include "alignment.h"
 #include "graph.h"
@@ -82,7 +90,7 @@ void query_help();
 #endif //VARGAS_MAIN_H
 
 // Checks to see if coordinate systems between the simulator and aligner line up.
-TEST_CASE ("Coordinate matches") {
+TEST_CASE ("Coordinate System Matches") {
     srand(1);
     vargas::Graph::Node::_newID = 0;
     using std::endl;
@@ -135,7 +143,7 @@ TEST_CASE ("Coordinate matches") {
     prof.len = 5;
     vargas::Sim sim(g, prof);
 
-    vargas::ByteAligner aligner(g.max_node_len(), 5);
+    vargas::Aligner aligner(g.max_node_len(), 5);
     auto reads = sim.get_batch(aligner.read_capacity());
 
     std::vector<std::string> seqs;
@@ -147,14 +155,14 @@ TEST_CASE ("Coordinate matches") {
 
     auto results = aligner.align(seqs, targets, g.begin(), g.end());
 
-    for (auto i : results.cor_flag) CHECK ((int) i == 1);
+    for (auto i : results.correctness_flag) CHECK ((int) i == 1);
 
     remove(tmpfa.c_str());
     remove(tmpvcf.c_str());
     remove((tmpfa + ".fai").c_str());
 }
 
-TEST_CASE ("Cor flag") {
+TEST_CASE ("Correctness flag") {
     srand(1);
     vargas::Graph::Node::_newID = 0;
     using std::endl;
@@ -209,7 +217,7 @@ TEST_CASE ("Cor flag") {
     gb.set_region("x:0-100");
     vargas::Graph g = gb.build();
 
-    vargas::ByteAligner aligner(g.max_node_len(), 6);
+    vargas::Aligner aligner(g.max_node_len(), 6);
     vargas::isam reads(reads_file);
 
     std::vector<vargas::SAM::Record> records;
@@ -232,7 +240,7 @@ TEST_CASE ("Cor flag") {
         records[i].aux.set(ALIGN_SAM_SUB_SCORE_TAG, (int) res.sub_score[i]);
         records[i].aux.set(ALIGN_SAM_SUB_COUNT_TAG, (int) res.sub_count[i]);
 
-        records[i].aux.set(ALIGN_SAM_COR_FLAG_TAG, (int) res.cor_flag[i]);
+        records[i].aux.set(ALIGN_SAM_COR_FLAG_TAG, (int) res.correctness_flag[i]);
     }
 
     vargas::osam align_out("tmp_aout.sam", reads.header());

@@ -12,6 +12,21 @@
 
 #include "gdef.h"
 
+const std::string vargas::GraphManager::GDEF_FILE_MARKER = "@gdef";
+const std::string vargas::GraphManager::GDEF_REF = "ref";
+const std::string vargas::GraphManager::GDEF_VAR = "var";
+const std::string vargas::GraphManager::GDEF_REGION = "reg";
+const std::string vargas::GraphManager::GDEF_NODELEN = "nlen";
+const std::string vargas::GraphManager::GDEF_BASEGRAPH = "BASE";
+const std::string vargas::GraphManager::GDEF_REFGRAPH = "REF";
+const std::string vargas::GraphManager::GDEF_MAXAFGRAPH = "MAXAF";
+const std::string vargas::GraphManager::GDEF_SAMPLE_FILTER = "FILTER";
+const std::string vargas::GraphManager::GDEF_NEGATE_FILTER = "INVERT";
+const char vargas::GraphManager::GDEF_NEGATE = '~';
+const char vargas::GraphManager::GDEF_SCOPE = ':';
+const char vargas::GraphManager::GDEF_ASSIGN = '=';
+const char vargas::GraphManager::GDEF_DELIM = ';';
+
 vargas::GraphManager::GraphManager(std::string gdef_file) {
     if (!open(gdef_file)) throw std::invalid_argument("Invalid GDEF file \"" + gdef_file + "\"");
 }
@@ -235,7 +250,7 @@ bool vargas::GraphManager::write(std::string ref_file,
             base.reset();
         }
 
-        for (auto def : defs) {
+        for (const auto &def : defs) {
             split(def, GDEF_ASSIGN, pair);
             if (pair.size() != 2) throw std::invalid_argument("Invalid assignment: \"" + def + "\".");
 
@@ -247,7 +262,7 @@ bool vargas::GraphManager::write(std::string ref_file,
                 throw std::invalid_argument("Parent \"" + parent + "\" not yet defined.");
 
             if (pair[0].at(parent_end + 1) == '~')
-                throw std::invalid_argument("Negative graphs cannot be defined explicitly: \"" + def + "\".");
+                throw std::invalid_argument("Complement graphs cannot be defined explicitly: \"" + def + "\".");
 
             bool top_n = false;
             if (pair[1].at(pair[1].length() - 1) == '%') {

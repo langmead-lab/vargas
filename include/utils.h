@@ -137,6 +137,14 @@ std::vector<std::string> split(const std::string &s, char delim);
 void split(const std::string &s,
            char delim, std::vector<std::string> &vec);
 
+/**
+ * @brief
+ * Splits a string into a vector and guesses the delimiter.
+ * @param s string to split
+ * @param vec vector to store results in
+ */
+void split(const std::string &s, std::vector<std::string> &vec);
+
 
 /**
  * @brief
@@ -176,6 +184,23 @@ char rand_base() {
  */
 int levenshtein_distance(const std::string &s1,
                          const std::string &s2);
+
+/**
+ * @brief
+ * Guesses the delimiter of a line. Checks the following, with the first that succesfully splits
+ * the string returned.
+ * "<newline><tab>:;,=|/-<space>"
+ * @param line
+ * @return delimiter of the line.
+ */
+__RG_STRONG_INLINE__
+char guess_delim(const std::string &line) {
+    static const std::string options = "\n\t:;,=|/- ";
+    for (const char d : options) {
+        if (split(line, d).size() > 1) return d;
+    }
+    throw std::logic_error("Unable to determine delimiter in line: " + line);
+}
 
 std::string current_date();
 

@@ -33,18 +33,16 @@ namespace vargas {
    * @code{.unparsed}
    * "a=10" # Choose 10 samples from the base graph
    * "b=5%" # Choose 5% of the samples in the base graph
+   * "a=10t" # Use the first 10 haplotypes (VCF File)
    * "a:c=5" # Choose 5 of the 10 samples in 'a'
    * "~a:d=5" # Choose 5 samples from the complement population of 'a'
    * "a:~e=5" # Invalid, complement graphs are implicit and cannot be directly defined.
-   * @endcode
-   * @code{.unparsed}
-   * "a=10t" # Use the first 10 haplotypes (VCF File)
    * @endcode
    *
    * The following labels are reserved:
    * - BASE: Full graph
    * - REF: Linear reference graph
-   * - MAXAF: Linear graph with the maximum allele frequency
+   * - MAXAF: Linear graph using alleles with the maximum allele frequency
    *
    * \n
    * GDEF file format:
@@ -374,20 +372,24 @@ namespace vargas {
           return _region;
       }
 
-      const std::string GDEF_FILE_MARKER = "@gdef";
-      const std::string GDEF_REF = "ref";
-      const std::string GDEF_VAR = "var";
-      const std::string GDEF_REGION = "reg";
-      const std::string GDEF_NODELEN = "nlen";
-      const std::string GDEF_BASEGRAPH = "BASE";
-      const std::string GDEF_REFGRAPH = "REF";
-      const std::string GDEF_MAXAFGRAPH = "MAXAF";
-      const std::string GDEF_SAMPLE_FILTER = "FILTER";
-      const std::string GDEF_NEGATE_FILTER = "INVERT";
-      const char GDEF_NEGATE = '~';
-      const char GDEF_SCOPE = ':';
-      const char GDEF_ASSIGN = '=';
-      const char GDEF_DELIM = ';';
+      static bool is_definition(const std::string &line) {
+          return line.find(GDEF_ASSIGN) != std::string::npos;
+      }
+
+      static const std::string GDEF_FILE_MARKER;
+      static const std::string GDEF_REF;
+      static const std::string GDEF_VAR;
+      static const std::string GDEF_REGION;
+      static const std::string GDEF_NODELEN;
+      static const std::string GDEF_BASEGRAPH;
+      static const std::string GDEF_REFGRAPH;
+      static const std::string GDEF_MAXAFGRAPH;
+      static const std::string GDEF_SAMPLE_FILTER;
+      static const std::string GDEF_NEGATE_FILTER;
+      static const char GDEF_NEGATE;
+      static const char GDEF_SCOPE;
+      static const char GDEF_ASSIGN;
+      static const char GDEF_DELIM;
 
     private:
 
@@ -424,6 +426,9 @@ TEST_CASE ("Graph Manager") {
     }
 
     std::srand(12345);
+
+        CHECK(vargas::GraphManager::is_definition("a=b") == true);
+        CHECK(vargas::GraphManager::is_definition("a.txt") == false);
 
         SUBCASE("File Write Wrapper") {
 
