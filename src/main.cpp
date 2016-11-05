@@ -189,7 +189,7 @@ int sim_main(const int argc, const char *argv[]) {
          >> GetOpt::Option('j', "threads", threads)
          >> GetOpt::OptionPresent('a', "rate", use_rate);
 
-    if (threads) omp_set_num_threads(threads);
+    omp_set_num_threads(threads);
 
 
     vargas::GraphManager gm;
@@ -342,6 +342,9 @@ int align_main(const int argc, const char *argv[]) {
          >> GetOpt::Option('a', "align", align_targets)
          >> GetOpt::OptionPresent('f', "file", align_targets_isfile);
 
+    size_t tolerance = read_len / 2;
+    args >> GetOpt::Option('c', "tolerance", tolerance);
+
     if (threads) omp_set_num_threads(threads);
 
     if (align_targets_isfile) {
@@ -459,6 +462,7 @@ int align_main(const int argc, const char *argv[]) {
             targets[i] = r.pos + r.seq.length() - 1;
         }
         vargas::ByteAligner aligner(gm.node_len(), read_len, match, mismatch, gopen, gext);
+        aligner.set_correctness_tolerance(tolerance);
         task_list.at(l).first;
         auto subgraph = gm.make_subgraph(task_list.at(l).first);
         auto aligns = aligner.align(read_seqs, targets, subgraph->begin(), subgraph->end());
@@ -919,8 +923,9 @@ void align_help() {
     cerr << "-n\t--mismatch      <int> Mismatch penalty, default 2.\n";
     cerr << "-o\t--gap_open      <int> Gap opening penalty, default 3.\n";
     cerr << "-e\t--gap_extend    <int> Gap extend penalty, default 1.\n";
+    cerr << "-c\t--tolerance     <int> Count an alignment as correct if within this. Default (read_len / 2).\n";
     cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n";
-    cerr << "            \t            Optimal reads per subgraph: n * j * " << SIMDPP_FAST_INT8_SIZE << endl << endl;
+    cerr << "                          Optimal reads per subgraph: n * j * " << SIMDPP_FAST_INT8_SIZE << endl << endl;
 }
 
 void sim_help() {

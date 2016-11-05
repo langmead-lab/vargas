@@ -318,6 +318,25 @@ namespace vargas {
       }
 
       /**
+       * @brief
+       * If the best score is +/- this tolerence of the target, count it as correct.
+       * Impacts the corflag.
+       * @param tol
+       */
+      void set_correctness_tolerance(const size_t tol) {
+          _tol = tol;
+      }
+
+      /**
+       * @return Current correctness tolerance
+       */
+      size_t tolerance() const {
+          return _tol;
+      }
+
+      inline static constexpr size_t default_tolerance() { return TOL_FACTOR; }
+
+      /**
        * @return maximum number of reads that can be aligned at once.
        */
       inline static constexpr size_t read_capacity() { return VEC_SIZE; }
@@ -887,7 +906,7 @@ namespace vargas {
       /*********************************** Variables ***********************************/
 
       const size_t _read_len; /**< Maximum read length. */
-      const size_t _tol; /**< If within +- this of target, indicate correct alignment */
+      size_t _tol = TOL_FACTOR; /**< If within +- this of target, indicate correct alignment */
 
       // Zero vector
       const simdpp::uint8<VEC_SIZE> ZERO_CT = simdpp::splat(0);
