@@ -189,13 +189,13 @@ int levenshtein_distance(const std::string &s1,
  * @brief
  * Guesses the delimiter of a line. Checks the following, with the first that succesfully splits
  * the string returned.
- * "<newline><tab>:;,=|/-<space>"
+ * "<newline><tab>:;,=|/"
  * @param line
  * @return delimiter of the line.
  */
 __RG_STRONG_INLINE__
 char guess_delim(const std::string &line) {
-    static const std::string options = "\n\t:;,=|/- ";
+    static const std::string options = "\n\t:;,=|/";
     for (const char d : options) {
         if (split(line, d).size() > 1) return d;
     }

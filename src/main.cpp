@@ -94,17 +94,19 @@ int define_main(const int argc, const char *argv[]) {
 
     int node_len = 1000000;
 
-    args >> GetOpt::Option('f', "fasta", fasta_file)
-         >> GetOpt::Option('g', "region", region)
+    args >> GetOpt::Option('g', "region", region)
          >> GetOpt::Option('l', "nodelen", node_len)
          >> GetOpt::Option('s', "subgraph", subgraph_def)
          >> GetOpt::Option('t', "out", out_file)
          >> GetOpt::Option('d', "dot", dot_file)
-         >> GetOpt::Option('v', "vcf", varfile)
          >> GetOpt::Option('p', "filter", sample_filter)
          >> GetOpt::OptionPresent('x', "invert", invert_filter)
          >> GetOpt::OptionPresent('b', "base", build_base);
 
+    if (!(args >> GetOpt::Option('f', "fasta", fasta_file) >> GetOpt::Option('v', "vcf", varfile))) {
+        define_help();
+        throw std::invalid_argument("No FASTA or VCF file provided!");
+    }
 
     std::string subgraph_str;
 
@@ -347,13 +349,16 @@ int align_main(const int argc, const char *argv[]) {
          >> GetOpt::Option('n', "mismatch", mismatch)
          >> GetOpt::Option('o', "gap_open", gopen)
          >> GetOpt::Option('e', "gap_extend", gext)
-         >> GetOpt::Option('r', "reads", read_file)
-         >> GetOpt::Option('g', "gdef", gdf_file)
          >> GetOpt::Option('j', "threads", threads)
          >> GetOpt::Option('l', "rlen", read_len)
          >> GetOpt::Option('t', "out", out_file)
          >> GetOpt::Option('a', "align", align_targets)
          >> GetOpt::OptionPresent('f', "file", align_targets_isfile);
+
+    if (!(args >> GetOpt::Option('g', "gdef", gdf_file))) {
+        align_help();
+        throw std::invalid_argument("No GDEF file provided.");
+    }
 
     size_t tolerance = read_len / 2;
     args >> GetOpt::Option('c', "tolerance", tolerance);
@@ -521,8 +526,11 @@ int sam2csv(const int argc, const char *argv[]) {
 
     std::string sam_file = "", format = "";
 
-    args >> GetOpt::Option('s', "sam", sam_file)
-         >> GetOpt::Option('f', "format", format);
+    args >> GetOpt::Option('s', "sam", sam_file);
+    if (!(args >> GetOpt::Option('f', "format", format))) {
+        sam2csv_help();
+        throw std::invalid_argument("Not format provided!");
+    }
 
     auto start_time = std::chrono::steady_clock::now();
 
@@ -650,48 +658,6 @@ int profile(const int argc, const char *argv[]) {
     }
 
     {
-        num = 0;
-        std::cerr << "Filtering traversal, 100% ingroup:\n\t";
-        start = std::clock();
-
-        for (auto i = g.begin(g.subset(100)); i != g.end(); ++i) {
-            ++num;
-        }
-        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-    }
-
-    {
-        num = 0;
-        std::cerr << "Filtering traversal, 5% ingroup:\n\t";
-        vargas::Graph::Population filt(filter);
-        start = std::clock();
-
-        for (auto i = g.begin(filt); i != g.end(); ++i) {
-            ++num;
-        }
-        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << num << std::endl;
-    }
-
-    {
-        num = 0;
-        std::cerr << "REF traversal:\n\t";
-        start = std::clock();
-        for (auto i = g.begin(vargas::Graph::GraphIterator::Type::REF); i != g.end(); ++i) {
-            ++num;
-        }
-        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-    }
-
-    {
-        num = 0;
-        std::cerr << "MAXAF traversal:\n\t";
-        start = std::clock();
-        for (auto i = g.begin(vargas::Graph::GraphIterator::Type::MAXAF); i != g.end(); ++i) { ;
-        }
-        std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
-    }
-
-    {
         std::cerr << "Filter constructor:\n\t";
         auto pop_filt = g.subset(ingroup);
         start = std::clock();
@@ -702,14 +668,14 @@ int profile(const int argc, const char *argv[]) {
     {
         std::cerr << "REF constructor:\n\t";
         start = std::clock();
-        vargas::Graph g2(g, vargas::Graph::GraphIterator::Type::REF);
+        vargas::Graph g2(g, vargas::Graph::Type::REF);
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
     {
         std::cerr << "MAXAF constructor:\n\t";
         start = std::clock();
-        vargas::Graph g2(g, vargas::Graph::GraphIterator::Type::MAXAF);
+        vargas::Graph g2(g, vargas::Graph::Type::MAXAF);
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
 
@@ -762,7 +728,10 @@ int export_main(const int argc, const char *argv[]) {
     args >> GetOpt::Option('g', "graph", subgraph)
          >> GetOpt::Option('t', "out", file);
 
-    if (file.length() == 0) throw std::invalid_argument("No output file specified.");
+    if (file.length() == 0) {
+        export_help();
+        throw std::invalid_argument("No output file specified.");
+    }
 
     vargas::GraphManager gm(std::cin);
     auto g = gm.make_subgraph(subgraph);
@@ -781,6 +750,7 @@ int query_main(const int argc, const char *argv[]) {
     std::string region, file;
 
     if (!(args >> GetOpt::Option('g', "region", region))) {
+        query_help();
         throw std::invalid_argument("Region argument required!");
     }
 
@@ -861,15 +831,14 @@ void main_help() {
     using std::endl;
     cerr << endl
          << "---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------\n";
-    cerr << "Operating modes \'vargas MODE\':" << endl;
-    cerr << "\tdefine      Define a set of graphs for use with sim and align.\n";
-    cerr << "\tsim         Simulate reads from a set of graphs.\n";
-    cerr << "\talign       Align reads to a set of graphs.\n";
-    cerr << "\texport      Export graph to DOT format.\n";
-    cerr << "\tconvert     Convert a SAM file to a CSV file.\n";
-    cerr << "\tquery       Pull a region from a GDEF/VCF/FASTA file.\n";
-    cerr << "\ttest        Run unit tests.\n";
-    cerr << "\tprofile     Run profiles (debug).\n" << endl;
+    cerr << "define          Define a set of graphs for use with sim and align.\n";
+    cerr << "sim             Simulate reads from a set of graphs.\n";
+    cerr << "align           Align reads to a set of graphs.\n";
+    cerr << "export          Export graph to DOT format.\n";
+    cerr << "convert         Convert a SAM file to a CSV file.\n";
+    cerr << "query           Pull a region from a GDEF/VCF/FASTA file.\n";
+    cerr << "test            Run unit tests.\n";
+    cerr << "profile         Run profiles (debug).\n" << endl;
 }
 
 void export_help() {
@@ -931,14 +900,14 @@ void align_help() {
     cerr << "-g\t--gdef          *<string> Graph definition file.\n";
     cerr << "-r\t--reads         *<string> SAM file to align. Default stdin.\n";
     cerr << "-a\t--align         *<string:string> Alignment targets, origin graph : target graph.\n";
-    cerr << "-f\t--file          -a specifies a file name.\n";
     cerr << "-t\t--out           *<string> Alignment output file, default stdout.\n";
+    cerr << "-f\t--file          -a specifies a file name.\n";
     cerr << "-l\t--rlen          <int> Max read length. Default 50.\n";
     cerr << "-m\t--match         <int> Match score, default 2.\n";
     cerr << "-n\t--mismatch      <int> Mismatch penalty, default 2.\n";
     cerr << "-o\t--gap_open      <int> Gap opening penalty, default 3.\n";
     cerr << "-e\t--gap_extend    <int> Gap extend penalty, default 1.\n";
-    cerr << "-c\t--tolerance     <int> Count an alignment as correct if within this. Default (read_len/2).\n";
+    cerr << "-c\t--tolerance     <int> Count an alignment as correct if within -c, default read_len/2\n";
     cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
 }
 
@@ -969,12 +938,11 @@ void sam2csv_help() {
     using std::cerr;
     using std::endl;
 
-    cerr << endl
-         << "-------------------- vargas convert, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
+    cerr << endl << "-------------------- vargas convert, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
     cerr << "-s\t--sam          <string> SAM input file. Default stdin.\n";
     cerr << "-f\t--format       *<string,string...> Specify tags per column. Case sensitive.\n";
     cerr << "\nOutput printed to stdout.\n";
-    cerr << "Requred column names: QNAME, FLAG, RNAME, POS, MAPQ, CIGAR, RNEXT, PNEXT, TLEN, SEQ, QUAL\n";
+    cerr << "Required column names:\n\tQNAME, FLAG, RNAME, POS, MAPQ, CIGAR, RNEXT, PNEXT, TLEN, SEQ, QUAL\n";
     cerr << "Prefix with \"RG:\" to obtain a value from the associated read group.\n" << endl;
 
 }

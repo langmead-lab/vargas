@@ -44,7 +44,6 @@ set(HEADERS
 
 
 include(libsimdpp/cmake/SimdppMultiarch.cmake)
-simdpp_get_runnable_archs(RUNNABLE_ARCHS)
 
 add_executable(vargas ${MAIN_SOURCES} ${HEADERS})
 target_link_libraries(vargas hts)

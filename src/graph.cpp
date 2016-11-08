@@ -56,13 +56,13 @@ vargas::Graph::Graph(const vargas::Graph &g,
 }
 
 
-vargas::Graph::Graph(const Graph &g, GraphIterator::Type type) {
+vargas::Graph::Graph(const Graph &g, Type type) {
     _IDMap = g._IDMap;
     _pop_size = g.pop_size();
     _filter = Population(_pop_size, true);
     std::unordered_map<uint32_t, nodeptr> includedNodes;
 
-    if (type == GraphIterator::Type::REF) {
+    if (type == Type::REF) {
         for (auto &nid : g._add_order) {
             auto &n = (*_IDMap)[nid];
             if (n->is_ref()) {
@@ -71,7 +71,7 @@ vargas::Graph::Graph(const Graph &g, GraphIterator::Type type) {
             }
         }
         _desc = g.desc() + "\n#filter: REF";
-    } else if (type == GraphIterator::Type::MAXAF) {
+    } else if (type == Type::MAXAF) {
         uint32_t curr = g.root();
         uint32_t maxid, size;
         while (true) {
@@ -395,112 +395,3 @@ vargas::Graph vargas::Graph::subgraph(const size_t min, const size_t max) const 
     return ret;
 }
 
-
-bool vargas::Graph::GraphIterator::operator==(const vargas::Graph::GraphIterator &other) const {
-    if (_type == Type::END && other._type == Type::END) return true; // All ends are equal
-    if (_type != other._type) return false; // Same type of iterator
-    if (&_graph != &other._graph) return false; // same base graph
-    return _currID == other._currID;
-}
-
-
-bool vargas::Graph::GraphIterator::operator!=(const vargas::Graph::GraphIterator &other) const {
-    if (_type != other._type) return true;
-    if (_type == other._type) return false;
-    if (&_graph != &other._graph) return true;
-    return _currID != other._currID;
-}
-
-
-vargas::Graph::GraphIterator &vargas::Graph::GraphIterator::operator++() {
-    // If end of graph has been reached
-    if (_type == Type::END) return *this;
-
-    if (_type == Type::TOPO) {
-        ++_currID;
-        if (_currID == _add_order_size) _type = Type::END;
-        return *this;
-    }
-
-    if (_graph._next_map.count(_currID) == 0) {
-        _type = Type::END;
-        return *this;
-    }
-
-    const auto &next_vec = _graph._next_map.at(_currID);
-    const auto &graph_map = *(_graph._IDMap);
-
-    switch (_type) {
-        case Type::REF:
-            for (const uint32_t &nextID : next_vec) {
-                if (graph_map.at(nextID)->is_ref()) {
-                    _insert_queue(nextID);
-                    break; // Assuming there is only one REF node per branch
-                }
-            }
-            break;
-
-        case Type::FILTER:
-            for (const uint32_t &nextID : next_vec) {
-                // Add all nodes that intersect with filter
-                if (graph_map.at(nextID)->belongs(_filter)) _insert_queue(nextID);
-            }
-            break;
-
-        case Type::MAXAF: {
-            uint32_t max_id = graph_map.at(next_vec.at(0))->id();
-            float max_af = graph_map.at(next_vec.at(0))->freq();
-            float freq;
-            for (size_t i = 1; i < next_vec.size(); ++i) {
-                freq = graph_map.at(next_vec.at(i))->freq();
-                if (freq > max_af) {
-                    max_af = freq;
-                    max_id = graph_map.at(next_vec.at(i))->id();
-                }
-            }
-            _insert_queue(max_id);
-        }
-            break;
-
-        default:
-            throw std::logic_error("Invalid type.");
-    }
-
-    if (_queue.empty()) {
-        _type = Type::END;
-        return *this;
-    }
-
-    _traversed.insert(_currID); // Insert previous iterator position (node id)
-    _currID = _queue.front();
-    _queue.pop();
-    _queue_unique.erase(_currID);
-    return *this;
-}
-
-
-const vargas::Graph::Node &vargas::Graph::GraphIterator::operator*() const {
-    if (_type == Type::TOPO) return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
-    return *(_graph._IDMap->at(_currID));
-}
-
-
-const std::vector<uint32_t> &vargas::Graph::GraphIterator::incoming() {
-    if (_type == Type::TOPO) {
-        const uint32_t nid = _graph._add_order.at(_currID);
-        if (_graph._prev_map.count(nid) == 0) return _incoming;
-        return _graph._prev_map.at(nid);
-    }
-    if (_graph._prev_map.count(_currID) == 0) return _incoming;
-    _incoming.clear();
-    for (auto &id : _graph._prev_map.at(_currID)) {
-        if (_traversed.count(id)) _incoming.push_back(id);
-    }
-    return _incoming;
-}
-
-
-const std::vector<uint32_t> &vargas::Graph::GraphIterator::outgoing() {
-    if (_graph._prev_map.count(_currID) == 0) return _outgoing;
-    return _graph._next_map.at(_graph._add_order.at(_currID));
-}

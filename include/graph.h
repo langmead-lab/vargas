@@ -24,6 +24,7 @@
 #include <queue>
 #include <bitset>
 #include <thread>
+#include <type_traits>
 #include "fasta.h"
 #include "varfile.h"
 #include "doctest.h"
@@ -168,8 +169,20 @@ namespace vargas {
           }
       };
 
-      /** Alias for a dyn_bitset */
-      typedef VCF::Population Population;
+      using Population = VCF::Population;
+
+      /**
+        * @enum Type
+        * When a normal population filter is not used, a flag can be used. REF includes
+        * only reference alleles, MAXAF picks the allele with the highest frequency.
+        * Both result in linear graphs.
+        * Filter used as a placeholder, it should never be passed as a param.
+        */
+      enum class Type: char {
+          REF, /**< Only include reference nodes. */
+          MAXAF, /**< Keep the node with the highest AF at each branch. */
+          FILTER, /**< Use a given Population filter. */
+      };
 
       /**
        * @brief
@@ -426,6 +439,7 @@ namespace vargas {
 
       };
 
+
       typedef std::shared_ptr<Node> nodeptr;
 
       /**
@@ -460,6 +474,19 @@ namespace vargas {
        */
       Graph(const Graph &g,
             const Population &filter);
+
+      /**
+        * @brief
+        * Construct a graph using a base graph and a filter.
+        * @details
+        * Constructs a graph using filter tags, one of:
+        * Graph::REF, or Graph::MAXAF
+        * The former keeps reference nodes, the later picks the node with the highest allele
+        * frequency. Both result in linear graphs.
+        * @param g Graph to derive from
+        * @param t one of Graph::REF, Graph::MAXAF
+        */
+      Graph(const Graph &g, Type t);
 
       /**
        * @brief
@@ -597,63 +624,18 @@ namespace vargas {
 
       /**
        * @brief
-       * const forward iterator to traverse the Graph while applying a filter.
-       * @details
-       * When incrementing the iterator, only nodes that match a condition will
-       * return.
-       * Options include: \n
-       * Filtering: Provided a population, a node is returned if there is an intersection \n
-       * REF: Only return reference nodes \n
-       * MAXAF: Return the node with the highest allele frequency. \n
+       * Forward iterator to traverse the Graph in insertion order. Checks assume underlying graphs are equal.
        */
-      class GraphIterator {
+      template<typename T, typename Unqualified_T = typename std::remove_cv<T>::type>
+      class GraphIterator: public std::iterator<std::forward_iterator_tag, Unqualified_T, std::ptrdiff_t, T *, T &> {
         public:
-
-          /**
-         * @enum Type
-         * When a normal population filter is not used, a flag can be used. REF includes
-         * only reference alleles, MAXAF picks the allele with the highest frequency.
-         * Both result in linear graphs.
-         * Filter used as a placeholder, it should never be passed as a param.
-         */
-          enum class Type : char {
-              TOPO, /**< Use a topographical ordering.*/
-              REF, /**< Only include reference nodes. */
-              MAXAF, /**< Keep the node with the highest AF at each branch. */
-              FILTER, /**< Use a given Population filter. */
-              END  /**< End iterator. */
-          };
 
           /**
            * @brief
            * Accept all nodes.
            * @ param g Graph
            */
-          explicit GraphIterator(const Graph &g) :
-              _graph(g), _type(Type::TOPO), _currID(0) {}
-
-          /**
-           * @brief
-           * Traverse nodes when filter has at least one individual in common with the
-           * Node Population.
-           * @param g graph
-           * @param filter Population the node is checked against. If there is an intersection,
-           * the Node is returned.
-           */
-          explicit GraphIterator(const Graph &g, const Population &filter) :
-              _graph(g), _filter(filter), _type(Type::FILTER), _currID(g._root) {}
-
-          /**
-           * @brief
-           * Traverse a linear subgraph.
-           * @param g graph
-           * @param type one of Graph::MAXAF, Graph::REF
-           */
-          explicit GraphIterator(const Graph &g, Type type)
-              : _graph(g), _type(type), _currID(g._root) {
-              if (_type == Type::TOPO) _currID = 0;
-              if (_type == Type::END) _currID = g._add_order.size() - 1;
-          }
+          GraphIterator(const Graph &g, const size_t idx = 0) : _graph(g), _currID(idx) {}
 
           /**
            * @brief
@@ -663,43 +645,57 @@ namespace vargas {
           const Graph &graph() const { return _graph; }
 
           /**
-           * @return true when underlying Graph address is the same and current Node ID's
-           * are the same. Two end iterators always compare equal.
+           * @return True if iterators point to same node index.
            */
-          bool operator==(const GraphIterator &other) const;
+          template<typename O>
+          bool operator==(const GraphIterator<O> &other) const {
+              return _currID == other._currID;
+          }
 
           /**
            * @return true when current Node ID's are not the same or if the
-           * underlying graph is not the same. Two end iterators always compare
-           * false.
+           * underlying graph is not the same.
            */
-          bool operator!=(const GraphIterator &other) const;
+          template<typename O>
+          bool operator!=(const GraphIterator<O> &other) const {
+              return _currID != other._currID;
+          }
 
           /**
            * @brief
-           * Goes to next Node. Nodes are only included if it satisfies the filter.
-           * Once the end of the graph is reached, _end is set.
+           * Goes to next Node.
            * @return iterator to the next Node.
            */
-          GraphIterator &operator++();
+          GraphIterator &operator++() {
+              if (_currID < _graph._add_order.size()) ++_currID;
+              return *this;
+          }
 
           /**
-           * @return iterator filtering Type
+           * @brief
+           * Goes to next Node, returns previous node.
+           * @return iterator to the next Node.
            */
-          Type type() const { return _type; }
+          GraphIterator operator++(int) {
+              auto ret = *this;
+              if (_currID < _graph._add_order.size()) ++_currID;
+              return ret;
+          }
 
           /**
            * @brief
            * Const reference to the current node. Undefined for end iterator.
            * @return Node
            */
-          const Graph::Node &operator*() const;
+          T &operator*() const {
+              return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
+          }
 
           /**
            * @brief
            * @return pointer to underlying node
            */
-          const Graph::Node *operator->() const {
+          T *operator->() const {
               return &operator*();
           }
 
@@ -708,86 +704,67 @@ namespace vargas {
            * All nodes that we've traversed that have incoming edges to the current node.
            * @return vector of previous nodes
            */
-          const std::vector<uint32_t> &incoming();
+          const std::vector<uint32_t> &incoming() const {
+              const uint32_t nid = _graph._add_order.at(_currID);
+              if (_graph._prev_map.count(nid) == 0) return _empty_vec;
+              return _graph._prev_map.at(nid);
+          }
 
           /**
            * @return vector of all outgoing edges
            */
-          const std::vector<uint32_t> &outgoing();
+          const std::vector<uint32_t> &outgoing() const {
+              const uint32_t nid = _graph._add_order.at(_currID);
+              if (_graph._prev_map.count(nid) == 0) return _empty_vec;
+              return _graph._next_map.at(nid);
+          }
+
+          /**
+           * Allow conversion from iterator to const_iterator
+           * @return
+           */
+          operator GraphIterator<const T>() const {
+              return GraphIterator<const T>(_graph, _currID);
+          }
 
 
         private:
-          /**
-           * @brief
-           * Inserts the ID into the queue if it's unique.
-           * @param id node id to insert
-           */
-          __RG_STRONG_INLINE__
-          void _insert_queue(uint32_t id) {
-              if (_queue_unique.count(id) == 0) {
-                  _queue_unique.insert(id);
-                  _queue.push(id);
-              }
-          }
 
-          const Graph &_graph; // Underlying graph
-          Population _filter; // Nodes that intersect with _filter are included if _type == FILTER
-          Graph::GraphIterator::Type _type; // Set to MAXAF or REF for linear subgraph traversals
-          uint32_t _currID;
-          std::queue<uint32_t> _queue;
-          std::unordered_set<uint32_t> _queue_unique; // Used to make sure we don't repeat nodes
-          std::unordered_set<uint32_t> _traversed; // Set of all nodes we've passed
-          std::vector<uint32_t> _incoming; // Set of incoming edges, for use by incoming()
-          const std::vector<uint32_t> _outgoing; // empty vec
-          size_t _add_order_size = _graph._add_order.size();
+          const Graph &_graph;
+          size_t _currID;
+          const std::vector<uint32_t> _empty_vec;
 
       };
 
-      /**
-     * @brief
-     * Construct a graph using a base graph and a filter.
-     * @details
-     * Constructs a graph using filter tags, one of:
-     * Graph::REF, or Graph::MAXAF
-     * The former keeps reference nodes, the later picks the node with the highest allele
-     * frequency. Both result in linear graphs.
-     * @param g Graph to derive from
-     * @param t one of Graph::REF, Graph::MAXAF
-     */
-      Graph(const Graph &g, GraphIterator::Type t);
+      using iterator = GraphIterator<Graph::Node>;
+      using const_iterator = GraphIterator<const Graph::Node>;
 
       /**
-       * @brief
-       * Provides an iterator to the whole graph.
-       * @return reference to the root node.
+       * @return begin iterator.
        */
-      GraphIterator begin() const {
-          return GraphIterator(*this);
-      }
-
-      /**
-       * @brief
-       * Iterator when conditions are applied.
-       * @param filter population to compare nodes to
-       */
-      GraphIterator begin(const Population &filter) const {
-          return GraphIterator(*this, filter);
-      }
-
-      /**
-       * @brief
-       * Linear subgraph interator.
-       * @param type one of Graph::REF, Graph::MAXAF
-       */
-      GraphIterator begin(GraphIterator::Type type) const {
-          return GraphIterator(*this, type);
+      iterator begin() const {
+          return iterator(*this, 0);
       }
 
       /**
        * @return end iterator.
        */
-      GraphIterator end() const {
-          return GraphIterator(*this, Graph::GraphIterator::Type::END);
+      iterator end() const {
+          return iterator(*this, _add_order.size());
+      }
+
+      /**
+     * @return const begin iterator.
+     */
+      const_iterator cbegin() const {
+          return const_iterator(*this, 0);
+      }
+
+      /**
+       * @return const end iterator.
+       */
+      const_iterator cend() const {
+          return const_iterator(*this, _add_order.size());
       }
 
       /**
@@ -813,7 +790,7 @@ namespace vargas {
 
 
     private:
-      uint32_t _root = -1; // Root of the Graph
+      uint32_t _root = 0; // Root of the Graph
       // maps a node ID to a nodeptr. Any derived graphs use the same base node ID map.
       std::shared_ptr<std::unordered_map<uint32_t, nodeptr>> _IDMap;
       // maps a node ID to the vector of nodes it points to
@@ -834,6 +811,27 @@ namespace vargas {
        */
       void _build_derived_edges(const Graph &g,
                                 const std::unordered_map<uint32_t, nodeptr> &includedNodes);
+
+      /**
+     * @brief
+     * Ensures that the graph is topologically sorted.
+     * @param begin Graph begin iterator
+     * @param end Graph end iterator
+     */
+      bool validate() const {
+          std::unordered_set<size_t> filled;
+          for (auto gi = begin(); gi != end(); ++gi) {
+              filled.insert(gi->id());
+              for (auto i : gi.incoming()) {
+                  if (filled.count(i) == 0) {
+                      std::cerr << "Node (ID:" << gi->id() << ", POS:" << gi->end_pos() << ")"
+                                << " hit before previous node " << i << std::endl;
+                      return false;
+                  }
+              }
+          }
+          return true;
+      }
 
   };
 
@@ -1233,7 +1231,8 @@ TEST_CASE ("Graph class") {
             SUBCASE("Filtering Iterator") {
             vargas::Graph::Population filter(3, false);
             filter.set(2);
-            vargas::Graph::GraphIterator i = g.begin(filter);
+            vargas::Graph g2(g, filter);
+            auto i = g2.begin();
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "CCC");
@@ -1242,14 +1241,15 @@ TEST_CASE ("Graph class") {
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "CCA");
             ++i;
-                CHECK(i == g.end());
+                CHECK(i == g2.end());
         }
 
             SUBCASE("Filtering Ierator #2") {
             vargas::Graph::Population filter(3, false);
             filter.set(2);
             filter.set(1);
-            vargas::Graph::GraphIterator i = g.begin(filter);
+            vargas::Graph g2(g, filter);
+            auto i = g2.begin();
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
             // Order of these two don't matter
@@ -1264,11 +1264,12 @@ TEST_CASE ("Graph class") {
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "CCA");
             ++i;
-                CHECK(i == g.end());
+                CHECK(i == g2.end());
         }
 
             SUBCASE("Filtering Ierator: REF") {
-            vargas::Graph::GraphIterator i = g.begin(vargas::Graph::GraphIterator::Type::REF);
+            vargas::Graph g2(g, vargas::Graph::Type::REF);
+            auto i = g2.begin();
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "CCC");
@@ -1277,11 +1278,12 @@ TEST_CASE ("Graph class") {
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "CCA");
             ++i;
-                CHECK(i == g.end());
+                CHECK(i == g2.end());
         }
 
             SUBCASE("Filtering Ierator: MAXAF") {
-            vargas::Graph::GraphIterator i = g.begin(vargas::Graph::GraphIterator::Type::MAXAF);
+            vargas::Graph g2(g, vargas::Graph::Type::MAXAF);
+            auto i = g2.begin();
                 CHECK(num_to_seq((*i).seq()) == "AAA");
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "GGG");
@@ -1290,14 +1292,14 @@ TEST_CASE ("Graph class") {
             ++i;
                 CHECK(num_to_seq((*i).seq()) == "CCA");
             ++i;
-                CHECK(i == g.end());
+                CHECK(i == g2.end());
         }
     }
 
 
         SUBCASE("Graph iterator") {
         // Node visit order should be topological
-        vargas::Graph::GraphIterator i = g.begin();
+        vargas::Graph::iterator i = g.begin();
 
             CHECK(num_to_seq((*i).seq()) == "AAA");
         ++i;
@@ -1336,8 +1338,8 @@ TEST_CASE ("Graph class") {
     }
 
         SUBCASE("REF graph") {
-        vargas::Graph g2(g, vargas::Graph::GraphIterator::Type::REF);
-        vargas::Graph::GraphIterator iter(g2);
+        vargas::Graph g2(g, vargas::Graph::Type::REF);
+        vargas::Graph::iterator iter(g2);
 
             CHECK((*iter).seq_str() == "AAA");
         ++iter;
@@ -1349,8 +1351,8 @@ TEST_CASE ("Graph class") {
     }
 
         SUBCASE("MAXAF graph") {
-        vargas::Graph g2(g, vargas::Graph::GraphIterator::Type::MAXAF);
-        vargas::Graph::GraphIterator iter(g2);
+        vargas::Graph g2(g, vargas::Graph::Type::MAXAF);
+        vargas::Graph::iterator iter(g2);
 
             CHECK((*iter).seq_str() == "AAA");
         ++iter;

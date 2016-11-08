@@ -154,7 +154,7 @@ std::shared_ptr<const vargas::Graph> vargas::GraphManager::make_ref(std::string 
     std::string root = label.substr(0, label.length() - GDEF_REFGRAPH.length() - 1);
     #pragma omp critical(_gdef_make_subgraph)
     {
-        _subgraphs[label] = std::make_shared<const Graph>(*make_subgraph(root), Graph::GraphIterator::Type::REF);
+        _subgraphs[label] = std::make_shared<const Graph>(*make_subgraph(root), Graph::Type::REF);
     }
     return _subgraphs[label];
 }
@@ -164,10 +164,9 @@ std::shared_ptr<const vargas::Graph> vargas::GraphManager::make_maxaf(std::strin
     if (!_subgraphs.count(GDEF_BASEGRAPH)) throw std::invalid_argument("No base graph built.");
     if (_subgraphs.count(label)) return _subgraphs.at(label);
     std::string root = label.substr(0, label.length() - GDEF_REFGRAPH.length() - 1);
-
     #pragma omp critical(_gdef_make_subgraph)
     {
-        _subgraphs[label] = std::make_shared<const Graph>(*make_subgraph(root), Graph::GraphIterator::Type::MAXAF);
+        _subgraphs[label] = std::make_shared<const Graph>(*make_subgraph(root), Graph::Type::MAXAF);
     }
     return _subgraphs[label];
 }

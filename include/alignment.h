@@ -339,8 +339,8 @@ namespace vargas {
        * @return Results packet
        */
       Results align(const std::vector<std::string> &read_group,
-                    Graph::GraphIterator begin,
-                    Graph::GraphIterator end) {
+                    Graph::const_iterator begin,
+                    Graph::const_iterator end) {
           std::vector<uint32_t> targets(read_group.size());
           std::fill(targets.begin(), targets.end(), 0);
           return align(read_group, targets, begin, end);
@@ -358,8 +358,8 @@ namespace vargas {
        */
       Results align(const std::vector<std::string> &read_group,
                     const std::vector<uint32_t> &targets,
-                    Graph::GraphIterator begin,
-                    Graph::GraphIterator end) {
+                    Graph::const_iterator begin,
+                    Graph::const_iterator end) {
           Results aligns;
           align_into(read_group, targets, begin, end, aligns);
           return aligns;
@@ -377,8 +377,8 @@ namespace vargas {
        */
       inline void align_into(const std::vector<std::string> &read_group,
                              std::vector<uint32_t> targets,
-                             Graph::GraphIterator begin,
-                             Graph::GraphIterator end,
+                             Graph::const_iterator begin,
+                             Graph::const_iterator end,
                              Results &aligns) {
           using namespace simdpp;
 
@@ -480,29 +480,6 @@ namespace vargas {
               memcpy(aligns.correctness_flag.data() + offset, tmp_cor_flag.data(), len * sizeof(uint8_t));
           }
 
-      }
-
-      /**
-       * @brief
-       * Ensures that the graph is topologically sorted.
-       * @param begin Graph begin iterator
-       * @param end Graph end iterator
-       */
-      bool validate(Graph::GraphIterator begin,
-                    Graph::GraphIterator end) {
-          std::unordered_set<size_t> filled;
-          bool ret = true;
-          for (auto &gi = begin; gi != end; ++gi) {
-              filled.insert(gi->id());
-              for (auto i : gi.incoming()) {
-                  if (filled.count(i) == 0) {
-                      ret = false;
-                      std::cerr << "Node (ID:" << gi->id() << ", POS:" << gi->end_pos() << ")"
-                                << " hit before previous node " << i << std::endl;
-                  }
-              }
-          }
-          return ret;
       }
 
     private:
