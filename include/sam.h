@@ -89,7 +89,7 @@ namespace vargas {
           /**
            * @brief
            * Add a aux field of form X:Y:Z, where X is the tag
-           * Y is the format, Z is the value. If the format is not correct, it is ignored.
+           * Y is the format, Z is the value. If Y is not provided, assume string.
            * @param a aux field
            */
           void add(std::string a);
@@ -100,8 +100,7 @@ namespace vargas {
            * @param tag key
            * @param val value
            */
-          void set(std::string tag,
-                   char val);
+          void set(std::string tag, char val);
 
           /**
            * @brief
@@ -109,8 +108,7 @@ namespace vargas {
            * @param tag key
            * @param val value
            */
-          void set(std::string tag,
-                   int val);
+          void set(std::string tag, int val);
 
           /**
            * @brief
@@ -118,8 +116,7 @@ namespace vargas {
            * @param tag key
            * @param val value
            */
-          void set(std::string tag,
-                   float val);
+          void set(std::string tag, float val);
 
           /**
            * @brief
@@ -127,8 +124,7 @@ namespace vargas {
            * @param tag key
            * @param val value
            */
-          void set(std::string tag,
-                   std::string val);
+          void set(std::string tag, std::string val);
 
           /**
            * Get a char type tag.
@@ -145,8 +141,7 @@ namespace vargas {
            * @param val to store result in
            * @return false if key does not exist, or is the wrong type.
            */
-          bool get(std::string tag,
-                   int &val) const;
+          bool get(std::string tag, int &val) const;
 
           /**
            * Get a float type tag.
@@ -154,8 +149,7 @@ namespace vargas {
            * @param val to store result in
            * @return false if key does not exist, or is the wrong type.
            */
-          bool get(std::string tag,
-                   float &val) const;
+          bool get(std::string tag, float &val) const;
 
           /**
            * Get a string type tag. Any tag can be obtained with this, no conversion is done.
@@ -163,8 +157,7 @@ namespace vargas {
            * @param val to store result in
            * @return false if key does not exist, or is the wrong type.
            */
-          bool get(std::string tag,
-                   std::string &val) const;
+          bool get(std::string tag, std::string &val) const;
 
           /**
            * @brief
@@ -894,12 +887,65 @@ TEST_CASE ("SAM File") {
            << "\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:5\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:35\n";
     }
 
-    {
-        vargas::isam sf("tmp_s.sam");
-        vargas::osam os("osam.sam", sf.header());
-        do {
-            os.add_record(sf.record());
-        } while (sf.next());
+    try {
+
+        {
+            vargas::isam sf("tmp_s.sam");
+            vargas::osam os("osam.sam", sf.header());
+            do {
+                os.add_record(sf.record());
+            } while (sf.next());
+        }
+
+        {
+            vargas::isam a("tmp_s.sam");
+            vargas::isam b("osam.sam");
+            const auto &ah = a.header();
+            const auto &bh = b.header();
+            std::string v1, v2;
+            do {
+                const auto &ar = a.record();
+                const auto &br = b.record();
+                    CHECK(ar.get(ah, vargas::SAM::Record::REQUIRED_POS, v1));
+                    CHECK(br.get(bh, vargas::SAM::Record::REQUIRED_POS, v2));
+                    CHECK(v1 == v2);
+                    CHECK(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
+                    CHECK(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
+                    CHECK(v1 == v2);
+                    CHECK(ar.get(ah, vargas::SAM::Record::REQUIRED_TLEN, v1));
+                    CHECK(br.get(bh, vargas::SAM::Record::REQUIRED_TLEN, v2));
+                    CHECK(v1 == v2);
+                    CHECK(ar.get(ah, vargas::SAM::Record::REQUIRED_MAPQ, v1));
+                    CHECK(br.get(bh, vargas::SAM::Record::REQUIRED_MAPQ, v2));
+                    CHECK(v1 == v2);
+                    CHECK(ar.get(ah, vargas::SAM::Record::REQUIRED_CIGAR, v1));
+                    CHECK(br.get(bh, vargas::SAM::Record::REQUIRED_CIGAR, v2));
+                    CHECK(v1 == v2);
+                    CHECK(ar.get(ah, vargas::SAM::Record::REQUIRED_PNEXT, v1));
+                    CHECK(br.get(bh, vargas::SAM::Record::REQUIRED_PNEXT, v2));
+                    CHECK(v1 == v2);
+                    CHECK(ar.get(ah, vargas::SAM::Record::REQUIRED_FLAG, v1));
+                    CHECK(br.get(bh, vargas::SAM::Record::REQUIRED_FLAG, v2));
+                    CHECK(v1 == v2);
+                    CHECK(ar.get(ah, vargas::SAM::Record::REQUIRED_RNAME, v1));
+                    CHECK(br.get(bh, vargas::SAM::Record::REQUIRED_RNAME, v2));
+                    CHECK(v1 == v2);
+                    CHECK(ar.get(ah, vargas::SAM::Record::REQUIRED_RNEXT, v1));
+                    CHECK(br.get(bh, vargas::SAM::Record::REQUIRED_RNEXT, v2));
+                    CHECK(v1 == v2);
+                    CHECK(ar.get(ah, vargas::SAM::Record::REQUIRED_SEQ, v1));
+                    CHECK(br.get(bh, vargas::SAM::Record::REQUIRED_SEQ, v2));
+                    CHECK(v1 == v2);
+                    CHECK(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
+                    CHECK(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
+                    CHECK(v1 == v2);
+            } while (a.next() && b.next());
+                CHECK(!b.next());
+                CHECK(!a.next());
+        }
+    } catch (std::exception &e) {
+        std::cerr << e.what() << std::endl;
+        throw;
     }
 
     remove("tmp_s.sam");

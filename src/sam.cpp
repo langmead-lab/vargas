@@ -13,6 +13,7 @@
  * @file
  */
 
+#include <assert.h>
 #include "sam.h"
 
 const std::string vargas::SAM::Record::REQUIRED_POS = "POS";
@@ -28,11 +29,16 @@ const std::string vargas::SAM::Record::REQUIRED_TLEN = "TLEN";
 const std::string vargas::SAM::Record::REQUIRED_QUAL = "QUAL";
 
 void vargas::SAM::Optional::add(std::string a) {
-    if (a.at(2) != ':') return;
-    if (a.at(4) != ':') return;
-    std::string tag = a.substr(0, 2);
-    aux[tag] = a.substr(5);
-    aux_fmt[tag] = a.at(3);
+    const std::vector<std::string> s = split(a, ':');
+    assert(s[0].length() == 2);
+    if (s.size() == 2) {
+        aux[s[0]] = s[1];
+        aux_fmt[s[0]] = 'Z';
+    } else if (s.size() >= 3) {
+        assert(s[1].length() == 1);
+        aux_fmt[s[0]] = s[1].at(0);
+        aux[s[0]] = a.substr(3);
+    } else throw std::invalid_argument("Invalid format: " + a);
 }
 
 void vargas::SAM::Optional::set(std::string tag, char val) {
@@ -110,6 +116,7 @@ void vargas::SAM::Header::Sequence::parse(std::string line) {
 
     std::vector<std::string> tags = split(line, '\t');
     for (auto &p : tags) {
+        if (p.at(0) == '@') continue;
         std::string tag = p.substr(0, 2);
         std::string val = p.substr(3);
         if (tag == "SN") {
@@ -166,6 +173,7 @@ void vargas::SAM::Header::ReadGroup::parse(std::string line) {
 
     std::vector<std::string> tags = split(line, '\t');
     for (auto &p : tags) {
+        if (p.at(0) == '@') continue;
         std::string tag = p.substr(0, 2);
         std::string val = p.substr(3);
         if (tag == "ID") {
@@ -222,6 +230,7 @@ void vargas::SAM::Header::Program::parse(std::string line) {
 
     std::vector<std::string> tags = split(line, '\t');
     for (auto &p : tags) {
+        if (p.at(0) == '@') continue;
         std::string tag = p.substr(0, 2);
         std::string val = p.substr(3);
         if (tag == "ID") {
@@ -273,15 +282,17 @@ void vargas::SAM::Header::parse(std::string hdr) {
     // @HD line
     std::vector<std::string> tags = split(lines[0], '\t');
     if (tags[0] != "@HD") throw std::invalid_argument("First line must start with \"@HD\"");
+    std::vector<std::string> pair;
     for (auto &p : tags) {
-        std::string tag = p.substr(0, 2);
-        std::string val = p.substr(3);
-        if (tag == "VN") {
-            version = val;
-        } else if (tag == "SO") {
-            sorting_order = val;
-        } else if (tag == "GO") {
-            grouping = val;
+        if (p.at(0) == '@') continue;
+        split(p, ':', pair);
+        if (pair.size() != 2) continue;
+        if (pair[0] == "VN") {
+            version = pair[1];
+        } else if (pair[0] == "SO") {
+            sorting_order = pair[1];
+        } else if (pair[0] == "GO") {
+            grouping = pair[1];
         }
     }
 
