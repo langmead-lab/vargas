@@ -14,6 +14,19 @@
  */
 
 #include "sam.h"
+
+const std::string vargas::SAM::Record::REQUIRED_POS = "POS";
+const std::string vargas::SAM::Record::REQUIRED_QNAME = "QNAME";
+const std::string vargas::SAM::Record::REQUIRED_RNEXT = "RNEXT";
+const std::string vargas::SAM::Record::REQUIRED_RNAME = "RNAME";
+const std::string vargas::SAM::Record::REQUIRED_SEQ = "SEQ";
+const std::string vargas::SAM::Record::REQUIRED_CIGAR = "CIGAR";
+const std::string vargas::SAM::Record::REQUIRED_FLAG = "FLAG";
+const std::string vargas::SAM::Record::REQUIRED_PNEXT = "PNEXT";
+const std::string vargas::SAM::Record::REQUIRED_MAPQ = "MAPQ";
+const std::string vargas::SAM::Record::REQUIRED_TLEN = "TLEN";
+const std::string vargas::SAM::Record::REQUIRED_QUAL = "QUAL";
+
 void vargas::SAM::Optional::add(std::string a) {
     if (a.at(2) != ':') return;
     if (a.at(4) != ':') return;

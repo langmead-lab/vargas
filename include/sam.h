@@ -565,7 +565,6 @@ namespace vargas {
           Optional aux;
 
 
-
           /**
            * @brief
            * Output the record in single line format
@@ -624,6 +623,58 @@ namespace vargas {
               if (hdr.read_groups.count(rg) == 0) return false;
               return hdr.read_groups.at(rg).aux.get(tag, val);
           }
+
+          /**
+           * @brief
+           * Get the value of a tag. If prefixed with RG:, get the tag from the
+           * associated read group. Otherwise check required fields before optional fields.
+           * @param hdr SAM Header
+           * @param tag tag
+           * @param val output
+           * @return true if tag was found and val updated
+           */
+          template<typename T>
+          bool get(const Header &hdr, const std::string &tag, T &val) const {
+              if (tag.length() > 3 && tag.substr(0, 3) == "RG:") {
+                  return read_group(hdr, tag.substr(3), val);
+              }
+              if (tag == REQUIRED_POS) {
+                  convert(pos, val);
+              } else if (tag == REQUIRED_QNAME) {
+                  convert(query_name, val);
+              } else if (tag == REQUIRED_RNEXT) {
+                  convert(ref_next, val);
+              } else if (tag == REQUIRED_RNAME) {
+                  convert(ref_name, val);
+              } else if (tag == REQUIRED_SEQ) {
+                  convert(seq, val);
+              } else if (tag == REQUIRED_CIGAR) {
+                  convert(cigar, val);
+              } else if (tag == REQUIRED_FLAG) {
+                  convert(flag.encode(), val);
+              } else if (tag == REQUIRED_PNEXT) {
+                  convert(pos_next, val);
+              } else if (tag == REQUIRED_MAPQ) {
+                  convert(mapq, val);
+              } else if (tag == REQUIRED_TLEN) {
+                  convert(tlen, val);
+              } else if (tag == REQUIRED_QUAL) {
+                  convert(qual, val);
+              } else return aux.get(tag, val);
+              return true;
+          }
+
+          static const std::string REQUIRED_POS;
+          static const std::string REQUIRED_QNAME;
+          static const std::string REQUIRED_RNEXT;
+          static const std::string REQUIRED_RNAME;
+          static const std::string REQUIRED_SEQ;
+          static const std::string REQUIRED_CIGAR;
+          static const std::string REQUIRED_FLAG;
+          static const std::string REQUIRED_PNEXT;
+          static const std::string REQUIRED_MAPQ;
+          static const std::string REQUIRED_TLEN;
+          static const std::string REQUIRED_QUAL;
 
       };
 
@@ -818,29 +869,29 @@ TEST_CASE ("SAM File") {
     {
         std::ofstream ss("tmp_s.sam");
         ss << "@HD\tVN:1.0\tSO:coordinate\n"
-            << "@SQ\tSN:1\tLN:249250621\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
-            << "\tM5:1b22b98cdeb4a9304cb5d48026a85128\n"
-            << "@SQ\tSN:2S\tLN:243199373\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
-            << "\tM5:a0d9851da00400dec1098a9255ac712e\n"
-            << "@SQ\tSN:3Q\tLN:198022430\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
-            << "\tM5:fdfd811849cc2fadebc929bb925902e5\n"
-            << "@RG\tID:UM0098:1\tPL:ILLUMINA\tPU:HWUSI-EAS1707-615LHAAXX-L001\tLB:80\tDT:2010-05-05T20:00:00-0400"
-            << "\tSM:SD37743\tCN:UMCORE\n"
-            << "@RG\tID:UM0098:2\tPL:ILLUMINA\tPU:HWUSI-EAS1707-615LHAAXX-L002\tLB:80\tDT:2010-05-05T20:00:00-0400"
-            << "\tSM:SD37743\tCN:UMCORE\n"
-            << "@PG\tID:bwa\tVN:0.5.4\n"
-            << "1:497:R:-272+13M17D24M\t113\t1\t497\t37\t37M\t15\t100338662\t0"
-            << "\tCGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG\t0;==-==9;>>>>>=>>>>>>>>>>>=>>>>>>>>>>"
-            << "\tXT:A:U\tNM:i:0\tSM:i:37\tAM:i:0\tX0:i:1\tX1:i:0\tXM:i:0\tXO:i:0\tXG:i:0\tMD:Z:37\n"
-            << "19:20389:F:275+18M2D19M\t99\t1\t17644\t0\t37M\t=\t17919\t314"
-            << "\tTATGACTGCTAATAATACCTACACATGTTAGAACCAT\t>>>>>>>>>>>>>>>>>>>><<>>><<>>4::>>:<9"
-            << "\tRG:Z:UM0098:1\tXT:A:R\tNM:i:0\tSM:i:0\tAM:i:0\tX0:i:4\tX1:i:0\tXM:i:0\tXO:i:0\tXG:i:0\tMD:Z:37\n"
-            << "19:20389:F:275+18M2D19M\t147\t1\t17919\t0\t18M2D19M\t=\t17644\t-314"
-            << "\tGTAGTACCAACTGTAAGTCCTTATCTTCATACTTTGT\t;44999;499<8<8<<<8<<><<<<><7<;<<<>><<"
-            << "\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:4\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:18^CA19\n"
-            << "9:21597+10M2I25M:R:-209\t83\t1\t21678\t0\t8M2I27M\t=\t21469\t-244"
-            << "\tCACCACATCACATATACCAAGCCTGGCTGTGTCTTCT\t<;9<<5><<<<><<<>><<><>><9>><>>>9>>><>"
-            << "\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:5\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:35\n";
+           << "@SQ\tSN:1\tLN:249250621\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
+           << "\tM5:1b22b98cdeb4a9304cb5d48026a85128\n"
+           << "@SQ\tSN:2S\tLN:243199373\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
+           << "\tM5:a0d9851da00400dec1098a9255ac712e\n"
+           << "@SQ\tSN:3Q\tLN:198022430\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
+           << "\tM5:fdfd811849cc2fadebc929bb925902e5\n"
+           << "@RG\tID:UM0098:1\tPL:ILLUMINA\tPU:HWUSI-EAS1707-615LHAAXX-L001\tLB:80\tDT:2010-05-05T20:00:00-0400"
+           << "\tSM:SD37743\tCN:UMCORE\n"
+           << "@RG\tID:UM0098:2\tPL:ILLUMINA\tPU:HWUSI-EAS1707-615LHAAXX-L002\tLB:80\tDT:2010-05-05T20:00:00-0400"
+           << "\tSM:SD37743\tCN:UMCORE\n"
+           << "@PG\tID:bwa\tVN:0.5.4\n"
+           << "1:497:R:-272+13M17D24M\t113\t1\t497\t37\t37M\t15\t100338662\t0"
+           << "\tCGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG\t0;==-==9;>>>>>=>>>>>>>>>>>=>>>>>>>>>>"
+           << "\tXT:A:U\tNM:i:0\tSM:i:37\tAM:i:0\tX0:i:1\tX1:i:0\tXM:i:0\tXO:i:0\tXG:i:0\tMD:Z:37\n"
+           << "19:20389:F:275+18M2D19M\t99\t1\t17644\t0\t37M\t=\t17919\t314"
+           << "\tTATGACTGCTAATAATACCTACACATGTTAGAACCAT\t>>>>>>>>>>>>>>>>>>>><<>>><<>>4::>>:<9"
+           << "\tRG:Z:UM0098:1\tXT:A:R\tNM:i:0\tSM:i:0\tAM:i:0\tX0:i:4\tX1:i:0\tXM:i:0\tXO:i:0\tXG:i:0\tMD:Z:37\n"
+           << "19:20389:F:275+18M2D19M\t147\t1\t17919\t0\t18M2D19M\t=\t17644\t-314"
+           << "\tGTAGTACCAACTGTAAGTCCTTATCTTCATACTTTGT\t;44999;499<8<8<<<8<<><<<<><7<;<<<>><<"
+           << "\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:4\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:18^CA19\n"
+           << "9:21597+10M2I25M:R:-209\t83\t1\t21678\t0\t8M2I27M\t=\t21469\t-244"
+           << "\tCACCACATCACATATACCAAGCCTGGCTGTGTCTTCT\t<;9<<5><<<<><<<>><<><>><9>><>>>9>>><>"
+           << "\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:5\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:35\n";
     }
 
     {
@@ -851,7 +902,7 @@ TEST_CASE ("SAM File") {
         } while (sf.next());
     }
 
-       remove("tmp_s.sam");
-       remove("osam.sam");
+    remove("tmp_s.sam");
+    remove("osam.sam");
 }
 #endif //VARGAS_SAM_H

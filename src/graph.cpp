@@ -148,14 +148,14 @@ std::string vargas::Graph::to_DOT(std::string name) const {
     std::ostringstream dot;
     dot << "// Each node has the sequence, followed by end_pos,allele_freq\n";
     dot << "digraph " << name << " {\n";
-    for (auto n : *_IDMap) {
+    for (const auto n : *_IDMap) {
         dot << n.second->id() << "[label=\"" << n.second->seq_str()
             << "\nP:" << n.second->end_pos() << ", F:" << n.second->freq() << ", R:" << n.second->is_ref()
             << "\n[" << n.second->individuals().to_string() << "]"
             << "\"];\n";
     }
-    for (auto &n : _next_map) {
-        for (auto e : n.second) {
+    for (const auto &n : _next_map) {
+        for (const auto e : n.second) {
             dot << n.first << " -> " << e << ";\n";
         }
     }
@@ -187,28 +187,17 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
     const Graph::Population all_pop(g.pop_size(), true);
     g.set_filter(all_pop);
 
-    std::string ref_check;
-
-    int nwarn = 0;
     while (vf.next()) {
         auto &af = vf.frequencies();
 
         curr = _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.pos());
-        ref_check = _fa.subseq(_vf->region_chr(), curr, curr + vf.ref().length() - 1);
-        if (vf.ref() != ref_check) {
-            std::cerr << "Warning: Variant File and and FASTA Reference does not match.\tPOS:"
-                      << curr << " Variant:" << vf.ref() << " FASTA:" << ref_check << std::endl;
-            if (nwarn++ == _abort_after_warns) {
-                throw std::invalid_argument(std::to_string(nwarn) + " warnings occurred, aborting.");
-            }
-        }
+        assert(_fa.subseq(_vf->region_chr(), curr, curr + vf.ref().length() - 1) == vf.ref() &&
+            ("Variant and FASTA Reference does not match at position " + std::to_string(curr)) != "");
 
         curr += vf.ref().length();
 
         // Add variant nodes
         // Positions of variant nodes are referenced to ref node
-
-
         // ref node
         {
             Graph::Node n;

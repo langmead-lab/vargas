@@ -15,15 +15,10 @@
 #ifndef VARGAS_GRAPH_H
 #define VARGAS_GRAPH_H
 
-#include <cstdio>
-#include <memory>
 #include <set>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
-#include <queue>
-#include <bitset>
-#include <thread>
 #include <type_traits>
 #include "fasta.h"
 #include "varfile.h"
@@ -124,18 +119,21 @@ namespace vargas {
        * Default constructor indicates whole graph
        */
       struct GID {
-          GID() : num(100), id(0), pct(true), outgroup(false) {}
 
           /**
            * @brief
+           * Default GID assumes 100% ingroup.
+           */
+          GID() : num(100), id(0), pct(true), outgroup(false) {}
+
+          /**
            * @param num if percent, set pct=true. If number of individuals, set pct=false.
            * @param id Unique ID for a given num
            * @param pct True if num is a percentage
            */
           GID(int num,
               int id,
-              bool pct = false) :
-              num(num), id(id), pct(pct), outgroup(false) {}
+              bool pct = false) : num(num), id(id), pct(pct), outgroup(false) {}
 
           /**
            * @brief
@@ -173,15 +171,12 @@ namespace vargas {
 
       /**
         * @enum Type
-        * When a normal population filter is not used, a flag can be used. REF includes
-        * only reference alleles, MAXAF picks the allele with the highest frequency.
-        * Both result in linear graphs.
-        * Filter used as a placeholder, it should never be passed as a param.
+        * Indicate a special type of graph, one that only incudes REF nodes
+        * or MAXAF nodes.
         */
       enum class Type: char {
           REF, /**< Only include reference nodes. */
           MAXAF, /**< Keep the node with the highest AF at each branch. */
-          FILTER, /**< Use a given Population filter. */
       };
 
       /**
@@ -439,8 +434,124 @@ namespace vargas {
 
       };
 
-
       typedef std::shared_ptr<Node> nodeptr;
+
+      /**
+       * @brief
+       * Forward iterator to traverse the Graph in insertion order. Checks assume underlying graphs are equal.
+       */
+      template<typename T, typename Unqualified_T = typename std::remove_cv<T>::type>
+      class GraphIterator: public std::iterator<std::forward_iterator_tag, Unqualified_T, std::ptrdiff_t, T *, T &> {
+        public:
+
+          /**
+           * @brief
+           * @param g Graph
+           * @param idx Node in the insertion order to begin iterator at.
+           */
+          GraphIterator(const Graph &g, const size_t idx = 0) : _graph(g), _currID(idx) {}
+
+          /**
+           * @brief
+           * Reference to the underlying Graph.
+           * @return const ref to graph
+           */
+          const Graph &graph() const { return _graph; }
+
+          /**
+           * @return True if iterators point to same node index.
+           */
+          template<typename O>
+          bool operator==(const GraphIterator<O> &other) const {
+              return _currID == other._currID;
+          }
+
+          /**
+           * @return true when current Node ID's are not the same or if the
+           * underlying graph is not the same.
+           */
+          template<typename O>
+          bool operator!=(const GraphIterator<O> &other) const {
+              return _currID != other._currID;
+          }
+
+          /**
+           * @brief
+           * Goes to next Node.
+           * @return iterator to the next Node.
+           */
+          GraphIterator &operator++() {
+              if (_currID < _graph._add_order.size()) ++_currID;
+              return *this;
+          }
+
+          /**
+           * @brief
+           * Goes to next Node, returns previous node.
+           * @return iterator to the next Node.
+           */
+          GraphIterator operator++(int) {
+              auto ret = *this;
+              if (_currID < _graph._add_order.size()) ++_currID;
+              return ret;
+          }
+
+          /**
+           * @brief
+           * Const reference to the current node. Undefined for end iterator.
+           * @return Node
+           */
+          T &operator*() const {
+              return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
+          }
+
+          /**
+           * @brief
+           * @return pointer to underlying node
+           */
+          T *operator->() const {
+              return &operator*();
+          }
+
+          /**
+           * @brief
+           * All nodes that we've traversed that have incoming edges to the current node.
+           * @return vector of previous nodes
+           */
+          const std::vector<uint32_t> &incoming() const {
+              const uint32_t nid = _graph._add_order.at(_currID);
+              if (_graph._prev_map.count(nid) == 0) return _empty_vec;
+              return _graph._prev_map.at(nid);
+          }
+
+          /**
+           * @return vector of all outgoing edges
+           */
+          const std::vector<uint32_t> &outgoing() const {
+              const uint32_t nid = _graph._add_order.at(_currID);
+              if (_graph._prev_map.count(nid) == 0) return _empty_vec;
+              return _graph._next_map.at(nid);
+          }
+
+          /**
+           * Allow conversion from iterator to const_iterator
+           * @return
+           */
+          operator GraphIterator<const T>() const {
+              return GraphIterator<const T>(_graph, _currID);
+          }
+
+
+        private:
+
+          const Graph &_graph;
+          size_t _currID;
+          const std::vector<uint32_t> _empty_vec;
+
+      };
+
+      using iterator = GraphIterator<Graph::Node>;
+      using const_iterator = GraphIterator<const Graph::Node>;
 
       /**
        * @brief
@@ -480,11 +591,11 @@ namespace vargas {
         * Construct a graph using a base graph and a filter.
         * @details
         * Constructs a graph using filter tags, one of:
-        * Graph::REF, or Graph::MAXAF
+        * Graph::Type::REF, or Graph::Type::MAXAF
         * The former keeps reference nodes, the later picks the node with the highest allele
         * frequency. Both result in linear graphs.
         * @param g Graph to derive from
-        * @param t one of Graph::REF, Graph::MAXAF
+        * @param t one of Graph::Type::REF, Graph::Type::MAXAF
         */
       Graph(const Graph &g, Type t);
 
@@ -590,6 +701,13 @@ namespace vargas {
           out << to_DOT(name);
       }
 
+      /**
+       * @return DOT repersentation of graph.
+       */
+      std::string to_string() const {
+          return to_DOT();
+      }
+
 
       /**
        * @brief
@@ -621,123 +739,6 @@ namespace vargas {
        * @return Population with ingroup % indivduals set.
        */
       Population subset(const int ingroup) const;
-
-      /**
-       * @brief
-       * Forward iterator to traverse the Graph in insertion order. Checks assume underlying graphs are equal.
-       */
-      template<typename T, typename Unqualified_T = typename std::remove_cv<T>::type>
-      class GraphIterator: public std::iterator<std::forward_iterator_tag, Unqualified_T, std::ptrdiff_t, T *, T &> {
-        public:
-
-          /**
-           * @brief
-           * Accept all nodes.
-           * @ param g Graph
-           */
-          GraphIterator(const Graph &g, const size_t idx = 0) : _graph(g), _currID(idx) {}
-
-          /**
-           * @brief
-           * Reference to the underlying Graph.
-           * @return const ref to graph
-           */
-          const Graph &graph() const { return _graph; }
-
-          /**
-           * @return True if iterators point to same node index.
-           */
-          template<typename O>
-          bool operator==(const GraphIterator<O> &other) const {
-              return _currID == other._currID;
-          }
-
-          /**
-           * @return true when current Node ID's are not the same or if the
-           * underlying graph is not the same.
-           */
-          template<typename O>
-          bool operator!=(const GraphIterator<O> &other) const {
-              return _currID != other._currID;
-          }
-
-          /**
-           * @brief
-           * Goes to next Node.
-           * @return iterator to the next Node.
-           */
-          GraphIterator &operator++() {
-              if (_currID < _graph._add_order.size()) ++_currID;
-              return *this;
-          }
-
-          /**
-           * @brief
-           * Goes to next Node, returns previous node.
-           * @return iterator to the next Node.
-           */
-          GraphIterator operator++(int) {
-              auto ret = *this;
-              if (_currID < _graph._add_order.size()) ++_currID;
-              return ret;
-          }
-
-          /**
-           * @brief
-           * Const reference to the current node. Undefined for end iterator.
-           * @return Node
-           */
-          T &operator*() const {
-              return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
-          }
-
-          /**
-           * @brief
-           * @return pointer to underlying node
-           */
-          T *operator->() const {
-              return &operator*();
-          }
-
-          /**
-           * @brief
-           * All nodes that we've traversed that have incoming edges to the current node.
-           * @return vector of previous nodes
-           */
-          const std::vector<uint32_t> &incoming() const {
-              const uint32_t nid = _graph._add_order.at(_currID);
-              if (_graph._prev_map.count(nid) == 0) return _empty_vec;
-              return _graph._prev_map.at(nid);
-          }
-
-          /**
-           * @return vector of all outgoing edges
-           */
-          const std::vector<uint32_t> &outgoing() const {
-              const uint32_t nid = _graph._add_order.at(_currID);
-              if (_graph._prev_map.count(nid) == 0) return _empty_vec;
-              return _graph._next_map.at(nid);
-          }
-
-          /**
-           * Allow conversion from iterator to const_iterator
-           * @return
-           */
-          operator GraphIterator<const T>() const {
-              return GraphIterator<const T>(_graph, _currID);
-          }
-
-
-        private:
-
-          const Graph &_graph;
-          size_t _currID;
-          const std::vector<uint32_t> _empty_vec;
-
-      };
-
-      using iterator = GraphIterator<Graph::Node>;
-      using const_iterator = GraphIterator<const Graph::Node>;
 
       /**
        * @return begin iterator.
@@ -987,7 +988,7 @@ namespace vargas {
       void _build_edges(Graph &g,
                         std::unordered_set<uint32_t> &prev,
                         std::unordered_set<uint32_t> &curr,
-                        std::unordered_map<uint32_t, uint32_t> *chain = NULL);
+                        std::unordered_map<uint32_t, uint32_t> *chain = nullptr);
 
       /**
        * @brief
@@ -1020,8 +1021,6 @@ namespace vargas {
       std::unique_ptr<VariantFile> _vf;
       ifasta _fa;
       Graph g;
-
-      int _abort_after_warns = 10; // Abort after N warnings, -1 means never.
 
       // Graph construction parameters
       size_t _max_node_len = 10000000; // If a node is longer, split into multiple nodes

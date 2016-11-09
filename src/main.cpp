@@ -340,6 +340,7 @@ int align_main(const int argc, const char *argv[]) {
     }
 
     // Load parameters
+    // hisat similar params: match = 2, mismatch = 6, open = 5, extend = 3
     uint8_t match = 2, mismatch = 2, gopen = 3, gext = 1;
     unsigned int threads = 1, read_len = 50;
     std::string read_file, gdf_file, align_targets, out_file;
@@ -545,58 +546,14 @@ int sam2csv(const int argc, const char *argv[]) {
     do {
         buff = "";
         for (auto &tag : fmt_split) {
+            val = "*";
+            if (!input.record().get(input.header(), tag, val) && warned.count(tag) == 0) {
+                std::cerr << "Warning: Tag \"" << tag << "\" not present." << std::endl;
+            }
+            buff += val;
             buff += ",";
-            if (tag == "POS") {
-                buff += std::to_string(input.record().pos);
-            }
-            else if (tag == "QNAME") {
-                buff += input.record().query_name;
-            }
-            else if (tag == "RNEXT") {
-                buff += input.record().ref_next;
-            }
-            else if (tag == "RNAME") {
-                buff += input.record().ref_name;
-            }
-            else if (tag == "SEQ") {
-                buff += input.record().seq;
-            }
-            else if (tag == "CIGAR") {
-                buff += input.record().cigar;
-            }
-            else if (tag == "FLAG") {
-                buff += std::to_string(input.record().flag.encode());
-            }
-            else if (tag == "PNEXT") {
-                buff += std::to_string(input.record().pos_next);
-            }
-            else if (tag == "MAPQ") {
-                buff += std::to_string(input.record().mapq);
-            }
-            else if (tag == "TLEN") {
-                buff += std::to_string(input.record().tlen);
-            }
-            else if (tag == "QUAL") {
-                buff += input.record().qual;
-            }
-            else if (tag.substr(0, 3) == "RG:") {
-                val = "*";
-                if (!input.record().read_group(input.header(), tag.substr(3), val) && warned.count(tag) == 0) {
-                    std::cerr << "Warning: \"" << tag << "\" tag not present in read group." << std::endl;
-                    warned.insert(tag);
-                }
-                buff += val;
-            }
-            else {
-                val = "*";
-                if (!input.record().aux.get(tag, val) && warned.count(tag) == 0) {
-                    std::cerr << "Warning: \"" << tag << "\" tag not present." << std::endl;
-                    warned.insert(tag);
-                }
-                buff += val;
-            }
         }
-        std::cout << buff.substr(1) << '\n'; // Crop leading comma
+        std::cout << buff.substr(0, buff.length() - 1) << '\n'; // Crop leading comma
     } while (input.next());
 
     std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(

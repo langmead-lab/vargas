@@ -174,8 +174,7 @@ namespace vargas {
 
       /**
        * @brief
-       * Number of samples in the file. For VCF, this is the number of individuals. for KSNP, this is
-       * the number of SNPs.
+       * Number of samples in the file.
        * @return
        */
       virtual size_t num_samples() const = 0;

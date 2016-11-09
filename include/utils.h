@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <sstream>
 #include <chrono>
+#include <type_traits>
 #include "simdpp/simd.h"
 
 /**
@@ -251,6 +252,35 @@ bool ends_with(std::string const &fullString,
     if (fullString.length() >= ending.length())
         return 0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending);
     else return false;
+}
+
+/**
+ * Intended for transparent conversion from std::string and a scalar, and vice versa.
+ * Default types are long and double for floating point.
+ */
+__RG_STRONG_INLINE__
+void convert(const std::string &in, int &out) {
+    out = std::stoi(in);
+}
+__RG_STRONG_INLINE__
+void convert(const std::string &in, size_t &out) {
+    out = std::stoul(in);
+}
+__RG_STRONG_INLINE__
+void convert(const std::string &in, double &out) {
+    out = std::stod(in);
+}
+__RG_STRONG_INLINE__
+void convert(const std::string &in, float &out) {
+    out = std::stof(in);
+}
+template<typename T>
+void convert(const T &in, std::string &out) {
+    out = std::to_string(in);
+}
+__RG_STRONG_INLINE__
+void convert(const std::string &in, std::string &out) {
+    out = in;
 }
 
 #endif //VARGAS_UTILS_H
