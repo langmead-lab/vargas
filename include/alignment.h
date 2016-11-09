@@ -31,7 +31,7 @@
 // Number of elements per SIMD vector
 #define VEC_SIZE SIMDPP_FAST_INT8_SIZE
 
-#define TOL_FACTOR 2 // _tol = _read_len / TOL_FACTOR. If the pos is +- tol, count as correct alignment
+#define TOL_FACTOR 4 // _tol = _read_len / TOL_FACTOR. If the pos is +- tol, count as correct alignment
 
 namespace vargas {
 
