@@ -31,7 +31,7 @@
 // Number of elements per SIMD vector
 #define VEC_SIZE SIMDPP_FAST_INT8_SIZE
 
-#define TOL_FACTOR 4 // _tol = _read_len / TOL_FACTOR. If the pos is +- tol, count as correct alignment
+#define DEFAULT_TOL_FACTOR 4 // If the pos is +- tol, count as correct alignment
 
 namespace vargas {
 
@@ -86,7 +86,7 @@ namespace vargas {
       Aligner(size_t max_node_len,
               size_t read_len) :
           _read_len(read_len),
-          _tol(read_len / TOL_FACTOR),
+          _tol(read_len / DEFAULT_TOL_FACTOR),
           _match_vec(simdpp::splat(2)),
           _mismatch_vec(simdpp::splat(2)),
           _gap_open_extend_vec(simdpp::splat(4)),
@@ -111,7 +111,7 @@ namespace vargas {
               uint8_t open,
               uint8_t extend) :
           _read_len(read_len),
-          _tol(read_len / TOL_FACTOR),
+          _tol(read_len / DEFAULT_TOL_FACTOR),
           _match_vec(simdpp::splat(match)),
           _mismatch_vec(simdpp::splat(mismatch)),
           _gap_open_extend_vec(simdpp::splat(open + extend)),
@@ -199,17 +199,15 @@ namespace vargas {
           /**
            * @return iterator to the beginning of the packaged reads.
            */
-          inline
           typename std::vector<simdpp::uint8<VEC_SIZE>>::const_iterator begin() const {
-              return _packaged_reads.begin();
+              return _packaged_reads.cbegin();
           }
 
           /**
            * @return iterator to the end of the packaged reads.
            */
-          inline
           typename std::vector<simdpp::uint8<VEC_SIZE>>::const_iterator end() const {
-              return _packaged_reads.end();
+              return _packaged_reads.cend();
           }
 
         private:
@@ -248,7 +246,6 @@ namespace vargas {
                       insert(Base::N, r, _packaged_reads[p]);
                   }
               }
-
           }
 
       };
@@ -322,7 +319,7 @@ namespace vargas {
           return _tol;
       }
 
-      inline static constexpr size_t default_tolerance() { return TOL_FACTOR; }
+      inline static constexpr size_t default_tolerance() { return DEFAULT_TOL_FACTOR; }
 
       /**
        * @return maximum number of reads that can be aligned at once.
@@ -871,7 +868,7 @@ namespace vargas {
       /*********************************** Variables ***********************************/
 
       const size_t _read_len; /**< Maximum read length. */
-      size_t _tol = TOL_FACTOR; /**< If within +- this of target, indicate correct alignment */
+      size_t _tol = DEFAULT_TOL_FACTOR; /**< If within +- this of target, indicate correct alignment */
 
       // Zero vector
       const simdpp::uint8<VEC_SIZE> ZERO_CT = simdpp::splat(0);
@@ -931,7 +928,7 @@ namespace vargas {
       std::vector<uint32_t> _targets_lower, _targets_upper;
       uint32_t *_targets_lower_ptr, *_targets_upper_ptr;
 
-      size_t _max_node_len;
+      const size_t _max_node_len;
 
       AlignmentGroup _alignment_group;
 

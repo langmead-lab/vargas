@@ -32,6 +32,7 @@
 #include <sstream>
 #include <chrono>
 #include <type_traits>
+#include <assert.h>
 #include "simdpp/simd.h"
 
 /**
@@ -259,6 +260,10 @@ bool ends_with(std::string const &fullString,
  * Default types are long and double for floating point.
  */
 __RG_STRONG_INLINE__
+void convert(const std::string &in, std::string &out) {
+    out = in;
+}
+__RG_STRONG_INLINE__
 void convert(const std::string &in, int &out) {
     out = std::stoi(in);
 }
@@ -271,16 +276,38 @@ void convert(const std::string &in, double &out) {
     out = std::stod(in);
 }
 __RG_STRONG_INLINE__
-void convert(const std::string &in, float &out) {
-    out = std::stof(in);
+void convert(const int &in, int &out) {
+    out = in;
 }
-template<typename T>
-void convert(const T &in, std::string &out) {
+__RG_STRONG_INLINE__
+void convert(const int &in, char &out) {
+    out = std::to_string(in).at(0);
+}
+__RG_STRONG_INLINE__
+void convert(const std::string &in, char &out) {
+    assert(in.length() == 1);
+    out = in.at(0);
+}
+__RG_STRONG_INLINE__
+void convert(const double &in, double &out) {
+    out = in;
+}
+__RG_STRONG_INLINE__
+void convert(const size_t &in, size_t &out) {
+    out = in;
+}
+__RG_STRONG_INLINE__
+void convert(const int &in, std::string &out) {
     out = std::to_string(in);
 }
 __RG_STRONG_INLINE__
-void convert(const std::string &in, std::string &out) {
-    out = in;
+void convert(const double &in, std::string &out) {
+    out = std::to_string(in);
 }
+__RG_STRONG_INLINE__
+void convert(const size_t &in, std::string &out) {
+    out = std::to_string(in);
+}
+
 
 #endif //VARGAS_UTILS_H

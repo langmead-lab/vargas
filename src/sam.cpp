@@ -37,7 +37,7 @@ void vargas::SAM::Optional::add(std::string a) {
     } else if (s.size() >= 3) {
         assert(s[1].length() == 1);
         aux_fmt[s[0]] = s[1].at(0);
-        aux[s[0]] = a.substr(3);
+        aux[s[0]] = a.substr(5);
     } else throw std::invalid_argument("Invalid format: " + a);
 }
 
