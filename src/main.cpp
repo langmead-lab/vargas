@@ -568,6 +568,7 @@ int profile(const int argc, const char *argv[]) {
     std::string region = "22:25,000,000-25,500,000";
     std::string read;
     int ingroup = 100;
+    size_t nreads = 32, read_len = 50;
 
     GetOpt::GetOpt_pp args(argc, argv);
 
@@ -583,7 +584,9 @@ int profile(const int argc, const char *argv[]) {
     }
 
     args >> GetOpt::Option('i', "ingroup", ingroup)
-         >> GetOpt::Option('s', "string", read);
+         >> GetOpt::Option('s', "string", read)
+         >> GetOpt::Option('n', "reads", nreads)
+         >> GetOpt::Option('l', "len", read_len);
 
     if (!file_exists(fasta) || !file_exists(bcf)) {
         throw std::invalid_argument("File does not exist.");
@@ -615,7 +618,7 @@ int profile(const int argc, const char *argv[]) {
     }
 
     {
-        std::cerr << "Filter constructor:\n\t";
+        std::cerr << "Filter constructor (" << ingroup << "):\n\t";
         auto pop_filt = g.subset(ingroup);
         start = std::clock();
         vargas::Graph g2(g, pop_filt);
@@ -639,22 +642,25 @@ int profile(const int argc, const char *argv[]) {
     {
         std::vector<std::string> reads;
 
-        for (int i = 0; i < SIMDPP_FAST_INT8_SIZE; ++i) {
+        for (size_t i = 0; i < nreads; ++i) {
             std::ostringstream rd;
-            for (int r = 0; r < 50; ++r) rd << rand_base();
+            for (size_t r = 0; r < read_len; ++r) rd << rand_base();
             reads.push_back(rd.str());
         }
 
         std::vector<std::string> split_str;
         if (read.length() > 0) {
             split(read, ',', split_str);
-            if (split_str.size() > SIMDPP_FAST_INT8_SIZE) split_str.resize(SIMDPP_FAST_INT8_SIZE);
-            for (size_t i = 0; i < split_str.size(); ++i) reads[i] = split_str[i];
+            if (split_str.size() > nreads) split_str.resize(nreads);
+            for (size_t i = 0; i < split_str.size(); ++i) {
+                if (split_str[i].length() > read_len) split_str[i].resize(read_len);
+                reads[i] = split_str[i];
+            }
         }
 
         vargas::Aligner a(g.max_node_len(), 50);
 
-        std::cerr << SIMDPP_FAST_INT8_SIZE << " read alignment:\n";
+        std::cerr << nreads << " read alignment:\n";
 
 
         {
@@ -845,6 +851,8 @@ void profile_help() {
     cerr << "-v\t--var           *<string> VCF/BCF filename." << endl;
     cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX." << endl;
     cerr << "-i\t--ingroup       <int> Percent of genotypes to include in alignment." << endl;
+    cerr << "-n\t--reads         <int> Number of reads to align." << endl;
+    cerr << "-l\t--len           <int> Read length." << endl;
     cerr << "-s\t--string        <string,string..> Include reads in alignment. Rest will be random." << endl << endl;
 }
 
