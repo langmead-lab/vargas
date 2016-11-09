@@ -897,7 +897,6 @@ TEST_CASE ("SAM File") {
             } while (sf.next());
         }
 
-        {
             vargas::isam a("tmp_s.sam");
             vargas::isam b("osam.sam");
             const auto &ah = a.header();
@@ -942,7 +941,6 @@ TEST_CASE ("SAM File") {
             } while (a.next() && b.next());
                 CHECK(!b.next());
                 CHECK(!a.next());
-        }
     } catch (std::exception &e) {
         std::cerr << e.what() << std::endl;
         throw;
