@@ -192,7 +192,7 @@ int sim_main(const int argc, const char *argv[]) {
          >> GetOpt::Option('j', "threads", threads)
          >> GetOpt::OptionPresent('a', "rate", use_rate);
 
-    omp_set_num_threads(threads);
+    if (threads > 0) omp_set_num_threads(threads);
 
 
     vargas::GraphManager gm;
@@ -375,8 +375,11 @@ int align_main(const int argc, const char *argv[]) {
         align_targets = ss.str();
     }
 
-    std::replace(align_targets.begin(), align_targets.end(), '\n', ';');
-    const std::vector<std::string> alignment_pairs = split(align_targets, ';');
+    std::vector<std::string> alignment_pairs;
+    if (align_targets.length() != 0) {
+        std::replace(align_targets.begin(), align_targets.end(), '\n', ';');
+        alignment_pairs = split(align_targets, ';');
+    }
 
     std::cerr << "\nLoading reads... " << std::flush;
     auto start_time = std::chrono::steady_clock::now();
@@ -397,6 +400,12 @@ int align_main(const int argc, const char *argv[]) {
             } while (reads.next());
         }
 
+        if (alignment_pairs.size() == 0) {
+            for (const auto &p : alignment_reads) {
+                alignment_pairs.push_back("RG:ID:" + p.first + "\tBASE");
+            }
+        }
+
         // Maps target graph to read group ID's
         std::unordered_map<std::string, std::vector<std::string>> alignment_rg_map;
         {
@@ -413,9 +422,10 @@ int align_main(const int argc, const char *argv[]) {
                 tag = pair[0].substr(3, 2);
                 target_val = pair[0].substr(6);
                 for (const auto &rg_pair : reads_hdr.read_groups) {
-                    if (rg_pair.second.aux.get(tag, val)) {
-                        if (val == target_val) alignment_rg_map[pair[1]].push_back(rg_pair.first);
-                    }
+                    if (tag == "ID") val = rg_pair.second.id;
+                    else if (rg_pair.second.aux.get(tag, val));
+                    else continue; // Don't want to compare with previous val, skip if tag isn't ID or in aux
+                    if (val == target_val) alignment_rg_map[pair[1]].push_back(rg_pair.first);
                 }
 
             }
@@ -431,7 +441,7 @@ int align_main(const int argc, const char *argv[]) {
                     // If there is a header line that there are no reads associated with, skip
                     task_list.push_back(std::pair<std::string,
                                                   std::vector<vargas::SAM::Record>>(sub_rg_pair.first,
-                                                                                                 alignment_reads.at(rgid)));
+                                                                                    alignment_reads.at(rgid)));
                     std::cerr << '\t' << sub_rg_pair.first << '\t' << alignment_reads.at(rgid).size()
                               << '\t' << rgid << '\n';
                     total += alignment_reads.at(rgid).size();
@@ -865,9 +875,9 @@ void align_help() {
          << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------\n";;
     cerr << "-g\t--gdef          *<string> Graph definition file.\n";
     cerr << "-r\t--reads         *<string> SAM file to align. Default stdin.\n";
-    cerr << "-a\t--align         *<string:string> Alignment targets, origin graph : target graph.\n";
-    cerr << "-t\t--out           *<string> Alignment output file, default stdout.\n";
+    cerr << "-a\t--align         <string:string;...> Alignment targets, origin graph : target graph.\n";
     cerr << "-f\t--file          -a specifies a file name.\n";
+    cerr << "-t\t--out           *<string> Alignment output file, default stdout.\n";
     cerr << "-l\t--rlen          <int> Max read length. Default 50.\n";
     cerr << "-m\t--match         <int> Match score, default 2.\n";
     cerr << "-n\t--mismatch      <int> Mismatch penalty, default 2.\n";
@@ -875,6 +885,8 @@ void align_help() {
     cerr << "-e\t--gap_extend    <int> Gap extend penalty, default 1.\n";
     cerr << "-c\t--tolerance     <int> Count an alignment as correct if within -c, default read_len/2\n";
     cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
+
+    cerr << "If --align is unspecified, all alignment groups are aligned to the BASE graph.\n" << std::endl;
 }
 
 void sim_help() {
