@@ -687,9 +687,6 @@ namespace vargas {
   class isam: public SAM {
     public:
 
-      /**
-       * Read
-       */
       isam() {
           open("");
       }

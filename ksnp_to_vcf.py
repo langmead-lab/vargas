@@ -60,18 +60,28 @@ def main():
 
     if (len(sys.argv) < 2):
         print("Format should be:")
-        print("python ksnp_to_vcf.py snps.ksnp [sortfile 1,2,4,8,16] output minpos maxpos")
+        print("python ksnp_to_vcf.py snps.ksnp [sortfile 10,20,40,80] output minpos maxpos")
         exit(1)
 
     ksnp_file = sys.argv[1]
+
+    if len(sys.argv) == 2:
+        ksnp = load_ksnps(ksnp_file)
+        print("Number of KSNP Positions: " + str(len(ksnp)))
+        exit(0)
+
+
     ksnp_sort = None
     num_k = None
     minpos = None
     maxpos = None
 
+    ksnps = load_ksnps(ksnp_file)
+    n_percent = float(len(ksnps)) / float(100)
+
     if (len(sys.argv) == 7):
         ksnp_sort = sys.argv[2]
-        num_k = sorted([int(i) for i in sys.argv[3].split(',')])
+        num_k = sorted([int(int(i) * n_percent) for i in sys.argv[3].split(',')])
         prefix = sys.argv[4]
         minpos = int(sys.argv[5])
         maxpos = int(sys.argv[6])
@@ -79,8 +89,6 @@ def main():
         prefix = sys.argv[2]
         minpos = int(sys.argv[3])
         maxpos = int(sys.argv[4])
-
-    ksnps = load_ksnps(ksnp_file);
 
     max_alts = 0
     for k in ksnps:
@@ -105,13 +113,13 @@ def main():
     
     sorting = []
     if ksnp_sort is None:
-        sorting = sorted([p for p in ksnps if p >= minpos and p <= maxpos])
+        sorting = sorted([p for p in ksnps if p >= minpos and (p <= maxpos or maxpos == 0)])
         num_k = [len(sorting)]
         print("Number of positions: " + str(num_k[0]))
     else:
         with open(ksnp_sort, 'r') as file:
             lines = file.readlines()[0]
-            sorting = [int(p) for p in lines.split(',') if int(p) >= minpos and int(p) <= maxpos]
+            sorting = [int(p) for p in lines.split(',') if int(p) >= minpos and (int(p) <= maxpos or maxpos == 0)]
 
 
     rec_num = 0

@@ -326,7 +326,7 @@ int sim_main(const int argc, const char *argv[]) {
         }
     }
 
-    std::cerr << std::endl << chrono_duration(start_time) << " seconds." << std::endl;
+    std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
 
     return 0;
 }
@@ -350,6 +350,7 @@ int align_main(const int argc, const char *argv[]) {
          >> GetOpt::Option('n', "mismatch", mismatch)
          >> GetOpt::Option('o', "gap_open", gopen)
          >> GetOpt::Option('e', "gap_extend", gext)
+         >> GetOpt::Option('r', "reads", read_file)
          >> GetOpt::Option('j', "threads", threads)
          >> GetOpt::Option('l', "rlen", read_len)
          >> GetOpt::Option('t', "out", out_file)
