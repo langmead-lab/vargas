@@ -18,12 +18,11 @@
 #include <omp.h>
 #include "gdef.h"
 #include "main.h"
-#include "getopt_pp.h"
 
 
-int main(const int argc, const char *argv[]) {
+int main(int argc, char *argv[]) {
 
-    srand(time(NULL)); // Rand used in profiles and sim
+    srand(time(0)); // Rand used in profiles and sim
 
     try {
         if (argc > 1) {
@@ -59,55 +58,43 @@ int main(const int argc, const char *argv[]) {
         return 1;
     }
 
-    GetOpt::GetOpt_pp args(argc, argv);
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        main_help();
-        return 0;
-    }
-
     std::cerr << "Define a valid mode of operation." << std::endl;
     main_help();
     return 1;
 
 }
 
-int define_main(const int argc, const char *argv[]) {
-    GetOpt::GetOpt_pp args(argc, argv);
+int define_main(int argc, char *argv[]) {
+    std::string fasta_file, varfile, region, subgraph_def, out_file, dot_file, sample_filter;
+    bool invert_filter = false;
+    int node_len;
 
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        define_help();
+    cxxopts::Options opts("vargas define", "Define subgraphs deriving from a reference and VCF file.");
+    try {
+        opts.add_options()
+            ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta_file))
+            ("v,vcf", "<str> *VCF/BCF File.", cxxopts::value<std::string>(varfile))
+            ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
+            ("s,subgraph", "<str> File or definitions of format \"[~]NAME=N[%t],...\".",
+             cxxopts::value(subgraph_def))
+            ("l,nodelen", "<N> Maximum node length.", cxxopts::value(node_len)->default_value("1000000"))
+            ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
+            ("x,invert", "Invert sample filter, exclude -p samples.", cxxopts::value(invert_filter))
+            ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
+            ("d,dot", "<str> Export hierarchy to a DOT file.", cxxopts::value(dot_file))
+            ("h,help", "Display this message.");
+        opts.parse(argc, argv);
+    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options."); }
+    if (opts.count("h")) {
+        define_help(opts);
         return 0;
     }
+    if (!opts.count("f")) throw std::invalid_argument("FASTA file required.");
+    if (!opts.count("v")) throw std::invalid_argument("VCF file required.");
+    if (!opts.count("g")) throw std::invalid_argument("Region required.");
 
-    std::string
-        fasta_file = "",
-        varfile = "",
-        region = "",
-        subgraph_def = "",
-        out_file = "",
-        dot_file = "",
-        sample_filter = "";
-
-    bool invert_filter = false, build_base = false;
-
-    int node_len = 1000000;
-
-    args >> GetOpt::Option('g', "region", region)
-         >> GetOpt::Option('l', "nodelen", node_len)
-         >> GetOpt::Option('s', "subgraph", subgraph_def)
-         >> GetOpt::Option('t', "out", out_file)
-         >> GetOpt::Option('d', "dot", dot_file)
-         >> GetOpt::Option('p', "filter", sample_filter)
-         >> GetOpt::OptionPresent('x', "invert", invert_filter)
-         >> GetOpt::OptionPresent('b', "base", build_base);
-
-    if (!(args >> GetOpt::Option('f', "fasta", fasta_file) >> GetOpt::Option('v', "vcf", varfile))) {
-        define_help();
-        throw std::invalid_argument("No FASTA or VCF file provided!");
-    }
-
+    // Load subgraph defs
     std::string subgraph_str;
-
     if (subgraph_def.length() == 0) {
         subgraph_str = "";
     } else if (vargas::GraphManager::is_definition(subgraph_def)) {
@@ -129,7 +116,7 @@ int define_main(const int argc, const char *argv[]) {
         sample_filter = ss.str();
     }
     gm.set_filter(sample_filter, invert_filter);
-    gm.write(fasta_file, varfile, region, subgraph_str, node_len, out_file, build_base);
+    gm.write(fasta_file, varfile, region, subgraph_str, node_len, out_file, false);
     if (dot_file.length() > 0) gm.to_DOT(dot_file, "subgraphs");
 
     std::cerr << gm.size() << " subgraph definitions generated." << std::endl;
@@ -137,14 +124,40 @@ int define_main(const int argc, const char *argv[]) {
     return 0;
 }
 
-int sim_main(const int argc, const char *argv[]) {
+int sim_main(int argc, char *argv[]) {
 
-    GetOpt::GetOpt_pp args(argc, argv);
+    int read_len, num_reads, threads;
+    std::string mut, indel, vnodes, vbases, gdf_file, out_file, sim_src;
+    bool use_rate = false, sim_src_isfile = false;
 
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        sim_help();
+    cxxopts::Options opts("vargas sim", "Simulate reads from genome graphs.");
+    try {
+        opts.add_options()
+            ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf_file))
+            ("s,sub", "<S1,S2..> Subgraphs to simulate from. (default: all)", cxxopts::value(sim_src))
+            ("l,rlen", "<N> Read length.", cxxopts::value(read_len)->default_value("50"))
+            ("n,numreads", "<N> Number of reads to generate.", cxxopts::value(num_reads)->default_value("1000"))
+            ("f,file", "-s specifies a filename.", cxxopts::value(sim_src_isfile))
+            ("d,vnodes", "<N1,N2...> Number of variant nodes. \'*\' for any.",
+             cxxopts::value(vnodes)->default_value("*"))
+            ("b,vbases", "<N1,N2...> Number of variant bases. \'*\' for any.",
+             cxxopts::value(vbases)->default_value("*"))
+            ("m,mut", "<N1,N2...> Number of mutations. \'*\' for any.", cxxopts::value(mut)->default_value("0"))
+            ("i,indel", "<N1,N2...> Number of insertions/deletions. \'*\' for any.",
+             cxxopts::value(indel)->default_value("0"))
+            ("a,rate", "<N1,N2...> Interpret -m, -i as error rates.", cxxopts::value(use_rate))
+            ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
+            ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
+            ("h,help", "Display this message.");
+        opts.parse(argc, argv);
+    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options."); }
+    if (opts.count("h")) {
+        sim_help(opts);
         return 0;
     }
+    if (!opts.count("g")) throw std::invalid_argument("Graph definition file required.");
+
+    if (threads > 0) omp_set_num_threads(threads);
 
     vargas::SAM::Header sam_hdr;
 
@@ -159,39 +172,6 @@ int sim_main(const int argc, const char *argv[]) {
         std::replace_if(pg.version.begin(), pg.version.end(), isspace, ' '); // rm tabs
         sam_hdr.add(pg);
     }
-
-    // Load parameters
-    int
-        read_len = 50,
-        num_reads = 1000,
-        threads = 1;
-
-    std::string
-        mut = "0",
-        indel = "0",
-        vnodes = "*",
-        vbases = "*",
-        gdf_file = "",
-        out_file = "",
-        sim_src = "";
-
-    bool use_rate = false, sim_src_isfile = false;
-
-    args >> GetOpt::Option('g', "gdef", gdf_file)
-         >> GetOpt::Option('s', "sub", sim_src)
-         >> GetOpt::OptionPresent('f', "file", sim_src_isfile)
-         >> GetOpt::Option('d', "vnodes", vnodes)
-         >> GetOpt::Option('b', "vbases", vbases)
-         >> GetOpt::Option('l', "rlen", read_len)
-         >> GetOpt::Option('n', "numreads", num_reads)
-         >> GetOpt::Option('m', "mut", mut)
-         >> GetOpt::Option('i', "indel", indel)
-         >> GetOpt::Option('t', "out", out_file)
-         >> GetOpt::Option('j', "threads", threads)
-         >> GetOpt::OptionPresent('a', "rate", use_rate);
-
-    if (threads > 0) omp_set_num_threads(threads);
-
 
     vargas::GraphManager gm;
 
@@ -329,38 +309,39 @@ int sim_main(const int argc, const char *argv[]) {
     return 0;
 }
 
-int align_main(const int argc, const char *argv[]) {
-    GetOpt::GetOpt_pp args(argc, argv);
-
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        align_help();
-        return 0;
-    }
+int align_main(int argc, char *argv[]) {
 
     // Load parameters
     // hisat similar params: match = 2, mismatch = 6, open = 5, extend = 3
-    uint8_t match = 2, mismatch = 2, gopen = 3, gext = 1;
-    unsigned int threads = 1, read_len = 50;
+    uint8_t match, mismatch, gopen, gext;
+    size_t threads, read_len, tolerance;
     std::string read_file, gdf_file, align_targets, out_file;
     bool align_targets_isfile = false;
-    size_t tolerance = vargas::Aligner::default_tolerance();
 
-    args >> GetOpt::Option('m', "match", match)
-         >> GetOpt::Option('n', "mismatch", mismatch)
-         >> GetOpt::Option('o', "gap_open", gopen)
-         >> GetOpt::Option('e', "gap_extend", gext)
-         >> GetOpt::Option('r', "reads", read_file)
-         >> GetOpt::Option('j', "threads", threads)
-         >> GetOpt::Option('l', "rlen", read_len)
-         >> GetOpt::Option('t', "out", out_file)
-         >> GetOpt::Option('a', "align", align_targets)
-         >> GetOpt::OptionPresent('f', "file", align_targets_isfile)
-         >> GetOpt::Option('c', "tolerance", tolerance);
-
-    if (!(args >> GetOpt::Option('g', "gdef", gdf_file))) {
-        align_help();
-        throw std::invalid_argument("No GDEF file provided.");
+    cxxopts::Options opts("vargas align", "Align reads to a graph.");
+    try {
+        opts.add_options()
+            ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf_file))
+            ("r,reads", "<str> SAM reads file. (default: stdin)", cxxopts::value(read_file))
+            ("a,align", "<str> Alignment targets/file of form \"RG:[ID][gd],target\"", cxxopts::value(align_targets))
+            ("f,file", " -a specifies a file name.", cxxopts::value(align_targets_isfile))
+            ("l,rlen", "<N> Maximum read length.", cxxopts::value(read_len)->default_value("50"))
+            ("m,match", "<N> Match score.", cxxopts::value(match)->default_value("2"))
+            ("n,mismatch", "<N> Mismatch penalty.", cxxopts::value(mismatch)->default_value("2"))
+            ("o,gap_open", "<N> Gap opening penalty.", cxxopts::value(gopen)->default_value("3"))
+            ("e,gap_extend", "<N> Gap extension penalty.", cxxopts::value(gext)->default_value("1"))
+            ("c,tolerance", "<N> Correct if within readlen/N.",
+             cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
+            ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
+            ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
+            ("h,help", "Display this message.");
+        opts.parse(argc, argv);
+    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
+    if (opts.count("h")) {
+        align_help(opts);
+        return 0;
     }
+    if (!opts.count("g")) throw std::invalid_argument("Graph definition file required.");
 
     if (read_len * match > 255) {
         throw std::invalid_argument("Score matrix overflow with read length " + std::to_string(read_len) +
@@ -532,21 +513,22 @@ int align_main(const int argc, const char *argv[]) {
     return 0;
 }
 
-int convert_main(const int argc, const char **argv) {
-    GetOpt::GetOpt_pp args(argc, argv);
+int convert_main(int argc, char **argv) {
+    std::string sam_file, format;
 
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        convert_help();
+    cxxopts::Options opts("vargas convert", "Export a SAM file as a CSV file.");
+    try {
+        opts.add_options()
+            ("f,format", "<str> *Output format.", cxxopts::value<std::string>(format))
+            ("s,sam", "<str> SAM file. (default: stdin)", cxxopts::value<std::string>(sam_file))
+            ("h,help", "Display this message.");
+        opts.parse(argc, argv);
+    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
+    if (opts.count("h")) {
+        convert_help(opts);
         return 0;
     }
-
-    std::string sam_file = "", format = "";
-
-    args >> GetOpt::Option('s', "sam", sam_file);
-    if (!(args >> GetOpt::Option('f', "format", format))) {
-        convert_help();
-        throw std::invalid_argument("Not format provided!");
-    }
+    if (!opts.count("f")) throw std::invalid_argument("Format specifier required.");
 
     auto start_time = std::chrono::steady_clock::now();
 
@@ -578,34 +560,30 @@ int convert_main(const int argc, const char **argv) {
     return 0;
 }
 
-int profile(const int argc, const char *argv[]) {
-    std::string bcf, fasta;
-    std::string region = "22:25,000,000-25,500,000";
-    std::string read;
-    int ingroup = 100;
-    size_t nreads = 32, read_len = 50;
+int profile(int argc, char *argv[]) {
+    std::string bcf, fasta, region;
+    size_t nreads, read_len, ingroup;
 
-    GetOpt::GetOpt_pp args(argc, argv);
-
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        profile_help();
+    cxxopts::Options opts("vargas convert", "Export a SAM file as a CSV file.");
+    try {
+        opts.add_options()
+            ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta))
+            ("v,vcf", "<str> *Variant File.", cxxopts::value(bcf))
+            ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
+            ("i,ingroup", "<N> Ingroup percentage.", cxxopts::value(ingroup)->default_value("100"))
+            ("n,nreads", "<N> Number of reads.", cxxopts::value(nreads)->default_value("32"))
+            ("l,len", "<N> Number of reads.", cxxopts::value(read_len)->default_value("50"))
+            ("h,help", "Display this message.");
+        opts.parse(argc, argv);
+    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
+    if (opts.count("h")) {
+        profile_help(opts);
         return 0;
     }
+    if (!opts.count("f")) throw std::invalid_argument("FASTA file required.");
+    if (!opts.count("v")) throw std::invalid_argument("VCF file required.");
+    if (!opts.count("g")) throw std::invalid_argument("Region specifier required.");
 
-    if (!(args >> GetOpt::Option('f', "fasta", fasta)
-               >> GetOpt::Option('v', "var", bcf)
-               >> GetOpt::Option('g', "region", region))) {
-        throw std::invalid_argument("FASTA & Variant File with region required.");
-    }
-
-    args >> GetOpt::Option('i', "ingroup", ingroup)
-         >> GetOpt::Option('s', "string", read)
-         >> GetOpt::Option('n', "reads", nreads)
-         >> GetOpt::Option('l', "len", read_len);
-
-    if (!file_exists(fasta) || !file_exists(bcf)) {
-        throw std::invalid_argument("File does not exist.");
-    }
 
     vargas::GraphFactory gb(fasta);
     gb.open_vcf(bcf);
@@ -664,14 +642,6 @@ int profile(const int argc, const char *argv[]) {
         }
 
         std::vector<std::string> split_str;
-        if (read.length() > 0) {
-            split(read, ',', split_str);
-            if (split_str.size() > nreads) split_str.resize(nreads);
-            for (size_t i = 0; i < split_str.size(); ++i) {
-                if (split_str[i].length() > read_len) split_str[i].resize(read_len);
-                reads[i] = split_str[i];
-            }
-        }
 
         vargas::Aligner a(g.max_node_len(), 50);
 
@@ -691,55 +661,60 @@ int profile(const int argc, const char *argv[]) {
     return 0;
 }
 
-int export_main(const int argc, const char *argv[]) {
-    GetOpt::GetOpt_pp args(argc, argv);
+int export_main(int argc, char *argv[]) {
 
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        export_help();
+    // Load parameters
+    std::string subgraph, file, out;
+
+    cxxopts::Options opts("vargas export", "Export a graph in DOT format.");
+    try {
+        opts.add_options()
+            ("g,gdef", "<str> *Graph definition file. (default: stdin)", cxxopts::value(file))
+            ("s,subgraph", "<str> Subgraph to export.", cxxopts::value(subgraph)->default_value("BASE"))
+            ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out))
+            ("h,help", "Display this message.");
+        opts.parse(argc, argv);
+    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
+    if (opts.count("h")) {
+        export_help(opts);
         return 0;
     }
 
-    // Load parameters
-    std::string subgraph = "BASE";
-    std::string file = "";
-
-    args >> GetOpt::Option('g', "graph", subgraph)
-         >> GetOpt::Option('t', "out", file);
-
-    if (file.length() == 0) {
-        export_help();
-        throw std::invalid_argument("No output file specified.");
-    }
-
-    vargas::GraphManager gm(std::cin);
+    vargas::GraphManager gm;
+    if (file.size()) gm.open(file);
+    else gm.open(std::cin);
     auto g = gm.make_subgraph(subgraph);
-    g->to_DOT(file, "g");
+    if (out.size()) g->to_DOT(out, "g");
+    std::cout << g->to_DOT();
     return 0;
 }
 
-int query_main(const int argc, const char *argv[]) {
-    GetOpt::GetOpt_pp args(argc, argv);
+int query_main(int argc, char *argv[]) {
+    std::string region, gdef, fasta, vcf, subgraph, out;
 
-    if (args >> GetOpt::OptionPresent('h', "help")) {
-        query_help();
+    cxxopts::Options opts("vargas query", "Query VCF, Graph, or FASTA files.");
+    try {
+        opts.add_options()
+            ("d,gdef", "<str> Export graph region as a DOT file.", cxxopts::value(gdef))
+            ("s,subgraph", "<str> Subgraph to export.", cxxopts::value(subgraph)->default_value("BASE"))
+            ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
+            ("t,out", "<str> export -d to a file. (default: stdout)", cxxopts::value(out))
+            ("f,fasta", "<str> Reference FASTA.", cxxopts::value(fasta))
+            ("v,vcf", "<str> Variant File.", cxxopts::value(vcf))
+            ("h,help", "Display this message.");
+        opts.parse(argc, argv);
+    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
+    if (opts.count("h")) {
+        query_help(opts);
         return 0;
     }
+    if (!opts.count("g")) throw std::invalid_argument("Region specifier required.");
 
-    std::string region, file;
-
-    if (!(args >> GetOpt::Option('g', "region", region))) {
-        query_help();
-        throw std::invalid_argument("Region argument required!");
-    }
 
     auto reg = vargas::parse_region(region);
 
-    if (args >> GetOpt::Option('d', "gdef", file)) {
-        vargas::GraphManager gm(file);
-        std::string subgraph = gm.GDEF_BASEGRAPH, out = "";
-
-        args >> GetOpt::Option('s', "subgraph", subgraph)
-             >> GetOpt::Option('t', "out", out);
+    if (gdef.size()) {
+        vargas::GraphManager gm(gdef);
 
         auto sg = gm.make_subgraph(subgraph)->subgraph(reg.min, reg.max);
         if (out.length() == 0) std::cout << sg.to_DOT();
@@ -768,40 +743,27 @@ int query_main(const int argc, const char *argv[]) {
 
     }
 
-    if (args >> GetOpt::Option('f', "fasta", file)) {
-        vargas::ifasta in(file);
-        std::cout << file << ", " << region
+    if (fasta.size()) {
+        vargas::ifasta in(fasta);
+        std::cout << fasta << ", " << region
                   << "\n----------------------------------------\n"
                   << in.subseq(reg.seq_name, reg.min, reg.max)
                   << '\n' << std::endl;
     }
 
-    if (args >> GetOpt::Option('v', "vcf", file)) {
-        vargas::VCF vcf(file);
-        vcf.set_region(region);
-        std::cout << file << ", " << region
+    if (vcf.size()) {
+        vargas::VCF v(vcf);
+        v.set_region(region);
+        std::cout << vcf << ", " << region
                   << "\n----------------------------------------\n";
-        while (vcf.next()) {
-            std::cout << vcf << '\n';
+        while (v.next()) {
+            std::cout << v << '\n';
         }
         std::cout << '\n' << std::endl;
     }
 
     return 0;
 
-}
-
-void query_help() {
-    using std::cerr;
-    using std::endl;
-    cerr << endl
-         << "-------------------- vargas query, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
-    cerr << "-g\t--region        *<string> Region to export, format CHR:MIN-MAX\n";
-    cerr << "-f\t--fasta         <string> Get a subsequence.\n";
-    cerr << "-v\t--vcf           <string> VCF or BCF file.\n";
-    cerr << "-d\t--gdef          <string> Query a graph, export DOT format.\n";
-    cerr << "-t\t--out           <string> DOT output file for -g.\n";
-    cerr << "-s\t--subgraph      <string> Subgraph of GDEF to query, default is the whole graph.\n" << endl;
 }
 
 void main_help() {
@@ -819,112 +781,59 @@ void main_help() {
     cerr << "profile         Run profiles (debug).\n" << endl;
 }
 
-void export_help() {
+void query_help(const cxxopts::Options &opts) {
     using std::cerr;
     using std::endl;
-
-    cerr << endl
-         << "-------------------- vargas export, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
-    cerr << "-t\t--out           Output filename.\n";
-    cerr << "-g\t--graph         Subgraph to export, default BASE\n\n";
-    cerr << "vargas export -g \"IN\" -t out.dot < graph_definition.gdef\n" << std::endl;
-
+    cerr << opts.help() << "\n" << endl;
 }
 
-void define_help() {
+void export_help(const cxxopts::Options &opts) {
     using std::cerr;
     using std::endl;
 
-    cerr << endl
-         << "-------------------- vargas define, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
-    cerr << "-f\t--fasta         *<string> Reference filename.\n";
-    cerr << "-v\t--vcf           *<string> VCF or BCF file.\n";
-    cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX.\n";
-    cerr << "-s\t--subgraph      <string> Subgraph definition or filename.\n";
-    cerr << "-p\t--filter        <string> Filename of sample filter.\n";
-    cerr << "-x\t--invert        Invert sample filter.\n";
-    cerr << "-l\t--nodelen       <int> Max node length, default 1,000,000\n";
-    cerr << "-t\t--out           <string> Output file, default stdout.\n";
-    cerr << "-d\t--dot           <string> Output DOT graph of subgraph hierarchy to file.\n\n";
-    //cerr << "-b\t--base          Build base graph, used for debugging.\n" << endl;
+    cerr << opts.help() << "\n" << endl;
+}
 
-    cerr << "Subgraphs are defined using the format \"label=N[%t]\".\n"
-         << "\t where \'N\' is the number of samples / percentage of samples selected.\n"
+void define_help(const cxxopts::Options &opts) {
+    using std::cerr;
+    using std::endl;
+
+    cerr << opts.help() << "\n\n"
+         << "Subgraphs are defined using the format \"label=N[%t]\",\n"
+         << "where \'N\' is the number of samples / percentage of samples selected.\n"
          << "The samples are selected from the parent graph, scoped with \':\'.\n"
          << "The BASE graph is implied as the root for all labels. Example:\n"
          << "\ta=50;a:b=10%;~a:c=5\n"
          << "\'~\' indicates the complement graph. \'BASE\' refers the the whole graph.\n" << endl;
 }
 
-void profile_help() {
+void profile_help(const cxxopts::Options &opts) {
     using std::cerr;
     using std::endl;
-    cerr << endl
-         << "---------------------- vargas profile, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------"
+    cerr << opts.help() << "\n" << endl;
+}
+
+void align_help(const cxxopts::Options &opts) {
+    using std::cerr;
+    using std::endl;
+
+    cerr << opts.help() << "\n" << endl;
+}
+
+void sim_help(const cxxopts::Options &opts) {
+    using std::cerr;
+    using std::endl;
+
+    cerr << opts.help() << "\n\n";
+    cerr << "-n reads are produced for each -m, -i, -v, -b combination.\nIf set to \'*\', any value is accepted.\n"
          << endl;
-    cerr << "-f\t--fasta         *<string> Reference filename." << endl;
-    cerr << "-v\t--var           *<string> VCF/BCF filename." << endl;
-    cerr << "-g\t--region        *<string> Region of graph, format CHR:MIN-MAX." << endl;
-    cerr << "-i\t--ingroup       <int> Percent of genotypes to include in alignment." << endl;
-    cerr << "-n\t--reads         <int> Number of reads to align." << endl;
-    cerr << "-l\t--len           <int> Read length." << endl;
-    cerr << "-s\t--string        <string,string..> Include reads in alignment. Rest will be random." << endl << endl;
 }
 
-void align_help() {
+void convert_help(const cxxopts::Options &opts) {
     using std::cerr;
     using std::endl;
 
-    cerr << endl
-         << "------------------- vargas align, " << __DATE__ << ". rgaddip1@jhu.edu -------------------\n";;
-    cerr << "-g\t--gdef          *<string> Graph definition file.\n";
-    cerr << "-r\t--reads         *<string> SAM file to align. Default stdin.\n";
-    cerr << "-a\t--align         <string:string;...> Alignment targets, origin graph : target graph.\n";
-    cerr << "-f\t--file          -a specifies a file name.\n";
-    cerr << "-t\t--out           *<string> Alignment output file, default stdout.\n";
-    cerr << "-l\t--rlen          <int> Max read length. Default 50.\n";
-    cerr << "-m\t--match         <int> Match score, default 2.\n";
-    cerr << "-n\t--mismatch      <int> Mismatch penalty, default 2.\n";
-    cerr << "-o\t--gap_open      <int> Gap opening penalty, default 3.\n";
-    cerr << "-e\t--gap_extend    <int> Gap extend penalty, default 1.\n";
-    cerr << "-c\t--tolerance     <int> Count an alignment as correct if within -c, default read_len/"
-         << vargas::Aligner::default_tolerance() << "\n";
-    cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
-
-    cerr << "If --align is unspecified, all read groups are aligned to the BASE graph.\n" << std::endl;
-}
-
-void sim_help() {
-    using std::cerr;
-    using std::endl;
-
-    cerr << endl
-         << "-------------------- vargas sim, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
-    cerr << "-g\t--gdef          *<string> Graph definition file. Default stdin.\n";
-    cerr << "-s\t--sub           <string(;string)*> list of graphs to simulate from. Default all.\n";
-    cerr << "-f\t--file          -s specifies a file name.\n";
-    cerr << "-t\t--out           <string> Output file. Default stdout.\n";
-    cerr << "-n\t--numreads      <int> Number of reads to simulate from each profile, default 1000.\n";
-    cerr << "-m\t--muterr        <int/float, int/float...> Read mutation error. Default 0.\n";
-    cerr << "-i\t--indelerr      <int/float, int/float...> Read indel error. Default 0.\n";
-    cerr << "-d\t--vnodes        <int, int...> Number of variant nodes, default any (*).\n";
-    cerr << "-b\t--vbases        <int, int...> Number of variant bases, default any (*).\n";
-    cerr << "-l\t--rlen          <int> Read length, default 50.\n";
-    cerr << "-a\t--rate          Interpret -m, -i as rates, instead of exact number of errors.\n";
-    cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
-
-    cerr << "-n reads are produced for each -m, -i, -v, -b combination. If set to \'*\', any value is accepted."
-         << endl << endl;
-}
-
-void convert_help() {
-    using std::cerr;
-    using std::endl;
-
-    cerr << endl << "-------------------- vargas convert, " << __DATE__ << ". rgaddip1@jhu.edu --------------------\n";
-    cerr << "-s\t--sam          <string> SAM input file. Default stdin.\n";
-    cerr << "-f\t--format       *<string,string...> Specify tags per column. Case sensitive.\n";
-    cerr << "\nOutput printed to stdout.\n";
+    cerr << opts.help() << "\n\n";
     cerr << "Required column names:\n\tQNAME, FLAG, RNAME, POS, MAPQ, CIGAR, RNEXT, PNEXT, TLEN, SEQ, QUAL\n";
     cerr << "Prefix with \"RG:\" to obtain a value from the associated read group.\n" << endl;
 

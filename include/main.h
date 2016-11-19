@@ -24,20 +24,21 @@
 #include "alignment.h"
 #include "graph.h"
 #include "sim.h"
+#include "cxxopts.hpp"
 
 /**
  * Simulate reads from given graph definitions.
  * @param argc command line argument count
  * @param argv command line arguments
  */
-int sim_main(const int argc, const char *argv[]);
+int sim_main(int argc, char *argv[]);
 
 /**
  * Align given reads to specified target graphs.
  * @param argc command line argument count
  * @param argv command line arguments
  */
-int align_main(const int argc, const char *argv[]);
+int align_main(int argc, char *argv[]);
 
 /**
  * Define graphs from a FASTA and a VCF/BCF file. Allows graphs
@@ -45,21 +46,21 @@ int align_main(const int argc, const char *argv[]);
  * @param argc command line argument count
  * @param argv command line arguments
  */
-int define_main(const int argc, const char *argv[]);
+int define_main(int argc, char *argv[]);
 
 /**
  * Profile aligner and graph construction.
  * @param argc command line argument count
  * @param argv command line arguments
  */
-int profile(const int argc, const char *argv[]);
+int profile(int argc, char *argv[]);
 
 /**
  * Extract fields from a SAM file and export them to a CSV file.
  * @param argc CL arg count
  * @param argv CL args
  */
-int convert_main(const int argc, const char **argv);
+int convert_main(int argc, char **argv);
 
 /**
  * @brief
@@ -67,7 +68,7 @@ int convert_main(const int argc, const char **argv);
  * @param argc CL arg count
  * @param argv CL args
  */
-int export_main(const int argc, const char *argv[]);
+int export_main(int argc, char *argv[]);
 
 /**
  * @brief
@@ -75,16 +76,16 @@ int export_main(const int argc, const char *argv[]);
  * @param argc CL arg count
  * @param argv CL args
  */
-int query_main(const int argc, const char *argv[]);
+int query_main(int argc, char *argv[]);
 
 // Menus
 void main_help();
-void export_help();
-void profile_help();
-void align_help();
-void sim_help();
-void define_help();
-void convert_help();
-void query_help();
+void export_help(const cxxopts::Options &opts);
+void profile_help(const cxxopts::Options &opts);
+void align_help(const cxxopts::Options &opts);
+void sim_help(const cxxopts::Options &opts);
+void define_help(const cxxopts::Options &opts);
+void convert_help(const cxxopts::Options &opts);
+void query_help(const cxxopts::Options &opts);
 
 #endif //VARGAS_MAIN_H

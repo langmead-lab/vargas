@@ -7,3 +7,6 @@
 [submodule "doctest"]
 	path = doctest
 	url = https://github.com/RaviGaddipati/doctest
+[submodule "cxxopts"]
+	path = cxxopts
+	url = https://github.com/RaviGaddipati/cxxopts
