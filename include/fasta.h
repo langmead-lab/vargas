@@ -16,7 +16,6 @@
 #include <fstream>
 #include <iostream>
 #include "utils.h"
-#include "doctest.h"
 #include "htslib/faidx.h"
 
 
@@ -369,125 +368,6 @@ namespace vargas {
       faidx_t *_index = nullptr;
   };
 
-}
-
-TEST_CASE ("FASTA Reading") {
-    using std::endl;
-    std::string tmpfa = "tmp_tc.fa";
-
-        SUBCASE("Basic read") {
-        {
-            std::ofstream fao(tmpfa);
-            fao
-                << ">x" << endl
-                << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
-                << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
-                << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
-                << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
-                << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
-                << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
-                << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
-                << ">y" << endl
-                << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
-        }
-        vargas::ifasta fa(tmpfa);
-
-            CHECK(fa.num_seq() == 2);
-            REQUIRE(fa.sequence_names().size() == 2);
-            CHECK(fa.seq_name(0) == "x");
-            CHECK(fa.seq_name(1) == "y");
-            CHECK(fa.subseq("x", 0, 3) == "CAAA");
-            CHECK(fa.subseq("y", 0, 2) == "GGA");
-            CHECK(fa.sequence_names()[0] == "x");
-            CHECK(fa.sequence_names()[1] == "y");
-
-    }
-
-        SUBCASE("iterator") {
-        {
-            std::ofstream o(tmpfa);
-            o << ">a\nAAA\nAA\n>b\nCCC\nCC\n>c c\nTTT\nTT\n";
-        }
-
-            SUBCASE("Normal iterator") {
-            vargas::ifasta fin(tmpfa);
-            auto i = fin.begin();
-
-                CHECK(i->first == "a");
-                CHECK(i->second == "AAAAA");
-            ++i;
-
-                CHECK(i->first == "b");
-                CHECK(i->second == "CCCCC");
-            ++i;
-
-                CHECK(i->first == "c");
-                CHECK(i->second == "TTTTT");
-            ++i;
-
-                CHECK(i == fin.end());
-            ++i;
-                CHECK(i == fin.end());
-        }
-
-            SUBCASE("Resuming iterator") {
-            vargas::ifasta fin(tmpfa);
-            {
-                auto i = fin.begin("B");
-                    CHECK(i == fin.end());
-            }
-
-            auto i = fin.begin("b");
-                CHECK(i->first == "b");
-                CHECK(i->second == "CCCCC");
-            ++i;
-
-                CHECK(i->first == "c");
-                CHECK(i->second == "TTTTT");
-            ++i;
-
-                CHECK(i == fin.end());
-            ++i;
-                CHECK(i == fin.end());
-
-        }
-    }
-
-    remove(tmpfa.c_str());
-    remove((tmpfa + ".fai").c_str());
-}
-
-TEST_CASE ("FASTA Writing") {
-        SUBCASE("open constructor") {
-        {
-            vargas::ofasta fa("tmp_tc_wr.fa");
-            fa.char_per_line(5);
-            fa.write("a", "AAAAA");
-            fa.write("b", "TT");
-            fa.write("c", "CCCCCCCCCCCC");
-        }
-        std::ifstream in("tmp_tc_wr.fa");
-        std::string line;
-
-        std::getline(in, line);
-            CHECK(line == ">a");
-        std::getline(in, line);
-            CHECK(line == "AAAAA");
-        std::getline(in, line);
-            CHECK(line == ">b");
-        std::getline(in, line);
-            CHECK(line == "TT");
-        std::getline(in, line);
-            CHECK(line == ">c");
-        std::getline(in, line);
-            CHECK(line == "CCCCC");
-        std::getline(in, line);
-            CHECK(line == "CCCCC");
-        std::getline(in, line);
-            CHECK(line == "CC");
-
-        remove("tmp_tc_wr.fa");
-    }
 }
 
 #endif //VARGAS_FASTA_H

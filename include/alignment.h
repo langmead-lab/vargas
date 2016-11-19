@@ -130,9 +130,6 @@ namespace vargas {
        * Reads are interleaved so each SIMD vector
        * contains bases from all reads, respective to the base number. For example AlignmentGroup[0]
        * would contain the first bases of every read. All reads must be the same length. Minimal error checking.
-       * @tparam VEC_SIZE max number of reads. If a non-default T is used, this should be set to
-       *    SIMDPP_FAST_T_SIZE where T corresponds to the width of T. For ex. Default T=simdpp::uint8 uses
-       *    VEC_SIZE
        */
       class AlignmentGroup {
         public:
@@ -938,67 +935,67 @@ namespace vargas {
 
 TEST_CASE ("Alignment") {
 
+    vargas::Graph::Node::_newID = 0;
+    vargas::Graph g;
+
+    /**
+    *     GGG
+    *    /   \
+    * AAA     TTTA
+    *    \   /
+    *     CCC(ref)
+    */
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(2);
+        n.set_as_ref();
+        std::vector<bool> a = {0, 1, 1};
+        n.set_population(a);
+        n.set_seq("AAA");
+        g.add_node(n);
+    }
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(5);
+        n.set_as_ref();
+        std::vector<bool> a = {0, 0, 1};
+        n.set_population(a);
+        n.set_af(0.4);
+        n.set_seq("CCC");
+        g.add_node(n);
+    }
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(5);
+        n.set_not_ref();
+        std::vector<bool> a = {0, 1, 0};
+        n.set_population(a);
+        n.set_af(0.6);
+        n.set_seq("GGG");
+        g.add_node(n);
+    }
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(9);
+        n.set_as_ref();
+        std::vector<bool> a = {0, 1, 1};
+        n.set_population(a);
+        n.set_seq("TTTA");
+        n.set_af(0.3);
+        g.add_node(n);
+    }
+
+    g.add_edge(0, 1);
+    g.add_edge(0, 2);
+    g.add_edge(1, 3);
+    g.add_edge(2, 3);
+    g.set_popsize(3);
+
         SUBCASE("Graph Alignment") {
-        vargas::Graph::Node::_newID = 0;
-        vargas::Graph g;
-
-        /**
-        *     GGG
-        *    /   \
-        * AAA     TTTA
-        *    \   /
-        *     CCC(ref)
-        */
-
-        {
-            vargas::Graph::Node n;
-            n.set_endpos(2);
-            n.set_as_ref();
-            std::vector<bool> a = {0, 1, 1};
-            n.set_population(a);
-            n.set_seq("AAA");
-            g.add_node(n);
-        }
-
-        {
-            vargas::Graph::Node n;
-            n.set_endpos(5);
-            n.set_as_ref();
-            std::vector<bool> a = {0, 0, 1};
-            n.set_population(a);
-            n.set_af(0.4);
-            n.set_seq("CCC");
-            g.add_node(n);
-        }
-
-        {
-            vargas::Graph::Node n;
-            n.set_endpos(5);
-            n.set_not_ref();
-            std::vector<bool> a = {0, 1, 0};
-            n.set_population(a);
-            n.set_af(0.6);
-            n.set_seq("GGG");
-            g.add_node(n);
-        }
-
-        {
-            vargas::Graph::Node n;
-            n.set_endpos(9);
-            n.set_as_ref();
-            std::vector<bool> a = {0, 1, 1};
-            n.set_population(a);
-            n.set_seq("TTTA");
-            n.set_af(0.3);
-            g.add_node(n);
-        }
-
-        g.add_edge(0, 1);
-        g.add_edge(0, 2);
-        g.add_edge(1, 3);
-        g.add_edge(2, 3);
-        g.set_popsize(3);
-
         std::vector<std::string> reads;
         reads.push_back("NNNCCTT");
         reads.push_back("NNNGGTT");
@@ -1008,10 +1005,9 @@ TEST_CASE ("Alignment") {
         reads.push_back("NNNNNGG");
         reads.push_back("AAATTTA");
         reads.push_back("AAAGCCC");
+        const std::vector<uint32_t> origins = {8, 8, 5, 5, 7, 6, 10, 6};
 
         vargas::Aligner a(5, 7);
-
-        std::vector<uint32_t> origins = {8, 8, 5, 5, 7, 6, 10, 4};
         vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
             CHECK(aligns.max_score[0] == 8);
             CHECK(aligns.max_pos[0] == 8);
@@ -1044,7 +1040,66 @@ TEST_CASE ("Alignment") {
             CHECK(aligns.max_score[7] == 8);
             CHECK(aligns.max_pos[7] == 4);
             CHECK((int) aligns.correctness_flag[7] == 1);
+    }
 
+        SUBCASE("Different scoring scheme") {
+
+        std::vector<std::string> reads;
+        reads.push_back("NNNNNNCCTT");
+        reads.push_back("NNNNNNGGTT");
+        reads.push_back("NNNNNNAAGG");
+        reads.push_back("NNNNNNAACC");
+        reads.push_back("NNNNNAGGGT");
+        reads.push_back("NNNNNNNNGG");
+        reads.push_back("NNNAAATTTA");
+        reads.push_back("NNNAAAGCCC");
+        reads.push_back("AAAGAGTTTA");
+        reads.push_back("AAAGAATTTA");
+        const std::vector<uint32_t> origins = {8, 8, 5, 5, 7, 6, 10, 6, 10, 10};
+
+        // hisat like params
+        vargas::Aligner a(5, 10, 2, 6, 5, 3);
+        vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
+
+            CHECK(aligns.max_score[0] == 8);
+            CHECK(aligns.max_pos[0] == 8);
+            CHECK((int) aligns.correctness_flag[0] == 1);
+
+            CHECK(aligns.max_score[1] == 8);
+            CHECK(aligns.max_pos[1] == 8);
+            CHECK((int) aligns.correctness_flag[1] == 1);
+
+            CHECK(aligns.max_score[2] == 8);
+            CHECK(aligns.max_pos[2] == 5);
+            CHECK((int) aligns.correctness_flag[2] == 1);
+
+            CHECK(aligns.max_score[3] == 8);
+            CHECK(aligns.max_pos[3] == 5);
+            CHECK((int) aligns.correctness_flag[3] == 1);
+
+            CHECK(aligns.max_score[4] == 10);
+            CHECK(aligns.max_pos[4] == 7);
+            CHECK((int) aligns.correctness_flag[4] == 1);
+
+            CHECK(aligns.max_score[5] == 4);
+            CHECK(aligns.max_pos[5] == 6);
+            CHECK((int) aligns.correctness_flag[5] == 1);
+
+            CHECK(aligns.max_score[6] == 8);
+            CHECK(aligns.max_pos[6] == 10);
+            CHECK((int) aligns.correctness_flag[6] == 1);
+
+            CHECK(aligns.max_score[7] == 8);
+            CHECK(aligns.max_pos[7] == 4);
+            CHECK((int) aligns.correctness_flag[7] == 1);
+
+            CHECK(aligns.max_score[8] == 12);
+            CHECK(aligns.max_pos[8] == 10);
+            CHECK((int) aligns.correctness_flag[8] == 1);
+
+            CHECK(aligns.max_score[9] == 8);
+            CHECK(aligns.max_pos[9] == 10);
+            CHECK((int) aligns.correctness_flag[9] == 1);
     }
 }
 #endif //VARGAS_ALIGNMENT_H

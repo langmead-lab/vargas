@@ -15,6 +15,7 @@
 
 #include <assert.h>
 #include "sam.h"
+#include "doctest.h"
 
 const std::string vargas::SAM::Record::REQUIRED_POS = "POS";
 const std::string vargas::SAM::Record::REQUIRED_QNAME = "QNAME";
@@ -400,3 +401,131 @@ void vargas::osam::open(std::string file_name) {
     }
     (_use_stdio ? std::cout : out) << _hdr.to_string() << std::flush;
 }
+
+TEST_SUITE("SAM Parser");
+
+TEST_CASE ("SAM File") {
+    {
+        std::ofstream ss("tmp_s.sam");
+        ss << "@HD\tVN:1.0\tSO:coordinate\n"
+           << "@SQ\tSN:1\tLN:249250621\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
+           << "\tM5:1b22b98cdeb4a9304cb5d48026a85128\n"
+           << "@SQ\tSN:2S\tLN:243199373\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
+           << "\tM5:a0d9851da00400dec1098a9255ac712e\n"
+           << "@SQ\tSN:3Q\tLN:198022430\tAS:NCBI37\tUR:file:/data/local/ref/GATK/human_g1k_v37.fasta"
+           << "\tM5:fdfd811849cc2fadebc929bb925902e5\n"
+           << "@RG\tID:UM0098:1\tPL:ILLUMINA\tPU:HWUSI-EAS1707-615LHAAXX-L001\tLB:80\tDT:2010-05-05T20:00:00-0400"
+           << "\tSM:SD37743\tCN:UMCORE\n"
+           << "@RG\tID:UM0098:2\tPL:ILLUMINA\tPU:HWUSI-EAS1707-615LHAAXX-L002\tLB:80\tDT:2010-05-05T20:00:00-0400"
+           << "\tSM:SD37743\tCN:UMCORE\n"
+           << "@PG\tID:bwa\tVN:0.5.4\n"
+           << "1:497:R:-272+13M17D24M\t113\t1\t497\t37\t37M\t15\t100338662\t0"
+           << "\tCGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG\t0;==-==9;>>>>>=>>>>>>>>>>>=>>>>>>>>>>"
+           << "\tXT:A:U\tNM:i:0\tSM:i:37\tAM:i:0\tX0:i:1\tX1:i:0\tXM:i:0\tXO:i:0\tXG:i:0\tMD:Z:37\n"
+           << "19:20389:F:275+18M2D19M\t99\t1\t17644\t0\t37M\t=\t17919\t314"
+           << "\tTATGACTGCTAATAATACCTACACATGTTAGAACCAT\t>>>>>>>>>>>>>>>>>>>><<>>><<>>4::>>:<9"
+           << "\tRG:Z:UM0098:1\tXT:A:R\tNM:i:0\tSM:i:0\tAM:i:0\tX0:i:4\tX1:i:0\tXM:i:0\tXO:i:0\tXG:i:0\tMD:Z:37\n"
+           << "19:20389:F:275+18M2D19M\t147\t1\t17919\t0\t18M2D19M\t=\t17644\t-314"
+           << "\tGTAGTACCAACTGTAAGTCCTTATCTTCATACTTTGT\t;44999;499<8<8<<<8<<><<<<><7<;<<<>><<"
+           << "\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:4\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:18^CA19\n"
+           << "9:21597+10M2I25M:R:-209\t83\t1\t21678\t0\t8M2I27M\t=\t21469\t-244"
+           << "\tCACCACATCACATATACCAAGCCTGGCTGTGTCTTCT\t<;9<<5><<<<><<<>><<><>><9>><>>>9>>><>"
+           << "\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:5\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:35\n";
+    }
+
+    try {
+
+        {
+            vargas::isam sf("tmp_s.sam");
+            vargas::osam os("osam.sam", sf.header());
+            do {
+                os.add_record(sf.record());
+            } while (sf.next());
+        }
+
+        vargas::isam a("tmp_s.sam");
+        vargas::isam b("osam.sam");
+        const auto &ah = a.header();
+        const auto &bh = b.header();
+
+        std::string v1, v2;
+
+            REQUIRE(a.record().get(ah, "SEQ", v1));
+            CHECK(v1 == "CGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG");
+            REQUIRE(b.record().get(bh, vargas::SAM::Record::REQUIRED_SEQ, v1));
+            CHECK(v1 == "CGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG");
+
+        {
+            int v;
+                REQUIRE(a.record().get(ah, "NM", v));
+                CHECK(v == 0);
+                REQUIRE(a.record().get(ah, "SM", v));
+                CHECK(v == 37);
+                REQUIRE(b.record().get(bh, "NM", v));
+                CHECK(v == 0);
+                REQUIRE(b.record().get(bh, "SM", v));
+                CHECK(v == 37);
+        }
+        {
+            char v;
+                REQUIRE(a.record().get(ah, "XT", v));
+                CHECK(v == 'U');
+                REQUIRE(a.record().get(ah, "XT", v));
+                CHECK(v == 'U');
+        }
+        {
+                REQUIRE(a.record().get(ah, "MD", v1));
+                CHECK(v1 == "37");
+                REQUIRE(a.record().get(ah, "MD", v1));
+                CHECK(v1 == "37");
+        }
+
+        do {
+            const auto &ar = a.record();
+            const auto &br = b.record();
+                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_POS, v1));
+                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_POS, v2));
+                CHECK(v1 == v2);
+                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
+                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
+                CHECK(v1 == v2);
+                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_TLEN, v1));
+                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_TLEN, v2));
+                CHECK(v1 == v2);
+                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_MAPQ, v1));
+                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_MAPQ, v2));
+                CHECK(v1 == v2);
+                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_CIGAR, v1));
+                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_CIGAR, v2));
+                CHECK(v1 == v2);
+                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_PNEXT, v1));
+                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_PNEXT, v2));
+                CHECK(v1 == v2);
+                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_FLAG, v1));
+                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_FLAG, v2));
+                CHECK(v1 == v2);
+                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_RNAME, v1));
+                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_RNAME, v2));
+                CHECK(v1 == v2);
+                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_RNEXT, v1));
+                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_RNEXT, v2));
+                CHECK(v1 == v2);
+                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_SEQ, v1));
+                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_SEQ, v2));
+                CHECK(v1 == v2);
+                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
+                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
+                CHECK(v1 == v2);
+        } while (a.next() && b.next());
+            CHECK(!b.next());
+            CHECK(!a.next());
+    } catch (std::exception &e) {
+        std::cerr << e.what() << std::endl;
+        throw;
+    }
+
+    remove("tmp_s.sam");
+    remove("osam.sam");
+}
+
+TEST_SUITE_END();

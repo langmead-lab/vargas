@@ -384,3 +384,548 @@ vargas::Graph vargas::Graph::subgraph(const size_t min, const size_t max) const 
     return ret;
 }
 
+TEST_SUITE("Graphs");
+
+TEST_CASE ("Node class") {
+    vargas::Graph::Node::_newID = 0;
+    vargas::Graph::Node n1;
+    vargas::Graph::Node n2;
+        CHECK(n1.id() == 0);
+        CHECK(n2.id() == 1);
+
+        SUBCASE("Node ID change") {
+        n1.setID(1);
+            CHECK(n1.id() == 0);
+        n1.setID(2);
+            CHECK(n1.id() == 2);
+    }
+
+        SUBCASE("Set Node params") {
+        n1.set_seq("ACGTN");
+        std::vector<bool> a = {0, 0, 1};
+        n1.set_population(a);
+        n1.set_endpos(100);
+
+            REQUIRE(n1.seq().size() == 5);
+
+            CHECK(n1.seq()[0] == Base::A);
+            CHECK(n1.seq()[1] == Base::C);
+            CHECK(n1.seq()[2] == Base::G);
+            CHECK(n1.seq()[3] == Base::T);
+            CHECK(n1.seq()[4] == Base::N);
+            CHECK(n1.end_pos() == 100);
+            CHECK(!n1.is_ref());
+            CHECK(!n1.belongs(0));
+            CHECK(!n1.belongs(1));
+            CHECK(n1.belongs(2));
+
+        n1.set_as_ref();
+        n1.set_population(3, true);
+            CHECK(n1.is_ref());
+            CHECK(n1.belongs(0) == true);
+            CHECK(n1.belongs(1) == true);
+            CHECK(n1.belongs(2) == true);
+    }
+
+}
+TEST_CASE ("Graph class") {
+    vargas::Graph::Node::_newID = 0;
+    vargas::Graph g;
+
+    /**
+     *     GGG
+     *    /   \
+     * AAA     TTT
+     *    \   /
+     *     CCC(ref)
+     */
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(3);
+        n.set_as_ref();
+        std::vector<bool> a = {0, 1, 1};
+        n.set_population(a);
+        n.set_seq("AAA");
+        g.add_node(n);
+    }
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(6);
+        n.set_as_ref();
+        std::vector<bool> a = {0, 0, 1};
+        n.set_population(a);
+        n.set_af(0.4);
+        n.set_seq("CCC");
+        g.add_node(n);
+    }
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(6);
+        n.set_not_ref();
+        std::vector<bool> a = {0, 1, 0};
+        n.set_population(a);
+        n.set_af(0.6);
+        n.set_seq("GGG");
+        g.add_node(n);
+    }
+
+    {
+        vargas::Graph::Node n;
+        n.set_endpos(9);
+        n.set_as_ref();
+        std::vector<bool> a = {0, 1, 1};
+        n.set_population(a);
+        n.set_seq("TTT");
+        n.set_af(0.3);
+        g.add_node(n);
+    }
+
+    g.add_edge(0, 1);
+    g.add_edge(0, 2);
+    g.add_edge(1, 3);
+    g.add_edge(2, 3);
+
+        REQUIRE(g.node_map()->size() == 4);
+        REQUIRE(g.prev_map().size() == 3);
+        REQUIRE(g.next_map().size() == 3);
+
+    // Check forward edges
+        REQUIRE(g.next_map().at(0).size() == 2);
+        REQUIRE(g.next_map().at(1).size() == 1);
+        REQUIRE(g.next_map().at(2).size() == 1);
+        REQUIRE(g.next_map().count(3) == 0);
+
+    // Check prev edges
+        REQUIRE(g.prev_map().count(0) == 0);
+        REQUIRE(g.prev_map().at(1).size() == 1);
+        REQUIRE(g.prev_map().at(2).size() == 1);
+        REQUIRE(g.prev_map().at(3).size() == 2);
+
+        SUBCASE("Proper Graph setup") {
+            CHECK(num_to_seq(g.node(0).seq()) == "AAA");
+            CHECK(num_to_seq(g.node(1).seq()) == "CCC");
+            CHECK(num_to_seq(g.node(2).seq()) == "GGG");
+            CHECK(num_to_seq(g.node(3).seq()) == "TTT");
+    }
+
+        SUBCASE("Filtering iterators") {
+        /**         (ref)
+         *     GGG   TTT
+         *    /   \ /   \
+         * AAA     \     CCA
+         *    \   / \   /
+         *     CCC   ACA
+         *    (ref)
+         */
+        {
+            vargas::Graph::Node n;
+            std::vector<bool> pop = {1, 0, 0};
+            n.set_population(pop);
+            n.set_af(0.7);
+            n.set_seq("ACA");
+            n.set_endpos(9);
+            n.set_not_ref();
+            g.add_node(n);
+            g.add_edge(1, 4);
+            g.add_edge(2, 4);
+        }
+        {
+            vargas::Graph::Node n;
+            std::vector<bool> pop = {1, 1, 1};
+            n.set_population(pop);
+            n.set_af(1);
+            n.set_seq("CCA");
+            n.set_endpos(12);
+            n.set_as_ref();
+            g.add_node(n);
+            g.add_edge(3, 5);
+            g.add_edge(4, 5);
+        }
+
+            SUBCASE("Filtering Iterator") {
+            vargas::Graph::Population filter(3, false);
+            filter.set(2);
+            vargas::Graph g2(g, filter);
+            auto i = g2.begin();
+                CHECK(num_to_seq((*i).seq()) == "AAA");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCC");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "TTT");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCA");
+            ++i;
+                CHECK(i == g2.end());
+        }
+
+            SUBCASE("Filtering Ierator #2") {
+            vargas::Graph::Population filter(3, false);
+            filter.set(2);
+            filter.set(1);
+            vargas::Graph g2(g, filter);
+            auto i = g2.begin();
+                CHECK(num_to_seq((*i).seq()) == "AAA");
+            ++i;
+            // Order of these two don't matter
+            bool mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
+                CHECK(mid);
+            ++i;
+            mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
+                CHECK(mid);
+
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "TTT");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCA");
+            ++i;
+                CHECK(i == g2.end());
+        }
+
+            SUBCASE("Filtering Ierator: REF") {
+            vargas::Graph g2(g, vargas::Graph::Type::REF);
+            auto i = g2.begin();
+                CHECK(num_to_seq((*i).seq()) == "AAA");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCC");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "TTT");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCA");
+            ++i;
+                CHECK(i == g2.end());
+        }
+
+            SUBCASE("Filtering Ierator: MAXAF") {
+            vargas::Graph g2(g, vargas::Graph::Type::MAXAF);
+            auto i = g2.begin();
+                CHECK(num_to_seq((*i).seq()) == "AAA");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "GGG");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "ACA");
+            ++i;
+                CHECK(num_to_seq((*i).seq()) == "CCA");
+            ++i;
+                CHECK(i == g2.end());
+        }
+    }
+
+
+        SUBCASE("Graph iterator") {
+        // Node visit order should be topological
+        vargas::Graph::iterator i = g.begin();
+
+            CHECK(num_to_seq((*i).seq()) == "AAA");
+        ++i;
+
+        // Order of these two don't matter
+        bool mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
+            CHECK(mid);
+        ++i;
+        mid = (num_to_seq((*i).seq()) == "CCC") || (num_to_seq((*i).seq()) == "GGG");
+            CHECK(mid);
+        ++i;
+
+            CHECK(num_to_seq((*i).seq()) == "TTT");
+        ++i;
+            CHECK(i == g.end());
+        ++i;
+            CHECK(i == g.end());
+    }
+
+        SUBCASE("Derived Graph") {
+        std::vector<bool> filter = {0, 0, 1};
+        vargas::Graph g2(g, filter);
+
+            CHECK(g2.node_map()->size() == 4);
+            CHECK(&(*g.node_map()) == &(*g2.node_map())); // Underlying node map unchanged
+            CHECK(g2.next_map().size() == 2);
+            CHECK(g2.prev_map().size() == 2);
+
+            CHECK(g2.next_map().at(0).size() == 1);
+            CHECK(g2.next_map().at(1).size() == 1);
+            CHECK(g2.next_map().count(2) == 0); // This node shouldn't be included
+            CHECK(g2.next_map().count(3) == 0);
+            CHECK(g2.prev_map().count(0) == 0);
+            CHECK(g2.prev_map().at(1).size() == 1);
+            CHECK(g2.prev_map().at(3).size() == 1);
+    }
+
+        SUBCASE("REF graph") {
+        vargas::Graph g2(g, vargas::Graph::Type::REF);
+        vargas::Graph::iterator iter(g2);
+
+            CHECK((*iter).seq_str() == "AAA");
+        ++iter;
+            CHECK((*iter).seq_str() == "CCC");
+        ++iter;
+            CHECK((*iter).seq_str() == "TTT");
+        ++iter;
+            CHECK(iter == g2.end());
+    }
+
+        SUBCASE("MAXAF graph") {
+        vargas::Graph g2(g, vargas::Graph::Type::MAXAF);
+        vargas::Graph::iterator iter(g2);
+
+            CHECK((*iter).seq_str() == "AAA");
+        ++iter;
+            CHECK((*iter).seq_str() == "GGG");
+        ++iter;
+            CHECK((*iter).seq_str() == "TTT");
+        ++iter;
+            CHECK(iter == g2.end());
+
+    }
+
+        SUBCASE("Subgraph") {
+        auto g2 = g.subgraph(2, 8);
+        auto iter = g2.begin();
+            CHECK(iter->seq_str() == "AA");
+        ++iter;
+            CHECK(iter->seq_str() == "CCC");
+        ++iter;
+            CHECK(iter->seq_str() == "GGG");
+        ++iter;
+            CHECK(iter->seq_str() == "TT");
+        ++iter;
+            CHECK(iter == g2.end());
+
+    }
+
+}
+TEST_CASE ("Graph Factory") {
+    using std::endl;
+    std::string tmpfa = "tmp_tc.fa";
+    {
+        std::ofstream fao(tmpfa);
+        fao
+            << ">x" << endl
+            << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
+            << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
+            << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
+            << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
+            << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
+            << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
+            << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
+            << ">y" << endl
+            << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+    }
+    std::string tmpvcf = "tmp_tc.vcf";
+
+    // Write temp VCF file
+    {
+        std::ofstream vcfo(tmpvcf);
+        vcfo
+            << "##fileformat=VCFv4.1" << endl
+            << "##phasing=true" << endl
+            << "##contig=<ID=x>" << endl
+            << "##contig=<ID=y>" << endl
+            << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+            << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+            << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
+            << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+            << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+            << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+            << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+            << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+            << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
+            << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+    }
+
+        SUBCASE("File write wrapper") {
+
+            SUBCASE("Basic Graph") {
+            vargas::GraphFactory gb(tmpfa);
+            gb.open_vcf(tmpvcf);
+            gb.node_len(5);
+            gb.set_region("x:0-15");
+
+            vargas::Graph g;
+            gb.build(g);
+
+            auto giter = g.begin();
+
+                CHECK((*giter).seq_str() == "CAAAT");
+                CHECK((*giter).belongs(0) == true); // its a ref
+                CHECK((*giter).is_ref());
+
+            ++giter;
+                CHECK((*giter).seq_str() == "AAG");
+                CHECK((*giter).belongs(0) == true); // its a ref
+                CHECK((*giter).is_ref());
+
+            ++giter;
+                CHECK((*giter).seq_str() == "G");
+
+            ++giter;
+                CHECK((*giter).seq_str() == "A");
+
+            ++giter;
+                CHECK((*giter).seq_str() == "C");
+
+            ++giter;
+                CHECK((*giter).seq_str() == "T");
+                CHECK(!(*giter).is_ref());
+                CHECK(!(*giter).belongs(0));
+                CHECK(!(*giter).belongs(1));
+                CHECK(!(*giter).belongs(2));
+                CHECK((*giter).belongs(3));
+
+            ++giter;
+                CHECK((*giter).seq_str() == "C");
+                CHECK(giter->is_ref());
+
+            ++giter;
+                CHECK((*giter).seq_str() == "CCCCC");
+                CHECK(!giter->is_ref());
+            ++giter;
+                CHECK((*giter).seq_str() == "CC");
+                CHECK(!giter->is_ref());
+
+            ++giter;
+                CHECK(giter->seq_str() == "");
+
+            ++giter;
+                CHECK(giter->seq_str() == "TTG");
+
+        }
+
+            SUBCASE("Deriving a Graph") {
+            vargas::GraphFactory gb(tmpfa);
+            gb.open_vcf(tmpvcf);
+            gb.node_len(5);
+            gb.set_region("x:0-15");
+
+            vargas::Graph g;
+            gb.build(g);
+
+            std::vector<bool> filter = {0, 0, 0, 1};
+            vargas::Graph g2(g, filter);
+            auto iter = g2.begin();
+
+                CHECK((*iter).seq_str() == "CAAAT");
+            ++iter;
+                CHECK((*iter).seq_str() == "AAG");
+            ++iter;
+                CHECK((*iter).seq_str() == "T");
+            ++iter;
+                CHECK((*iter).seq_str() == "CCCCC");
+            ++iter;
+                CHECK((*iter).seq_str() == "CC");
+
+        }
+
+            SUBCASE("Sample filtering") {
+            vargas::GraphFactory gb(tmpfa);
+                CHECK_THROWS(gb.add_sample_filter("-"));
+            gb.open_vcf(tmpvcf);
+            gb.node_len(5);
+            gb.set_region("x:0-15");
+
+                SUBCASE("No inversion") {
+                gb.add_sample_filter("s1");
+                auto g = gb.build();
+
+                auto giter = g.begin();
+                    CHECK((*giter).seq_str() == "CAAAT");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "AAG");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "G");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "A");
+
+            }
+
+                SUBCASE("No inversion 2") {
+                gb.add_sample_filter("s2");
+                auto g = gb.build();
+
+                auto giter = g.begin();
+                    CHECK((*giter).seq_str() == "CAAAT");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "AAG");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "G");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "C");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "T");
+            }
+
+                SUBCASE("Inversion") {
+                gb.add_sample_filter("s2", true);
+                auto g = gb.build();
+
+                auto giter = g.begin();
+                    CHECK((*giter).seq_str() == "CAAAT");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "AAG");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "G");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "A");
+
+            }
+
+                SUBCASE("Inversion 2") {
+                gb.add_sample_filter("s1", true);
+                auto g = gb.build();
+
+                auto giter = g.begin();
+                    CHECK((*giter).seq_str() == "CAAAT");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "AAG");
+                    CHECK((*giter).belongs(0) == true); // its a ref
+                    CHECK((*giter).is_ref());
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "G");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "C");
+
+                ++giter;
+                    CHECK((*giter).seq_str() == "T");
+            }
+        }
+
+    }
+    remove(tmpfa.c_str());
+    remove(tmpvcf.c_str());
+    remove((tmpfa + ".fai").c_str());
+}
+
+TEST_SUITE_END();

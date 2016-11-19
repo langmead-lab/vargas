@@ -29,9 +29,7 @@ int main(const int argc, const char *argv[]) {
         if (argc > 1) {
             if (!strcmp(argv[1], "test")) {
                 doctest::Context doc(argc, argv);
-                doc.setOption("no-breaks", true);
                 doc.setOption("abort-after", 10);
-                doc.setOption("sort", "name");
                 return doc.run();
             }
             else if (!strcmp(argv[1], "profile")) {
@@ -49,7 +47,7 @@ int main(const int argc, const char *argv[]) {
             else if (!strcmp(argv[1], "export")) {
                 return export_main(argc, argv);
             } else if (!strcmp(argv[1], "convert")) {
-                return sam2csv(argc, argv);
+                return convert_main(argc, argv);
             } else if (!strcmp(argv[1], "query")) {
                 return query_main(argc, argv);
             }
@@ -345,6 +343,7 @@ int align_main(const int argc, const char *argv[]) {
     unsigned int threads = 1, read_len = 50;
     std::string read_file, gdf_file, align_targets, out_file;
     bool align_targets_isfile = false;
+    size_t tolerance = vargas::Aligner::default_tolerance();
 
     args >> GetOpt::Option('m', "match", match)
          >> GetOpt::Option('n', "mismatch", mismatch)
@@ -355,15 +354,18 @@ int align_main(const int argc, const char *argv[]) {
          >> GetOpt::Option('l', "rlen", read_len)
          >> GetOpt::Option('t', "out", out_file)
          >> GetOpt::Option('a', "align", align_targets)
-         >> GetOpt::OptionPresent('f', "file", align_targets_isfile);
+         >> GetOpt::OptionPresent('f', "file", align_targets_isfile)
+         >> GetOpt::Option('c', "tolerance", tolerance);
 
     if (!(args >> GetOpt::Option('g', "gdef", gdf_file))) {
         align_help();
         throw std::invalid_argument("No GDEF file provided.");
     }
 
-    size_t tolerance = read_len / 2;
-    args >> GetOpt::Option('c', "tolerance", tolerance);
+    if (read_len * match > 255) {
+        throw std::invalid_argument("Score matrix overflow with read length " + std::to_string(read_len) +
+            " and match score " + std::to_string(match) + ".");
+    }
 
     if (threads) omp_set_num_threads(threads);
 
@@ -419,8 +421,10 @@ int align_main(const int argc, const char *argv[]) {
                     throw std::invalid_argument("Expected source format Read_group_tag:value in \"" + pair[0] + "\".");
                 if (pair[0].substr(0, 2) != "RG")
                     throw std::invalid_argument("Expected a read group tag \'RG:xx:\', got \"" + pair[0] + "\"");
+
                 tag = pair[0].substr(3, 2);
                 target_val = pair[0].substr(6);
+
                 for (const auto &rg_pair : reads_hdr.read_groups) {
                     if (tag == "ID") val = rg_pair.second.id;
                     else if (rg_pair.second.aux.get(tag, val));
@@ -432,7 +436,7 @@ int align_main(const int argc, const char *argv[]) {
         }
 
         std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
-        std::cerr << "\tSubgraph\t# Reads\tRG ID" << std::endl;
+        std::cerr << "\tSubgraph\t#Reads\tRG:ID" << std::endl;
 
         // graph label to vector of reads
         for (const auto &sub_rg_pair : alignment_rg_map) {
@@ -528,11 +532,11 @@ int align_main(const int argc, const char *argv[]) {
     return 0;
 }
 
-int sam2csv(const int argc, const char *argv[]) {
+int convert_main(const int argc, const char **argv) {
     GetOpt::GetOpt_pp args(argc, argv);
 
     if (args >> GetOpt::OptionPresent('h', "help")) {
-        sam2csv_help();
+        convert_help();
         return 0;
     }
 
@@ -540,7 +544,7 @@ int sam2csv(const int argc, const char *argv[]) {
 
     args >> GetOpt::Option('s', "sam", sam_file);
     if (!(args >> GetOpt::Option('f', "format", format))) {
-        sam2csv_help();
+        convert_help();
         throw std::invalid_argument("Not format provided!");
     }
 
@@ -883,10 +887,11 @@ void align_help() {
     cerr << "-n\t--mismatch      <int> Mismatch penalty, default 2.\n";
     cerr << "-o\t--gap_open      <int> Gap opening penalty, default 3.\n";
     cerr << "-e\t--gap_extend    <int> Gap extend penalty, default 1.\n";
-    cerr << "-c\t--tolerance     <int> Count an alignment as correct if within -c, default read_len/2\n";
+    cerr << "-c\t--tolerance     <int> Count an alignment as correct if within -c, default read_len/"
+         << vargas::Aligner::default_tolerance() << "\n";
     cerr << "-j\t--threads       <int> Number of threads. 0 for maximum hardware concurrency.\n" << endl;
 
-    cerr << "If --align is unspecified, all alignment groups are aligned to the BASE graph.\n" << std::endl;
+    cerr << "If --align is unspecified, all read groups are aligned to the BASE graph.\n" << std::endl;
 }
 
 void sim_help() {
@@ -912,7 +917,7 @@ void sim_help() {
          << endl << endl;
 }
 
-void sam2csv_help() {
+void convert_help() {
     using std::cerr;
     using std::endl;
 
@@ -924,3 +929,169 @@ void sam2csv_help() {
     cerr << "Prefix with \"RG:\" to obtain a value from the associated read group.\n" << endl;
 
 }
+
+TEST_SUITE("System");
+
+TEST_CASE ("Coordinate System Matches") {
+    srand(1);
+    vargas::Graph::Node::_newID = 0;
+    using std::endl;
+    std::string tmpfa = "tmp_tc.fa";
+    {
+        std::ofstream fao(tmpfa);
+        fao
+            << ">x" << endl
+            << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
+            << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
+            << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
+            << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
+            << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
+            << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
+            << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
+            << ">y" << endl
+            << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+    }
+    std::string tmpvcf = "tmp_tc.vcf";
+
+    {
+        std::ofstream vcfo(tmpvcf);
+        vcfo
+            << "##fileformat=VCFv4.1" << endl
+            << "##phasing=true" << endl
+            << "##contig=<ID=x>" << endl
+            << "##contig=<ID=y>" << endl
+            << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+            << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+            << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
+            << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+            << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+            << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+            << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+            << "x\t9\t.\tG\tA,CC,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+            << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
+            << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+    }
+
+    vargas::GraphFactory gb(tmpfa);
+    gb.open_vcf(tmpvcf);
+    gb.node_len(5);
+    gb.set_region("x:0-50");
+    vargas::Graph g = gb.build();
+
+    vargas::Sim::Profile prof;
+    prof.len = 5;
+    vargas::Sim sim(g, prof);
+
+    vargas::Aligner aligner(g.max_node_len(), 5);
+    auto reads = sim.get_batch(aligner.read_capacity());
+
+    std::vector<std::string> seqs;
+    std::vector<uint32_t> targets;
+    for (auto &r : reads) {
+        seqs.push_back(r.seq);
+        targets.push_back(r.pos + r.seq.length() - 1);
+    }
+
+    auto results = aligner.align(seqs, targets, g.begin(), g.end());
+
+    for (auto i : results.correctness_flag) CHECK ((int) i == 1);
+
+    remove(tmpfa.c_str());
+    remove(tmpvcf.c_str());
+    remove((tmpfa + ".fai").c_str());
+}
+TEST_CASE ("Correctness flag") {
+    srand(1);
+    vargas::Graph::Node::_newID = 0;
+    using std::endl;
+    std::string tmpfa = "tmp_tc.fa";
+    {
+        std::ofstream fao(tmpfa);
+        fao
+            << ">x" << endl
+            << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
+            << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
+            << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
+            << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
+            << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
+            << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
+            << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
+            << ">y" << endl
+            << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+    }
+    std::string tmpvcf = "tmp_tc.vcf";
+
+    {
+        std::ofstream vcfo(tmpvcf);
+        vcfo
+            << "##fileformat=VCFv4.1" << endl
+            << "##phasing=true" << endl
+            << "##contig=<ID=x>" << endl
+            << "##contig=<ID=y>" << endl
+            << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+            << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+            << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
+            << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+            << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+            << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+            << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+            << "x\t9\t.\tG\tA,CC,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+            << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
+            << "x\t20\t.\tTTC\t<CN3>,<CN2>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+    }
+
+    std::string reads_file("tmp_rd.sam");
+    {
+        std::ofstream ro(reads_file);
+        ro << "@HD\tVN:1.0\n*\t4\t*\t14\t255\t*\t*\t0\t0\tGAAATT\t*\n*\t4\t*\t17\t255\t*\t*\t0\t0\tATTTTC\t*";
+    }
+
+    vargas::GraphFactory gb(tmpfa);
+    gb.open_vcf(tmpvcf);
+    gb.set_region("x:0-100");
+    vargas::Graph g = gb.build();
+
+    vargas::Aligner aligner(g.max_node_len(), 6);
+    vargas::isam reads(reads_file);
+
+    std::vector<vargas::SAM::Record> records;
+    std::vector<std::string> read_seq;
+    std::vector<uint32_t> targets;
+    do {
+        records.push_back(reads.record());
+        read_seq.push_back(reads.record().seq);
+        targets.push_back(reads.record().pos + read_seq.back().length() - 1);
+    } while (reads.next());
+
+    auto res = aligner.align(read_seq, targets, g.begin(), g.end());
+
+    for (size_t i = 0; i < records.size(); ++i) {
+        records[i].aux.set(ALIGN_SAM_MAX_POS_TAG, (int) res.max_pos[i]);
+        records[i].aux.set(ALIGN_SAM_MAX_SCORE_TAG, (int) res.max_score[i]);
+        records[i].aux.set(ALIGN_SAM_MAX_COUNT_TAG, (int) res.max_count[i]);
+
+        records[i].aux.set(ALIGN_SAM_SUB_POS_TAG, (int) res.sub_pos[i]);
+        records[i].aux.set(ALIGN_SAM_SUB_SCORE_TAG, (int) res.sub_score[i]);
+        records[i].aux.set(ALIGN_SAM_SUB_COUNT_TAG, (int) res.sub_count[i]);
+
+        records[i].aux.set(ALIGN_SAM_COR_FLAG_TAG, (int) res.correctness_flag[i]);
+    }
+
+    vargas::osam align_out("tmp_aout.sam", reads.header());
+    for (auto &r : records) align_out.add_record(r);
+
+    remove(tmpfa.c_str());
+    remove((tmpfa + ".fai").c_str());
+    remove(tmpvcf.c_str());
+    remove(reads_file.c_str());
+    remove("tmp_aout.sam");
+}
+
+TEST_SUITE_END();

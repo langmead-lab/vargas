@@ -234,3 +234,214 @@ void vargas::VCF::close() {
     _curr_rec = nullptr;
     _ingroup_cstr = nullptr;
 }
+
+TEST_SUITE("VCF Parser");
+
+TEST_CASE ("VCF File handler") {
+    using std::endl;
+    std::string tmpvcf = "tmp_tc.vcf";
+
+    // Write temp VCF file
+    {
+        std::ofstream vcfo(tmpvcf);
+        vcfo
+            << "##fileformat=VCFv4.1" << endl
+            << "##phasing=true" << endl
+            << "##contig=<ID=x>" << endl
+            << "##contig=<ID=y>" << endl
+            << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+            << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+            << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternete Allele count\">" << endl
+            << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+            << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+            << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+            << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+            << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+            << "x\t10\t.\tC\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
+            << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+    }
+
+        SUBCASE("File write wrapper") {
+
+            SUBCASE("Unfiltered") {
+            vargas::VCF vcf(tmpvcf);
+            vcf.next();
+                CHECK(vcf.num_samples() == 4);
+                CHECK(vcf.sequences().size() == 2);
+                CHECK(vcf.sequences()[0] == "x");
+                CHECK(vcf.sequences()[1] == "y");
+                REQUIRE(vcf.samples().size() == 2);
+                CHECK(vcf.samples()[0] == "s1");
+                CHECK(vcf.samples()[1] == "s2");
+
+            // On load, first record is already loaded
+                REQUIRE(vcf.genotypes().size() == 4);
+                CHECK(vcf.genotypes()[0] == "G");
+                CHECK(vcf.genotypes()[1] == "A");
+                CHECK(vcf.genotypes()[2] == "C");
+                CHECK(vcf.genotypes()[3] == "T");
+                REQUIRE(vcf.alleles().size() == 4);
+                CHECK(vcf.alleles()[0] == "G");
+                CHECK(vcf.alleles()[1] == "A");
+                CHECK(vcf.alleles()[2] == "C");
+                CHECK(vcf.alleles()[3] == "T");
+                CHECK(vcf.ref() == "G");
+                CHECK(vcf.pos() == 8);
+
+            // Copy number alleles
+            vcf.next();
+                REQUIRE(vcf.genotypes().size() == 4);
+                CHECK(vcf.genotypes()[0] == "CC");
+                CHECK(vcf.genotypes()[1] == "CC");
+                CHECK(vcf.genotypes()[2] == "");
+                CHECK(vcf.genotypes()[3] == "CC");
+                REQUIRE(vcf.alleles().size() == 3);
+                CHECK(vcf.alleles()[0] == "C");
+                CHECK(vcf.alleles()[1] == "CC");
+                CHECK(vcf.alleles()[2] == "");
+                CHECK(vcf.ref() == "C");
+                CHECK(vcf.pos() == 9);
+
+            // Invalid tags
+            vcf.next();
+                REQUIRE(vcf.alleles().size() == 3);
+                CHECK(vcf.alleles()[0] == "G");
+                CHECK(vcf.alleles()[1] == "G");
+                CHECK(vcf.alleles()[2] == "G");
+                CHECK(vcf.ref() == "G");
+                CHECK(vcf.pos() == 13);
+
+            // Next y contig should still load
+            vcf.next();
+                CHECK(vcf.alleles()[0] == "TATA");
+        }
+
+            SUBCASE("CHROM Filtering") {
+            vargas::VCF vcf;
+            vcf.set_region("y:0-0");
+            vcf.open(tmpvcf);
+
+            vcf.next();
+                CHECK(vcf.ref() == "TATA");
+            vcf.next();
+                CHECK(vcf.ref() == "T");
+                CHECK(vcf.next() == 0); // File end
+        }
+
+            SUBCASE("Region filtering") {
+            vargas::VCF vcf;
+            vcf.set_region("x:0-14");
+            vcf.open(tmpvcf);
+
+            vcf.next();
+                CHECK(vcf.ref() == "G");
+            vcf.next();
+                CHECK(vcf.ref() == "C");
+            vcf.next();
+                CHECK(vcf.ref() == "G");
+                CHECK(vcf.next() == 0); // Region end
+        }
+
+            SUBCASE("Ingroup generation") {
+            vargas::VCF vcf;
+            srand(12345);
+            vcf.open(tmpvcf);
+            vcf.create_ingroup(50);
+
+                CHECK(vcf.ingroup().size() == 1);
+                CHECK(vcf.ingroup()[0] == "s2");
+
+            vcf.next();
+                REQUIRE(vcf.genotypes().size() == 2);
+                CHECK(vcf.genotypes()[0] == "C");
+                CHECK(vcf.genotypes()[1] == "T");
+
+            vcf.next();
+                REQUIRE(vcf.genotypes().size() == 2);
+                CHECK(vcf.genotypes()[0] == "");
+                CHECK(vcf.genotypes()[1] == "CC");
+
+            // Allele set should be complete, ingroup should reflect minimized set
+                CHECK(vcf.alleles().size() == 3);
+                CHECK(vcf.ingroup().size() == 1);
+        }
+
+            SUBCASE("Allele populations") {
+            vargas::VCF vcf;
+            vcf.open(tmpvcf);
+            vcf.next();
+            vcf.genotypes();
+
+                REQUIRE(vcf.allele_pop("G").size() == 4);
+                CHECK(vcf.allele_pop("G")[0]);
+                CHECK(!vcf.allele_pop("G")[1]);
+                CHECK(!vcf.allele_pop("G")[2]);
+                CHECK(!vcf.allele_pop("G")[3]);
+
+                REQUIRE(vcf.allele_pop("A").size() == 4);
+                CHECK(!vcf.allele_pop("A")[0]);
+                CHECK(vcf.allele_pop("A")[1]);
+                CHECK(!vcf.allele_pop("A")[2]);
+                CHECK(!vcf.allele_pop("A")[3]);
+
+                REQUIRE(vcf.allele_pop("C").size() == 4);
+                CHECK(!vcf.allele_pop("C")[0]);
+                CHECK(!vcf.allele_pop("C")[1]);
+                CHECK(vcf.allele_pop("C")[2]);
+                CHECK(!vcf.allele_pop("C")[3]);
+
+                REQUIRE(vcf.allele_pop("T").size() == 4);
+                CHECK(!vcf.allele_pop("T")[0]);
+                CHECK(!vcf.allele_pop("T")[1]);
+                CHECK(!vcf.allele_pop("T")[2]);
+                CHECK(vcf.allele_pop("T")[3]);
+
+        }
+
+            SUBCASE("Filtered allele populations") {
+            vargas::VCF vcf;
+            vcf.open(tmpvcf);
+            vcf.create_ingroup({"s1"});
+            vcf.next();
+            vcf.genotypes();
+
+                REQUIRE(vcf.allele_pop("G").size() == 2);
+                CHECK(vcf.allele_pop("G")[0]);
+                CHECK(!vcf.allele_pop("G")[1]);
+
+                REQUIRE(vcf.allele_pop("A").size() == 2);
+                CHECK(!vcf.allele_pop("A")[0]);
+                CHECK(vcf.allele_pop("A")[1]);
+
+                REQUIRE(vcf.allele_pop("C").size() == 2);
+                CHECK(!vcf.allele_pop("C")[0]);
+                CHECK(!vcf.allele_pop("C")[1]);
+
+                REQUIRE(vcf.allele_pop("T").size() == 2);
+                CHECK(!vcf.allele_pop("T")[0]);
+                CHECK(!vcf.allele_pop("T")[1]);
+        }
+
+            SUBCASE("Allele frequencies") {
+            vargas::VCF vcf;
+            vcf.open(tmpvcf);
+            vcf.next();
+
+            auto af = vcf.frequencies();
+                REQUIRE(af.size() == 4);
+                CHECK(af[0] > 0.289f); // af[0] should be 0.29
+                CHECK(af[0] < 0.291f);
+                CHECK(af[1] == 0.01f);
+                CHECK(af[2] == 0.6f);
+                CHECK(af[3] == 0.1f);
+        }
+
+    }
+
+    remove(tmpvcf.c_str());
+}
+
+TEST_SUITE_END();
