@@ -125,6 +125,12 @@ int define_main(int argc, char *argv[]) {
 }
 
 int sim_main(int argc, char *argv[]) {
+    std::string cl;
+    {
+        std::ostringstream ss;
+        for (int i = 0; i < argc; ++i) ss << std::string(argv[i]) << " ";
+        cl = ss.str();
+    }
 
     int read_len, num_reads, threads;
     std::string mut, indel, vnodes, vbases, gdf_file, out_file, sim_src;
@@ -163,9 +169,7 @@ int sim_main(int argc, char *argv[]) {
 
     {
         vargas::SAM::Header::Program pg;
-        std::ostringstream ss;
-        for (int i = 0; i < argc; ++i) ss << std::string(argv[i]) << " ";
-        pg.command_line = ss.str();
+        pg.command_line = cl;
         pg.name = "vargas_sim";
         pg.id = "VS";
         pg.version = __DATE__;
@@ -310,11 +314,16 @@ int sim_main(int argc, char *argv[]) {
 }
 
 int align_main(int argc, char *argv[]) {
+    std::string cl;
+    {
+        std::ostringstream ss;
+        for (int i = 0; i < argc; ++i) ss << std::string(argv[i]) << " ";
+        cl = ss.str();
+    }
 
     // Load parameters
     // hisat similar params: match = 2, mismatch = 6, open = 5, extend = 3
-    uint8_t match, mismatch, gopen, gext;
-    size_t threads, read_len, tolerance;
+    size_t match, mismatch, gopen, gext, threads, read_len, tolerance;
     std::string read_file, gdf_file, align_targets, out_file;
     bool align_targets_isfile = false;
 
@@ -345,7 +354,7 @@ int align_main(int argc, char *argv[]) {
 
     if (read_len * match > 255) {
         throw std::invalid_argument("Score matrix overflow with read length " + std::to_string(read_len) +
-            " and match score " + std::to_string(match) + ".");
+            " and match score " + std::to_string((int) match) + ".");
     }
 
     if (threads) omp_set_num_threads(threads);
@@ -364,7 +373,14 @@ int align_main(int argc, char *argv[]) {
         alignment_pairs = split(align_targets, ';');
     }
 
-    std::cerr << "\nLoading reads... " << std::flush;
+    std::cerr << "Match=" << match
+              << " Mismatch=" << mismatch
+              << " GapOpen=" << gopen
+              << " GapExtend=" << gext
+              << " MaxReadLen=" << read_len
+              << " CorrectnessTol=" << tolerance
+              << "\nLoading reads... " << std::flush;
+
     auto start_time = std::chrono::steady_clock::now();
 
     std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> task_list;
@@ -379,13 +395,17 @@ int align_main(int argc, char *argv[]) {
             std::string read_group;
             do {
                 if (!reads.record().aux.get("RG", read_group)) read_group = "NULL";
+                if (reads.record().seq.length() != read_len) {
+                    throw std::invalid_argument("Expected read of length " +
+                        std::to_string(read_len) + ", got " + std::to_string(reads.record().seq.length()));
+                }
                 alignment_reads[read_group].push_back(reads.record());
             } while (reads.next());
         }
 
         if (alignment_pairs.size() == 0) {
             for (const auto &p : alignment_reads) {
-                alignment_pairs.push_back("RG:ID:" + p.first + "\tBASE");
+                alignment_pairs.push_back("RG:ID:" + p.first + "\t" + vargas::GraphManager::GDEF_BASEGRAPH);
             }
         }
 
@@ -444,14 +464,13 @@ int align_main(int argc, char *argv[]) {
     std::cerr << "Loading graphs... " << std::flush;
     start_time = std::chrono::steady_clock::now();
     vargas::GraphManager gm(gdf_file);
+    std::cerr << "(" << gm.base()->node_map()->size() << " nodes), ";
     std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
 
 
     {
         vargas::SAM::Header::Program pg;
-        std::ostringstream ss;
-        for (int i = 0; i < argc; ++i) ss << std::string(argv[i]) << " ";
-        pg.command_line = ss.str();
+        pg.command_line = cl;
         pg.name = "vargas_align";
         pg.id = "VA";
         pg.version = __DATE__;
@@ -670,7 +689,8 @@ int export_main(int argc, char *argv[]) {
     try {
         opts.add_options()
             ("g,gdef", "<str> *Graph definition file. (default: stdin)", cxxopts::value(file))
-            ("s,subgraph", "<str> Subgraph to export.", cxxopts::value(subgraph)->default_value("BASE"))
+            ("s,subgraph", "<str> Subgraph to export.",
+             cxxopts::value(subgraph)->default_value(vargas::GraphManager::GDEF_BASEGRAPH))
             ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out))
             ("h,help", "Display this message.");
         opts.parse(argc, argv);
@@ -696,9 +716,10 @@ int query_main(int argc, char *argv[]) {
     try {
         opts.add_options()
             ("d,gdef", "<str> Export graph region as a DOT file.", cxxopts::value(gdef))
-            ("s,subgraph", "<str> Subgraph to export.", cxxopts::value(subgraph)->default_value("BASE"))
+            ("s,subgraph", "<str> Subgraph to export.",
+             cxxopts::value(subgraph)->default_value(vargas::GraphManager::GDEF_BASEGRAPH))
             ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
-            ("t,out", "<str> export -d to a file. (default: stdout)", cxxopts::value(out))
+            ("t,out", "<str> -d output file. (default: stdout)", cxxopts::value(out))
             ("f,fasta", "<str> Reference FASTA.", cxxopts::value(fasta))
             ("v,vcf", "<str> Variant File.", cxxopts::value(vcf))
             ("h,help", "Display this message.");
@@ -804,7 +825,9 @@ void define_help(const cxxopts::Options &opts) {
          << "The samples are selected from the parent graph, scoped with \':\'.\n"
          << "The BASE graph is implied as the root for all labels. Example:\n"
          << "\ta=50;a:b=10%;~a:c=5\n"
-         << "\'~\' indicates the complement graph. \'BASE\' refers the the whole graph.\n" << endl;
+         << "\'~\' indicates the complement graph. \'"
+         << vargas::GraphManager::GDEF_BASEGRAPH
+         << "\' refers the the whole graph.\n" << endl;
 }
 
 void profile_help(const cxxopts::Options &opts) {

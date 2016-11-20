@@ -179,16 +179,6 @@ char rand_base() {
 
 /**
  * @brief
- * Edit distance between strings. Taken from: \n
- * https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#C.2B.2B
- * @param s1 sequence a
- * @param s2 sequence b
- */
-int levenshtein_distance(const std::string &s1,
-                         const std::string &s2);
-
-/**
- * @brief
  * Guesses the delimiter of a line. Checks the following, with the first that succesfully splits
  * the string returned.
  * "<newline><tab>:;,=|/"
