@@ -30,20 +30,15 @@ int main(int argc, char *argv[]) {
                 doctest::Context doc(argc, argv);
                 doc.setOption("abort-after", 10);
                 return doc.run();
-            }
-            else if (!strcmp(argv[1], "profile")) {
+            } else if (!strcmp(argv[1], "profile")) {
                 return profile(argc, argv);
-            }
-            else if (!strcmp(argv[1], "define")) {
+            } else if (!strcmp(argv[1], "define")) {
                 return define_main(argc, argv);
-            }
-            else if (!strcmp(argv[1], "sim")) {
+            } else if (!strcmp(argv[1], "sim")) {
                 return sim_main(argc, argv);
-            }
-            else if (!strcmp(argv[1], "align")) {
+            } else if (!strcmp(argv[1], "align")) {
                 return align_main(argc, argv);
-            }
-            else if (!strcmp(argv[1], "export")) {
+            } else if (!strcmp(argv[1], "export")) {
                 return export_main(argc, argv);
             } else if (!strcmp(argv[1], "convert")) {
                 return convert_main(argc, argv);
@@ -204,7 +199,9 @@ int sim_main(int argc, char *argv[]) {
 
     std::vector<std::string> subdef_split;
     if (sim_src.length() == 0) {
+        // Use all subgraphs. If there are none, use the base graph
         subdef_split = gm.labels();
+        if (subdef_split.size() == 0) subdef_split.push_back(vargas::GraphManager::GDEF_BASEGRAPH);
     } else {
         std::replace(sim_src.begin(), sim_src.end(), '\n', gm.GDEF_DELIM);
         sim_src.erase(std::remove_if(sim_src.begin(), sim_src.end(), isspace), sim_src.end());
@@ -323,7 +320,7 @@ int align_main(int argc, char *argv[]) {
 
     // Load parameters
     // hisat similar params: match = 2, mismatch = 6, open = 5, extend = 3
-    size_t match, mismatch, gopen, gext, threads, read_len, tolerance;
+    size_t match, mismatch, gopen, gext, threads, read_len, tolerance, chunk_size;
     std::string read_file, gdf_file, align_targets, out_file;
     bool align_targets_isfile = false;
 
@@ -341,6 +338,8 @@ int align_main(int argc, char *argv[]) {
             ("e,gap_extend", "<N> Gap extension penalty.", cxxopts::value(gext)->default_value("1"))
             ("c,tolerance", "<N> Correct if within readlen/N.",
              cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
+            ("h,chunk", "<N> Partition tasks into chunks with max size N.",
+             cxxopts::value(chunk_size)->default_value("1024"))
             ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
             ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
             ("h,help", "Display this message.");
@@ -388,23 +387,31 @@ int align_main(int argc, char *argv[]) {
     size_t total = 0;
     {
         // Maps a read group ID to a vector of reads
-        std::unordered_map<std::string, std::vector<vargas::SAM::Record>> alignment_reads;
+        std::unordered_map<std::string, std::vector<vargas::SAM::Record>> read_groups;
         {
             vargas::isam reads(read_file);
             reads_hdr = reads.header();
             std::string read_group;
+            vargas::SAM::Record rec;
             do {
-                if (!reads.record().aux.get("RG", read_group)) read_group = "NULL";
-                if (reads.record().seq.length() != read_len) {
+                rec = reads.record();
+                if (rec.seq.length() != read_len) {
                     throw std::invalid_argument("Expected read of length " +
-                        std::to_string(read_len) + ", got " + std::to_string(reads.record().seq.length()));
+                        std::to_string(read_len) + ", got " + std::to_string(rec.seq.length()));
                 }
-                alignment_reads[read_group].push_back(reads.record());
+                if (!rec.aux.get("RG", read_group)) {
+                    read_group = "NULL";
+                    rec.aux.set("RG", "VA-UNGROUPED");
+                    if (!reads_hdr.read_groups.count("VA-UNGROUPED")) {
+                        reads_hdr.add(vargas::SAM::Header::ReadGroup("@RG\tID:VA-UNGROUPED"));
+                    }
+                }
+                read_groups[read_group].push_back(rec);
             } while (reads.next());
         }
 
         if (alignment_pairs.size() == 0) {
-            for (const auto &p : alignment_reads) {
+            for (const auto &p : read_groups) {
                 alignment_pairs.push_back("RG:ID:" + p.first + "\t" + vargas::GraphManager::GDEF_BASEGRAPH);
             }
         }
@@ -429,7 +436,7 @@ int align_main(int argc, char *argv[]) {
                 for (const auto &rg_pair : reads_hdr.read_groups) {
                     if (tag == "ID") val = rg_pair.second.id;
                     else if (rg_pair.second.aux.get(tag, val));
-                    else continue; // Don't want to compare with previous val, skip if tag isn't ID or in aux
+                    else continue;
                     if (val == target_val) alignment_rg_map[pair[1]].push_back(rg_pair.first);
                 }
 
@@ -437,25 +444,29 @@ int align_main(int argc, char *argv[]) {
         }
 
         std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
-        std::cerr << "\tSubgraph\t#Reads\tRG:ID" << std::endl;
 
         // graph label to vector of reads
+
         for (const auto &sub_rg_pair : alignment_rg_map) {
             for (const std::string &rgid : sub_rg_pair.second) {
-                if (alignment_reads.count(rgid)) {
-                    // If there is a header line that there are no reads associated with, skip
-                    task_list.push_back(std::pair<std::string,
-                                                  std::vector<vargas::SAM::Record>>(sub_rg_pair.first,
-                                                                                    alignment_reads.at(rgid)));
-                    std::cerr << '\t' << sub_rg_pair.first << '\t' << alignment_reads.at(rgid).size()
-                              << '\t' << rgid << '\n';
-                    total += alignment_reads.at(rgid).size();
+                // If there is a header line that there are no reads associated with, skip
+                if (read_groups.count(rgid) == 0) continue;
+
+                const auto beg = std::begin(read_groups.at(rgid));
+                const auto end = std::end(read_groups.at(rgid));
+                const size_t nrecords = read_groups.at(rgid).size();
+                const size_t n_chunks = (nrecords / chunk_size) + 1;
+                total += read_groups.at(rgid).size();
+
+                for (size_t i = 0; i < n_chunks; ++i) {
+                    const auto safe_beg = beg + (i * chunk_size);
+                    const auto safe_end = (i + 1) * chunk_size > nrecords ? end : safe_beg + chunk_size;
+                    task_list.emplace_back(sub_rg_pair.first, std::vector<vargas::SAM::Record>(safe_beg, safe_end));
                 }
             }
-
         }
 
-        std::cerr << '\t' << alignment_reads.size() << " Read groups.\n"
+        std::cerr << '\t' << read_groups.size() << " Read groups.\n"
                   << '\t' << alignment_rg_map.size() << " Subgraphs.\n"
                   << '\t' << task_list.size() << " Tasks.\n"
                   << '\t' << total << " Total alignments.\n";
@@ -478,12 +489,15 @@ int align_main(int argc, char *argv[]) {
         reads_hdr.add(pg);
     }
 
+    const size_t num_tasks = task_list.size();
+    if (num_tasks < threads) {
+        std::cerr << "Warning: Number of threads is greater than number of tasks- try decreasing --chunk_size.\n";
+    }
 
     std::cerr << "Aligning with " << threads << " thread(s)..." << std::endl;
     start_time = std::chrono::steady_clock::now();
     auto start_cpu = std::clock();
 
-    const size_t num_tasks = task_list.size();
 
     vargas::osam aligns_out(out_file, reads_hdr);
 
@@ -748,13 +762,14 @@ int query_main(int argc, char *argv[]) {
 
         vargas::ifasta in(gm.reference());
         std::cout << gm.reference() << ", " << region
-                  << " \n----------------------------------------\n"
+                  << "\n----------------------------------------\n"
                   << in.subseq(reg.seq_name, reg.min, reg.max) << "\n\n";
 
         vargas::VCF vcf(gm.variants());
         vcf.set_region(region);
         std::cout << gm.variants() << ", "
-                  << region << "\n----------------------------------------\n";
+                  << region
+                  << "\n----------------------------------------\n";
 
         while (vcf.next()) {
             std::cout << vcf << '\n';
