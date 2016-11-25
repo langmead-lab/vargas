@@ -201,10 +201,10 @@ namespace vargas {
 
               int len; /**< Length of the sequence */
               std::string genome_assembly = "", /**< Genome assembly identifier */
-                  name, /**< name of of the sequence */
-                  md5 = "", /**< MD5 checksum of sequence */
-                  species = "", /**< Species of sequence */
-                  URI = ""; /**< URL of sequence, can start with http or ftp */
+              name, /**< name of of the sequence */
+              md5 = "", /**< MD5 checksum of sequence */
+              species = "", /**< Species of sequence */
+              URI = ""; /**< URL of sequence, can start with http or ftp */
 
               Optional aux;
 
@@ -256,19 +256,20 @@ namespace vargas {
                   parse(line);
               }
 
-              std::string seq_center = "", /**< Name of sequencing center producing the read */
-                  desc = "", /**< Description */
-                  date = "", /**< Date run was produced */
-                  flow_order = "", /**< Array of bases that corresponds to flow of each read */
-                  key_seq = "", /**< bases that correspond to the key sequence of the read */
-                  library = "", /**< Library */
-                  programs = "", /**< Programs used to process read group */
-                  insert_size = "", /**< Predicted median insert size */
-                  platform = "", /**< Platform used to produce reads */
-                  platform_model = "", /**< Platform desc */
-                  platform_unit = "", /**< Unique unit ID */
-                  sample = "", /**< Sample, or pool name */
-                  id = ""; /**< Unique ID */
+              std::string
+              seq_center = "", /**< Name of sequencing center producing the read */
+              desc = "", /**< Description */
+              date = "", /**< Date run was produced */
+              flow_order = "", /**< Array of bases that corresponds to flow of each read */
+              key_seq = "", /**< bases that correspond to the key sequence of the read */
+              library = "", /**< Library */
+              programs = "", /**< Programs used to process read group */
+              insert_size = "", /**< Predicted median insert size */
+              platform = "", /**< Platform used to produce reads */
+              platform_model = "", /**< Platform desc */
+              platform_unit = "", /**< Unique unit ID */
+              sample = "", /**< Sample, or pool name */
+              id = ""; /**< Unique ID */
 
               Optional aux;
 
@@ -316,11 +317,11 @@ namespace vargas {
               }
 
               std::string name = "",
-                  id = "",
-                  command_line = "",
-                  prev_pg = "",
-                  desc = "",
-                  version = "";
+              id = "",
+              command_line = "",
+              prev_pg = "",
+              desc = "",
+              version = "";
 
               Optional aux;
 
@@ -435,7 +436,7 @@ namespace vargas {
 
           std::string version; /**< SAM spec version */
           std::string sorting_order = "", /**< Type of alignment sorting, default unknown */
-              grouping = ""; /**< Grouping of alignments. Default None */
+          grouping = ""; /**< Grouping of alignments. Default None */
           std::unordered_map<std::string, Sequence> sequences; /**< All sequence lines */
           std::unordered_map<std::string, ReadGroup> read_groups; /**< All Read Group lines */
           std::unordered_map<std::string, Program> programs; /**< ALl program lines */
@@ -486,18 +487,18 @@ namespace vargas {
                                      supplementary((f & 0x800) != 0u) {}
 
               bool multiple = false, /**< template having multiple segments in sequencing */
-                  aligned = false, /**< each segment properly aligned according to the aligner */
-                  unmapped = false, /**< segment unmapped */
-                  next_unmapped = false, /**< next segment in the template unmapped */
-                  rev_complement = false, /**< SEQ being reverse complemented */
-                  next_rev_complement =
-                  false, /**< SEQ of the next segment in the template being reverse complemented */
-                  first = false, /**< the first segment in the template */
-                  last = false, /**< he last segment in the template */
-                  secondary = false, /**< secondary alignment */
-                  pass_fail = false, /**< not passing lters, such as platform/vendor quality controls */
-                  duplicate = false, /**< PCR or optical duplicate */
-                  supplementary = false; /**< supplementary alignment */
+              aligned = false, /**< each segment properly aligned according to the aligner */
+              unmapped = false, /**< segment unmapped */
+              next_unmapped = false, /**< next segment in the template unmapped */
+              rev_complement = false, /**< SEQ being reverse complemented */
+              next_rev_complement =
+              false, /**< SEQ of the next segment in the template being reverse complemented */
+              first = false, /**< the first segment in the template */
+              last = false, /**< he last segment in the template */
+              secondary = false, /**< secondary alignment */
+              pass_fail = false, /**< not passing lters, such as platform/vendor quality controls */
+              duplicate = false, /**< PCR or optical duplicate */
+              supplementary = false; /**< supplementary alignment */
 
               /**
                * @return integer representation of flags.
@@ -540,16 +541,16 @@ namespace vargas {
 
           // Mandatory fields
           std::string query_name = "*", /**< Query template name */
-              ref_name = "*", /**< Reference sequence name */
-              cigar = "*", /**< Alignment CIGAR */
-              ref_next = "*", /**< Refrence name of next mate/read */
-              seq = "*", /**< segment sequence */
-              qual = "*"; /**< Phred Qual+33 */
+          ref_name = "*", /**< Reference sequence name */
+          cigar = "*", /**< Alignment CIGAR */
+          ref_next = "*", /**< Refrence name of next mate/read */
+          seq = "*", /**< segment sequence */
+          qual = "*"; /**< Phred Qual+33 */
 
           int pos = 0, /**< 1 baset leftmost mapping position */
-              mapq = 255, /**< mapping quality */
-              pos_next = 0, /**< position of next mate/read */
-              tlen = 0; /**< template length */
+          mapq = 255, /**< mapping quality */
+          pos_next = 0, /**< position of next mate/read */
+          tlen = 0; /**< template length */
 
           Flag flag; /**< Bitwise flag */
 

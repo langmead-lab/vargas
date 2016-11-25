@@ -308,17 +308,17 @@ void vargas::SAM::Header::parse(std::string hdr) {
 
 int vargas::SAM::Record::Flag::encode() const {
     return (multiple ? 0x001 : 0) +
-        (aligned ? 0x002 : 0) +
-        (unmapped ? 0x004 : 0) +
-        (next_unmapped ? 0x008 : 0) +
-        (rev_complement ? 0x010 : 0) +
-        (next_rev_complement ? 0x020 : 0) +
-        (first ? 0x040 : 0) +
-        (last ? 0x080 : 0) +
-        (secondary ? 0x100 : 0) +
-        (pass_fail ? 0x200 : 0) +
-        (duplicate ? 0x400 : 0) +
-        (supplementary ? 0x800 : 0);
+    (aligned ? 0x002 : 0) +
+    (unmapped ? 0x004 : 0) +
+    (next_unmapped ? 0x008 : 0) +
+    (rev_complement ? 0x010 : 0) +
+    (next_rev_complement ? 0x020 : 0) +
+    (first ? 0x040 : 0) +
+    (last ? 0x080 : 0) +
+    (secondary ? 0x100 : 0) +
+    (pass_fail ? 0x200 : 0) +
+    (duplicate ? 0x400 : 0) +
+    (supplementary ? 0x800 : 0);
 }
 
 void vargas::SAM::Record::Flag::decode(unsigned int f) {
@@ -450,75 +450,75 @@ TEST_CASE ("SAM File") {
 
         std::string v1, v2;
 
-            REQUIRE(a.record().get(ah, "SEQ", v1));
-            CHECK(v1 == "CGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG");
-            REQUIRE(b.record().get(bh, vargas::SAM::Record::REQUIRED_SEQ, v1));
-            CHECK(v1 == "CGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG");
+        REQUIRE(a.record().get(ah, "SEQ", v1));
+        CHECK(v1 == "CGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG");
+        REQUIRE(b.record().get(bh, vargas::SAM::Record::REQUIRED_SEQ, v1));
+        CHECK(v1 == "CGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG");
 
         {
             int v;
-                REQUIRE(a.record().get(ah, "NM", v));
-                CHECK(v == 0);
-                REQUIRE(a.record().get(ah, "SM", v));
-                CHECK(v == 37);
-                REQUIRE(b.record().get(bh, "NM", v));
-                CHECK(v == 0);
-                REQUIRE(b.record().get(bh, "SM", v));
-                CHECK(v == 37);
+            REQUIRE(a.record().get(ah, "NM", v));
+            CHECK(v == 0);
+            REQUIRE(a.record().get(ah, "SM", v));
+            CHECK(v == 37);
+            REQUIRE(b.record().get(bh, "NM", v));
+            CHECK(v == 0);
+            REQUIRE(b.record().get(bh, "SM", v));
+            CHECK(v == 37);
         }
         {
             char v;
-                REQUIRE(a.record().get(ah, "XT", v));
-                CHECK(v == 'U');
-                REQUIRE(a.record().get(ah, "XT", v));
-                CHECK(v == 'U');
+            REQUIRE(a.record().get(ah, "XT", v));
+            CHECK(v == 'U');
+            REQUIRE(a.record().get(ah, "XT", v));
+            CHECK(v == 'U');
         }
         {
-                REQUIRE(a.record().get(ah, "MD", v1));
-                CHECK(v1 == "37");
-                REQUIRE(a.record().get(ah, "MD", v1));
-                CHECK(v1 == "37");
+            REQUIRE(a.record().get(ah, "MD", v1));
+            CHECK(v1 == "37");
+            REQUIRE(a.record().get(ah, "MD", v1));
+            CHECK(v1 == "37");
         }
 
         do {
             const auto &ar = a.record();
             const auto &br = b.record();
-                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_POS, v1));
-                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_POS, v2));
-                CHECK(v1 == v2);
-                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
-                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
-                CHECK(v1 == v2);
-                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_TLEN, v1));
-                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_TLEN, v2));
-                CHECK(v1 == v2);
-                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_MAPQ, v1));
-                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_MAPQ, v2));
-                CHECK(v1 == v2);
-                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_CIGAR, v1));
-                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_CIGAR, v2));
-                CHECK(v1 == v2);
-                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_PNEXT, v1));
-                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_PNEXT, v2));
-                CHECK(v1 == v2);
-                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_FLAG, v1));
-                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_FLAG, v2));
-                CHECK(v1 == v2);
-                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_RNAME, v1));
-                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_RNAME, v2));
-                CHECK(v1 == v2);
-                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_RNEXT, v1));
-                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_RNEXT, v2));
-                CHECK(v1 == v2);
-                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_SEQ, v1));
-                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_SEQ, v2));
-                CHECK(v1 == v2);
-                REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
-                REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
-                CHECK(v1 == v2);
+            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_POS, v1));
+            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_POS, v2));
+            CHECK(v1 == v2);
+            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
+            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
+            CHECK(v1 == v2);
+            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_TLEN, v1));
+            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_TLEN, v2));
+            CHECK(v1 == v2);
+            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_MAPQ, v1));
+            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_MAPQ, v2));
+            CHECK(v1 == v2);
+            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_CIGAR, v1));
+            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_CIGAR, v2));
+            CHECK(v1 == v2);
+            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_PNEXT, v1));
+            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_PNEXT, v2));
+            CHECK(v1 == v2);
+            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_FLAG, v1));
+            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_FLAG, v2));
+            CHECK(v1 == v2);
+            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_RNAME, v1));
+            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_RNAME, v2));
+            CHECK(v1 == v2);
+            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_RNEXT, v1));
+            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_RNEXT, v2));
+            CHECK(v1 == v2);
+            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_SEQ, v1));
+            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_SEQ, v2));
+            CHECK(v1 == v2);
+            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
+            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
+            CHECK(v1 == v2);
         } while (a.next() && b.next());
-            CHECK(!b.next());
-            CHECK(!a.next());
+        CHECK(!b.next());
+        CHECK(!a.next());
     } catch (std::exception &e) {
         std::cerr << e.what() << std::endl;
         throw;

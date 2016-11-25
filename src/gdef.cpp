@@ -101,7 +101,7 @@ bool vargas::GraphManager::open(std::istream &in, bool build_base) {
 
             if (p_pair[1].length() != nsamps)
                 throw std::range_error("Population length does not match variant file: \"" + p_pair[0] + "\","
-                    " expected " + std::to_string(nsamps) + " got " + std::to_string(p_pair[1].length()));
+                " expected " + std::to_string(nsamps) + " got " + std::to_string(p_pair[1].length()));
 
             pop.reset();
             for (size_t i = 0; i < p_pair[1].length(); ++i) {
@@ -211,12 +211,12 @@ bool vargas::GraphManager::write(std::string ref_file,
                                  int nsamps) {
 
     std::string out_str = GDEF_FILE_MARKER + "\n"
-        + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM
-        + GDEF_VAR + GDEF_ASSIGN + variant_file + GDEF_DELIM
-        + GDEF_REGION + GDEF_ASSIGN + region + GDEF_DELIM
-        + GDEF_NODELEN + GDEF_ASSIGN + std::to_string(node_len) + GDEF_DELIM
-        + GDEF_NEGATE_FILTER + GDEF_ASSIGN + (_invert_filter ? "1" : "0") + GDEF_DELIM
-        + GDEF_SAMPLE_FILTER + GDEF_ASSIGN + _sample_filter + '\n';
+    + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM
+    + GDEF_VAR + GDEF_ASSIGN + variant_file + GDEF_DELIM
+    + GDEF_REGION + GDEF_ASSIGN + region + GDEF_DELIM
+    + GDEF_NODELEN + GDEF_ASSIGN + std::to_string(node_len) + GDEF_DELIM
+    + GDEF_NEGATE_FILTER + GDEF_ASSIGN + (_invert_filter ? "1" : "0") + GDEF_DELIM
+    + GDEF_SAMPLE_FILTER + GDEF_ASSIGN + _sample_filter + '\n';
 
     // Replace new lines with the delim, remove any spaces
     std::replace(defs_str.begin(), defs_str.end(), '\n', GDEF_DELIM);
@@ -266,7 +266,7 @@ bool vargas::GraphManager::write(std::string ref_file,
             bool top_n = false;
             if (pair[1].at(pair[1].length() - 1) == '%') {
                 count = (size_t) (((double) populations.at(parent).count() / 100) *
-                    std::stoi(pair[1].substr(0, pair[1].length() - 1)));
+                std::stoi(pair[1].substr(0, pair[1].length() - 1)));
             } else if (pair[1].at(pair[1].length() - 1) == 't') {
                 top_n = true;
                 count = std::stoul(pair[1].substr(0, pair[1].length() - 1));
@@ -274,8 +274,8 @@ bool vargas::GraphManager::write(std::string ref_file,
 
             if (count > populations.at(parent).count())
                 throw std::invalid_argument("Not enough samples available to pick " +
-                    std::to_string(count) + " in definition \"" + def + "\", "
-                                                + std::to_string(populations.at(parent).count()) + " available.");
+                std::to_string(count) + " in definition \"" + def + "\", "
+                                            + std::to_string(populations.at(parent).count()) + " available.");
 
             pop.reset();
 
@@ -303,7 +303,7 @@ bool vargas::GraphManager::write(std::string ref_file,
             }
             populations[parent + GDEF_SCOPE + pair[0].substr(parent_end + 1)] = pop;
             populations[parent + GDEF_SCOPE + GDEF_NEGATE + pair[0].substr(parent_end + 1)] =
-                ~pop & populations.at(parent);
+            ~pop & populations.at(parent);
         }
     }
 
@@ -365,26 +365,26 @@ TEST_CASE ("Graph Manager") {
     {
         std::ofstream fao(tmpfa);
         fao
-            << ">x" << endl
-            << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
-            << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
-            << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
-            << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
-            << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
-            << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
-            << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
-            << ">y" << endl
-            << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+        << ">x" << endl
+        << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
+        << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
+        << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
+        << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
+        << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
+        << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
+        << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
+        << ">y" << endl
+        << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
     }
 
     std::srand(12345);
 
-        CHECK(vargas::GraphManager::is_definition("a=b") == true);
-        CHECK(vargas::GraphManager::is_definition("a.txt") == false);
+    CHECK(vargas::GraphManager::is_definition("a=b") == true);
+    CHECK(vargas::GraphManager::is_definition("a.txt") == false);
 
-        SUBCASE("File Write Wrapper") {
+    SUBCASE("File Write Wrapper") {
 
-            SUBCASE("VCF") {
+        SUBCASE("VCF") {
 
             std::string tmpvcf = "tmp_tc.vcf";
 
@@ -392,26 +392,26 @@ TEST_CASE ("Graph Manager") {
             {
                 std::ofstream vcfo(tmpvcf);
                 vcfo
-                    << "##fileformat=VCFv4.1" << endl
-                    << "##phasing=true" << endl
-                    << "##contig=<ID=x>" << endl
-                    << "##contig=<ID=y>" << endl
-                    << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
-                    << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
-                    << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
-                    << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
-                    << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
-                    << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
-                    << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
-                    << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
-                    << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
-                    << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1"
-                    << endl
-                    << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1"
-                    << endl
-                    << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1"
-                    << endl
-                    << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+                << "##fileformat=VCFv4.1" << endl
+                << "##phasing=true" << endl
+                << "##contig=<ID=x>" << endl
+                << "##contig=<ID=y>" << endl
+                << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+                << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+                << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
+                << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+                << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+                << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+                << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+                << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+                << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+                << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1"
+                << endl
+                << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1"
+                << endl
+                << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1"
+                << endl
+                << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
             }
 
             std::stringstream ss;
@@ -424,36 +424,36 @@ TEST_CASE ("Graph Manager") {
                               ss);
             gm.open(ss);
 
-                CHECK_THROWS(gm.filter("sdf"));
+            CHECK_THROWS(gm.filter("sdf"));
 
-                CHECK(gm.filter("ingroup").count() == 2);
-                CHECK((gm.filter("ingroup") && gm.filter("~ingroup")) == 0);
-                CHECK(gm.filter("ingroup:1_2").count() == 1);
-                CHECK((gm.filter("ingroup:1_2") && gm.filter("ingroup:~1_2")) == 0);
-                CHECK((gm.filter("ingroup") && gm.filter("~ingroup:1_1")) == 0);
-                CHECK(gm.filter("~ingroup:1_1").count() == 1);
+            CHECK(gm.filter("ingroup").count() == 2);
+            CHECK((gm.filter("ingroup") && gm.filter("~ingroup")) == 0);
+            CHECK(gm.filter("ingroup:1_2").count() == 1);
+            CHECK((gm.filter("ingroup:1_2") && gm.filter("ingroup:~1_2")) == 0);
+            CHECK((gm.filter("ingroup") && gm.filter("~ingroup:1_1")) == 0);
+            CHECK(gm.filter("~ingroup:1_1").count() == 1);
 
-                CHECK((gm.filter("ingroup") | gm.filter("~ingroup")).count() == 4);
-                CHECK((gm.filter("ingroup:1_2") | gm.filter("ingroup:~1_2")) == gm.filter("ingroup"));
+            CHECK((gm.filter("ingroup") | gm.filter("~ingroup")).count() == 4);
+            CHECK((gm.filter("ingroup:1_2") | gm.filter("ingroup:~1_2")) == gm.filter("ingroup"));
 
-                CHECK(gm.filter("top").at(0) == 1);
-                CHECK(gm.filter("top").at(1) == 1);
+            CHECK(gm.filter("top").at(0) == 1);
+            CHECK(gm.filter("top").at(1) == 1);
             for (size_t i = 2; i < gm.filter("top").size(); ++i) {
-                    CHECK(gm.filter("top").at(i) == 0);
+                CHECK(gm.filter("top").at(i) == 0);
             }
 
             {
                 auto in_graph = gm.make_subgraph("ingroup");
-                    CHECK(in_graph.use_count() == 2);
+                CHECK(in_graph.use_count() == 2);
                 gm.destroy("ingroup");
-                    CHECK(in_graph.use_count() == 1);
+                CHECK(in_graph.use_count() == 1);
             }
 
             {
                 auto in_graph = gm.make_subgraph("ingroup");
-                    CHECK(in_graph.use_count() == 2);
+                CHECK(in_graph.use_count() == 2);
                 gm.clear();
-                    CHECK(in_graph.use_count() == 1);
+                CHECK(in_graph.use_count() == 1);
             }
 
             remove(tmpvcf.c_str());

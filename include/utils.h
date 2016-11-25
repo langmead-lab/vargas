@@ -227,14 +227,14 @@ template<typename T>
 __RG_STRONG_INLINE__
 double chrono_duration(const std::chrono::time_point<T> &start_time) {
     return std::chrono::duration_cast<std::chrono::duration<double>>
-        (std::chrono::steady_clock::now() - start_time).count();
+    (std::chrono::steady_clock::now() - start_time).count();
 }
 
 template<typename T>
 __RG_STRONG_INLINE__
 double chrono_duration(const std::chrono::time_point<T> &start_time, const std::chrono::time_point<T> &end) {
     return std::chrono::duration_cast<std::chrono::duration<double>>
-        (end - start_time).count();
+    (end - start_time).count();
 }
 
 __RG_STRONG_INLINE__

@@ -199,7 +199,7 @@ namespace vargas {
                const Population &pop,
                bool ref,
                float af) :
-              _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) {}
+          _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) {}
 
           /**
            * @return length of the sequence

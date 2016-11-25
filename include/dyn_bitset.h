@@ -328,39 +328,39 @@ TEST_CASE ("Dynamic Bitset") {
                                  1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0,
                                  0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0};
     dyn_bitset<32> a(a_bool),
-        b1(std::vector<bool>(62, false)),
-        b2(b2_bool);
+    b1(std::vector<bool>(62, false)),
+    b2(b2_bool);
 
-        CHECK(a.size() == 62);
-        CHECK(a.right_pad() == 2);
-        CHECK((a && b1) == false);
-        CHECK((a && b2) == true);
+    CHECK(a.size() == 62);
+    CHECK(a.right_pad() == 2);
+    CHECK((a && b1) == false);
+    CHECK((a && b2) == true);
 
-        CHECK(b1.at(3) == 0);
+    CHECK(b1.at(3) == 0);
     b1.set(3);
-        CHECK(b1.at(3) == 1);
-        CHECK((a && b1) == true);
+    CHECK(b1.at(3) == 1);
+    CHECK((a && b1) == true);
 
-        CHECK(a.at(0) == 0);
-        CHECK(a.at(61) == 0);
-        CHECK(a.at(57) == 1);
-        CHECK_THROWS(a.at(-1) == 0);
-        CHECK_THROWS (a.at(100) == 0);
+    CHECK(a.at(0) == 0);
+    CHECK(a.at(61) == 0);
+    CHECK(a.at(57) == 1);
+    CHECK_THROWS(a.at(-1) == 0);
+    CHECK_THROWS (a.at(100) == 0);
 
     a.push_back(0);
-        CHECK(a.size() == 63);
-        CHECK(a.at(62) == 0);
+    CHECK(a.size() == 63);
+    CHECK(a.at(62) == 0);
     a.push_back(1);
-        CHECK(a.size() == 64);
-        CHECK(a.at(63) == 1);
+    CHECK(a.size() == 64);
+    CHECK(a.at(63) == 1);
     a.push_back(0);
-        CHECK(a.size() == 65);
-        CHECK(a.at(64) == 0);
+    CHECK(a.size() == 65);
+    CHECK(a.at(64) == 0);
 
     std::ostringstream ss;
     std::vector<bool> p_bool = {0, 1, 0, 1, 1, 1, 1};
     dyn_bitset<8> p(p_bool);
-        CHECK(p.to_string() == "0101111");
+    CHECK(p.to_string() == "0101111");
 }
 
 #endif //VARGAS_DYN_BITSET_H

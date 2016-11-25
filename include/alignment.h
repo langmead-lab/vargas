@@ -85,14 +85,14 @@ namespace vargas {
        */
       Aligner(size_t max_node_len,
               size_t read_len) :
-          _read_len(read_len),
-          _tol(read_len / DEFAULT_TOL_FACTOR),
-          _match_vec(simdpp::splat(2)),
-          _mismatch_vec(simdpp::splat(2)),
-          _gap_open_extend_vec(simdpp::splat(4)),
-          _gap_extend_vec(simdpp::splat(1)),
-          _max_node_len(max_node_len),
-          _alignment_group(read_len) { _alloc(); }
+      _read_len(read_len),
+      _tol(read_len / DEFAULT_TOL_FACTOR),
+      _match_vec(simdpp::splat(2)),
+      _mismatch_vec(simdpp::splat(2)),
+      _gap_open_extend_vec(simdpp::splat(4)),
+      _gap_extend_vec(simdpp::splat(1)),
+      _max_node_len(max_node_len),
+      _alignment_group(read_len) { _alloc(); }
 
       /**
        * @brief
@@ -110,14 +110,14 @@ namespace vargas {
               uint8_t mismatch,
               uint8_t open,
               uint8_t extend) :
-          _read_len(read_len),
-          _tol(read_len / DEFAULT_TOL_FACTOR),
-          _match_vec(simdpp::splat(match)),
-          _mismatch_vec(simdpp::splat(mismatch)),
-          _gap_open_extend_vec(simdpp::splat(open + extend)),
-          _gap_extend_vec(simdpp::splat(extend)),
-          _max_node_len(max_node_len),
-          _alignment_group(read_len) { _alloc(); }
+      _read_len(read_len),
+      _tol(read_len / DEFAULT_TOL_FACTOR),
+      _match_vec(simdpp::splat(match)),
+      _mismatch_vec(simdpp::splat(mismatch)),
+      _gap_open_extend_vec(simdpp::splat(open + extend)),
+      _gap_extend_vec(simdpp::splat(extend)),
+      _max_node_len(max_node_len),
+      _alignment_group(read_len) { _alloc(); }
 
       ~Aligner() {
           _dealloc();
@@ -262,7 +262,7 @@ namespace vargas {
           std::vector<uint8_t> sub_score; /**< Second best scores */
 
           std::vector<uint8_t>
-              correctness_flag; /**< 1 for target matching best score, 2 for matching sub score, 0 otherwise */
+          correctness_flag; /**< 1 for target matching best score, 2 for matching sub score, 0 otherwise */
 
           /**
            * @brief
@@ -316,12 +316,12 @@ namespace vargas {
           return _tol;
       }
 
-      inline static constexpr size_t default_tolerance() { return DEFAULT_TOL_FACTOR; }
+      static constexpr size_t default_tolerance() { return DEFAULT_TOL_FACTOR; }
 
       /**
        * @return maximum number of reads that can be aligned at once.
        */
-      inline static constexpr size_t read_capacity() { return VEC_SIZE; }
+      static constexpr size_t read_capacity() { return VEC_SIZE; }
 
       /**
        * @brief
@@ -436,14 +436,14 @@ namespace vargas {
               _sub_score = ZERO_CT;
 
               std::vector<uint32_t>
-                  tmp_targets_upper(VEC_SIZE),
-                  tmp_targets_lower(VEC_SIZE),
-                  tmp_max_pos(VEC_SIZE),
-                  tmp_sub_pos(VEC_SIZE);
+              tmp_targets_upper(VEC_SIZE),
+              tmp_targets_lower(VEC_SIZE),
+              tmp_max_pos(VEC_SIZE),
+              tmp_sub_pos(VEC_SIZE);
               std::vector<uint8_t>
-                  tmp_max_count(VEC_SIZE),
-                  tmp_sub_count(VEC_SIZE),
-                  tmp_cor_flag(VEC_SIZE);
+              tmp_max_count(VEC_SIZE),
+              tmp_sub_count(VEC_SIZE),
+              tmp_cor_flag(VEC_SIZE);
 
               _max_pos = tmp_max_pos.data();
               _sub_pos = tmp_sub_pos.data();
@@ -871,11 +871,7 @@ namespace vargas {
       const simdpp::uint8<VEC_SIZE> ZERO_CT = simdpp::splat(0);
       const simdpp::uint8<VEC_SIZE> _N_VEC = simdpp::splat(Base::N);
 
-      simdpp::uint8<VEC_SIZE>
-          _match_vec,
-          _mismatch_vec,
-          _gap_open_extend_vec,
-          _gap_extend_vec;
+      simdpp::uint8<VEC_SIZE> _match_vec, _mismatch_vec, _gap_open_extend_vec, _gap_extend_vec;
 
       /**
        * Each vector has an 'a' and a 'b' version. Through each row of the
@@ -884,26 +880,26 @@ namespace vargas {
        * S and D are padded 1 to provide a left column buffer.
        */
       VecType
-          *_Sa = nullptr,    /**< Matrix row */
-          *_Sb = nullptr,
-          *_Da = nullptr,    /**< Deletion vector */
-          *_Db = nullptr,
-          *_Ia = nullptr,    /**< Insertion vector */
-          *_Ib = nullptr;
+      *_Sa = nullptr,    /**< Matrix row */
+      *_Sb = nullptr,
+      *_Da = nullptr,    /**< Deletion vector */
+      *_Db = nullptr,
+      *_Ia = nullptr,    /**< Insertion vector */
+      *_Ib = nullptr;
 
       simdpp::uint8<VEC_SIZE>
-          *_S_prev = nullptr,    /**< _S_prev[n] => S(i-1, n) */
-          *_S_curr = nullptr,
-          *_D_prev = nullptr,    /**< _D_prev[n] => D(i-1, n) */
-          *_D_curr = nullptr,
-          *_I_prev = nullptr,    /**< _I_prev[r] => I(r, j-1) */
-          *_I_curr = nullptr,
-          *_swp_tmp0;
+      *_S_prev = nullptr,    /**< _S_prev[n] => S(i-1, n) */
+      *_S_curr = nullptr,
+      *_D_prev = nullptr,    /**< _D_prev[n] => D(i-1, n) */
+      *_D_curr = nullptr,
+      *_I_prev = nullptr,    /**< _I_prev[r] => I(r, j-1) */
+      *_I_curr = nullptr,
+      *_swp_tmp0;
 
       simdpp::uint8<VEC_SIZE>
-          _tmp0, /**< temporary for use within functions */
-          _Ceq,  /**< Match score when read_base == ref_base */
-          _Cneq; /**< mismatch penalty */
+      _tmp0, /**< temporary for use within functions */
+      _Ceq,  /**< Match score when read_base == ref_base */
+      _Cneq; /**< mismatch penalty */
 
       uint32_t _curr_pos;
 
@@ -995,7 +991,7 @@ TEST_CASE ("Alignment") {
     g.add_edge(2, 3);
     g.set_popsize(3);
 
-        SUBCASE("Graph Alignment") {
+    SUBCASE("Graph Alignment") {
         std::vector<std::string> reads;
         reads.push_back("NNNCCTT");
         reads.push_back("NNNGGTT");
@@ -1009,40 +1005,40 @@ TEST_CASE ("Alignment") {
 
         vargas::Aligner a(5, 7);
         vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
-            CHECK(aligns.max_score[0] == 8);
-            CHECK(aligns.max_pos[0] == 8);
-            CHECK((int) aligns.correctness_flag[0] == 1);
+        CHECK(aligns.max_score[0] == 8);
+        CHECK(aligns.max_pos[0] == 8);
+        CHECK((int) aligns.correctness_flag[0] == 1);
 
-            CHECK(aligns.max_score[1] == 8);
-            CHECK(aligns.max_pos[1] == 8);
-            CHECK((int) aligns.correctness_flag[1] == 1);
+        CHECK(aligns.max_score[1] == 8);
+        CHECK(aligns.max_pos[1] == 8);
+        CHECK((int) aligns.correctness_flag[1] == 1);
 
-            CHECK(aligns.max_score[2] == 8);
-            CHECK(aligns.max_pos[2] == 5);
-            CHECK((int) aligns.correctness_flag[2] == 1);
+        CHECK(aligns.max_score[2] == 8);
+        CHECK(aligns.max_pos[2] == 5);
+        CHECK((int) aligns.correctness_flag[2] == 1);
 
-            CHECK(aligns.max_score[3] == 8);
-            CHECK(aligns.max_pos[3] == 5);
-            CHECK((int) aligns.correctness_flag[3] == 1);
+        CHECK(aligns.max_score[3] == 8);
+        CHECK(aligns.max_pos[3] == 5);
+        CHECK((int) aligns.correctness_flag[3] == 1);
 
-            CHECK(aligns.max_score[4] == 10);
-            CHECK(aligns.max_pos[4] == 7);
-            CHECK((int) aligns.correctness_flag[4] == 1);
+        CHECK(aligns.max_score[4] == 10);
+        CHECK(aligns.max_pos[4] == 7);
+        CHECK((int) aligns.correctness_flag[4] == 1);
 
-            CHECK(aligns.max_score[5] == 4);
-            CHECK(aligns.max_pos[5] == 6);
-            CHECK((int) aligns.correctness_flag[5] == 1);
+        CHECK(aligns.max_score[5] == 4);
+        CHECK(aligns.max_pos[5] == 6);
+        CHECK((int) aligns.correctness_flag[5] == 1);
 
-            CHECK(aligns.max_score[6] == 8);
-            CHECK(aligns.max_pos[6] == 10);
-            CHECK((int) aligns.correctness_flag[6] == 1);
+        CHECK(aligns.max_score[6] == 8);
+        CHECK(aligns.max_pos[6] == 10);
+        CHECK((int) aligns.correctness_flag[6] == 1);
 
-            CHECK(aligns.max_score[7] == 8);
-            CHECK(aligns.max_pos[7] == 4);
-            CHECK((int) aligns.correctness_flag[7] == 1);
+        CHECK(aligns.max_score[7] == 8);
+        CHECK(aligns.max_pos[7] == 4);
+        CHECK((int) aligns.correctness_flag[7] == 1);
     }
 
-        SUBCASE("Different scoring scheme") {
+    SUBCASE("Different scoring scheme") {
 
         std::vector<std::string> reads;
         reads.push_back("NNNNNNCCTT");
@@ -1061,45 +1057,45 @@ TEST_CASE ("Alignment") {
         vargas::Aligner a(5, 10, 2, 6, 5, 3);
         vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
 
-            CHECK(aligns.max_score[0] == 8);
-            CHECK(aligns.max_pos[0] == 8);
-            CHECK((int) aligns.correctness_flag[0] == 1);
+        CHECK(aligns.max_score[0] == 8);
+        CHECK(aligns.max_pos[0] == 8);
+        CHECK((int) aligns.correctness_flag[0] == 1);
 
-            CHECK(aligns.max_score[1] == 8);
-            CHECK(aligns.max_pos[1] == 8);
-            CHECK((int) aligns.correctness_flag[1] == 1);
+        CHECK(aligns.max_score[1] == 8);
+        CHECK(aligns.max_pos[1] == 8);
+        CHECK((int) aligns.correctness_flag[1] == 1);
 
-            CHECK(aligns.max_score[2] == 8);
-            CHECK(aligns.max_pos[2] == 5);
-            CHECK((int) aligns.correctness_flag[2] == 1);
+        CHECK(aligns.max_score[2] == 8);
+        CHECK(aligns.max_pos[2] == 5);
+        CHECK((int) aligns.correctness_flag[2] == 1);
 
-            CHECK(aligns.max_score[3] == 8);
-            CHECK(aligns.max_pos[3] == 5);
-            CHECK((int) aligns.correctness_flag[3] == 1);
+        CHECK(aligns.max_score[3] == 8);
+        CHECK(aligns.max_pos[3] == 5);
+        CHECK((int) aligns.correctness_flag[3] == 1);
 
-            CHECK(aligns.max_score[4] == 10);
-            CHECK(aligns.max_pos[4] == 7);
-            CHECK((int) aligns.correctness_flag[4] == 1);
+        CHECK(aligns.max_score[4] == 10);
+        CHECK(aligns.max_pos[4] == 7);
+        CHECK((int) aligns.correctness_flag[4] == 1);
 
-            CHECK(aligns.max_score[5] == 4);
-            CHECK(aligns.max_pos[5] == 6);
-            CHECK((int) aligns.correctness_flag[5] == 1);
+        CHECK(aligns.max_score[5] == 4);
+        CHECK(aligns.max_pos[5] == 6);
+        CHECK((int) aligns.correctness_flag[5] == 1);
 
-            CHECK(aligns.max_score[6] == 8);
-            CHECK(aligns.max_pos[6] == 10);
-            CHECK((int) aligns.correctness_flag[6] == 1);
+        CHECK(aligns.max_score[6] == 8);
+        CHECK(aligns.max_pos[6] == 10);
+        CHECK((int) aligns.correctness_flag[6] == 1);
 
-            CHECK(aligns.max_score[7] == 8);
-            CHECK(aligns.max_pos[7] == 4);
-            CHECK((int) aligns.correctness_flag[7] == 1);
+        CHECK(aligns.max_score[7] == 8);
+        CHECK(aligns.max_pos[7] == 4);
+        CHECK((int) aligns.correctness_flag[7] == 1);
 
-            CHECK(aligns.max_score[8] == 12);
-            CHECK(aligns.max_pos[8] == 10);
-            CHECK((int) aligns.correctness_flag[8] == 1);
+        CHECK(aligns.max_score[8] == 12);
+        CHECK(aligns.max_pos[8] == 10);
+        CHECK((int) aligns.correctness_flag[8] == 1);
 
-            CHECK(aligns.max_score[9] == 8);
-            CHECK(aligns.max_pos[9] == 10);
-            CHECK((int) aligns.correctness_flag[9] == 1);
+        CHECK(aligns.max_score[9] == 8);
+        CHECK(aligns.max_pos[9] == 10);
+        CHECK((int) aligns.correctness_flag[9] == 1);
     }
 }
 #endif //VARGAS_ALIGNMENT_H

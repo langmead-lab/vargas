@@ -71,7 +71,7 @@ namespace vargas {
       VariantFile(std::string const &chr,
                   int const min,
                   int const max) :
-          _chr(chr), _min_pos(min), _max_pos(max) {}
+      _chr(chr), _min_pos(min), _max_pos(max) {}
 
       virtual ~VariantFile() = default;
 
@@ -251,7 +251,7 @@ namespace vargas {
           std::string chr,
           int min,
           int max) :
-          VariantFile(chr, min, max), _file_name(file) {
+      VariantFile(chr, min, max), _file_name(file) {
           _init();
       }
 

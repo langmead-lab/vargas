@@ -67,17 +67,17 @@ int define_main(int argc, char *argv[]) {
     cxxopts::Options opts("vargas define", "Define subgraphs deriving from a reference and VCF file.");
     try {
         opts.add_options()
-            ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta_file))
-            ("v,vcf", "<str> *VCF/BCF File.", cxxopts::value<std::string>(varfile))
-            ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
-            ("s,subgraph", "<str> File or definitions of format \"[~]NAME=N[%t],...\".",
-             cxxopts::value(subgraph_def))
-            ("l,nodelen", "<N> Maximum node length.", cxxopts::value(node_len)->default_value("1000000"))
-            ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
-            ("x,invert", "Invert sample filter, exclude -p samples.", cxxopts::value(invert_filter))
-            ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
-            ("d,dot", "<str> Export hierarchy to a DOT file.", cxxopts::value(dot_file))
-            ("h,help", "Display this message.");
+        ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta_file))
+        ("v,vcf", "<str> *VCF/BCF File.", cxxopts::value<std::string>(varfile))
+        ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
+        ("s,subgraph", "<str> File or definitions of format \"[~]NAME=N[%t],...\".",
+         cxxopts::value(subgraph_def))
+        ("l,nodelen", "<N> Maximum node length.", cxxopts::value(node_len)->default_value("1000000"))
+        ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
+        ("x,invert", "Invert sample filter, exclude -p samples.", cxxopts::value(invert_filter))
+        ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
+        ("d,dot", "<str> Export hierarchy to a DOT file.", cxxopts::value(dot_file))
+        ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options."); }
     if (opts.count("h")) {
@@ -134,22 +134,22 @@ int sim_main(int argc, char *argv[]) {
     cxxopts::Options opts("vargas sim", "Simulate reads from genome graphs.");
     try {
         opts.add_options()
-            ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf_file))
-            ("s,sub", "<S1,S2..> Subgraphs to simulate from. (default: all)", cxxopts::value(sim_src))
-            ("l,rlen", "<N> Read length.", cxxopts::value(read_len)->default_value("50"))
-            ("n,numreads", "<N> Number of reads to generate.", cxxopts::value(num_reads)->default_value("1000"))
-            ("f,file", "-s specifies a filename.", cxxopts::value(sim_src_isfile))
-            ("d,vnodes", "<N1,N2...> Number of variant nodes. \'*\' for any.",
-             cxxopts::value(vnodes)->default_value("*"))
-            ("b,vbases", "<N1,N2...> Number of variant bases. \'*\' for any.",
-             cxxopts::value(vbases)->default_value("*"))
-            ("m,mut", "<N1,N2...> Number of mutations. \'*\' for any.", cxxopts::value(mut)->default_value("0"))
-            ("i,indel", "<N1,N2...> Number of insertions/deletions. \'*\' for any.",
-             cxxopts::value(indel)->default_value("0"))
-            ("a,rate", "<N1,N2...> Interpret -m, -i as error rates.", cxxopts::value(use_rate))
-            ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
-            ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
-            ("h,help", "Display this message.");
+        ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf_file))
+        ("s,sub", "<S1,S2..> Subgraphs to simulate from. (default: all)", cxxopts::value(sim_src))
+        ("l,rlen", "<N> Read length.", cxxopts::value(read_len)->default_value("50"))
+        ("n,numreads", "<N> Number of reads to generate.", cxxopts::value(num_reads)->default_value("1000"))
+        ("f,file", "-s specifies a filename.", cxxopts::value(sim_src_isfile))
+        ("d,vnodes", "<N1,N2...> Number of variant nodes. \'*\' for any.",
+         cxxopts::value(vnodes)->default_value("*"))
+        ("b,vbases", "<N1,N2...> Number of variant bases. \'*\' for any.",
+         cxxopts::value(vbases)->default_value("*"))
+        ("m,mut", "<N1,N2...> Number of mutations. \'*\' for any.", cxxopts::value(mut)->default_value("0"))
+        ("i,indel", "<N1,N2...> Number of insertions/deletions. \'*\' for any.",
+         cxxopts::value(indel)->default_value("0"))
+        ("a,rate", "<N1,N2...> Interpret -m, -i as error rates.", cxxopts::value(use_rate))
+        ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
+        ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
+        ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options."); }
     if (opts.count("h")) {
@@ -175,10 +175,10 @@ int sim_main(int argc, char *argv[]) {
     vargas::GraphManager gm;
 
     const std::vector<std::string>
-        mut_split = split(mut, ','),
-        indel_split = split(indel, ','),
-        vnode_split = split(vnodes, ','),
-        vbase_split = split(vbases, ',');
+    mut_split = split(mut, ','),
+    indel_split = split(indel, ','),
+    vnode_split = split(vnodes, ','),
+    vbase_split = split(vbases, ',');
 
     if (sim_src_isfile) {
         std::ifstream in(sim_src);
@@ -221,7 +221,7 @@ int sim_main(int argc, char *argv[]) {
     std::unordered_map<std::string, // Graph label
                        std::vector<std::pair<std::string, // Read Group ID
                                              vargas::Sim::Profile>>> // Sim profile
-        queue;
+    queue;
 
     int rg_id = 0;
     vargas::SAM::Header::ReadGroup rg;
@@ -280,13 +280,13 @@ int sim_main(int argc, char *argv[]) {
     std::vector<std::pair<std::string, // Graph label
                           std::pair<std::string, // RG ID
                                     vargas::Sim::Profile>>> // sim prof
-        task_list;
+    task_list;
 
     for (size_t k = 0; k < subdef_split.size(); ++k) {
         for (size_t i = 0; i < queue.at(subdef_split[k]).size(); ++i) {
             auto &p = queue.at(subdef_split[k]).at(i);
             task_list.push_back(std::pair<std::string, std::pair<std::string, vargas::Sim::Profile>>
-                                    (subdef_split[k], std::pair<std::string, vargas::Sim::Profile>(p.first, p.second)));
+                                (subdef_split[k], std::pair<std::string, vargas::Sim::Profile>(p.first, p.second)));
         }
     }
 
@@ -327,22 +327,22 @@ int align_main(int argc, char *argv[]) {
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
     try {
         opts.add_options()
-            ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf_file))
-            ("r,reads", "<str> SAM reads file. (default: stdin)", cxxopts::value(read_file))
-            ("a,align", "<str> Alignment targets/file of form \"RG:[ID][gd],target\"", cxxopts::value(align_targets))
-            ("f,file", " -a specifies a file name.", cxxopts::value(align_targets_isfile))
-            ("l,rlen", "<N> Maximum read length.", cxxopts::value(read_len)->default_value("50"))
-            ("m,match", "<N> Match score.", cxxopts::value(match)->default_value("2"))
-            ("n,mismatch", "<N> Mismatch penalty.", cxxopts::value(mismatch)->default_value("2"))
-            ("o,gap_open", "<N> Gap opening penalty.", cxxopts::value(gopen)->default_value("3"))
-            ("e,gap_extend", "<N> Gap extension penalty.", cxxopts::value(gext)->default_value("1"))
-            ("c,tolerance", "<N> Correct if within readlen/N.",
-             cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
-            ("h,chunk", "<N> Partition tasks into chunks with max size N.",
-             cxxopts::value(chunk_size)->default_value("1024"))
-            ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
-            ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
-            ("h,help", "Display this message.");
+        ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf_file))
+        ("r,reads", "<str> SAM reads file. (default: stdin)", cxxopts::value(read_file))
+        ("a,align", "<str> Alignment targets/file of form \"RG:[ID][gd],target\"", cxxopts::value(align_targets))
+        ("f,file", " -a specifies a file name.", cxxopts::value(align_targets_isfile))
+        ("l,rlen", "<N> Maximum read length.", cxxopts::value(read_len)->default_value("50"))
+        ("m,match", "<N> Match score.", cxxopts::value(match)->default_value("2"))
+        ("n,mismatch", "<N> Mismatch penalty.", cxxopts::value(mismatch)->default_value("2"))
+        ("o,gap_open", "<N> Gap opening penalty.", cxxopts::value(gopen)->default_value("3"))
+        ("e,gap_extend", "<N> Gap extension penalty.", cxxopts::value(gext)->default_value("1"))
+        ("c,tolerance", "<N> Correct if within readlen/N.",
+         cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
+        ("h,chunk", "<N> Partition tasks into chunks with max size N.",
+         cxxopts::value(chunk_size)->default_value("1024"))
+        ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
+        ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
+        ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
     if (opts.count("h")) {
@@ -353,7 +353,7 @@ int align_main(int argc, char *argv[]) {
 
     if (read_len * match > 255) {
         throw std::invalid_argument("Score matrix overflow with read length " + std::to_string(read_len) +
-            " and match score " + std::to_string((int) match) + ".");
+        " and match score " + std::to_string((int) match) + ".");
     }
 
     if (threads) omp_set_num_threads(threads);
@@ -397,7 +397,7 @@ int align_main(int argc, char *argv[]) {
                 rec = reads.record();
                 if (rec.seq.length() != read_len) {
                     throw std::invalid_argument("Expected read of length " +
-                        std::to_string(read_len) + ", got " + std::to_string(rec.seq.length()));
+                    std::to_string(read_len) + ", got " + std::to_string(rec.seq.length()));
                 }
                 if (!rec.aux.get("RG", read_group)) {
                     read_group = "NULL";
@@ -491,7 +491,7 @@ int align_main(int argc, char *argv[]) {
 
     const size_t num_tasks = task_list.size();
     if (num_tasks < threads) {
-        std::cerr << "Warning: Number of threads is greater than number of tasks- try decreasing --chunk_size.\n";
+        std::cerr << "Warning: Number of threads is greater than number of tasks. Try decreasing --chunk.\n";
     }
 
     std::cerr << "Aligning with " << threads << " thread(s)..." << std::endl;
@@ -552,9 +552,9 @@ int convert_main(int argc, char **argv) {
     cxxopts::Options opts("vargas convert", "Export a SAM file as a CSV file.");
     try {
         opts.add_options()
-            ("f,format", "<str> *Output format.", cxxopts::value<std::string>(format))
-            ("s,sam", "<str> SAM file. (default: stdin)", cxxopts::value<std::string>(sam_file))
-            ("h,help", "Display this message.");
+        ("f,format", "<str> *Output format.", cxxopts::value<std::string>(format))
+        ("s,sam", "<str> SAM file. (default: stdin)", cxxopts::value<std::string>(sam_file))
+        ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
     if (opts.count("h")) {
@@ -587,7 +587,7 @@ int convert_main(int argc, char **argv) {
     } while (input.next());
 
     std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
-        std::chrono::steady_clock::now() - start_time).count()
+    std::chrono::steady_clock::now() - start_time).count()
               << " seconds." << std::endl;
 
     return 0;
@@ -600,13 +600,13 @@ int profile(int argc, char *argv[]) {
     cxxopts::Options opts("vargas convert", "Export a SAM file as a CSV file.");
     try {
         opts.add_options()
-            ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta))
-            ("v,vcf", "<str> *Variant File.", cxxopts::value(bcf))
-            ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
-            ("i,ingroup", "<N> Ingroup percentage.", cxxopts::value(ingroup)->default_value("100"))
-            ("n,nreads", "<N> Number of reads.", cxxopts::value(nreads)->default_value("32"))
-            ("l,len", "<N> Number of reads.", cxxopts::value(read_len)->default_value("50"))
-            ("h,help", "Display this message.");
+        ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta))
+        ("v,vcf", "<str> *Variant File.", cxxopts::value(bcf))
+        ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
+        ("i,ingroup", "<N> Ingroup percentage.", cxxopts::value(ingroup)->default_value("100"))
+        ("n,nreads", "<N> Number of reads.", cxxopts::value(nreads)->default_value("32"))
+        ("l,len", "<N> Number of reads.", cxxopts::value(read_len)->default_value("50"))
+        ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
     if (opts.count("h")) {
@@ -702,11 +702,11 @@ int export_main(int argc, char *argv[]) {
     cxxopts::Options opts("vargas export", "Export a graph in DOT format.");
     try {
         opts.add_options()
-            ("g,gdef", "<str> *Graph definition file. (default: stdin)", cxxopts::value(file))
-            ("s,subgraph", "<str> Subgraph to export.",
-             cxxopts::value(subgraph)->default_value(vargas::GraphManager::GDEF_BASEGRAPH))
-            ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out))
-            ("h,help", "Display this message.");
+        ("g,gdef", "<str> *Graph definition file. (default: stdin)", cxxopts::value(file))
+        ("s,subgraph", "<str> Subgraph to export.",
+         cxxopts::value(subgraph)->default_value(vargas::GraphManager::GDEF_BASEGRAPH))
+        ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out))
+        ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
     if (opts.count("h")) {
@@ -729,14 +729,14 @@ int query_main(int argc, char *argv[]) {
     cxxopts::Options opts("vargas query", "Query VCF, Graph, or FASTA files.");
     try {
         opts.add_options()
-            ("d,gdef", "<str> Export graph region as a DOT file.", cxxopts::value(gdef))
-            ("s,subgraph", "<str> Subgraph to export.",
-             cxxopts::value(subgraph)->default_value(vargas::GraphManager::GDEF_BASEGRAPH))
-            ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
-            ("t,out", "<str> -d output file. (default: stdout)", cxxopts::value(out))
-            ("f,fasta", "<str> Reference FASTA.", cxxopts::value(fasta))
-            ("v,vcf", "<str> Variant File.", cxxopts::value(vcf))
-            ("h,help", "Display this message.");
+        ("d,gdef", "<str> Export graph region as a DOT file.", cxxopts::value(gdef))
+        ("s,subgraph", "<str> Subgraph to export.",
+         cxxopts::value(subgraph)->default_value(vargas::GraphManager::GDEF_BASEGRAPH))
+        ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
+        ("t,out", "<str> -d output file. (default: stdout)", cxxopts::value(out))
+        ("f,fasta", "<str> Reference FASTA.", cxxopts::value(fasta))
+        ("v,vcf", "<str> Variant File.", cxxopts::value(vcf))
+        ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
     if (opts.count("h")) {
@@ -887,39 +887,39 @@ TEST_CASE ("Coordinate System Matches") {
     {
         std::ofstream fao(tmpfa);
         fao
-            << ">x" << endl
-            << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
-            << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
-            << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
-            << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
-            << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
-            << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
-            << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
-            << ">y" << endl
-            << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+        << ">x" << endl
+        << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
+        << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
+        << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
+        << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
+        << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
+        << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
+        << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
+        << ">y" << endl
+        << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
     }
     std::string tmpvcf = "tmp_tc.vcf";
 
     {
         std::ofstream vcfo(tmpvcf);
         vcfo
-            << "##fileformat=VCFv4.1" << endl
-            << "##phasing=true" << endl
-            << "##contig=<ID=x>" << endl
-            << "##contig=<ID=y>" << endl
-            << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
-            << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
-            << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
-            << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
-            << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
-            << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
-            << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
-            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
-            << "x\t9\t.\tG\tA,CC,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
-            << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-            << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
-            << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-            << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+        << "##fileformat=VCFv4.1" << endl
+        << "##phasing=true" << endl
+        << "##contig=<ID=x>" << endl
+        << "##contig=<ID=y>" << endl
+        << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+        << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+        << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
+        << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+        << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+        << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+        << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+        << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+        << "x\t9\t.\tG\tA,CC,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+        << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+        << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
+        << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+        << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
     }
 
     vargas::GraphFactory gb(tmpfa);
@@ -958,40 +958,40 @@ TEST_CASE ("Correctness flag") {
     {
         std::ofstream fao(tmpfa);
         fao
-            << ">x" << endl
-            << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
-            << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
-            << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
-            << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
-            << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
-            << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
-            << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
-            << ">y" << endl
-            << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+        << ">x" << endl
+        << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
+        << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
+        << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
+        << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
+        << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
+        << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
+        << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
+        << ">y" << endl
+        << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
     }
     std::string tmpvcf = "tmp_tc.vcf";
 
     {
         std::ofstream vcfo(tmpvcf);
         vcfo
-            << "##fileformat=VCFv4.1" << endl
-            << "##phasing=true" << endl
-            << "##contig=<ID=x>" << endl
-            << "##contig=<ID=y>" << endl
-            << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
-            << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
-            << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
-            << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
-            << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
-            << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
-            << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
-            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
-            << "x\t9\t.\tG\tA,CC,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
-            << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-            << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
-            << "x\t20\t.\tTTC\t<CN3>,<CN2>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-            << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-            << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+        << "##fileformat=VCFv4.1" << endl
+        << "##phasing=true" << endl
+        << "##contig=<ID=x>" << endl
+        << "##contig=<ID=y>" << endl
+        << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+        << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+        << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
+        << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+        << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+        << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+        << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+        << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+        << "x\t9\t.\tG\tA,CC,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+        << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+        << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
+        << "x\t20\t.\tTTC\t<CN3>,<CN2>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+        << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+        << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
     }
 
     std::string reads_file("tmp_rd.sam");

@@ -98,8 +98,8 @@ namespace vargas {
        */
       struct Read {
           Read() :
-              read_orig(""), read(""), end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1),
-              indel_err(-1) { }
+          read_orig(""), read(""), end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1),
+          indel_err(-1) {}
 
           /**
            * @brief
@@ -107,8 +107,8 @@ namespace vargas {
            * @param r read sequence.
            */
           Read(std::string r) :
-              read_orig(""), read(r), end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1),
-              indel_err(-1) { }
+          read_orig(""), read(r), end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1),
+          indel_err(-1) {}
 
           std::string read_orig; /**< unmutated read sequence */
           std::string read; /**< base sequence. */
@@ -277,8 +277,7 @@ namespace vargas {
       void _init();
 
       uint32_t _random_node_id() {
-          return _node_ids[std::lower_bound(_node_weights.begin(),
-                                            _node_weights.end(),
+          return _node_ids[std::lower_bound(_node_weights.begin(), _node_weights.end(),
                                             _node_weight_dist(_rand_generator)) - _node_weights.begin()];
       }
 
