@@ -130,40 +130,21 @@ namespace vargas {
            * @param id Unique ID for a given num
            * @param pct True if num is a percentage
            */
-          GID(int num,
-              int id,
-              bool pct = false) : num(num), id(id), pct(pct), outgroup(false) {}
+          GID(int num, int id, bool pct = false) : num(num), id(id), pct(pct), outgroup(false) {}
 
           /**
            * @brief
            * Build a GID from a string output from to_string
            * @param s string form
            */
-          GID(std::string s) {
-              try {
-                  std::vector<std::string> s_split = split(s, ',');
-                  outgroup = s[0] == 'o';
-                  num = std::stoi(s_split[1]);
-                  id = std::stoi(s_split[2]);
-                  pct = s_split[3][0] == '1';
-              }
-              catch (std::exception &e) {
-                  std::cerr << "Invalid GID string format: " << s << std::endl;
-                  GID();
-              }
-
-          }
+          GID(std::string s);
 
           int num; /**< Percent or number of individuals included in the graph. */
           int id; /**< unique id if multiple graphs of num exist. */
           bool pct; /**< if true, num is a percentage. Otherwise number of individuals.*/
           bool outgroup; /**< True if the origin was an outgroup graph.*/
 
-          std::string to_string() const {
-              std::ostringstream ss;
-              ss << (outgroup ? 'o' : 'i') << ',' << num << ',' << id << ',' << pct;
-              return ss.str();
-          }
+          std::string to_string() const;
       };
 
       using Population = VCF::Population;
@@ -194,30 +175,20 @@ namespace vargas {
            */
           Node() : _id(_newID++) {}
 
-          Node(int pos,
-               const std::string &seq,
-               const Population &pop,
-               bool ref,
-               float af) :
+          Node(size_t pos, const std::string &seq, const Population &pop, bool ref, float af) :
           _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) {}
 
           /**
            * @return length of the sequence
            */
-          size_t length() const {
-              return _seq.size();
-          }
+          size_t length() const { return _seq.size(); }
 
           /**
            * @return position of last base in seq, 0 indexed
            */
-          size_t end_pos() const {
-              return _endPos;
-          }
+          size_t end_pos() const { return _endPos; }
 
-          size_t begin_pos() const {
-              return _endPos - _seq.size() + 1;
-          }
+          size_t begin_pos() const { return _endPos - _seq.size() + 1; }
 
           /**
            * @brief
@@ -225,9 +196,7 @@ namespace vargas {
            * @param idx bit index
            * @return belongs
            */
-          bool belongs(uint idx) const {
-              return _individuals.at(idx);
-          }
+          bool belongs(uint idx) const { return _individuals.at(idx); }
 
           /**
            * @brief
@@ -235,79 +204,63 @@ namespace vargas {
            * @param pop Population filter
            * @return belongs
            */
-          bool belongs(const Population &pop) const {
-              return pop && _individuals;
-          }
+          bool belongs(const Population &pop) const { return pop && _individuals; }
 
           /**
            * @brief
            * Sequence as a vector of unsigned chars.
            * @return seq
            */
-          const std::vector<Base> &seq() const {
-              return _seq;
-          }
+          const std::vector<Base> &seq() const { return _seq; }
 
           /**
            * @brief
            * Sequence is stored numerically. Return as a string.
            * @return seq
            */
-          std::string seq_str() const {
-              return num_to_seq(_seq);
-          }
+          std::string seq_str() const { return num_to_seq(_seq); }
 
           /**
            * @brief
            * Size of the Population of the node. This should be consistant throughout the graph.
            * @return pop_size
            */
-          size_t pop_size() const {
-              return _individuals.size();
-          }
+          size_t pop_size() const { return _individuals.size(); }
 
           /**
            * @brief
            * Node id.
            * @return unique node ID
            */
-          uint32_t id() const {
-              return _id;
-          }
+          size_t id() const { return _id; }
 
           /**
            * @brief
            * True if node common to all individuals, or REF.
            * @return is_ref
            */
-          bool is_ref() const {
-              return _ref;
-          }
+          bool is_ref() const { return _ref; }
 
           /**
            * @brief
            * Allele frequency.
            * @return af
            */
-          float freq() const {
-              return _af;
-          }
+          float freq() const { return _af; }
 
           /**
            * @brief
            * Reference to the raw Population data member.
            * @return individuals
            */
-          const Population &individuals() const {
-              return _individuals;
-          }
+          const Population &individuals() const { return _individuals; }
 
           /**
            * @brief
            * Set the id of the node, should rarely be used as unique ID's are generated.
            * @param id
            */
-          void setID(const uint32_t id) {
+          void setID(const size_t id) {
               if (id >= _newID) {
                   this->_id = id;
                   _newID = id + 1;
@@ -319,18 +272,14 @@ namespace vargas {
            * Set the position of the last base in the sequence.
            * @param pos 0-indexed
            */
-          void set_endpos(const size_t pos) {
-              this->_endPos = pos;
-          }
+          void set_endpos(const size_t pos) { this->_endPos = pos; }
 
           /**
            * @brief
            * Set the population from an existing Population
            * @param pop
            */
-          void set_population(const Population &pop) {
-              _individuals = pop;
-          }
+          void set_population(const Population &pop) { _individuals = pop; }
 
           /**
            * @brief
@@ -338,9 +287,7 @@ namespace vargas {
            * @param pop
            */
           template<typename T>
-          void set_population(const std::vector<T> &pop) {
-              _individuals = pop;
-          }
+          void set_population(const std::vector<T> &pop) { _individuals = pop; }
 
           /**
            * @brief
@@ -348,28 +295,21 @@ namespace vargas {
            * @param len number of genotypes
            * @param val true/false for each individual
            */
-          void set_population(size_t len,
-                              bool val) {
-              _individuals = Population(len, val);
-          }
+          void set_population(size_t len, bool val) { _individuals = Population(len, val); }
 
           /**
            * @brief
            * Set the stored node sequence. Sequence is converted to numeric form.
            * @param seq
            */
-          void set_seq(const std::string &seq) {
-              _seq = seq_to_num(seq);
-          }
+          void set_seq(const std::string &seq) { _seq = seq_to_num(seq); }
 
           /**
            * @brief
            * Set the stored node sequence
            * @param seq
            */
-          void set_seq(std::vector<Base> &seq) {
-              this->_seq = seq;
-          }
+          void set_seq(std::vector<Base> &seq) { this->_seq = seq; }
 
           /**
            * @brief
@@ -384,18 +324,14 @@ namespace vargas {
            * @brief
            * Deselects node as a referene node, does not modify population.
            */
-          void set_not_ref() {
-              _ref = false;
-          }
+          void set_not_ref() { _ref = false; }
 
           /**
            * @brief
            * Set the allele frequency of the node. Used for MAXAF filtering.
            * @param af float frequency, between 0 and 1
            */
-          void set_af(float af) {
-              _af = af;
-          }
+          void set_af(float af) { _af = af; }
 
           /**
            * @brief
@@ -403,24 +339,18 @@ namespace vargas {
            * it does not have an edge to a node after this node. All paths traverse
            * through this node.
            */
-          void pinch() {
-              _pinch = true;
-          }
+          void pinch() { _pinch = true; }
 
-          void unpinch() {
-              _pinch = false;
-          }
+          void unpinch() { _pinch = false; }
           /**
            * @brief
            * If true, then previous alignment seeds can be cleared as no nodes after the current
            * one depends on nodes before current one,in a topographical ordering.
            * @return true if pinched
            */
-          bool is_pinched() const {
-              return _pinch;
-          }
+          bool is_pinched() const { return _pinch; }
 
-          static uint32_t _newID; /**< ID of the next instance to be created */
+          static size_t _newID; /**< ID of the next instance to be created */
 
         private:
           size_t _endPos; // End position of the sequence
@@ -429,11 +359,12 @@ namespace vargas {
           bool _ref = false; // Part of the reference sequence if true
           bool _pinch = false; // If this node is removed, the graph will split into two distinct subgraphs
           float _af = 1;
-          uint32_t _id;
+          size_t _id;
 
       };
 
       typedef std::shared_ptr<Node> nodeptr;
+      typedef std::shared_ptr<const Node> const_nodeptr;
 
       /**
        * @brief
@@ -505,7 +436,6 @@ namespace vargas {
           }
 
           /**
-           * @brief
            * @return pointer to underlying node
            */
           T *operator->() const {
@@ -517,8 +447,8 @@ namespace vargas {
            * All nodes that we've traversed that have incoming edges to the current node.
            * @return vector of previous nodes
            */
-          const std::vector<uint32_t> &incoming() const {
-              const uint32_t nid = _graph._add_order.at(_currID);
+          const std::vector<size_t> &incoming() const {
+              const size_t nid = _graph._add_order.at(_currID);
               if (_graph._prev_map.count(nid) == 0) return _empty_vec;
               return _graph._prev_map.at(nid);
           }
@@ -526,15 +456,15 @@ namespace vargas {
           /**
            * @return vector of all outgoing edges
            */
-          const std::vector<uint32_t> &outgoing() const {
-              const uint32_t nid = _graph._add_order.at(_currID);
+          const std::vector<size_t> &outgoing() const {
+              const size_t nid = _graph._add_order.at(_currID);
               if (_graph._prev_map.count(nid) == 0) return _empty_vec;
               return _graph._next_map.at(nid);
           }
 
           /**
+           * @brief
            * Allow conversion from iterator to const_iterator
-           * @return
            */
           operator GraphIterator<const T>() const {
               return GraphIterator<const T>(_graph, _currID);
@@ -545,7 +475,7 @@ namespace vargas {
 
           const Graph &_graph;
           size_t _currID;
-          const std::vector<uint32_t> _empty_vec;
+          const std::vector<size_t> _empty_vec;
 
       };
 
@@ -556,8 +486,7 @@ namespace vargas {
        * @brief
        * Default constructor inits a new Graph, including a new node map.
        */
-      Graph() : _IDMap(std::make_shared<std::unordered_map<uint32_t, nodeptr>>(std::unordered_map<uint32_t,
-                                                                                                  nodeptr>())) {}
+      Graph() : _IDMap(std::make_shared<std::unordered_map<size_t, nodeptr>>()) {}
 
       /**
        * @brief
@@ -567,10 +496,8 @@ namespace vargas {
        * @param region region in the format chromosome:start-end
        * @param max_node_len Maximum graph node length
        */
-      Graph(const std::string &ref_file,
-            const std::string &vcf_file,
-            const std::string &region,
-            const int max_node_len = 1000000);
+      Graph(const std::string &ref_file, const std::string &vcf_file,
+            const std::string &region, const int max_node_len = 1000000);
 
       /**
        * @brief
@@ -582,8 +509,7 @@ namespace vargas {
        * @param g Graph to derive the new Graph from
        * @param filter population filter, only include nodes representative of this population
        */
-      Graph(const Graph &g,
-            const Population &filter);
+      Graph(const Graph &g, const Population &filter);
 
       /**
         * @brief
@@ -607,7 +533,7 @@ namespace vargas {
        * @param n node to add, ID of original node is preserved.
        * @return ID of the inserted node
        */
-      uint32_t add_node(const Node &n);
+      size_t add_node(const Node &n);
 
       /**
        * @brief
@@ -616,15 +542,14 @@ namespace vargas {
        * @param n1 Node one ID
        * @param n2 Node two ID
        */
-      bool add_edge(const uint32_t n1,
-                    const uint32_t n2);
+      bool add_edge(const size_t n1, const size_t n2);
 
       /**
        * @brief
        * Sets the root of the Graph.
        * @param id ID of root node
        */
-      void set_root(const uint32_t id) {
+      void set_root(const size_t id) {
           _root = id;
       }
 
@@ -640,28 +565,28 @@ namespace vargas {
        * Return root node ID
        * @return root
        */
-      uint32_t root() const { return _root; }
+      size_t root() const { return _root; }
 
       /**
        * @brief
        * Maps a ndoe ID to a shared node object
        * @return map of ID, shared_ptr<Node> pairs
        */
-      const std::shared_ptr<std::unordered_map<uint32_t, nodeptr>> &node_map() const { return _IDMap; }
+      std::shared_ptr<const std::unordered_map<size_t, nodeptr>> node_map() const { return _IDMap; }
 
       /**
        * @brief
        * Maps a node ID to a vector of all next nodes (outgoing edges)
        * @return map of ID, outgoing edge vectors
        */
-      const std::unordered_map<uint32_t, std::vector<uint32_t>> &next_map() const { return _next_map; }
+      const std::unordered_map<size_t, std::vector<size_t>> &next_map() const { return _next_map; }
 
       /**
        * @brief
        *  Maps a node ID to a vector of all incoming edge nodes
        *  @return map of ID, incoming edges
        */
-      const std::unordered_map<uint32_t, std::vector<uint32_t>> &prev_map() const { return _prev_map; }
+      const std::unordered_map<size_t, std::vector<size_t>> &prev_map() const { return _prev_map; }
 
       /**
        * @brief
@@ -670,8 +595,8 @@ namespace vargas {
        * @return shared node object
        * @throws std::invalid_argument if node ID does not exist
        */
-      const Node &node(uint32_t id) const {
-          if (_IDMap->count(id) == 0) throw std::invalid_argument("Invalid Node ID.");
+      const Node &node(size_t id) const {
+          if (_IDMap->count(id) == 0) throw std::domain_error("Invalid Node ID.");
           return *(*_IDMap).at(id);
       }
 
@@ -790,14 +715,14 @@ namespace vargas {
 
 
     private:
-      uint32_t _root = 0; // Root of the Graph
+      size_t _root = 0; // Root of the Graph
       // maps a node ID to a nodeptr. Any derived graphs use the same base node ID map.
-      std::shared_ptr<std::unordered_map<uint32_t, nodeptr>> _IDMap;
+      std::shared_ptr<std::unordered_map<size_t, nodeptr>> _IDMap;
       // maps a node ID to the vector of nodes it points to
-      std::unordered_map<uint32_t, std::vector<uint32_t>> _next_map;
+      std::unordered_map<size_t, std::vector<size_t>> _next_map;
       // maps a node ID to a vector of node ID's that point to it
-      std::unordered_map<uint32_t, std::vector<uint32_t>> _prev_map;
-      std::vector<uint32_t> _add_order; // Order nodes were added
+      std::unordered_map<size_t, std::vector<size_t>> _prev_map;
+      std::vector<size_t> _add_order; // Order nodes were added
       // Description, used by the builder to store construction params
       std::string _desc;
       size_t _pop_size = 0;
@@ -809,8 +734,7 @@ namespace vargas {
        * @param g underlying parent graph
        * @param includedNodes subset of g's nodes to include
        */
-      void _build_derived_edges(const Graph &g,
-                                const std::unordered_map<uint32_t, nodeptr> &includedNodes);
+      void _build_derived_edges(const Graph &g, const std::unordered_map<size_t, nodeptr> &includedNodes);
 
       /**
      * @brief
@@ -818,20 +742,7 @@ namespace vargas {
      * @param begin Graph begin iterator
      * @param end Graph end iterator
      */
-      bool validate() const {
-          std::unordered_set<size_t> filled;
-          for (auto gi = begin(); gi != end(); ++gi) {
-              filled.insert(gi->id());
-              for (auto i : gi.incoming()) {
-                  if (filled.count(i) == 0) {
-                      std::cerr << "Node (ID:" << gi->id() << ", POS:" << gi->end_pos() << ")"
-                                << " hit before previous node " << i << std::endl;
-                      return false;
-                  }
-              }
-          }
-          return true;
-      }
+      bool validate() const;
 
   };
 
@@ -846,7 +757,7 @@ namespace vargas {
    * @code{.cpp}
    * #include "graph.h"
    *
-   * Vargas::GraphBuilder gb("reference.fa", "var.bcf");
+   * Vargas::GraphFactory gb("reference.fa", "var.bcf");
    * gb.node_len(5);
    * gb.ingroup(100);
    * gb.region("x:0-15");
@@ -873,8 +784,6 @@ namespace vargas {
           open_bcf(varfile);
       }
 
-      ~GraphFactory() { _vf.reset(); }
-
       /**
        * @brief
        * Set the region of the graph to build. Format should be
@@ -895,9 +804,7 @@ namespace vargas {
        * @param min min pos, inclusive
        * @param max max pos, inclusive
        */
-      void set_region(std::string chr,
-                      int min,
-                      int max) {
+      void set_region(std::string chr, int min, int max) {
           if (!_vf) throw std::invalid_argument("No variant file opened.");
           _vf->set_region(chr, min, max);
       }
@@ -914,12 +821,7 @@ namespace vargas {
        * @param file_name
        * @return Number of samples
        */
-      size_t open_vcf(std::string const &file_name) {
-          _vf.reset();
-          _vf = std::unique_ptr<VariantFile>(new VCF(file_name));
-          if (!_vf->good()) throw std::invalid_argument("Invalid VCF/BCF file: \"" + file_name + "\"");
-          return _vf->num_samples();
-      }
+      size_t open_vcf(std::string const &file_name);
 
       /**
        * @brief
@@ -928,30 +830,14 @@ namespace vargas {
        * @param invert Use the samples not specified in filter
        * @return Number of samples in the filter.
        */
-      int add_sample_filter(std::string filter, bool invert = false) {
-          if (!_vf) throw std::invalid_argument("No VCF file opened, cannot add filter.");
-          if (filter.length() == 0 || filter == "-") return _vf->num_samples();
-          std::vector<std::string> filt;
-          filter.erase(std::remove_if(filter.begin(), filter.end(), isspace), filter.end());
-          if (invert) {
-              const auto s = _vf->samples();
-              auto vcf_samples = std::unordered_set<std::string>(s.begin(), s.end());
-              const auto filter_samples = split(filter, ',');
-              for (const auto &f : filter_samples) vcf_samples.erase(f);
-              filt = std::vector<std::string>(vcf_samples.begin(), vcf_samples.end());
-          } else {
-              split(filter, ',', filt);
-          }
-          _vf->create_ingroup(filt);
-          return _vf->num_samples();
-      }
+      size_t add_sample_filter(std::string filter, bool invert = false);
 
       /**
        * Open the given file
        * @param file_name
        * @return Number of samples
        */
-      int open_bcf(std::string const &file_name) {
+      size_t open_bcf(std::string const &file_name) {
           return open_vcf(file_name);
       }
 
@@ -985,9 +871,9 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _build_edges(Graph &g,
-                        std::unordered_set<uint32_t> &prev,
-                        std::unordered_set<uint32_t> &curr,
-                        std::unordered_map<uint32_t, uint32_t> *chain = nullptr);
+                        std::unordered_set<size_t> &prev,
+                        std::unordered_set<size_t> &curr,
+                        std::unordered_map<size_t, size_t> *chain = nullptr);
 
       /**
        * @brief
@@ -1001,10 +887,10 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       int _build_linear_ref(Graph &g,
-                            std::unordered_set<uint32_t> &prev,
-                            std::unordered_set<uint32_t> &curr,
-                            uint32_t pos,
-                            uint32_t target);
+                            std::unordered_set<size_t> &prev,
+                            std::unordered_set<size_t> &curr,
+                            size_t pos,
+                            size_t target);
 
       /**
        * @brief
@@ -1031,13 +917,7 @@ namespace vargas {
  * @param a Graph::GID a
  * @param b Graph::GID b
  */
-  inline bool operator<(const Graph::GID &a,
-                        const Graph::GID &b) {
-      if (a.outgroup != b.outgroup) return a.outgroup < b.outgroup;
-      if (a.pct != b.pct) return a.pct < b.pct;
-      if (a.num != b.num) return a.num < b.num;
-      return a.id < b.id;
-  }
+  bool operator<(const Graph::GID &a, const Graph::GID &b);
 
   /**
    * @brief
@@ -1046,23 +926,13 @@ namespace vargas {
    * @param os Output stream
    * @param gid gid to print
    */
-  inline std::ostream &operator<<(std::ostream &os,
-                                  const Graph::GID &gid) {
-      os << (gid.outgroup ? 'o' : 'i') << ',' << gid.num << ',' << gid.id << ',' << gid.pct;
-      return os;
-  }
+  std::ostream &operator<<(std::ostream &os, const Graph::GID &gid);
 
   /**
    * @brief
    * Check if two GID's are equal.
    */
-  inline bool operator==(const Graph::GID &a,
-                         const Graph::GID &b) {
-      if (a.outgroup != b.outgroup) return false;
-      if (a.pct != b.pct) return false;
-      if (a.num != b.num) return false;
-      return a.id == b.id;
-  }
+  bool operator==(const Graph::GID &a, const Graph::GID &b);
 
 }
 

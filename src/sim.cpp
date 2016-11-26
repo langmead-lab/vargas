@@ -165,15 +165,16 @@ bool vargas::Sim::update_read() {
     }
     return true;
 }
-const std::vector<vargas::SAM::Record> &vargas::Sim::get_batch(int size) {
-    if (size <= 0) size = 1;
+const std::vector<vargas::SAM::Record> &vargas::Sim::get_batch(size_t size) {
     _batch.clear();
-    for (int i = 0; i < size; ++i) {
+    if (size == 0) return _batch;
+    for (size_t i = 0; i < size; ++i) {
         if (!update_read()) break;
         _batch.push_back(_read);
     }
     return _batch;
 }
+
 void vargas::Sim::_init() {
     uint64_t total = 0;
     for (auto giter = _graph.begin(); giter != _graph.end(); ++giter) {
@@ -185,6 +186,7 @@ void vargas::Sim::_init() {
     _rand_generator = std::mt19937(rd());
     _node_weight_dist = std::uniform_int_distribution<uint64_t>(0, total);
 }
+
 std::string vargas::Sim::Read::to_fasta() const {
     std::ostringstream ss;
     ss << ">"
@@ -198,6 +200,7 @@ std::string vargas::Sim::Read::to_fasta() const {
        << read;
     return ss.str();
 }
+
 std::string vargas::Sim::Read::to_csv() const {
     std::ostringstream ss;
     ss << src << ','
@@ -209,6 +212,7 @@ std::string vargas::Sim::Read::to_csv() const {
        << var_bases;
     return ss.str();
 }
+
 std::string vargas::Sim::Profile::to_string() const {
     std::ostringstream os;
     os << "len=" << len

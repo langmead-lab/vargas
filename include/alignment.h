@@ -252,8 +252,8 @@ namespace vargas {
        * Struct to return the alignment results
        */
       struct Results {
-          std::vector<uint32_t> max_pos; /**< Best positions */
-          std::vector<uint32_t> sub_pos; /**< Second best positions */
+          std::vector<size_t> max_pos; /**< Best positions */
+          std::vector<size_t> sub_pos; /**< Second best positions */
 
           std::vector<uint8_t> max_count; /**< Occurances of max_pos */
           std::vector<uint8_t> sub_count; /**< Occurances of _sub_pos */
@@ -335,7 +335,7 @@ namespace vargas {
       Results align(const std::vector<std::string> &read_group,
                     Graph::const_iterator begin,
                     Graph::const_iterator end) {
-          std::vector<uint32_t> targets(read_group.size());
+          std::vector<size_t> targets(read_group.size());
           std::fill(targets.begin(), targets.end(), 0);
           return align(read_group, targets, begin, end);
       }
@@ -351,7 +351,7 @@ namespace vargas {
        * @return Results packet
        */
       Results align(const std::vector<std::string> &read_group,
-                    const std::vector<uint32_t> &targets,
+                    const std::vector<size_t> &targets,
                     Graph::const_iterator begin,
                     Graph::const_iterator end) {
           Results aligns;
@@ -370,7 +370,7 @@ namespace vargas {
        * @param aligns Results packet to populate
        */
       inline void align_into(const std::vector<std::string> &read_group,
-                             std::vector<uint32_t> targets,
+                             std::vector<size_t> targets,
                              Graph::const_iterator begin,
                              Graph::const_iterator end,
                              Results &aligns) {
@@ -384,14 +384,14 @@ namespace vargas {
 
           _targets_lower.resize(targets.size());
           _targets_upper.resize(targets.size());
-          std::transform(targets.begin(), targets.end(), _targets_lower.begin(), [=](uint32_t &x) { return x - _tol; });
-          std::transform(targets.begin(), targets.end(), _targets_upper.begin(), [=](uint32_t &x) { return x + _tol; });
+          std::transform(targets.begin(), targets.end(), _targets_lower.begin(), [=](size_t &x) { return x - _tol; });
+          std::transform(targets.begin(), targets.end(), _targets_upper.begin(), [=](size_t &x) { return x + _tol; });
 
           size_t num_groups = read_group.size() / VEC_SIZE; // Full alignment groups
           aligns.resize(read_group.size());
           std::fill(aligns.correctness_flag.begin(), aligns.correctness_flag.end(), 0);
 
-          std::unordered_map<uint32_t, _seed> seed_map; // Maps node ID's to the ending matrix columns of the node
+          std::unordered_map<size_t, _seed> seed_map; // Maps node ID's to the ending matrix columns of the node
           _seed seed(_read_len), nxt(_read_len);
 
           for (size_t group = 0; group < num_groups; ++group) {
@@ -435,7 +435,7 @@ namespace vargas {
               _max_score = ZERO_CT;
               _sub_score = ZERO_CT;
 
-              std::vector<uint32_t>
+              std::vector<size_t>
               tmp_targets_upper(VEC_SIZE),
               tmp_targets_lower(VEC_SIZE),
               tmp_max_pos(VEC_SIZE),
@@ -453,8 +453,8 @@ namespace vargas {
               _targets_upper_ptr = tmp_targets_upper.data();
               _targets_lower_ptr = tmp_targets_lower.data();
 
-              memcpy(_targets_upper_ptr, _targets_upper.data() + offset, len * sizeof(uint32_t));
-              memcpy(_targets_lower_ptr, _targets_lower.data() + offset, len * sizeof(uint32_t));
+              memcpy(_targets_upper_ptr, _targets_upper.data() + offset, len * sizeof(size_t));
+              memcpy(_targets_lower_ptr, _targets_lower.data() + offset, len * sizeof(size_t));
 
 
               for (auto &gi = begin; gi != end; ++gi) {
@@ -467,9 +467,9 @@ namespace vargas {
               memcpy(aligns.max_score.data() + offset, &_max_score, len * sizeof(uint8_t));
               memcpy(aligns.sub_score.data() + offset, &_sub_score, len * sizeof(uint8_t));
 
-              memcpy(aligns.max_pos.data() + offset, tmp_max_pos.data(), len * sizeof(uint32_t));
+              memcpy(aligns.max_pos.data() + offset, tmp_max_pos.data(), len * sizeof(size_t));
               memcpy(aligns.max_count.data() + offset, tmp_max_count.data(), len * sizeof(uint8_t));
-              memcpy(aligns.sub_pos.data() + offset, tmp_sub_pos.data(), len * sizeof(uint32_t));
+              memcpy(aligns.sub_pos.data() + offset, tmp_sub_pos.data(), len * sizeof(size_t));
               memcpy(aligns.sub_count.data() + offset, tmp_sub_count.data(), len * sizeof(uint8_t));
               memcpy(aligns.correctness_flag.data() + offset, tmp_cor_flag.data(), len * sizeof(uint8_t));
           }
@@ -499,8 +499,8 @@ namespace vargas {
        * @throws std::logic_error if a node listed as a previous node but it has not been encountered yet. i.e. not topographically sorted.
        */
       __RG_STRONG_INLINE__
-      void _get_seed(const std::vector<uint32_t> &prev_ids,
-                     const std::unordered_map<uint32_t, _seed> &seed_map,
+      void _get_seed(const std::vector<size_t> &prev_ids,
+                     const std::unordered_map<size_t, _seed> &seed_map,
                      _seed *const seed) const {
           using namespace simdpp;
 
@@ -510,7 +510,7 @@ namespace vargas {
               for (size_t i = 0; i < _read_len; ++i) {
                   seed->I_col[i] = ZERO_CT;
                   seed->S_col[i] = ZERO_CT;
-                  for (uint32_t id : prev_ids) {
+                  for (size_t id : prev_ids) {
                       ns = &seed_map.at(id);
                       seed->I_col[i] = max(seed->I_col[i], ns->I_col[i]);
                       seed->S_col[i] = max(seed->S_col[i], ns->S_col[i]);
@@ -590,7 +590,7 @@ namespace vargas {
           _fill_cell_finish(0, 0, node_origin);
 
           // top row
-          for (uint32_t c = 1; c < seq_size; ++c) {
+          for (size_t c = 1; c < seq_size; ++c) {
               _fill_cell_rz(read_ptr[0], node_seq[c], c);
               _fill_cell_finish(0, c, node_origin);
           }
@@ -598,7 +598,7 @@ namespace vargas {
           nxt->S_col[0] = _S_curr[seq_size - 1];
 
           // Rest of the rows
-          for (uint32_t r = 1; r < _read_len; ++r) {
+          for (size_t r = 1; r < _read_len; ++r) {
               // Swap the rows we are filling in. The previous row/col becomes what we fill in.
               _swp_tmp0 = _S_prev;
               _S_prev = _S_curr;
@@ -617,7 +617,7 @@ namespace vargas {
               _fill_cell_finish(r, 0, node_origin);
 
               // Inner grid
-              for (uint32_t c = 1; c < seq_size; ++c) {
+              for (size_t c = 1; c < seq_size; ++c) {
                   _fill_cell(read_ptr[r], node_seq[c], r, c);
                   _fill_cell_finish(r, c, node_origin);
               }
@@ -656,7 +656,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell_rz(const simdpp::uint8<VEC_SIZE> &read_base,
                          const Base &ref,
-                         const uint32_t &col) {
+                         const size_t &col) {
           _D(col, ZERO_CT, ZERO_CT);
           _I(0, _S_curr[col - 1]);
           _M(col, read_base, ref, ZERO_CT);
@@ -673,7 +673,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell_cz(const simdpp::uint8<VEC_SIZE> &read_base,
                          const Base &ref,
-                         const uint32_t &row,
+                         const size_t &row,
                          const _seed *const s) {
           _D(0, _D_prev[0], _S_prev[0]);
           _I(row, s->S_col[row]);
@@ -691,8 +691,8 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell(const simdpp::uint8<VEC_SIZE> &read_base,
                       const Base &ref,
-                      const uint32_t &row,
-                      const uint32_t &col) {
+                      const size_t &row,
+                      const size_t &col) {
 
           _D(col, _D_prev[col], _S_prev[col]);
           _I(row, _S_curr[col - 1]);
@@ -707,7 +707,7 @@ namespace vargas {
        * @param Sp Previous S value at _curr_posent col.
        */
       __RG_STRONG_INLINE__
-      void _D(const uint32_t &col,
+      void _D(const size_t &col,
               const simdpp::uint8<VEC_SIZE> &Dp,
               const simdpp::uint8<VEC_SIZE> &Sp) {
           using namespace simdpp;
@@ -729,7 +729,7 @@ namespace vargas {
        * @param Sc Previous S value (cell to the left)
        */
       __RG_STRONG_INLINE__
-      void _I(const uint32_t &row,
+      void _I(const size_t &row,
               const simdpp::uint8<VEC_SIZE> &Sc) {
           using namespace simdpp;
 
@@ -751,7 +751,7 @@ namespace vargas {
        * @param Sp Previous S val at col-1 (upper left cell)
        */
       __RG_STRONG_INLINE__
-      void _M(uint32_t col,
+      void _M(size_t col,
               const simdpp::uint8<VEC_SIZE> &read,
               const Base &ref,
               const simdpp::uint8<VEC_SIZE> &Sp) {
@@ -791,9 +791,9 @@ namespace vargas {
        * @param node_origin Current position, used to get absolute alignment position
        */
       __RG_STRONG_INLINE__ __RG_UNROLL__
-      void _fill_cell_finish(const uint32_t &row,
-                             const uint32_t &col,
-                             const uint32_t &node_origin) {
+      void _fill_cell_finish(const size_t &row,
+                             const size_t &col,
+                             const size_t &node_origin) {
           using namespace simdpp;
 
           // S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
@@ -901,16 +901,16 @@ namespace vargas {
       _Ceq,  /**< Match score when read_base == ref_base */
       _Cneq; /**< mismatch penalty */
 
-      uint32_t _curr_pos;
+      size_t _curr_pos;
 
       // Optimal alignment info
       simdpp::uint8<VEC_SIZE> _max_score;
-      uint32_t *_max_pos;
+      size_t *_max_pos;
       uint8_t *_max_count;
 
       // Suboptimal alignment info
       simdpp::uint8<VEC_SIZE> _sub_score;
-      uint32_t *_sub_pos;
+      size_t *_sub_pos;
       uint8_t *_sub_count;
 
       uint8_t *_tmp0_ptr = (uint8_t *) &_tmp0;
@@ -918,8 +918,8 @@ namespace vargas {
       uint8_t *_sub_score_ptr = (uint8_t *) &_sub_score;
 
       uint8_t *_cor_flag;
-      std::vector<uint32_t> _targets_lower, _targets_upper;
-      uint32_t *_targets_lower_ptr, *_targets_upper_ptr;
+      std::vector<size_t> _targets_lower, _targets_upper;
+      size_t *_targets_lower_ptr, *_targets_upper_ptr;
 
       const size_t _max_node_len;
 
@@ -1001,7 +1001,7 @@ TEST_CASE ("Alignment") {
         reads.push_back("NNNNNGG");
         reads.push_back("AAATTTA");
         reads.push_back("AAAGCCC");
-        const std::vector<uint32_t> origins = {8, 8, 5, 5, 7, 6, 10, 6};
+        const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 6};
 
         vargas::Aligner a(5, 7);
         vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
@@ -1051,7 +1051,7 @@ TEST_CASE ("Alignment") {
         reads.push_back("NNNAAAGCCC");
         reads.push_back("AAAGAGTTTA");
         reads.push_back("AAAGAATTTA");
-        const std::vector<uint32_t> origins = {8, 8, 5, 5, 7, 6, 10, 6, 10, 10};
+        const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 6, 10, 10};
 
         // hisat like params
         vargas::Aligner a(5, 10, 2, 6, 5, 3);

@@ -15,14 +15,34 @@
 #include "graph.h"
 
 
-uint32_t vargas::Graph::Node::_newID = 0;
+size_t vargas::Graph::Node::_newID = 0;
 
+std::string vargas::Graph::GID::to_string() const {
+    std::ostringstream ss;
+    ss << (outgroup ? 'o' : 'i') << ',' << num << ',' << id << ',' << pct;
+    return ss.str();
+}
+
+vargas::Graph::GID::GID(std::string s) {
+    try {
+        std::vector<std::string> s_split = split(s, ',');
+        outgroup = s[0] == 'o';
+        num = std::stoi(s_split[1]);
+        id = std::stoi(s_split[2]);
+        pct = s_split[3][0] == '1';
+    }
+    catch (std::exception &e) {
+        std::cerr << "Invalid GID string format: " << s << std::endl;
+        GID();
+    }
+
+}
 
 vargas::Graph::Graph(const std::string &ref_file,
                      const std::string &vcf_file,
                      const std::string &region,
                      const int max_node_len) {
-    _IDMap = std::make_shared<std::unordered_map<uint32_t, nodeptr>>();
+    _IDMap = std::make_shared<std::unordered_map<size_t, nodeptr>>();
     GraphFactory gb(ref_file);
     gb.open_vcf(vcf_file);
     gb.set_region(region);
@@ -38,7 +58,7 @@ vargas::Graph::Graph(const vargas::Graph &g,
     _filter = filter;
 
     // Add all nodes
-    std::unordered_map<uint32_t, nodeptr> includedNodes;
+    std::unordered_map<size_t, nodeptr> includedNodes;
     for (auto &nid : g._add_order) {
         auto &n = (*_IDMap)[nid];
         if (n->belongs(filter)) {
@@ -60,7 +80,7 @@ vargas::Graph::Graph(const Graph &g, Type type) {
     _IDMap = g._IDMap;
     _pop_size = g.pop_size();
     _filter = Population(_pop_size, true);
-    std::unordered_map<uint32_t, nodeptr> includedNodes;
+    std::unordered_map<size_t, nodeptr> includedNodes;
 
     if (type == Type::REF) {
         for (auto &nid : g._add_order) {
@@ -72,16 +92,16 @@ vargas::Graph::Graph(const Graph &g, Type type) {
         }
         _desc = g.desc() + "\n#filter: REF";
     } else if (type == Type::MAXAF) {
-        uint32_t curr = g.root();
-        uint32_t maxid, size;
+        size_t curr = g.root();
+        size_t maxid, size;
         while (true) {
             includedNodes[curr] = (*g._IDMap).at(curr);
             _add_order.push_back(curr);
             if (g._next_map.count(curr) == 0) break; // end of graph
             maxid = g._next_map.at(curr).at(0);
             size = g._next_map.at(curr).size();
-            for (uint32_t i = 1; i < size; ++i) {
-                const uint32_t &id = g._next_map.at(curr).at(i);
+            for (size_t i = 1; i < size; ++i) {
+                const size_t &id = g._next_map.at(curr).at(i);
                 if ((*g._IDMap).at(id)->freq() > (*g._IDMap).at(maxid)->freq())
                     maxid = id;
             }
@@ -97,7 +117,7 @@ vargas::Graph::Graph(const Graph &g, Type type) {
 
 
 void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
-                                         const std::unordered_map<uint32_t, nodeptr> &includedNodes) {
+                                         const std::unordered_map<size_t, nodeptr> &includedNodes) {
     // Add all edges for included nodes
     for (auto &n : includedNodes) {
         if (g._next_map.count(n.second->id()) == 0) continue;
@@ -116,7 +136,7 @@ void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
 }
 
 
-uint32_t vargas::Graph::add_node(const Node &n) {
+size_t vargas::Graph::add_node(const Node &n) {
     if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
     if (_IDMap->size() == 0) _root = n.id(); // first node added is default root
 
@@ -126,17 +146,17 @@ uint32_t vargas::Graph::add_node(const Node &n) {
 }
 
 
-bool vargas::Graph::add_edge(const uint32_t n1,
-                             const uint32_t n2) {
+bool vargas::Graph::add_edge(const size_t n1,
+                             const size_t n2) {
     // Check if the nodes exist
     if (_IDMap->count(n1) == 0 || _IDMap->count(n2) == 0) return false;
 
     // init if first edge to be added
     if (_next_map.count(n1) == 0) {
-        _next_map[n1] = std::vector<uint32_t>();
+        _next_map[n1] = std::vector<size_t>();
     }
     if (_prev_map.count(n2) == 0) {
-        _prev_map[n2] = std::vector<uint32_t>();
+        _prev_map[n2] = std::vector<size_t>();
     }
     _next_map[n1].push_back(n2);
     _prev_map[n2].push_back(n1);
@@ -179,9 +199,9 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
     }
 
     int curr = vf.region_lower(); // The Graph has been built up to this position, exclusive
-    std::unordered_set<uint32_t> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
-    std::unordered_set<uint32_t> curr_unconnected; // ID's of nodes added that are unconnected
-    std::unordered_map<uint32_t, uint32_t> chain;
+    std::unordered_set<size_t> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
+    std::unordered_set<size_t> curr_unconnected; // ID's of nodes added that are unconnected
+    std::unordered_map<size_t, size_t> chain;
 
     g.set_popsize(vf.num_samples());
     const Graph::Population all_pop(g.pop_size(), true);
@@ -210,7 +230,7 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
         }
 
         //alt nodes
-        uint32_t prev_split, curr_split, chain_origin;
+        size_t prev_split, curr_split, chain_origin;
         chain.clear();
         for (size_t i = 1; i < vf.alleles().size(); ++i) {
             const std::string &allele = vf.alleles()[i];
@@ -260,11 +280,11 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
 
 
 void vargas::GraphFactory::_build_edges(vargas::Graph &g,
-                                        std::unordered_set<uint32_t> &prev,
-                                        std::unordered_set<uint32_t> &curr,
-                                        std::unordered_map<uint32_t, uint32_t> *chain) {
-    for (uint32_t pID : prev) {
-        for (uint32_t cID : curr) {
+                                        std::unordered_set<size_t> &prev,
+                                        std::unordered_set<size_t> &curr,
+                                        std::unordered_map<size_t, size_t> *chain) {
+    for (size_t pID : prev) {
+        for (size_t cID : curr) {
             g.add_edge(pID, cID);
         }
     }
@@ -281,10 +301,10 @@ void vargas::GraphFactory::_build_edges(vargas::Graph &g,
 
 
 int vargas::GraphFactory::_build_linear_ref(Graph &g,
-                                            std::unordered_set<uint32_t> &prev,
-                                            std::unordered_set<uint32_t> &curr,
-                                            uint32_t pos,
-                                            uint32_t target) {
+                                            std::unordered_set<size_t> &prev,
+                                            std::unordered_set<size_t> &curr,
+                                            size_t pos,
+                                            size_t target) {
 
     if (target == 0) target = _fa.seq_len(_vf->region_chr());
     if (pos == target) return target; // For adjacent var positions
@@ -320,6 +340,30 @@ std::vector<std::string> vargas::GraphFactory::_split_seq(std::string seq) {
     }
     return split;
 
+}
+size_t vargas::GraphFactory::add_sample_filter(std::string filter, bool invert) {
+    if (!_vf) throw std::invalid_argument("No VCF file opened, cannot add filter.");
+    if (filter.length() == 0 || filter == "-") return _vf->num_samples();
+    std::vector<std::string> filt;
+    filter.erase(std::remove_if(filter.begin(), filter.end(), isspace), filter.end());
+    if (invert) {
+        const auto s = _vf->samples();
+        auto vcf_samples = std::unordered_set<std::string>(s.begin(), s.end());
+        const auto filter_samples = split(filter, ',');
+        for (const auto &f : filter_samples) vcf_samples.erase(f);
+        filt = std::vector<std::string>(vcf_samples.begin(), vcf_samples.end());
+    } else {
+        split(filter, ',', filt);
+    }
+    _vf->create_ingroup(filt);
+    return _vf->num_samples();
+}
+
+size_t vargas::GraphFactory::open_vcf(std::string const &file_name) {
+    _vf.reset();
+    _vf = std::unique_ptr<VariantFile>(new VCF(file_name));
+    if (!_vf->good()) throw std::invalid_argument("Invalid VCF/BCF file: \"" + file_name + "\"");
+    return _vf->num_samples();
 }
 
 
@@ -382,6 +426,40 @@ vargas::Graph vargas::Graph::subgraph(const size_t min, const size_t max) const 
 
     ret.set_desc(_desc + "\n subgraph min:" + std::to_string(min) + " max:" + std::to_string(max));
     return ret;
+}
+
+bool vargas::Graph::validate() const {
+    std::unordered_set<size_t> filled;
+    for (auto gi = begin(); gi != end(); ++gi) {
+        filled.insert(gi->id());
+        for (auto i : gi.incoming()) {
+            if (filled.count(i) == 0) {
+                std::cerr << "Node (ID:" << gi->id() << ", POS:" << gi->end_pos() << ")"
+                          << " hit before previous node " << i << std::endl;
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool ::vargas::operator==(const vargas::Graph::GID &a, const vargas::Graph::GID &b) {
+    if (a.outgroup != b.outgroup) return false;
+    if (a.pct != b.pct) return false;
+    if (a.num != b.num) return false;
+    return a.id == b.id;
+}
+
+std::ostream &::vargas::operator<<(std::ostream &os, const vargas::Graph::GID &gid) {
+    os << (gid.outgroup ? 'o' : 'i') << ',' << gid.num << ',' << gid.id << ',' << gid.pct;
+    return os;
+}
+
+bool ::vargas::operator<(const vargas::Graph::GID &a, const vargas::Graph::GID &b) {
+    if (a.outgroup != b.outgroup) return a.outgroup < b.outgroup;
+    if (a.pct != b.pct) return a.pct < b.pct;
+    if (a.num != b.num) return a.num < b.num;
+    return a.id < b.id;
 }
 
 TEST_SUITE("Graphs");

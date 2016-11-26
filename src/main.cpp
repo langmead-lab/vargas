@@ -505,7 +505,7 @@ int align_main(int argc, char *argv[]) {
     for (size_t l = 0; l < num_tasks; ++l) {
         const size_t num_reads = task_list.at(l).second.size();
         std::vector<std::string> read_seqs(num_reads);
-        std::vector<uint32_t> targets(num_reads);
+        std::vector<size_t> targets(num_reads);
         for (size_t i = 0; i < num_reads; ++i) {
             const auto &r = task_list.at(l).second.at(i);
             read_seqs[i] = r.seq;
@@ -936,7 +936,7 @@ TEST_CASE ("Coordinate System Matches") {
     auto reads = sim.get_batch(aligner.read_capacity());
 
     std::vector<std::string> seqs;
-    std::vector<uint32_t> targets;
+    std::vector<size_t> targets;
     for (auto &r : reads) {
         seqs.push_back(r.seq);
         targets.push_back(r.pos + r.seq.length() - 1);
@@ -1010,7 +1010,7 @@ TEST_CASE ("Correctness flag") {
 
     std::vector<vargas::SAM::Record> records;
     std::vector<std::string> read_seq;
-    std::vector<uint32_t> targets;
+    std::vector<size_t> targets;
     do {
         records.push_back(reads.record());
         read_seq.push_back(reads.record().seq);
