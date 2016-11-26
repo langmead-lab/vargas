@@ -12,10 +12,13 @@
 #define SIMDPP_ARCH_X86_SSE4_1 // SSE support
 #define DOCTEST_CONFIG_IMPLEMENT // User controlled test execution
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include <iostream>
 #include <thread>
 #include <algorithm>
-#include <omp.h>
 #include "gdef.h"
 #include "main.h"
 
@@ -158,7 +161,9 @@ int sim_main(int argc, char *argv[]) {
     }
     if (!opts.count("g")) throw std::invalid_argument("Graph definition file required.");
 
+    #ifdef _OPENMP
     if (threads > 0) omp_set_num_threads(threads);
+    #endif
 
     vargas::SAM::Header sam_hdr;
 
@@ -356,7 +361,9 @@ int align_main(int argc, char *argv[]) {
         " and match score " + std::to_string((int) match) + ".");
     }
 
+    #ifdef _OPENMP
     if (threads) omp_set_num_threads(threads);
+    #endif
 
     if (align_targets_isfile) {
         std::ifstream in(align_targets);

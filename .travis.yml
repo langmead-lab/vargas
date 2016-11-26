@@ -13,12 +13,12 @@ addons:
   apt:
     sources:
     - ubuntu-toolchain-r-test
-    - llvm-toolchain-precise-3.6
+    - llvm-toolchain-precise-3.7
     packages:
     # Apparently c++11 <regex> not fully implemented till 4.9
     - gcc-5
     - g++-5
-    - clang-3.6
+    - clang-3.7
 
 script:
 # Build htslib
