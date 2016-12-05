@@ -343,7 +343,7 @@ int align_main(int argc, char *argv[]) {
         ("e,gap_extend", "<N> Gap extension penalty.", cxxopts::value(gext)->default_value("1"))
         ("c,tolerance", "<N> Correct if within readlen/N.",
          cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
-        ("h,chunk", "<N> Partition tasks into chunks with max size N.",
+        ("u,chunk", "<N> Partition tasks into chunks with max size N.",
          cxxopts::value(chunk_size)->default_value("1024"))
         ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
         ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
@@ -520,7 +520,6 @@ int align_main(int argc, char *argv[]) {
         }
         vargas::Aligner aligner(gm.node_len(), read_len, match, mismatch, gopen, gext);
         aligner.set_correctness_tolerance(tolerance);
-        task_list.at(l).first;
         auto subgraph = gm.make_subgraph(task_list.at(l).first);
         auto aligns = aligner.align(read_seqs, targets, subgraph->begin(), subgraph->end());
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {

@@ -7,8 +7,8 @@ Consumes a KSNP file and outputs a VCF file.
 import pprint as pp
 import sys
 
-CHROM = str(22)
-CHROM_LEN = str(51304566)
+CHROM = str(19)
+CHROM_LEN = str(59128983)
 
 def load_ksnps(filename):
     '''
@@ -136,9 +136,6 @@ def main():
         if p not in ksnps:
             print(str(p) + " does not exist in KSNP dict, excluding")
         else:
-            added_pos.add(p)
-            rec_num += 1
-
             if rec_num == num_k[num_k_i]:
                 suffix = ""
                 if (len(num_k) > 1):
@@ -156,6 +153,9 @@ def main():
                 if num_k_i == len(num_k) - 1:
                     exit(0)  # Done
                 num_k_i += 1
+
+            added_pos.add(p)
+            rec_num += 1
 
 
 if __name__ == '__main__':
