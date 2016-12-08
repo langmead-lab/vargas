@@ -407,10 +407,10 @@ int align_main(int argc, char *argv[]) {
                     std::to_string(read_len) + ", got " + std::to_string(rec.seq.length()));
                 }
                 if (!rec.aux.get("RG", read_group)) {
-                    read_group = "NULL";
-                    rec.aux.set("RG", "VA-UNGROUPED");
-                    if (!reads_hdr.read_groups.count("VA-UNGROUPED")) {
-                        reads_hdr.add(vargas::SAM::Header::ReadGroup("@RG\tID:VA-UNGROUPED"));
+                    read_group = UNGROUPED_READGROUP;
+                    rec.aux.set("RG", UNGROUPED_READGROUP);
+                    if (!reads_hdr.read_groups.count(UNGROUPED_READGROUP)) {
+                        reads_hdr.add(vargas::SAM::Header::ReadGroup("@RG\tID:" + std::string(UNGROUPED_READGROUP)));
                     }
                 }
                 read_groups[read_group].push_back(rec);
@@ -468,7 +468,8 @@ int align_main(int argc, char *argv[]) {
                 for (size_t i = 0; i < n_chunks; ++i) {
                     const auto safe_beg = beg + (i * chunk_size);
                     const auto safe_end = (i + 1) * chunk_size > nrecords ? end : safe_beg + chunk_size;
-                    task_list.emplace_back(sub_rg_pair.first, std::vector<vargas::SAM::Record>(safe_beg, safe_end));
+                    if (safe_beg != safe_end)
+                        task_list.emplace_back(sub_rg_pair.first, std::vector<vargas::SAM::Record>(safe_beg, safe_end));
                 }
             }
         }
@@ -862,6 +863,7 @@ void align_help(const cxxopts::Options &opts) {
     using std::endl;
 
     cerr << opts.help() << "\n" << endl;
+    cerr << "Elements per SIMD vector: " << VEC_SIZE << endl;
 }
 
 void sim_help(const cxxopts::Options &opts) {

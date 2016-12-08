@@ -20,6 +20,7 @@
 #define ALIGN_SAM_SUB_COUNT_TAG "sc"
 #define ALIGN_SAM_COR_FLAG_TAG "cf"
 
+#define UNGROUPED_READGROUP "VA-UNGROUPED"
 
 #include "alignment.h"
 #include "graph.h"

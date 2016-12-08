@@ -119,9 +119,15 @@ namespace vargas {
       _max_node_len(max_node_len),
       _alignment_group(read_len) { _alloc(); }
 
+
       ~Aligner() {
           _dealloc();
       }
+
+      Aligner(const Aligner &) = delete;
+      Aligner(const Aligner &&) = delete;
+      Aligner &operator=(const Aligner &) = delete;
+      Aligner &operator=(const Aligner &&) = delete;
 
       /**
        * @brief
