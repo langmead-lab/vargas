@@ -9,7 +9,6 @@
  * @file
  */
 
-#define SIMDPP_ARCH_X86_SSE4_1 // SSE support
 #define DOCTEST_CONFIG_IMPLEMENT // User controlled test execution
 
 #ifdef _OPENMP
@@ -75,7 +74,7 @@ int define_main(int argc, char *argv[]) {
         ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
         ("s,subgraph", "<str> File or definitions of format \"[~]NAME=N[%t],...\".",
          cxxopts::value(subgraph_def))
-        ("l,nodelen", "<N> Maximum node length.", cxxopts::value(node_len)->default_value("1000000"))
+        ("l,nodelen", "<N> Maximum node length.", cxxopts::value(node_len)->default_value("100000"))
         ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
         ("x,invert", "Invert sample filter, exclude -p samples.", cxxopts::value(invert_filter))
         ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
@@ -344,7 +343,7 @@ int align_main(int argc, char *argv[]) {
         ("c,tolerance", "<N> Correct if within readlen/N.",
          cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
         ("u,chunk", "<N> Partition tasks into chunks with max size N.",
-         cxxopts::value(chunk_size)->default_value("1024"))
+         cxxopts::value(chunk_size)->default_value("2048"))
         ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
         ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
         ("h,help", "Display this message.");
@@ -363,6 +362,13 @@ int align_main(int argc, char *argv[]) {
 
     #ifdef _OPENMP
     if (threads) omp_set_num_threads(threads);
+    #endif
+    #ifndef _OPENMP
+    // Disable threads if no openMP.
+    if (threads > 1) {
+        std::cerr << "Warning: Threads specified without OpenMP Compilation." << std::endl;
+    }
+    threads = 1;
     #endif
 
     if (align_targets_isfile) {
@@ -474,6 +480,7 @@ int align_main(int argc, char *argv[]) {
             }
         }
 
+
         std::cerr << '\t' << read_groups.size() << " Read groups.\n"
                   << '\t' << alignment_rg_map.size() << " Subgraphs.\n"
                   << '\t' << task_list.size() << " Tasks.\n"
@@ -508,9 +515,20 @@ int align_main(int argc, char *argv[]) {
 
 
     vargas::osam aligns_out(out_file, reads_hdr);
+    std::vector<std::unique_ptr<vargas::Aligner>> aligners(threads);
+    for (size_t k = 0; k < threads; ++k) {
+        aligners.emplace_back(std::unique_ptr<vargas::Aligner>(
+        new vargas::Aligner(gm.node_len(), read_len, match, mismatch, gopen, gext)));
+        aligners.back()->set_correctness_tolerance(tolerance);
+    }
 
     #pragma omp parallel for
     for (size_t l = 0; l < num_tasks; ++l) {
+        #ifdef _OPENMP
+        const int tid = omp_get_thread_num();
+        #else
+        const int tid = 1;
+        #endif
         const size_t num_reads = task_list.at(l).second.size();
         std::vector<std::string> read_seqs(num_reads);
         std::vector<size_t> targets(num_reads);
@@ -519,10 +537,8 @@ int align_main(int argc, char *argv[]) {
             read_seqs[i] = r.seq;
             targets[i] = r.pos + r.seq.length() - 1;
         }
-        vargas::Aligner aligner(gm.node_len(), read_len, match, mismatch, gopen, gext);
-        aligner.set_correctness_tolerance(tolerance);
         auto subgraph = gm.make_subgraph(task_list.at(l).first);
-        auto aligns = aligner.align(read_seqs, targets, subgraph->begin(), subgraph->end());
+        auto aligns = aligners[tid]->align(read_seqs, targets, subgraph->begin(), subgraph->end());
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             vargas::SAM::Record &rec = task_list.at(l).second.at(j);
             rec.ref_name = task_list.at(l).first;
@@ -534,13 +550,12 @@ int align_main(int argc, char *argv[]) {
             rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
             rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correctness_flag[j]);
         }
-        gm.destroy(task_list.at(l).first);
+    }
 
-        #pragma omp critical(aligns_out)
-        {
-            for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
-                aligns_out.add_record(task_list.at(l).second.at(j));
-            }
+    for (size_t l = 0; l < num_tasks; ++l) {
+        gm.destroy(task_list.at(l).first);
+        for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
+            aligns_out.add_record(task_list.at(l).second.at(j));
         }
     }
 
@@ -822,6 +837,45 @@ void main_help() {
     cerr << "query           Pull a region from a GDEF/VCF/FASTA file.\n";
     cerr << "test            Run unit tests.\n";
     cerr << "profile         Run profiles (debug).\n" << endl;
+    cerr << "Compiled for architecture: ";
+
+    std::string arch = "None: no SIMD instruction set specified!";
+
+    #if SIMDPP_USE_SSE2
+    arch = "SSE2";
+    #endif
+    #if SIMDPP_USE_SSE3
+    arch = "SSE3";
+    #endif
+    #if SIMDPP_USE_SSSE3
+    arch = "SSSE3";
+    #endif
+    #if SIMDPP_USE_SSE4_1
+    arch = "SSE4.1";
+    #endif
+    #if SIMDPP_USE_AVX
+    arch = "AVX";
+    #endif
+    #if SIMDPP_USE_AVX2
+    arch = "AVX2";
+    #endif
+    #if SIMDPP_USE_FMA3
+    arch = "FMA3";
+    #endif
+    #if SIMDPP_USE_FMA4
+    arch = "FMA4";
+    #endif
+    #if SIMDPP_USE_XOP
+    arch = "XOP";
+    #endif
+    #if SIMDPP_USE_AVX512F
+    arch = "AVX512F";
+    #endif
+    #if SIMDPP_USE_NEON
+    arch = "NEON";
+    #endif
+
+    cerr << arch << "\n" << std::endl;
 }
 
 void query_help(const cxxopts::Options &opts) {
@@ -863,7 +917,8 @@ void align_help(const cxxopts::Options &opts) {
     using std::endl;
 
     cerr << opts.help() << "\n" << endl;
-    cerr << "Elements per SIMD vector: " << VEC_SIZE << endl;
+    cerr << "SIMD Element type: " << vargas::Aligner::compiled_type()
+         << ", Elements per vector: " << vargas::Aligner::AlignmentGroup::group_size() << endl;
 }
 
 void sim_help(const cxxopts::Options &opts) {

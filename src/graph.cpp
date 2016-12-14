@@ -817,6 +817,35 @@ TEST_CASE ("Graph Factory") {
         << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
     }
 
+    SUBCASE("Empty VCF") {
+        // Write temp VCF file
+        {
+            std::ofstream vcfo(tmpvcf);
+            vcfo
+            << "##fileformat=VCFv4.1" << endl
+            << "##phasing=true" << endl
+            << "##contig=<ID=x>" << endl
+            << "##contig=<ID=y>" << endl
+            << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+            << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+            << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
+            << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+            << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+            << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+            << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl;
+        }
+        vargas::GraphFactory gb(tmpfa);
+        gb.open_vcf(tmpvcf);
+        gb.set_region("x:0-5");
+        auto g = gb.build();
+        auto giter = std::begin(g);
+        CHECK(giter->seq_str() == "CAAAT");
+        ++giter;
+        CHECK(giter == std::end(g));
+
+    }
+
     SUBCASE("File write wrapper") {
 
         SUBCASE("Basic Graph") {

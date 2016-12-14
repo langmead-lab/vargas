@@ -462,6 +462,7 @@ namespace vargas {
               return _graph._next_map.at(nid);
           }
 
+          //TODO icc has a problem with this
           /**
            * @brief
            * Allow conversion from iterator to const_iterator

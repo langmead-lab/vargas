@@ -28,10 +28,17 @@
 #include "graph.h"
 #include "doctest.h"
 
-// Number of elements per SIMD vector
-#define VEC_SIZE SIMDPP_FAST_INT8_SIZE
+#ifdef VARGAS_USE_WORD_ELEM
+#define VEC_SIZE SIMDPP_FAST_INT16_SIZE
+#define VEC_TYPE simdpp::uint16<VEC_SIZE>
+#endif
 
-#define DEFAULT_TOL_FACTOR 4 // If the pos is +- tol, count as correct alignment
+#ifndef VEC_TYPE
+#define VEC_SIZE SIMDPP_FAST_INT8_SIZE
+#define VEC_TYPE simdpp::uint8<VEC_SIZE>
+#endif
+
+#define DEFAULT_TOL_FACTOR 4 // If the pos is +- read_len/tol, count as correct alignment
 
 namespace vargas {
 
@@ -71,7 +78,15 @@ namespace vargas {
    */
   class Aligner {
     public:
-      typedef typename std::vector<simdpp::uint8<VEC_SIZE>> VecType;
+      typedef typename std::vector<VEC_TYPE > VecType;
+
+      constexpr static char const *compiled_type() {
+          #ifdef VARGAS_USE_WORD_ELEM
+          return "uint16";
+          #else
+          return "uint8";
+          #endif
+      }
 
       /**
        * @brief
@@ -120,14 +135,36 @@ namespace vargas {
       _alignment_group(read_len) { _alloc(); }
 
 
-      ~Aligner() {
+      ~Aligner() noexcept {
           _dealloc();
       }
 
-      Aligner(const Aligner &) = delete;
-      Aligner(const Aligner &&) = delete;
+      //TODO implement these
+      Aligner(const Aligner &a) : _read_len(a._read_len), _tol(a._tol),
+                                  _match_vec(a._match_vec), _mismatch_vec(a._mismatch_vec),
+                                  _gap_open_extend_vec(a._gap_open_extend_vec), _gap_extend_vec(a._gap_extend_vec),
+                                  _max_node_len(a._max_node_len), _alignment_group(a._read_len) { _alloc(); }
+
+      Aligner(Aligner &&a) : _read_len(a._read_len), _tol(a._tol),
+                             _match_vec(a._match_vec), _mismatch_vec(a._mismatch_vec),
+                             _gap_open_extend_vec(a._gap_open_extend_vec), _gap_extend_vec(a._gap_extend_vec),
+                             _max_node_len(a._max_node_len), _alignment_group(a._read_len) {
+          _Sa = a._Sa;
+          _Sb = a._Sb;
+          _Da = a._Da;
+          _Db = a._Db;
+          _Ia = a._Ia;
+          _Ib = a._Ib;
+          _S_prev = a._S_prev;
+          _S_curr = a._S_curr;
+          _D_prev = a._D_prev;
+          _D_curr = a._D_curr;
+          _I_prev = a._I_prev;
+          _I_curr = a._I_curr;
+          a._set_nullptr();
+      }
       Aligner &operator=(const Aligner &) = delete;
-      Aligner &operator=(const Aligner &&) = delete;
+      Aligner &operator=(Aligner &&) = delete;
 
       /**
        * @brief
@@ -170,16 +207,16 @@ namespace vargas {
            * Return the i'th base of every read in a simdpp vector.
            * @param i base index.
            */
-          const simdpp::uint8<VEC_SIZE> &at(const size_t i) const {
+          const VEC_TYPE &at(const size_t i) const {
               return _packaged_reads.at(i);
           }
 
           /**
            * @brief
            * Pointer to raw packaged read data.
-           * @return simdpp::uint8<VEC_SIZE> pointer
+           * @return VEC_TYPE pointer
            */
-          const simdpp::uint8<VEC_SIZE> *data() const {
+          const VEC_TYPE *data() const {
               return _packaged_reads.data();
           }
 
@@ -188,7 +225,7 @@ namespace vargas {
            * Non const version of at(i).
            * @param i base index
            */
-          simdpp::uint8<VEC_SIZE> &operator[](const int i) {
+          VEC_TYPE &operator[](const int i) {
               return _packaged_reads[i];
           }
 
@@ -202,14 +239,14 @@ namespace vargas {
           /**
            * @return iterator to the beginning of the packaged reads.
            */
-          typename std::vector<simdpp::uint8<VEC_SIZE>>::const_iterator begin() const {
+          typename std::vector<VEC_TYPE >::const_iterator begin() const {
               return _packaged_reads.cbegin();
           }
 
           /**
            * @return iterator to the end of the packaged reads.
            */
-          typename std::vector<simdpp::uint8<VEC_SIZE>>::const_iterator end() const {
+          typename std::vector<VEC_TYPE >::const_iterator end() const {
               return _packaged_reads.cend();
           }
 
@@ -223,7 +260,7 @@ namespace vargas {
            * where as the length of _packaged_reads[i] is the number
            * of reads.
            */
-          std::vector<simdpp::uint8<VEC_SIZE>> _packaged_reads;
+          std::vector<VEC_TYPE > _packaged_reads;
 
           /**
            * Interleaves reads so all same-index base positions are in one
@@ -528,19 +565,23 @@ namespace vargas {
           }
       }
 
+      void _set_nullptr() noexcept {
+          _Sa = _Sb = _Da = _Db = _Ia = _Ib = nullptr;
+          _S_prev = _S_curr = _D_prev = _D_curr = _I_prev = _I_curr = nullptr;
+      }
+
       /**
        * @brief
        * deletes allocated matrix filling vectors.
        */
-      void _dealloc() {
+      void _dealloc() noexcept {
           if (_Sa) delete _Sa;
           if (_Sb) delete _Sb;
           if (_Da) delete _Da;
           if (_Db) delete _Db;
           if (_Ia) delete _Ia;
           if (_Ib) delete _Ib;
-          _Sa = _Sb = _Da = _Db = _Ia = _Ib = nullptr;
-          _S_prev = _S_curr = _D_prev = _D_curr = _I_prev = _I_curr = nullptr;
+          _set_nullptr();
       }
 
       /**
@@ -587,7 +628,7 @@ namespace vargas {
           assert(n.seq().size() <= _max_node_len);
 
           const Base *node_seq = n.seq().data();
-          const simdpp::uint8<VEC_SIZE> *read_ptr = read_group.data();
+          const VEC_TYPE *read_ptr = read_group.data();
           const size_t seq_size = n.seq().size();
           const size_t node_origin = n.end_pos() - seq_size + 2;
 
@@ -644,7 +685,7 @@ namespace vargas {
        * @param s alignment seed from previous node
        */
       __RG_STRONG_INLINE__
-      void _fill_cell_rzcz(const simdpp::uint8<VEC_SIZE> &read_base,
+      void _fill_cell_rzcz(const VEC_TYPE &read_base,
                            const Base &ref,
                            const _seed *const s) {
           _D(0, ZERO_CT, ZERO_CT);
@@ -660,7 +701,7 @@ namespace vargas {
        * @param col _curr_posent column in matrix
        */
       __RG_STRONG_INLINE__
-      void _fill_cell_rz(const simdpp::uint8<VEC_SIZE> &read_base,
+      void _fill_cell_rz(const VEC_TYPE &read_base,
                          const Base &ref,
                          const size_t &col) {
           _D(col, ZERO_CT, ZERO_CT);
@@ -677,7 +718,7 @@ namespace vargas {
        * @param s alignment seed from previous node
        */
       __RG_STRONG_INLINE__
-      void _fill_cell_cz(const simdpp::uint8<VEC_SIZE> &read_base,
+      void _fill_cell_cz(const VEC_TYPE &read_base,
                          const Base &ref,
                          const size_t &row,
                          const _seed *const s) {
@@ -695,7 +736,7 @@ namespace vargas {
        * @param col _curr_posent column in matrix
        */
       __RG_STRONG_INLINE__
-      void _fill_cell(const simdpp::uint8<VEC_SIZE> &read_base,
+      void _fill_cell(const VEC_TYPE &read_base,
                       const Base &ref,
                       const size_t &row,
                       const size_t &col) {
@@ -714,8 +755,8 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _D(const size_t &col,
-              const simdpp::uint8<VEC_SIZE> &Dp,
-              const simdpp::uint8<VEC_SIZE> &Sp) {
+              const VEC_TYPE &Dp,
+              const VEC_TYPE &Sp) {
           using namespace simdpp;
 
           // D(i,j) = D(i-1,j) - gap_extend
@@ -736,7 +777,7 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _I(const size_t &row,
-              const simdpp::uint8<VEC_SIZE> &Sc) {
+              const VEC_TYPE &Sc) {
           using namespace simdpp;
 
           // I(i,j) = I(i,j-1) - gap_extend
@@ -758,9 +799,9 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _M(size_t col,
-              const simdpp::uint8<VEC_SIZE> &read,
+              const VEC_TYPE &read,
               const Base &ref,
-              const simdpp::uint8<VEC_SIZE> &Sp) {
+              const VEC_TYPE &Sp) {
           using namespace simdpp;
 
           if (ref != Base::N) {
@@ -871,13 +912,13 @@ namespace vargas {
       /*********************************** Variables ***********************************/
 
       const size_t _read_len; /**< Maximum read length. */
-      size_t _tol = DEFAULT_TOL_FACTOR; /**< If within +- this of target, indicate correct alignment */
+      size_t _tol; /**< If within +- this of target, indicate correct alignment */
 
       // Zero vector
-      const simdpp::uint8<VEC_SIZE> ZERO_CT = simdpp::splat(0);
-      const simdpp::uint8<VEC_SIZE> _N_VEC = simdpp::splat(Base::N);
+      const VEC_TYPE ZERO_CT = simdpp::splat(0);
+      const VEC_TYPE _N_VEC = simdpp::splat(Base::N);
 
-      simdpp::uint8<VEC_SIZE> _match_vec, _mismatch_vec, _gap_open_extend_vec, _gap_extend_vec;
+      VEC_TYPE _match_vec, _mismatch_vec, _gap_open_extend_vec, _gap_extend_vec;
 
       /**
        * Each vector has an 'a' and a 'b' version. Through each row of the
@@ -893,7 +934,7 @@ namespace vargas {
       *_Ia = nullptr,    /**< Insertion vector */
       *_Ib = nullptr;
 
-      simdpp::uint8<VEC_SIZE>
+      VEC_TYPE
       *_S_prev = nullptr,    /**< _S_prev[n] => S(i-1, n) */
       *_S_curr = nullptr,
       *_D_prev = nullptr,    /**< _D_prev[n] => D(i-1, n) */
@@ -902,7 +943,7 @@ namespace vargas {
       *_I_curr = nullptr,
       *_swp_tmp0;
 
-      simdpp::uint8<VEC_SIZE>
+      VEC_TYPE
       _tmp0, /**< temporary for use within functions */
       _Ceq,  /**< Match score when read_base == ref_base */
       _Cneq; /**< mismatch penalty */
@@ -910,18 +951,18 @@ namespace vargas {
       size_t _curr_pos;
 
       // Optimal alignment info
-      simdpp::uint8<VEC_SIZE> _max_score;
+      VEC_TYPE _max_score;
       size_t *_max_pos;
       uint8_t *_max_count;
 
       // Suboptimal alignment info
-      simdpp::uint8<VEC_SIZE> _sub_score;
+      VEC_TYPE _sub_score;
       size_t *_sub_pos;
       uint8_t *_sub_count;
 
-      uint8_t *_tmp0_ptr = (uint8_t *) &_tmp0;
-      uint8_t *_max_score_ptr = (uint8_t *) &_max_score;
-      uint8_t *_sub_score_ptr = (uint8_t *) &_sub_score;
+      uint8_t *const _tmp0_ptr = (uint8_t *) &_tmp0;
+      uint8_t *const _max_score_ptr = (uint8_t *) &_max_score;
+      uint8_t *const _sub_score_ptr = (uint8_t *) &_sub_score;
 
       uint8_t *_cor_flag;
       std::vector<size_t> _targets_lower, _targets_upper;

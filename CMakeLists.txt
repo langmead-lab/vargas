@@ -4,7 +4,6 @@ project("vargas")
 
 FIND_PACKAGE(OpenMP)
 if (OPENMP_FOUND)
-    message("Found OpenMP")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
@@ -38,22 +37,20 @@ set(HEADERS
         include/utils.h
         include/varfile.h)
 
-
-include(libsimdpp/cmake/SimdppMultiarch.cmake)
-simdpp_get_runnable_archs(RUNNABLE_ARCH)
-list(GET RUNNABLE_ARCH -1 MAX_ARCH)
-message("Building for arch: ${MAX_ARCH}")
-foreach (FILE ${MAIN_SOURCES})
-    simdpp_multiarch(GEN_ARCH_FILES ${FILE} ${MAX_ARCH})
-endforeach ()
-
-if (CXX EQUAL "icpc")
-    add_executable(pvargas ${MAIN_SOURCES})
-    target_link_libraries(pvargas hts)
-    target_compile_definitions(pvargas PRIVATE -xMIC-AVX512 -DSIMDPP_ARCH_X86_AVX2)
+option(BUILD_PHI "Build for Xeon Phi, requires icpc" OFF)
+if (BUILD_PHI EQUAL ON)
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -xMIC-AVX512")
+        add_definitions("-DSIMDPP_ARCH_X86_AVX512F")
+    else ()
+        message(FATAL_ERROR "Intel compiler required for Xeon Phi build.")
+    endif ()
+else ()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
+    add_definitions("-DSIMDPP_ARCH_X86_SSE4_1")
 endif ()
 
-add_executable(vargas ${GEN_ARCH_FILES})
+add_executable(vargas ${MAIN_SOURCES})
 target_link_libraries(vargas hts)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
