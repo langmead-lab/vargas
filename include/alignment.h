@@ -38,6 +38,13 @@
 #define VEC_TYPE simdpp::uint8<VEC_SIZE>
 #endif
 
+// Simdpp doesn't implement extract_bits_any for uint8x32
+#ifdef VA_EN_512B
+#define EXTRACT_BITS_ANY(x) _mm256_movemask_epi8(x)
+#else
+#define EXTRACT_BITS_ANY(x) simdpp::extract_bits_any(x)
+#endif
+
 #define DEFAULT_TOL_FACTOR 4 // If the pos is +- read_len/tol, count as correct alignment
 
 namespace vargas {
@@ -850,7 +857,7 @@ namespace vargas {
           _curr_pos = node_origin + col;    // absolute position in reference sequence
 
           _tmp0 = _S_curr[col] > _max_score;
-          if (extract_bits_any(_tmp0)) {
+          if (EXTRACT_BITS_ANY (_tmp0)) {
               // Check for new or equal high scores
               _max_score = max(_S_curr[col], _max_score);
               for (int i = 0; i < VEC_SIZE; ++i) {
@@ -869,7 +876,7 @@ namespace vargas {
           }
 
           _tmp0 = cmp_eq(_S_curr[col], _max_score);
-          if (extract_bits_any(_tmp0)) {
+          if (EXTRACT_BITS_ANY (_tmp0)) {
               // Check for equal max score.
               for (uint8_t i = 0; i < VEC_SIZE; ++i) {
                   if (_tmp0_ptr[i]) {
@@ -883,7 +890,7 @@ namespace vargas {
 
           // Greater than old sub max and less than max score (prevent repeats of max triggering)
           _tmp0 = (_S_curr[col] > _sub_score) & (_S_curr[col] < _max_score);
-          if (extract_bits_any(_tmp0)) {
+          if (EXTRACT_BITS_ANY (_tmp0)) {
               // new second best score
               for (uint8_t i = 0; i < VEC_SIZE; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
@@ -897,7 +904,7 @@ namespace vargas {
           }
 
           _tmp0 = cmp_eq(_S_curr[col], _sub_score);
-          if (extract_bits_any(_tmp0)) {
+          if (EXTRACT_BITS_ANY (_tmp0)) {
               // Repeat sub score
               for (uint8_t i = 0; i < VEC_SIZE; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {

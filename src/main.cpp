@@ -360,12 +360,18 @@ int align_main(int argc, char *argv[]) {
         " and match score " + std::to_string((int) match) + ".");
     }
 
+    if (chunk_size < vargas::Aligner::AlignmentGroup::group_size() ||
+    chunk_size % vargas::Aligner::AlignmentGroup::group_size() != 0) {
+        std::cerr << "Warning: Chunk size is not a multiple of SIMD vector length: "
+                  << vargas::Aligner::AlignmentGroup::group_size() << std::endl;
+    }
+
     #ifdef _OPENMP
     if (threads) omp_set_num_threads(threads);
     #endif
     #ifndef _OPENMP
     // Disable threads if no openMP.
-    if (threads > 1) {
+    if (threads != 1) {
         std::cerr << "Warning: Threads specified without OpenMP Compilation." << std::endl;
     }
     threads = 1;
@@ -517,9 +523,9 @@ int align_main(int argc, char *argv[]) {
     vargas::osam aligns_out(out_file, reads_hdr);
     std::vector<std::unique_ptr<vargas::Aligner>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
-        aligners.emplace_back(std::unique_ptr<vargas::Aligner>(
-        new vargas::Aligner(gm.node_len(), read_len, match, mismatch, gopen, gext)));
-        aligners.back()->set_correctness_tolerance(tolerance);
+        aligners[k] =
+        std::unique_ptr<vargas::Aligner>(new vargas::Aligner(gm.node_len(), read_len, match, mismatch, gopen, gext));
+        aligners[k]->set_correctness_tolerance(tolerance);
     }
 
     #pragma omp parallel for
@@ -552,18 +558,18 @@ int align_main(int argc, char *argv[]) {
         }
     }
 
+    auto end_time = std::chrono::steady_clock::now();
+    auto cput = (std::clock() - start_cpu) / (double) CLOCKS_PER_SEC;
+    std::cerr << chrono_duration(start_time, end_time) << " seconds, "
+              << cput << " CPU seconds, "
+              << cput / total << " CPU s/alignment.\n" << std::endl;
+
     for (size_t l = 0; l < num_tasks; ++l) {
         gm.destroy(task_list.at(l).first);
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             aligns_out.add_record(task_list.at(l).second.at(j));
         }
     }
-
-    auto end_time = std::chrono::steady_clock::now();
-    auto cput = (std::clock() - start_cpu) / (double) CLOCKS_PER_SEC;
-    std::cerr << chrono_duration(start_time, end_time) << " seconds, "
-              << cput << " CPU seconds, "
-              << cput / total << " CPU s/alignment.\n" << std::endl;
 
     return 0;
 }

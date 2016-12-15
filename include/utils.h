@@ -12,11 +12,10 @@
 #ifndef VARGAS_UTILS_H
 #define VARGAS_UTILS_H
 
-#ifdef __GNUC__
-// expr x is likely to evaluate true
-#define __RG_LIKELY__(x) __builtin_expect((x),1)
-// expr x is unlikely to evaluate true
-#define __RG_UNLIKELY__(x) __builtin_expect((x),0)
+#if defined __INTEL_COMPILER
+#define __RG_UNROLL__
+#define __RG_STRONG_INLINE__ __attribute__((always_inline)) inline
+#elif defined __GNUC__
 #define __RG_UNROLL__ __attribute__((optimize("unroll-loops")))
 #define __RG_STRONG_INLINE__ __attribute__((always_inline)) inline
 #else
@@ -298,6 +297,5 @@ __RG_STRONG_INLINE__
 void convert(const size_t &in, std::string &out) {
     out = std::to_string(in);
 }
-
 
 #endif //VARGAS_UTILS_H

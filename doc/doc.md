@@ -32,9 +32,9 @@ vargas is built with cmake.
     cd ..
     export PATH=${PWD}/bin:$PATH
 
-Building with the intel compiler will also generate a target `pvargas` for Xeon Phi.
+To  build for Xeon Phi:
 
-    cmake -DCMAKE_C_COMPILER=icc -DCMAKE_CXX_COMPILER=icpc -DCMAKE_BUILD_TYPE=Release ..
+    cmake -DCMAKE_C_COMPILER=icc -DCMAKE_CXX_COMPILER=icpc -DBUILD_PHI=ON -DCMAKE_BUILD_TYPE=Release ..
 
 # Modes of operation {#modes}
 
