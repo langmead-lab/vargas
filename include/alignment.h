@@ -28,21 +28,9 @@
 #include "graph.h"
 #include "doctest.h"
 
-#ifdef VARGAS_USE_WORD_ELEM
-#define VEC_SIZE SIMDPP_FAST_INT16_SIZE
-#define VEC_TYPE simdpp::uint16<VEC_SIZE>
-#endif
-
 #ifndef VEC_TYPE
 #define VEC_SIZE SIMDPP_FAST_INT8_SIZE
 #define VEC_TYPE simdpp::uint8<VEC_SIZE>
-#endif
-
-// Simdpp doesn't implement extract_bits_any for uint8x32
-#ifdef VA_EN_512B
-#define EXTRACT_BITS_ANY(x) _mm256_movemask_epi8(x)
-#else
-#define EXTRACT_BITS_ANY(x) simdpp::extract_bits_any(x)
 #endif
 
 #define DEFAULT_TOL_FACTOR 4 // If the pos is +- read_len/tol, count as correct alignment
@@ -86,6 +74,12 @@ namespace vargas {
   class Aligner {
     public:
       typedef typename std::vector<VEC_TYPE > VecType;
+
+      constexpr static size_t estimated_size(size_t nlen, size_t rlen) {
+          return sizeof(vargas::Aligner)
+          + (4 * sizeof(VEC_TYPE) * nlen)
+          + (2 * sizeof(VEC_TYPE) * rlen);
+      }
 
       constexpr static char const *compiled_type() {
           #ifdef VARGAS_USE_WORD_ELEM
@@ -283,14 +277,14 @@ namespace vargas {
                   assert(_reads[r].size() == _read_len);
                   // Put each base in the appropriate vector element
                   for (size_t p = 0; p < _read_len; ++p) {
-                      insert(_reads[r][p], r, _packaged_reads[p]);
+                      insert<VEC_SIZE>(_reads[r][p], r, _packaged_reads[p]);
                   }
               }
 
               // Pad underful batches
               for (size_t r = _reads.size(); r < VEC_SIZE; ++r) {
                   for (size_t p = 0; p < _read_len; ++p) {
-                      insert(Base::N, r, _packaged_reads[p]);
+                      insert<VEC_SIZE>(Base::N, r, _packaged_reads[p]);
                   }
               }
           }
@@ -551,7 +545,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _get_seed(const std::vector<size_t> &prev_ids,
                      const std::unordered_map<size_t, _seed> &seed_map,
-                     _seed *const seed) const {
+                     _seed *RESTRICT const seed) const {
           using namespace simdpp;
 
           static const _seed *ns;
@@ -857,7 +851,7 @@ namespace vargas {
           _curr_pos = node_origin + col;    // absolute position in reference sequence
 
           _tmp0 = _S_curr[col] > _max_score;
-          if (EXTRACT_BITS_ANY (_tmp0)) {
+          if (simdpp::extract_bits_any(_tmp0)) {
               // Check for new or equal high scores
               _max_score = max(_S_curr[col], _max_score);
               for (int i = 0; i < VEC_SIZE; ++i) {
@@ -876,7 +870,7 @@ namespace vargas {
           }
 
           _tmp0 = cmp_eq(_S_curr[col], _max_score);
-          if (EXTRACT_BITS_ANY (_tmp0)) {
+          if (simdpp::extract_bits_any(_tmp0)) {
               // Check for equal max score.
               for (uint8_t i = 0; i < VEC_SIZE; ++i) {
                   if (_tmp0_ptr[i]) {
@@ -890,7 +884,7 @@ namespace vargas {
 
           // Greater than old sub max and less than max score (prevent repeats of max triggering)
           _tmp0 = (_S_curr[col] > _sub_score) & (_S_curr[col] < _max_score);
-          if (EXTRACT_BITS_ANY (_tmp0)) {
+          if (simdpp::extract_bits_any(_tmp0)) {
               // new second best score
               for (uint8_t i = 0; i < VEC_SIZE; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
@@ -904,7 +898,7 @@ namespace vargas {
           }
 
           _tmp0 = cmp_eq(_S_curr[col], _sub_score);
-          if (EXTRACT_BITS_ANY (_tmp0)) {
+          if (simdpp::extract_bits_any(_tmp0)) {
               // Repeat sub score
               for (uint8_t i = 0; i < VEC_SIZE; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {

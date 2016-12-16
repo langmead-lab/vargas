@@ -414,8 +414,8 @@ int align_main(int argc, char *argv[]) {
             vargas::SAM::Record rec;
             do {
                 rec = reads.record();
-                if (rec.seq.length() != read_len) {
-                    throw std::invalid_argument("Expected read of length " +
+                if (rec.seq.length() > read_len) {
+                    throw std::invalid_argument("Expected read of length <=" +
                     std::to_string(read_len) + ", got " + std::to_string(rec.seq.length()));
                 }
                 if (!rec.aux.get("RG", read_group)) {
@@ -498,6 +498,8 @@ int align_main(int argc, char *argv[]) {
     vargas::GraphManager gm(gdf_file);
     std::cerr << "(" << gm.base()->node_map()->size() << " nodes), ";
     std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
+    std::cerr << "Estimated aligner memory usage: "
+              << vargas::Aligner::estimated_size(gm.node_len(), read_len) / 1000000 << "MB" << std::endl;
 
 
     {

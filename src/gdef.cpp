@@ -179,6 +179,9 @@ std::shared_ptr<const vargas::Graph> vargas::GraphManager::base() const {
 
 
 vargas::Graph::Population vargas::GraphManager::filter(std::string label) const {
+    if (label == GDEF_BASEGRAPH) return base()->filter();
+    if (ends_with(label, GDEF_REFGRAPH)) return vargas::Graph::Population(0);
+    if (ends_with(label, GDEF_MAXAFGRAPH)) return vargas::Graph::Population(0);
     label = GDEF_BASEGRAPH + GDEF_SCOPE + label;
     if (!_subgraph_filters.count(label)) throw std::invalid_argument("Label \"" + label + "\" does not exist.");
     return _subgraph_filters.at(label);
