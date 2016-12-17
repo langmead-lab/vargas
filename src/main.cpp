@@ -366,9 +366,6 @@ int align_main(int argc, char *argv[]) {
                   << vargas::Aligner::AlignmentGroup::group_size() << std::endl;
     }
 
-    #ifdef _OPENMP
-    if (threads) omp_set_num_threads(threads);
-    #endif
     #ifndef _OPENMP
     // Disable threads if no openMP.
     if (threads != 1) {
@@ -499,7 +496,7 @@ int align_main(int argc, char *argv[]) {
     std::cerr << "(" << gm.base()->node_map()->size() << " nodes), ";
     std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
     std::cerr << "Estimated aligner memory usage: "
-              << vargas::Aligner::estimated_size(gm.node_len(), read_len) / 1000000 << "MB" << std::endl;
+              << threads * vargas::Aligner::estimated_size(gm.node_len(), read_len) / 1000000 << "MB" << std::endl;
 
 
     {
@@ -516,6 +513,10 @@ int align_main(int argc, char *argv[]) {
     if (num_tasks < threads) {
         std::cerr << "Warning: Number of threads is greater than number of tasks. Try decreasing --chunk.\n";
     }
+
+    #ifdef _OPENMP
+    if (threads) omp_set_num_threads(threads > task_list.size() ? task_list.size() : threads);
+    #endif
 
     std::cerr << "Aligning with " << threads << " thread(s)..." << std::endl;
     start_time = std::chrono::steady_clock::now();
@@ -535,7 +536,7 @@ int align_main(int argc, char *argv[]) {
         #ifdef _OPENMP
         const int tid = omp_get_thread_num();
         #else
-        const int tid = 1;
+        const int tid = 0;
         #endif
         const size_t num_reads = task_list.at(l).second.size();
         std::vector<std::string> read_seqs(num_reads);
@@ -546,7 +547,7 @@ int align_main(int argc, char *argv[]) {
             targets[i] = r.pos + r.seq.length() - 1;
         }
         auto subgraph = gm.make_subgraph(task_list.at(l).first);
-        auto aligns = aligners[tid]->align(read_seqs, targets, subgraph->begin(), subgraph->end());
+        const auto aligns = aligners[tid]->align(read_seqs, targets, subgraph->begin(), subgraph->end());
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             vargas::SAM::Record &rec = task_list.at(l).second.at(j);
             rec.ref_name = task_list.at(l).first;
@@ -760,6 +761,7 @@ int query_main(int argc, char *argv[]) {
     try {
         opts.add_options()
         ("d,gdef", "<str> Export graph region as a DOT file.", cxxopts::value(gdef))
+        ("a,stat", "Print statistics about subgraphs.")
         ("s,subgraph", "<str> Subgraph to export.",
          cxxopts::value(subgraph)->default_value(vargas::GraphManager::GDEF_BASEGRAPH))
         ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
@@ -773,9 +775,45 @@ int query_main(int argc, char *argv[]) {
         query_help(opts);
         return 0;
     }
+
+    if (opts.count("a")) {
+        vargas::GraphManager gm(gdef);
+
+        auto q = gm.labels();
+
+        #pragma omp parallel for
+        for (size_t k = 0; k < q.size(); ++k) {
+            auto s = q[k];
+            size_t tot_len = 0, n_edges = 0, n_nodes = 0, n_snps = 0, n_dels = 0;
+            auto base = gm.make_subgraph(s);
+
+            for (auto i : *base) {
+                ++n_nodes;
+                tot_len += i.length();
+                n_snps += (i.length() == 1);
+                n_dels += (i.length() == 0);
+                if (base->next_map().count(i.id())) {
+                    n_edges += base->next_map().at(i.id()).size();
+                }
+            }
+
+            #pragma omp critical
+            {
+                std::cerr << s << " Graph"
+                          << "\n\tGraph Nodes: " << n_nodes
+                          << "\n\tNumber of SNPs: " << n_snps
+                          << "\n\tNumber of Deletions: " << n_dels
+                          << "\n\tTotal Length: " << tot_len
+                          << "\n\tNumber of Edges: " << n_edges
+                          << std::endl;
+                gm.destroy(s);
+            }
+        }
+        return 0;
+    }
+
+
     if (!opts.count("g")) throw std::invalid_argument("Region specifier required.");
-
-
     auto reg = vargas::parse_region(region);
 
     if (gdef.size()) {

@@ -432,7 +432,7 @@ namespace vargas {
            * @return Node
            */
           T &operator*() const {
-              return *(_graph._IDMap->at(_graph._add_order.at(_currID)));
+              return *(_graph._IDMap->at(_graph._add_order[_currID]));
           }
 
           /**
@@ -448,18 +448,20 @@ namespace vargas {
            * @return vector of previous nodes
            */
           const std::vector<size_t> &incoming() const {
-              const size_t nid = _graph._add_order.at(_currID);
-              if (_graph._prev_map.count(nid) == 0) return _empty_vec;
-              return _graph._prev_map.at(nid);
+              try {
+                  // Assume the previous edge existing is the common case (DAG w 1 start node)
+                  return _graph._prev_map.at(_graph._add_order[_currID]);
+              } catch (std::exception &e) { return _empty_vec; }
           }
 
           /**
            * @return vector of all outgoing edges
            */
           const std::vector<size_t> &outgoing() const {
-              const size_t nid = _graph._add_order.at(_currID);
-              if (_graph._prev_map.count(nid) == 0) return _empty_vec;
-              return _graph._next_map.at(nid);
+              try {
+                  // Assume the previous edge existing is the common case (DAG w 1 start node)
+                  return _graph._next_map.at(_graph._add_order[_currID]);
+              } catch (std::exception &e) { return _empty_vec; }
           }
 
           //TODO icc has a problem with this
@@ -714,6 +716,14 @@ namespace vargas {
        */
       size_t max_node_len() const { return _max_node_len; }
 
+      /**
+       * @brief
+       * Ensures that the graph is topologically sorted.
+       * @param begin Graph begin iterator
+       * @param end Graph end iterator
+       */
+      bool validate() const;
+
 
     private:
       size_t _root = 0; // Root of the Graph
@@ -736,14 +746,6 @@ namespace vargas {
        * @param includedNodes subset of g's nodes to include
        */
       void _build_derived_edges(const Graph &g, const std::unordered_map<size_t, nodeptr> &includedNodes);
-
-      /**
-     * @brief
-     * Ensures that the graph is topologically sorted.
-     * @param begin Graph begin iterator
-     * @param end Graph end iterator
-     */
-      bool validate() const;
 
   };
 

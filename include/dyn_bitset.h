@@ -98,7 +98,7 @@ class dyn_bitset {
      */
     void set(const size_t bit,
              bool val = true) {
-        if (bit > size() || bit < 0) throw std::range_error("Index out of bounds.");
+        if (bit > size()) throw std::range_error("Index out of bounds.");
         _bitset[bit / core_size][bit % core_size] = val;
     }
 
@@ -119,7 +119,7 @@ class dyn_bitset {
      * @throws std::range_error bit is out of range
      */
     void flip(const size_t bit) {
-        if (bit > size() || bit < 0) throw std::range_error("Index out of bounds.");
+        if (bit > size()) throw std::range_error("Index out of bounds.");
         _bitset[bit / core_size][bit % core_size] = !_bitset[bit / core_size][bit % core_size];
     }
 
@@ -130,7 +130,7 @@ class dyn_bitset {
      * @throws std::range_error bit is out of range
      */
     bool at(const size_t bit) const {
-        if (bit > size() || bit < 0) throw std::range_error("Index out of bounds.");
+        if (bit > size()) throw std::range_error("Index out of bounds.");
         return _bitset[bit / core_size][bit % core_size];
     }
 
@@ -344,7 +344,7 @@ TEST_CASE ("Dynamic Bitset") {
     CHECK(a.at(0) == 0);
     CHECK(a.at(61) == 0);
     CHECK(a.at(57) == 1);
-    CHECK_THROWS(a.at(-1));
+    CHECK_THROWS(a.at(9999999));
     CHECK_THROWS (a.at(100));
 
     a.push_back(0);

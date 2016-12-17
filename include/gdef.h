@@ -325,7 +325,7 @@ namespace vargas {
 
       /**
        * @brief
-       * Get a vector of all labels that have a population.
+       * Get a vector of all labels that have a population, includes BASE.
        * @details
        * Each label is fully scoped.
        * @return vector of labels

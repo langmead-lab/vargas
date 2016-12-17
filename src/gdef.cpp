@@ -86,6 +86,9 @@ bool vargas::GraphManager::open(std::istream &in, bool build_base) {
         gb.node_len(_node_len);
 
         if (build_base) _subgraphs[GDEF_BASEGRAPH] = std::make_shared<Graph>(gb.build());
+        if (!_subgraphs.at(GDEF_BASEGRAPH)->validate()) {
+            throw std::domain_error("Invalid graph- invalid node ordering.");
+        }
     }
 
     // subgraphs

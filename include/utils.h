@@ -219,9 +219,7 @@ uint8_t extract(uint8_t i,
  */
 template<size_t N>
 __RG_STRONG_INLINE__
-void insert(uint8_t elem,
-            uint8_t i,
-            const simdpp::uint8<N> &vec) {
+void insert(uint8_t elem, uint8_t i, const simdpp::uint8<N> &vec) {
     ((uint8_t *) &vec)[i] = elem;
 }
 
@@ -229,15 +227,14 @@ void insert(uint8_t elem,
 template<typename T>
 __RG_STRONG_INLINE__
 double chrono_duration(const std::chrono::time_point<T> &start_time) {
-    return std::chrono::duration_cast<std::chrono::duration<double>>
-    (std::chrono::steady_clock::now() - start_time).count();
+    return std::chrono::duration_cast<std::chrono::duration<double>>(
+    std::chrono::steady_clock::now() - start_time).count();
 }
 
 template<typename T>
 __RG_STRONG_INLINE__
 double chrono_duration(const std::chrono::time_point<T> &start_time, const std::chrono::time_point<T> &end) {
-    return std::chrono::duration_cast<std::chrono::duration<double>>
-    (end - start_time).count();
+    return std::chrono::duration_cast<std::chrono::duration<double>>(end - start_time).count();
 }
 
 __RG_STRONG_INLINE__

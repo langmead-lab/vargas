@@ -428,22 +428,25 @@ namespace vargas {
 
           _targets_lower.resize(targets.size());
           _targets_upper.resize(targets.size());
-          std::transform(targets.begin(), targets.end(), _targets_lower.begin(), [=](size_t &x) { return x - _tol; });
-          std::transform(targets.begin(), targets.end(), _targets_upper.begin(), [=](size_t &x) { return x + _tol; });
+          std::transform(targets.begin(), targets.end(), _targets_lower.begin(), [=](size_t x) { return x - _tol; });
+          std::transform(targets.begin(), targets.end(), _targets_upper.begin(), [=](size_t x) { return x + _tol; });
 
-          size_t num_groups = read_group.size() / VEC_SIZE; // Full alignment groups
-          aligns.resize(read_group.size());
+          size_t num_groups = (read_group.size() / VEC_SIZE) + (read_group.size() % VEC_SIZE > 0 ? 1 : 0);
+          // Possible oversize if there is a partial group
+          aligns.resize(num_groups * VEC_SIZE);
           std::fill(aligns.correctness_flag.begin(), aligns.correctness_flag.end(), 0);
 
           std::unordered_map<size_t, _seed> seed_map; // Maps node ID's to the ending matrix columns of the node
-          _seed seed(_read_len), nxt(_read_len);
+          _seed seed(_read_len);
 
           for (size_t group = 0; group < num_groups; ++group) {
               seed_map.clear();
 
               // Subset of read set
               const size_t beg_offset = group * VEC_SIZE;
-              const size_t end_offset = (group + 1) * VEC_SIZE;
+              const size_t end_offset = std::min((group + 1) * VEC_SIZE, read_group.size());
+              const size_t len = end_offset - beg_offset;
+
               _alignment_group.load_reads(read_group, beg_offset, end_offset);
               _max_score = ZERO_CT;
               _sub_score = ZERO_CT;
@@ -458,65 +461,16 @@ namespace vargas {
               _targets_upper_ptr = _targets_upper.data() + beg_offset;
 
               for (auto gi = begin; gi != end; ++gi) {
-                  _get_seed(gi.incoming(), seed_map, &seed);
+                  _get_seed(gi.incoming(), seed_map, seed);
                   if (gi->is_pinched()) seed_map.clear();
-                  _fill_node(*gi, _alignment_group, &seed, &nxt);
-                  seed_map.emplace(gi->id(), nxt);
+                  _fill_node(*gi, _alignment_group, seed, seed_map.emplace(gi->id(), _read_len).first->second);
               }
 
-              memcpy(aligns.max_score.data() + beg_offset, &_max_score, VEC_SIZE * sizeof(uint8_t));
-              memcpy(aligns.sub_score.data() + beg_offset, &_sub_score, VEC_SIZE * sizeof(uint8_t));
+              memcpy(aligns.max_score.data() + beg_offset, &_max_score, len * sizeof(uint8_t));
+              memcpy(aligns.sub_score.data() + beg_offset, &_sub_score, len * sizeof(uint8_t));
           }
-
-          // If we need a padded group at the end
-          if (read_group.size() % VEC_SIZE) {
-              seed_map.clear();
-
-              const size_t len = read_group.size() - (num_groups * VEC_SIZE);
-              const size_t offset = num_groups * VEC_SIZE;
-
-              _alignment_group.load_reads(read_group, num_groups * VEC_SIZE, read_group.size());
-              _max_score = ZERO_CT;
-              _sub_score = ZERO_CT;
-
-              std::vector<size_t>
-              tmp_targets_upper(VEC_SIZE),
-              tmp_targets_lower(VEC_SIZE),
-              tmp_max_pos(VEC_SIZE),
-              tmp_sub_pos(VEC_SIZE);
-              std::vector<uint8_t>
-              tmp_max_count(VEC_SIZE),
-              tmp_sub_count(VEC_SIZE),
-              tmp_cor_flag(VEC_SIZE);
-
-              _max_pos = tmp_max_pos.data();
-              _sub_pos = tmp_sub_pos.data();
-              _max_count = tmp_max_count.data();
-              _sub_count = tmp_sub_count.data();
-              _cor_flag = tmp_cor_flag.data();
-              _targets_upper_ptr = tmp_targets_upper.data();
-              _targets_lower_ptr = tmp_targets_lower.data();
-
-              memcpy(_targets_upper_ptr, _targets_upper.data() + offset, len * sizeof(size_t));
-              memcpy(_targets_lower_ptr, _targets_lower.data() + offset, len * sizeof(size_t));
-
-
-              for (auto &gi = begin; gi != end; ++gi) {
-                  _get_seed(gi.incoming(), seed_map, &seed);
-                  if (gi->is_pinched()) seed_map.clear();
-                  _fill_node(*gi, _alignment_group, &seed, &nxt);
-                  seed_map.emplace(gi->id(), nxt);
-              }
-
-              memcpy(aligns.max_score.data() + offset, &_max_score, len * sizeof(uint8_t));
-              memcpy(aligns.sub_score.data() + offset, &_sub_score, len * sizeof(uint8_t));
-
-              memcpy(aligns.max_pos.data() + offset, tmp_max_pos.data(), len * sizeof(size_t));
-              memcpy(aligns.max_count.data() + offset, tmp_max_count.data(), len * sizeof(uint8_t));
-              memcpy(aligns.sub_pos.data() + offset, tmp_sub_pos.data(), len * sizeof(size_t));
-              memcpy(aligns.sub_count.data() + offset, tmp_sub_count.data(), len * sizeof(uint8_t));
-              memcpy(aligns.correctness_flag.data() + offset, tmp_cor_flag.data(), len * sizeof(uint8_t));
-          }
+          // Crop off potential buffer
+          aligns.resize(read_group.size());
 
       }
 
@@ -540,30 +494,26 @@ namespace vargas {
        * @param prev_ids All nodes preceding _curr_posent node
        * @param seed_map ID->seed map for all previous nodes
        * @param seed best seed to populate
-       * @throws std::logic_error if a node listed as a previous node but it has not been encountered yet. i.e. not topographically sorted.
+       * @throws std::logic_error if a node listed as a previous node but it has not been encountered yet.
+       * i.e. not topographically sorted.
        */
       __RG_STRONG_INLINE__
       void _get_seed(const std::vector<size_t> &prev_ids,
-                     const std::unordered_map<size_t, _seed> &seed_map,
-                     _seed *RESTRICT const seed) const {
+                     std::unordered_map<size_t, _seed> &seed_map,
+                     _seed &seed) const {
           using namespace simdpp;
-
-          static const _seed *ns;
-
           try {
               for (size_t i = 0; i < _read_len; ++i) {
-                  seed->I_col[i] = ZERO_CT;
-                  seed->S_col[i] = ZERO_CT;
+                  seed.I_col[i] = ZERO_CT;
+                  seed.S_col[i] = ZERO_CT;
                   for (size_t id : prev_ids) {
-                      ns = &seed_map.at(id);
-                      seed->I_col[i] = max(seed->I_col[i], ns->I_col[i]);
-                      seed->S_col[i] = max(seed->S_col[i], ns->S_col[i]);
+                      // Graph should be validated before alignment to ensure proper seed fetch
+                      const auto &ns = seed_map.at(id);
+                      seed.I_col[i] = max(seed.I_col[i], ns.I_col[i]);
+                      seed.S_col[i] = max(seed.S_col[i], ns.S_col[i]);
                   }
               }
-          }
-          catch (std::exception &e) {
-              throw std::logic_error("Unable to get seed, invalid node ordering.");
-          }
+          } catch (std::exception &e) { throw std::domain_error("Invalid node ordering."); }
       }
 
       void _set_nullptr() noexcept {
@@ -616,13 +566,13 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_node(const Graph::Node &n,
                       const AlignmentGroup &read_group,
-                      const _seed *s,
-                      _seed *const nxt) {
+                      const _seed &s,
+                      _seed &nxt) {
 
           // Empty nodes represents deletions
           if (n.seq().size() == 0) {
-              nxt->I_col = s->I_col;
-              nxt->S_col = s->S_col;
+              nxt.I_col = s.I_col;
+              nxt.S_col = s.S_col;
               return;
           }
 
@@ -643,7 +593,7 @@ namespace vargas {
               _fill_cell_finish(0, c, node_origin);
           }
 
-          nxt->S_col[0] = _S_curr[seq_size - 1];
+          nxt.S_col[0] = _S_curr[seq_size - 1];
 
           // Rest of the rows
           for (size_t r = 1; r < _read_len; ++r) {
@@ -670,12 +620,12 @@ namespace vargas {
                   _fill_cell_finish(r, c, node_origin);
               }
 
-              nxt->S_col[r] = _S_curr[seq_size - 1];
+              nxt.S_col[r] = _S_curr[seq_size - 1];
 
           }
 
           // origin vector of what is now _I_curr
-          nxt->I_col = _Ia->data() == _I_curr ? *_Ia : *_Ib;
+          nxt.I_col = _Ia->data() == _I_curr ? *_Ia : *_Ib;
       }
 
       /**
@@ -688,9 +638,9 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell_rzcz(const VEC_TYPE &read_base,
                            const Base &ref,
-                           const _seed *const s) {
+                           const _seed &s) {
           _D(0, ZERO_CT, ZERO_CT);
-          _I(0, s->S_col[0]);
+          _I(0, s.S_col[0]);
           _M(0, read_base, ref, ZERO_CT);
       }
 
@@ -722,10 +672,10 @@ namespace vargas {
       void _fill_cell_cz(const VEC_TYPE &read_base,
                          const Base &ref,
                          const size_t &row,
-                         const _seed *const s) {
+                         const _seed &s) {
           _D(0, _D_prev[0], _S_prev[0]);
-          _I(row, s->S_col[row]);
-          _M(0, read_base, ref, s->S_col[row - 1]);
+          _I(row, s.S_col[row]);
+          _M(0, read_base, ref, s.S_col[row - 1]);
       }
 
       /**
@@ -979,171 +929,173 @@ namespace vargas {
 
 TEST_CASE ("Alignment") {
 
-    vargas::Graph::Node::_newID = 0;
-    vargas::Graph g;
+    try {
+        vargas::Graph::Node::_newID = 0;
+        vargas::Graph g;
 
-    /**
-    *     GGG
-    *    /   \
-    * AAA     TTTA
-    *    \   /
-    *     CCC(ref)
-    */
+        /**
+        *     GGG
+        *    /   \
+        * AAA     TTTA
+        *    \   /
+        *     CCC(ref)
+        */
 
-    {
-        vargas::Graph::Node n;
-        n.set_endpos(2);
-        n.set_as_ref();
-        std::vector<bool> a = {0, 1, 1};
-        n.set_population(a);
-        n.set_seq("AAA");
-        g.add_node(n);
-    }
+        {
+            vargas::Graph::Node n;
+            n.set_endpos(2);
+            n.set_as_ref();
+            std::vector<bool> a = {0, 1, 1};
+            n.set_population(a);
+            n.set_seq("AAA");
+            g.add_node(n);
+        }
 
-    {
-        vargas::Graph::Node n;
-        n.set_endpos(5);
-        n.set_as_ref();
-        std::vector<bool> a = {0, 0, 1};
-        n.set_population(a);
-        n.set_af(0.4);
-        n.set_seq("CCC");
-        g.add_node(n);
-    }
+        {
+            vargas::Graph::Node n;
+            n.set_endpos(5);
+            n.set_as_ref();
+            std::vector<bool> a = {0, 0, 1};
+            n.set_population(a);
+            n.set_af(0.4);
+            n.set_seq("CCC");
+            g.add_node(n);
+        }
 
-    {
-        vargas::Graph::Node n;
-        n.set_endpos(5);
-        n.set_not_ref();
-        std::vector<bool> a = {0, 1, 0};
-        n.set_population(a);
-        n.set_af(0.6);
-        n.set_seq("GGG");
-        g.add_node(n);
-    }
+        {
+            vargas::Graph::Node n;
+            n.set_endpos(5);
+            n.set_not_ref();
+            std::vector<bool> a = {0, 1, 0};
+            n.set_population(a);
+            n.set_af(0.6);
+            n.set_seq("GGG");
+            g.add_node(n);
+        }
 
-    {
-        vargas::Graph::Node n;
-        n.set_endpos(9);
-        n.set_as_ref();
-        std::vector<bool> a = {0, 1, 1};
-        n.set_population(a);
-        n.set_seq("TTTA");
-        n.set_af(0.3);
-        g.add_node(n);
-    }
+        {
+            vargas::Graph::Node n;
+            n.set_endpos(9);
+            n.set_as_ref();
+            std::vector<bool> a = {0, 1, 1};
+            n.set_population(a);
+            n.set_seq("TTTA");
+            n.set_af(0.3);
+            g.add_node(n);
+        }
 
-    g.add_edge(0, 1);
-    g.add_edge(0, 2);
-    g.add_edge(1, 3);
-    g.add_edge(2, 3);
-    g.set_popsize(3);
+        g.add_edge(0, 1);
+        g.add_edge(0, 2);
+        g.add_edge(1, 3);
+        g.add_edge(2, 3);
+        g.set_popsize(3);
 
-    SUBCASE("Graph Alignment") {
-        std::vector<std::string> reads;
-        reads.push_back("NNNCCTT");
-        reads.push_back("NNNGGTT");
-        reads.push_back("NNNAAGG");
-        reads.push_back("NNNAACC");
-        reads.push_back("NNAGGGT");
-        reads.push_back("NNNNNGG");
-        reads.push_back("AAATTTA");
-        reads.push_back("AAAGCCC");
-        const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 6};
+        SUBCASE("Graph Alignment") {
+            std::vector<std::string> reads;
+            reads.push_back("NNNCCTT");
+            reads.push_back("NNNGGTT");
+            reads.push_back("NNNAAGG");
+            reads.push_back("NNNAACC");
+            reads.push_back("NNAGGGT");
+            reads.push_back("NNNNNGG");
+            reads.push_back("AAATTTA");
+            reads.push_back("AAAGCCC");
+            const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 6};
 
-        vargas::Aligner a(5, 7);
-        vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
-        CHECK(aligns.max_score[0] == 8);
-        CHECK(aligns.max_pos[0] == 8);
-        CHECK((int) aligns.correctness_flag[0] == 1);
+            vargas::Aligner a(5, 7);
+            vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
+            CHECK(aligns.max_score[0] == 8);
+            CHECK(aligns.max_pos[0] == 8);
+            CHECK((int) aligns.correctness_flag[0] == 1);
 
-        CHECK(aligns.max_score[1] == 8);
-        CHECK(aligns.max_pos[1] == 8);
-        CHECK((int) aligns.correctness_flag[1] == 1);
+            CHECK(aligns.max_score[1] == 8);
+            CHECK(aligns.max_pos[1] == 8);
+            CHECK((int) aligns.correctness_flag[1] == 1);
 
-        CHECK(aligns.max_score[2] == 8);
-        CHECK(aligns.max_pos[2] == 5);
-        CHECK((int) aligns.correctness_flag[2] == 1);
+            CHECK(aligns.max_score[2] == 8);
+            CHECK(aligns.max_pos[2] == 5);
+            CHECK((int) aligns.correctness_flag[2] == 1);
 
-        CHECK(aligns.max_score[3] == 8);
-        CHECK(aligns.max_pos[3] == 5);
-        CHECK((int) aligns.correctness_flag[3] == 1);
+            CHECK(aligns.max_score[3] == 8);
+            CHECK(aligns.max_pos[3] == 5);
+            CHECK((int) aligns.correctness_flag[3] == 1);
 
-        CHECK(aligns.max_score[4] == 10);
-        CHECK(aligns.max_pos[4] == 7);
-        CHECK((int) aligns.correctness_flag[4] == 1);
+            CHECK(aligns.max_score[4] == 10);
+            CHECK(aligns.max_pos[4] == 7);
+            CHECK((int) aligns.correctness_flag[4] == 1);
 
-        CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5] == 6);
-        CHECK((int) aligns.correctness_flag[5] == 1);
+            CHECK(aligns.max_score[5] == 4);
+            CHECK(aligns.max_pos[5] == 6);
+            CHECK((int) aligns.correctness_flag[5] == 1);
 
-        CHECK(aligns.max_score[6] == 8);
-        CHECK(aligns.max_pos[6] == 10);
-        CHECK((int) aligns.correctness_flag[6] == 1);
+            CHECK(aligns.max_score[6] == 8);
+            CHECK(aligns.max_pos[6] == 10);
+            CHECK((int) aligns.correctness_flag[6] == 1);
 
-        CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7] == 4);
-        CHECK((int) aligns.correctness_flag[7] == 1);
-    }
+            CHECK(aligns.max_score[7] == 8);
+            CHECK(aligns.max_pos[7] == 4);
+            CHECK((int) aligns.correctness_flag[7] == 1);
+        }
 
-    SUBCASE("Different scoring scheme") {
+        SUBCASE("Different scoring scheme") {
 
-        std::vector<std::string> reads;
-        reads.push_back("NNNNNNCCTT");
-        reads.push_back("NNNNNNGGTT");
-        reads.push_back("NNNNNNAAGG");
-        reads.push_back("NNNNNNAACC");
-        reads.push_back("NNNNNAGGGT");
-        reads.push_back("NNNNNNNNGG");
-        reads.push_back("NNNAAATTTA");
-        reads.push_back("NNNAAAGCCC");
-        reads.push_back("AAAGAGTTTA");
-        reads.push_back("AAAGAATTTA");
-        const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 6, 10, 10};
+            std::vector<std::string> reads;
+            reads.push_back("NNNNNNCCTT");
+            reads.push_back("NNNNNNGGTT");
+            reads.push_back("NNNNNNAAGG");
+            reads.push_back("NNNNNNAACC");
+            reads.push_back("NNNNNAGGGT");
+            reads.push_back("NNNNNNNNGG");
+            reads.push_back("NNNAAATTTA");
+            reads.push_back("NNNAAAGCCC");
+            reads.push_back("AAAGAGTTTA");
+            reads.push_back("AAAGAATTTA");
+            const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 6, 10, 10};
 
-        // hisat like params
-        vargas::Aligner a(5, 10, 2, 6, 5, 3);
-        vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
+            // hisat like params
+            vargas::Aligner a(5, 10, 2, 6, 5, 3);
+            vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
 
-        CHECK(aligns.max_score[0] == 8);
-        CHECK(aligns.max_pos[0] == 8);
-        CHECK((int) aligns.correctness_flag[0] == 1);
+            CHECK(aligns.max_score[0] == 8);
+            CHECK(aligns.max_pos[0] == 8);
+            CHECK((int) aligns.correctness_flag[0] == 1);
 
-        CHECK(aligns.max_score[1] == 8);
-        CHECK(aligns.max_pos[1] == 8);
-        CHECK((int) aligns.correctness_flag[1] == 1);
+            CHECK(aligns.max_score[1] == 8);
+            CHECK(aligns.max_pos[1] == 8);
+            CHECK((int) aligns.correctness_flag[1] == 1);
 
-        CHECK(aligns.max_score[2] == 8);
-        CHECK(aligns.max_pos[2] == 5);
-        CHECK((int) aligns.correctness_flag[2] == 1);
+            CHECK(aligns.max_score[2] == 8);
+            CHECK(aligns.max_pos[2] == 5);
+            CHECK((int) aligns.correctness_flag[2] == 1);
 
-        CHECK(aligns.max_score[3] == 8);
-        CHECK(aligns.max_pos[3] == 5);
-        CHECK((int) aligns.correctness_flag[3] == 1);
+            CHECK(aligns.max_score[3] == 8);
+            CHECK(aligns.max_pos[3] == 5);
+            CHECK((int) aligns.correctness_flag[3] == 1);
 
-        CHECK(aligns.max_score[4] == 10);
-        CHECK(aligns.max_pos[4] == 7);
-        CHECK((int) aligns.correctness_flag[4] == 1);
+            CHECK(aligns.max_score[4] == 10);
+            CHECK(aligns.max_pos[4] == 7);
+            CHECK((int) aligns.correctness_flag[4] == 1);
 
-        CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5] == 6);
-        CHECK((int) aligns.correctness_flag[5] == 1);
+            CHECK(aligns.max_score[5] == 4);
+            CHECK(aligns.max_pos[5] == 6);
+            CHECK((int) aligns.correctness_flag[5] == 1);
 
-        CHECK(aligns.max_score[6] == 8);
-        CHECK(aligns.max_pos[6] == 10);
-        CHECK((int) aligns.correctness_flag[6] == 1);
+            CHECK(aligns.max_score[6] == 8);
+            CHECK(aligns.max_pos[6] == 10);
+            CHECK((int) aligns.correctness_flag[6] == 1);
 
-        CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7] == 4);
-        CHECK((int) aligns.correctness_flag[7] == 1);
+            CHECK(aligns.max_score[7] == 8);
+            CHECK(aligns.max_pos[7] == 4);
+            CHECK((int) aligns.correctness_flag[7] == 1);
 
-        CHECK(aligns.max_score[8] == 12);
-        CHECK(aligns.max_pos[8] == 10);
-        CHECK((int) aligns.correctness_flag[8] == 1);
+            CHECK(aligns.max_score[8] == 12);
+            CHECK(aligns.max_pos[8] == 10);
+            CHECK((int) aligns.correctness_flag[8] == 1);
 
-        CHECK(aligns.max_score[9] == 8);
-        CHECK(aligns.max_pos[9] == 10);
-        CHECK((int) aligns.correctness_flag[9] == 1);
-    }
+            CHECK(aligns.max_score[9] == 8);
+            CHECK(aligns.max_pos[9] == 10);
+            CHECK((int) aligns.correctness_flag[9] == 1);
+        }
+    } catch (std::exception &e) { std::cerr << e.what(); }
 }
 #endif //VARGAS_ALIGNMENT_H
