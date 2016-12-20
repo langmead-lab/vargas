@@ -360,10 +360,10 @@ int align_main(int argc, char *argv[]) {
         " and match score " + std::to_string((int) match) + ".");
     }
 
-    if (chunk_size < vargas::Aligner::AlignmentGroup::group_size() ||
-    chunk_size % vargas::Aligner::AlignmentGroup::group_size() != 0) {
+    if (chunk_size < vargas::Aligner::read_capacity() ||
+    chunk_size % vargas::Aligner::read_capacity() != 0) {
         std::cerr << "Warning: Chunk size is not a multiple of SIMD vector length: "
-                  << vargas::Aligner::AlignmentGroup::group_size() << std::endl;
+                  << vargas::Aligner::read_capacity() << std::endl;
     }
 
     #ifndef _OPENMP
@@ -551,10 +551,10 @@ int align_main(int argc, char *argv[]) {
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             vargas::SAM::Record &rec = task_list.at(l).second.at(j);
             rec.ref_name = task_list.at(l).first;
-            rec.aux.set(ALIGN_SAM_MAX_POS_TAG, (int) aligns.max_pos[j]);
+            rec.aux.set(ALIGN_SAM_MAX_POS_TAG,   aligns.max_pos[j]);
             rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
             rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
-            rec.aux.set(ALIGN_SAM_SUB_POS_TAG, (int) aligns.sub_pos[j]);
+            rec.aux.set(ALIGN_SAM_SUB_POS_TAG,   aligns.sub_pos[j]);
             rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
             rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
             rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correctness_flag[j]);
@@ -963,8 +963,7 @@ void align_help(const cxxopts::Options &opts) {
     using std::endl;
 
     cerr << opts.help() << "\n" << endl;
-    cerr << "SIMD Element type: " << vargas::Aligner::compiled_type()
-         << ", Elements per vector: " << vargas::Aligner::AlignmentGroup::group_size() << endl;
+    cerr << "Elements per vector: " << vargas::Aligner::read_capacity() << endl;
 }
 
 void sim_help(const cxxopts::Options &opts) {

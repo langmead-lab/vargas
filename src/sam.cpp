@@ -52,6 +52,12 @@ void vargas::SAM::Optional::set(std::string tag, int val) {
     aux_fmt[tag] = 'i';
 }
 
+void vargas::SAM::Optional::set(std::string tag, size_t val) {
+    aux[tag] = std::to_string(val);
+    aux_fmt[tag] = 'i';
+}
+
+
 void vargas::SAM::Optional::set(std::string tag, float val) {
     aux[tag] = std::to_string(val);
     aux_fmt[tag] = 'f';

@@ -109,6 +109,14 @@ namespace vargas {
           void set(std::string tag, int val);
 
           /**
+         * @brief
+         * Add a size type aux tag.
+         * @param tag key
+         * @param val value
+         */
+          void set(std::string tag, size_t val);
+
+          /**
            * @brief
            * Add a float type aux tag.
            * @param tag key

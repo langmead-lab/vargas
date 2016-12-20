@@ -14,18 +14,25 @@
 
 #if defined __INTEL_COMPILER
 #define __RG_UNROLL__
-#define __RG_STRONG_INLINE__ __attribute__((always_inline)) inline
 #define RESTRICT restrict
 #elif defined __GNUC__
 #define __RG_UNROLL__ __attribute__((optimize("unroll-loops")))
-#define __RG_STRONG_INLINE__ __attribute__((always_inline)) inline
 #define RESTRICT __restrict__
 #else
 #define __RG_LIKELY__(x) (x)
 #define __RG_UNLIKELY__(x) (x)
 #define __RG_UNROLL__
-#define __RG_STRONG_INLINE__ inline
 #define RESTRICT
+#endif
+
+#ifndef RG_DISABLE_INLINE
+#if defined __GNUC__
+#define __RG_STRONG_INLINE__ __attribute__((always_inline)) inline
+#else
+#define __RG_STRONG_INLINE__ inline
+#endif
+#else
+#define __RG_STRONG_INLINE__
 #endif
 
 #include <vector>
@@ -197,31 +204,6 @@ char guess_delim(const std::string &line) {
 }
 
 std::string current_date();
-
-/**
- * @brief
- * Extract the i'th element from a vector. No range checking is done.
- * @param i index of element
- * @param vec vector to extract from
- */
-__RG_STRONG_INLINE__
-uint8_t extract(uint8_t i,
-                const simdpp::uint8<SIMDPP_FAST_INT8_SIZE> &vec) {
-    return ((uint8_t *) &vec)[i];
-}
-
-/**
- * @brief
- * Insert into the i'th element from a vector. No range checking is done.
- * @param elem element to insert
- * @param i index of element
- * @param vec vector to insert in
- */
-template<size_t N>
-__RG_STRONG_INLINE__
-void insert(uint8_t elem, uint8_t i, const simdpp::uint8<N> &vec) {
-    ((uint8_t *) &vec)[i] = elem;
-}
 
 
 template<typename T>
