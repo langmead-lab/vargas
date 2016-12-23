@@ -42,56 +42,6 @@ void vargas::SAM::Optional::add(std::string a) {
     } else throw std::invalid_argument("Invalid format: " + a);
 }
 
-void vargas::SAM::Optional::set(std::string tag, char val) {
-    aux[tag] = std::string(1, val);
-    aux_fmt[tag] = 'A';
-}
-
-void vargas::SAM::Optional::set(std::string tag, int val) {
-    aux[tag] = std::to_string(val);
-    aux_fmt[tag] = 'i';
-}
-
-void vargas::SAM::Optional::set(std::string tag, size_t val) {
-    aux[tag] = std::to_string(val);
-    aux_fmt[tag] = 'i';
-}
-
-
-void vargas::SAM::Optional::set(std::string tag, float val) {
-    aux[tag] = std::to_string(val);
-    aux_fmt[tag] = 'f';
-}
-
-void vargas::SAM::Optional::set(std::string tag, std::string val) {
-    aux[tag] = val;
-    aux_fmt[tag] = 'Z';
-}
-
-bool vargas::SAM::Optional::get(std::string tag, char &val) const {
-    if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'A') return false;
-    val = aux.at(tag).at(0);
-    return true;
-}
-
-bool vargas::SAM::Optional::get(std::string tag, int &val) const {
-    if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'i') return false;
-    val = std::stoi(aux.at(tag));
-    return true;
-}
-
-bool vargas::SAM::Optional::get(std::string tag, float &val) const {
-    if (aux.count(tag) == 0 || aux_fmt.at(tag) != 'f') return false;
-    val = std::stof(aux.at(tag));
-    return true;
-}
-
-bool vargas::SAM::Optional::get(std::string tag, std::string &val) const {
-    if (aux.count(tag) == 0) return false;
-    val = aux.at(tag);
-    return true;
-}
-
 std::string vargas::SAM::Optional::to_string() const {
     std::ostringstream ss;
     for (auto &pair : aux) {
@@ -380,21 +330,87 @@ void vargas::SAM::Record::parse(std::string line) {
     }
 
 }
+bool vargas::SAM::Record::get_required(const std::string &tag, std::string &val) const {
+    if (tag == REQUIRED_POS) {
+        val = rg::to_string(pos);
+    } else if (tag == REQUIRED_QNAME) {
+        val = query_name;
+    } else if (tag == REQUIRED_RNEXT) {
+        val = ref_next;
+    } else if (tag == REQUIRED_RNAME) {
+        val = ref_name;
+    } else if (tag == REQUIRED_SEQ) {
+        val = seq;
+    } else if (tag == REQUIRED_CIGAR) {
+        val = cigar;
+    } else if (tag == REQUIRED_FLAG) {
+        val = rg::to_string(flag.encode());
+    } else if (tag == REQUIRED_PNEXT) {
+        val = rg::to_string(pos_next);
+    } else if (tag == REQUIRED_MAPQ) {
+        val = rg::to_string(mapq);
+    } else if (tag == REQUIRED_TLEN) {
+        val = rg::to_string(tlen);
+    } else if (tag == REQUIRED_QUAL) {
+        val = rg::to_string(qual);
+    } else return false;
+    return true;
+}
 
-void vargas::isam::open(std::string file_name) {
-    close();
-    if (file_name.length() == 0) _use_stdio = true;
-    else {
-        _use_stdio = false;
-        in.open(file_name);
-        if (!in.good()) throw std::invalid_argument("Error opening file \"" + file_name + "\"");
-    }
+void vargas::isam::open(std::istream &is) {
     std::ostringstream hdr;
-    while (std::getline((_use_stdio ? std::cin : in), _curr_line) && _curr_line.at(0) == '@') {
+    while (std::getline(is, _curr_line) && _curr_line.at(0) == '@') {
         hdr << _curr_line << '\n';
     }
     if (hdr.str().length() > 0) _hdr << hdr.str();
     _pprec << _curr_line;
+}
+
+void vargas::isam::open(std::string file_name) {
+    close();
+    if (file_name.length() == 0) {
+        _use_stdio = true;
+        open(std::cin);
+    }
+    else {
+        _use_stdio = false;
+        in.open(file_name);
+        if (!in.good()) throw std::invalid_argument("Error opening file \"" + file_name + "\"");
+        open(in);
+    }
+}
+
+vargas::isam vargas::isam::subset(size_t n) {
+    if (!good()) throw std::invalid_argument("No SAM file open.");
+    std::vector<Record> pending;
+    do { pending.push_back(_pprec); } while (next());
+    if (pending.size() == 0) throw std::invalid_argument("No records available.");
+    std::vector<size_t> idx(pending.size());
+    std::iota(idx.begin(), idx.end(), 0);
+    std::random_shuffle(idx.begin(), idx.begin());
+    isam ss;
+    if (n >= pending.size()) {
+        ss._buff = std::move(pending);
+    } else {
+        ss._buff.reserve(n);
+        for (size_t i = 0; i < n; ++i) {
+            ss._buff.push_back(pending[i]);
+        }
+    }
+    ss.next();
+    return ss;
+}
+
+bool vargas::isam::next() {
+    if (_buff.size() > 0) {
+        _pprec = _buff.back();
+        _buff.pop_back();
+        return true;
+    }
+
+    if (!std::getline((_use_stdio ? std::cin : in), _curr_line)) return false;
+    _pprec.parse(_curr_line);
+    return true;
 }
 
 void vargas::osam::open(std::string file_name) {
@@ -409,6 +425,38 @@ void vargas::osam::open(std::string file_name) {
 }
 
 TEST_SUITE("SAM Parser");
+
+TEST_CASE ("SAM Optional") {
+    vargas::SAM::Optional o;
+    o.set("a", "b");
+    o.set("b", 1);
+    o.set("c", 1.0f);
+    o.set("d", "DD");
+
+    {
+        std::string val;
+        CHECK(o.get("a", val));
+        CHECK(val == "b");
+    }
+
+    {
+        int val;
+        CHECK(o.get("b", val));
+        CHECK(val == 1);
+    }
+
+    {
+        float val;
+        CHECK(o.get("c", val));
+        CHECK(val == 1.0);
+    }
+
+    {
+        std::string val;
+        CHECK(o.get("d", val));
+        CHECK(val == "DD");
+    }
+}
 
 TEST_CASE ("SAM File") {
     {
@@ -439,95 +487,108 @@ TEST_CASE ("SAM File") {
            << "\tXT:A:R\tNM:i:2\tSM:i:0\tAM:i:0\tX0:i:5\tX1:i:0\tXM:i:0\tXO:i:1\tXG:i:2\tMD:Z:35\n";
     }
 
-    try {
+    SUBCASE("File Wrapper") {
+        SUBCASE("SAM IO") {
+            try {
 
-        {
-            vargas::isam sf("tmp_s.sam");
-            vargas::osam os("osam.sam", sf.header());
-            do {
-                os.add_record(sf.record());
-            } while (sf.next());
+                {
+                    vargas::isam sf("tmp_s.sam");
+                    vargas::osam os("osam.sam", sf.header());
+                    do {
+                        os.add_record(sf.record());
+                    } while (sf.next());
+                }
+
+                vargas::isam a("tmp_s.sam");
+                vargas::isam b("osam.sam");
+                const auto &ah = a.header();
+                const auto &bh = b.header();
+
+                std::string v1, v2;
+
+                REQUIRE(a.record().get(ah, "SEQ", v1));
+                CHECK(v1 == "CGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG");
+                REQUIRE(b.record().get(bh, vargas::SAM::Record::REQUIRED_SEQ, v1));
+                CHECK(v1 == "CGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG");
+
+                {
+                    int v;
+                    REQUIRE(a.record().get(ah, "NM", v));
+                    CHECK(v == 0);
+                    REQUIRE(a.record().get(ah, "SM", v));
+                    CHECK(v == 37);
+                    REQUIRE(b.record().get(bh, "NM", v));
+                    CHECK(v == 0);
+                    REQUIRE(b.record().get(bh, "SM", v));
+                    CHECK(v == 37);
+                }
+                {
+                    std::string v;
+                    REQUIRE(a.record().get(ah, "XT", v));
+                    CHECK(v == "U");
+                    REQUIRE(a.record().get(ah, "XT", v));
+                    CHECK(v == "U");
+                }
+                {
+                    REQUIRE(a.record().get(ah, "MD", v1));
+                    CHECK(v1 == "37");
+                    REQUIRE(a.record().get(ah, "MD", v1));
+                    CHECK(v1 == "37");
+                }
+
+                do {
+                    const auto &ar = a.record();
+                    const auto &br = b.record();
+                    REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_POS, v1));
+                    REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_POS, v2));
+                    CHECK(v1 == v2);
+                    REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
+                    REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
+                    CHECK(v1 == v2);
+                    REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_TLEN, v1));
+                    REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_TLEN, v2));
+                    CHECK(v1 == v2);
+                    REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_MAPQ, v1));
+                    REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_MAPQ, v2));
+                    CHECK(v1 == v2);
+                    REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_CIGAR, v1));
+                    REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_CIGAR, v2));
+                    CHECK(v1 == v2);
+                    REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_PNEXT, v1));
+                    REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_PNEXT, v2));
+                    CHECK(v1 == v2);
+                    REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_FLAG, v1));
+                    REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_FLAG, v2));
+                    CHECK(v1 == v2);
+                    REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_RNAME, v1));
+                    REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_RNAME, v2));
+                    CHECK(v1 == v2);
+                    REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_RNEXT, v1));
+                    REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_RNEXT, v2));
+                    CHECK(v1 == v2);
+                    REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_SEQ, v1));
+                    REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_SEQ, v2));
+                    CHECK(v1 == v2);
+                    REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
+                    REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
+                    CHECK(v1 == v2);
+                } while (a.next() && b.next());
+                CHECK(!b.next());
+                CHECK(!a.next());
+            } catch (std::exception &e) {
+                std::cerr << e.what() << std::endl;
+                throw;
+            }
         }
 
-        vargas::isam a("tmp_s.sam");
-        vargas::isam b("osam.sam");
-        const auto &ah = a.header();
-        const auto &bh = b.header();
-
-        std::string v1, v2;
-
-        REQUIRE(a.record().get(ah, "SEQ", v1));
-        CHECK(v1 == "CGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG");
-        REQUIRE(b.record().get(bh, vargas::SAM::Record::REQUIRED_SEQ, v1));
-        CHECK(v1 == "CGGGTCTGACCTGAGGAGAACTGTGCTCCGCCTTCAG");
-
-        {
-            int v;
-            REQUIRE(a.record().get(ah, "NM", v));
-            CHECK(v == 0);
-            REQUIRE(a.record().get(ah, "SM", v));
-            CHECK(v == 37);
-            REQUIRE(b.record().get(bh, "NM", v));
-            CHECK(v == 0);
-            REQUIRE(b.record().get(bh, "SM", v));
-            CHECK(v == 37);
+        SUBCASE("Subset") {
+            vargas::isam orig("tmp_s.sam");
+            auto ss = orig.subset(2);
+            CHECK(ss.record().query_name.length()); // First record is loaded
+            CHECK(ss.next());
+            CHECK(ss.record().query_name.length());
+            CHECK_FALSE(ss.next());
         }
-        {
-            char v;
-            REQUIRE(a.record().get(ah, "XT", v));
-            CHECK(v == 'U');
-            REQUIRE(a.record().get(ah, "XT", v));
-            CHECK(v == 'U');
-        }
-        {
-            REQUIRE(a.record().get(ah, "MD", v1));
-            CHECK(v1 == "37");
-            REQUIRE(a.record().get(ah, "MD", v1));
-            CHECK(v1 == "37");
-        }
-
-        do {
-            const auto &ar = a.record();
-            const auto &br = b.record();
-            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_POS, v1));
-            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_POS, v2));
-            CHECK(v1 == v2);
-            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
-            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
-            CHECK(v1 == v2);
-            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_TLEN, v1));
-            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_TLEN, v2));
-            CHECK(v1 == v2);
-            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_MAPQ, v1));
-            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_MAPQ, v2));
-            CHECK(v1 == v2);
-            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_CIGAR, v1));
-            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_CIGAR, v2));
-            CHECK(v1 == v2);
-            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_PNEXT, v1));
-            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_PNEXT, v2));
-            CHECK(v1 == v2);
-            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_FLAG, v1));
-            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_FLAG, v2));
-            CHECK(v1 == v2);
-            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_RNAME, v1));
-            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_RNAME, v2));
-            CHECK(v1 == v2);
-            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_RNEXT, v1));
-            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_RNEXT, v2));
-            CHECK(v1 == v2);
-            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_SEQ, v1));
-            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_SEQ, v2));
-            CHECK(v1 == v2);
-            REQUIRE(ar.get(ah, vargas::SAM::Record::REQUIRED_QUAL, v1));
-            REQUIRE(br.get(bh, vargas::SAM::Record::REQUIRED_QUAL, v2));
-            CHECK(v1 == v2);
-        } while (a.next() && b.next());
-        CHECK(!b.next());
-        CHECK(!a.next());
-    } catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
-        throw;
     }
 
     remove("tmp_s.sam");

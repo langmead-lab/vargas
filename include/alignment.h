@@ -788,10 +788,11 @@ namespace vargas {
                           _sub_score_ptr[i] = _max_score_ptr[i];
                           _sub_pos[i] = _max_pos[i];
                           _sub_count[i] = _max_count[i];
-                          _cor_flag[i] = (_cor_flag[i] == 1) * 2;
+                          if (_cor_flag[i] == 1) _cor_flag[i] = 2;
+                          else _cor_flag[i] = 0;
                       }
                       _max_count[i] = 1;
-                      _cor_flag[i] = (_cor_flag[i] == 2) * 2;
+                      if (_cor_flag[i] == 1) _cor_flag[i] = 0;
                   }
               }
           }
@@ -801,13 +802,25 @@ namespace vargas {
               // Check for equal max score.
               for (size_t i = 0; i < SIMD_T<NATIVE_T>::length; ++i) {
                   if (_tmp0_ptr[i]) {
-                      _max_count[i] += _curr_pos > (_max_pos[i] + _read_len);
+                      if (_curr_pos > _max_pos[i] + _read_len) ++(_max_count[i]);
                       _max_pos[i] = _curr_pos;
                       if (_curr_pos >= _targets_lower_ptr[i] && _curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 1;
                   }
               }
           }
 
+
+          _tmp0 = cmp_eq(_S_curr[col], _sub_score);
+          if (simdpp::extract_bits_any(_tmp0)) {
+              // Repeat sub score
+              for (size_t i = 0; i < SIMD_T<NATIVE_T>::length; ++i) {
+                  if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
+                      _sub_count[i] += _curr_pos > (_sub_pos[i] + _read_len);
+                      _sub_pos[i] = _curr_pos;
+                      if (_curr_pos >= _targets_lower_ptr[i] && _curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 2;
+                  }
+              }
+          }
 
           // Greater than old sub max and less than max score (prevent repeats of max triggering)
           _tmp0 = (_S_curr[col] > _sub_score) & (_S_curr[col] < _max_score);
@@ -820,18 +833,6 @@ namespace vargas {
                       _sub_pos[i] = _curr_pos;
                       if (_curr_pos >= _targets_lower_ptr[i] && _curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 2;
                       else _cor_flag[i] = _cor_flag[i] == 1;
-                  }
-              }
-          }
-
-          _tmp0 = cmp_eq(_S_curr[col], _sub_score);
-          if (simdpp::extract_bits_any(_tmp0)) {
-              // Repeat sub score
-              for (size_t i = 0; i < SIMD_T<NATIVE_T>::length; ++i) {
-                  if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
-                      _sub_count[i] += _curr_pos > (_sub_pos[i] + _read_len);
-                      _sub_pos[i] = _curr_pos;
-                      if (_curr_pos >= _targets_lower_ptr[i] && _curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 2;
                   }
               }
           }

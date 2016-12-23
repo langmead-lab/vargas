@@ -32,7 +32,7 @@
 #define __RG_STRONG_INLINE__ inline
 #endif
 #else
-#define __RG_STRONG_INLINE__
+#define __RG_STRONG_INLINE__ inline
 #endif
 
 #include <vector>
@@ -220,65 +220,40 @@ double chrono_duration(const std::chrono::time_point<T> &start_time, const std::
 }
 
 __RG_STRONG_INLINE__
-bool ends_with(std::string const &fullString,
-               std::string const &ending) {
+bool ends_with(std::string const &fullString, std::string const &ending) {
     if (fullString.length() >= ending.length())
         return 0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending);
     else return false;
 }
 
-/**
- * Intended for transparent conversion from std::string and a scalar, and vice versa.
- * Default types are long and double for floating point.
- */
-__RG_STRONG_INLINE__
-void convert(const std::string &in, std::string &out) {
-    out = in;
-}
-__RG_STRONG_INLINE__
-void convert(const std::string &in, int &out) {
-    out = std::stoi(in);
-}
-__RG_STRONG_INLINE__
-void convert(const std::string &in, size_t &out) {
-    out = std::stoul(in);
-}
-__RG_STRONG_INLINE__
-void convert(const std::string &in, double &out) {
-    out = std::stod(in);
-}
-__RG_STRONG_INLINE__
-void convert(const int &in, int &out) {
-    out = in;
-}
-__RG_STRONG_INLINE__
-void convert(const int &in, char &out) {
-    out = std::to_string(in).at(0);
-}
-__RG_STRONG_INLINE__
-void convert(const std::string &in, char &out) {
-    assert(in.length() == 1);
-    out = in.at(0);
-}
-__RG_STRONG_INLINE__
-void convert(const double &in, double &out) {
-    out = in;
-}
-__RG_STRONG_INLINE__
-void convert(const size_t &in, size_t &out) {
-    out = in;
-}
-__RG_STRONG_INLINE__
-void convert(const int &in, std::string &out) {
-    out = std::to_string(in);
-}
-__RG_STRONG_INLINE__
-void convert(const double &in, std::string &out) {
-    out = std::to_string(in);
-}
-__RG_STRONG_INLINE__
-void convert(const size_t &in, std::string &out) {
-    out = std::to_string(in);
+namespace rg {
+
+  template<typename T>
+  __RG_STRONG_INLINE__
+  typename std::enable_if<std::is_arithmetic<T>::value, std::string>::type to_string(T val) {
+      return std::to_string(val);
+  }
+
+  __RG_STRONG_INLINE__
+  std::string to_string(std::string s) { return s; }
+
+  template<typename T>
+  __RG_STRONG_INLINE__
+  typename std::enable_if<std::is_floating_point<T>::value>::type
+  from_string(const std::string &s, T &ret) {
+      ret = std::stod(s);
+  }
+
+  template<typename T>
+  __RG_STRONG_INLINE__
+  typename std::enable_if<std::is_integral<T>::value>::type
+  from_string(const std::string &s, T &ret) {
+      ret = std::stoi(s);
+  }
+
+  __RG_STRONG_INLINE__
+  void from_string(const std::string &s, std::string &ret) { ret = s; }
+
 }
 
 #endif //VARGAS_UTILS_H

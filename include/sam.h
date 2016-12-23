@@ -3,10 +3,7 @@
  * @date May 26, 2016
  *
  * @brief
- * Provides a C++ wrapper for htslib handling SAM/BAM files.
- * @details
- * Both file types are handled transparently by htslib. Records
- * are loaded into Reads.
+ * Provides an interface to SAM files..
  *
  * @file
  */
@@ -14,11 +11,11 @@
 #ifndef VARGAS_SAM_H
 #define VARGAS_SAM_H
 
+#include "utils.h"
 #include <unordered_map>
 #include <vector>
 #include <sstream>
 #include <iostream>
-#include "utils.h"
 
 namespace vargas {
 
@@ -92,78 +89,22 @@ namespace vargas {
            */
           void add(std::string a);
 
-          /**
-           * @brief
-           * Add a char type aux tag.
-           * @param tag key
-           * @param val value
-           */
-          void set(std::string tag, char val);
+          template<typename T>
+          void set(const std::string &tag, const T &val) {
+              char fmt_tag = 'Z'; // Default string type
+              if (std::is_floating_point<T>::value) fmt_tag = 'f';
+              else if (std::is_integral<T>::value) fmt_tag = 'i';
+              aux[tag] = rg::to_string(val);
+              aux_fmt[tag] = fmt_tag;
+          }
 
-          /**
-           * @brief
-           * Add a int type aux tag.
-           * @param tag key
-           * @param val value
-           */
-          void set(std::string tag, int val);
+          template<typename T>
+          bool get(const std::string &tag, T &val) const {
+              if (aux.count(tag) == 0) return false;
+              rg::from_string(aux.at(tag), val);
+              return true;
+          }
 
-          /**
-         * @brief
-         * Add a size type aux tag.
-         * @param tag key
-         * @param val value
-         */
-          void set(std::string tag, size_t val);
-
-          /**
-           * @brief
-           * Add a float type aux tag.
-           * @param tag key
-           * @param val value
-           */
-          void set(std::string tag, float val);
-
-          /**
-           * @brief
-           * Add a string type aux tag.
-           * @param tag key
-           * @param val value
-           */
-          void set(std::string tag, std::string val);
-
-          /**
-           * Get a char type tag.
-           * @param tag key
-           * @param val to store result in
-           * @return false if key does not exist, or is the wrong type.
-           */
-          bool get(std::string tag,
-                   char &val) const;
-
-          /**
-           * Get a int type tag.
-           * @param tag key
-           * @param val to store result in
-           * @return false if key does not exist, or is the wrong type.
-           */
-          bool get(std::string tag, int &val) const;
-
-          /**
-           * Get a float type tag.
-           * @param tag key
-           * @param val to store result in
-           * @return false if key does not exist, or is the wrong type.
-           */
-          bool get(std::string tag, float &val) const;
-
-          /**
-           * Get a string type tag. Any tag can be obtained with this, no conversion is done.
-           * @param tag key
-           * @param val to store result in
-           * @return false if key does not exist, or is the wrong type.
-           */
-          bool get(std::string tag, std::string &val) const;
 
           /**
            * @brief
@@ -624,6 +565,8 @@ namespace vargas {
               return hdr.read_groups.at(rg).aux.get(tag, val);
           }
 
+          bool get_required(const std::string &tag, std::string &val) const;
+
           /**
            * @brief
            * Get the value of a tag. If prefixed with RG:, get the tag from the
@@ -638,30 +581,11 @@ namespace vargas {
               if (tag.length() > 3 && tag.substr(0, 3) == "RG:") {
                   return read_group(hdr, tag.substr(3), val);
               }
-              if (tag == REQUIRED_POS) {
-                  convert(pos, val);
-              } else if (tag == REQUIRED_QNAME) {
-                  convert(query_name, val);
-              } else if (tag == REQUIRED_RNEXT) {
-                  convert(ref_next, val);
-              } else if (tag == REQUIRED_RNAME) {
-                  convert(ref_name, val);
-              } else if (tag == REQUIRED_SEQ) {
-                  convert(seq, val);
-              } else if (tag == REQUIRED_CIGAR) {
-                  convert(cigar, val);
-              } else if (tag == REQUIRED_FLAG) {
-                  convert(flag.encode(), val);
-              } else if (tag == REQUIRED_PNEXT) {
-                  convert(pos_next, val);
-              } else if (tag == REQUIRED_MAPQ) {
-                  convert(mapq, val);
-              } else if (tag == REQUIRED_TLEN) {
-                  convert(tlen, val);
-              } else if (tag == REQUIRED_QUAL) {
-                  convert(qual, val);
-              } else return aux.get(tag, val);
-              return true;
+              std::string ret;
+              if (get_required(tag, ret) || aux.get(tag, ret)) {
+                  rg::from_string(ret, val);
+                  return true;
+              } else return false;
           }
 
           static const std::string REQUIRED_POS;
@@ -679,7 +603,7 @@ namespace vargas {
       };
 
     protected:
-      bool _use_stdio;
+      bool _use_stdio = false;
       SAM::Header _hdr;
   };
 
@@ -694,17 +618,29 @@ namespace vargas {
   class isam: public SAM {
     public:
 
-      isam() {
-          open("");
-      }
+      isam() {}
 
       isam(std::string file_name) {
           open(file_name);
       }
 
+      isam(isam &&o) {
+          _buff = std::move(o._buff);
+          _pprec = std::move(o._pprec);
+          _hdr = std::move(o._hdr);
+          _use_stdio = o._use_stdio;
+      }
+
       ~isam() {
           close();
       }
+
+      /**
+       * @brief
+       * Close any open file and open the given stream.
+       * @param is input stream
+       */
+      void open(std::istream &is);
 
       /**
        * @brief
@@ -739,11 +675,15 @@ namespace vargas {
        * a do{}while() loop should be used.
        * @return true is a new record was obtained.
        */
-      bool next() {
-          if (!std::getline((_use_stdio ? std::cin : in), _curr_line)) return false;
-          _pprec.parse(_curr_line);
-          return true;
-      }
+      bool next();
+
+      /**
+       * @brief
+       * Load the rest of the records in the file and return a subset of them.
+       * @param n Number of records to keep.
+       * @return isam with subset of reads.
+       */
+      isam subset(size_t n);
 
       /**
        * @brief
@@ -765,6 +705,7 @@ namespace vargas {
     private:
       std::string _curr_line;
       std::ifstream in;
+      std::vector<Record> _buff;
 
       SAM::Record _pprec;
   };

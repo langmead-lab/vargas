@@ -1,6 +1,7 @@
 .idea
+.vscode
 lib
 bin
 build
-test/data
-*.out
+cmake-*
+doc/html

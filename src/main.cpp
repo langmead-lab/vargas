@@ -515,7 +515,8 @@ int align_main(int argc, char *argv[]) {
     }
 
     #ifdef _OPENMP
-    if (threads) omp_set_num_threads(threads > task_list.size() ? task_list.size() : threads);
+    if (threads) threads = threads > task_list.size() ? task_list.size() : threads;
+    omp_set_num_threads(threads);
     #endif
 
     std::cerr << "Aligning with " << threads << " thread(s)..." << std::endl;

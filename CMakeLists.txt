@@ -38,13 +38,13 @@ set(HEADERS
         include/varfile.h)
 
 option(BUILD_PHI "Build for Xeon Phi, requires icpc" OFF)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -no-inline-max-size -qoverride-limits -qopt-report=4")
+endif ()
+
 if (BUILD_PHI)
     message("Building for Xeon Phi")
-    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -restrict -xMIC-AVX512 -DSIMDPP_ARCH_X86_AVX512F")
-    else ()
-        message(FATAL_ERROR "Intel compiler required for Xeon Phi build.")
-    endif ()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -xMIC-AVX512 -DSIMDPP_ARCH_X86_AVX512F")
 else ()
     message("Building for SSE4.1")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1 -DSIMDPP_ARCH_X86_SSE4_1")
