@@ -100,7 +100,7 @@ namespace vargas {
    * // CCNT, score:8 pos:80
    * @endcode
    */
-  template <typename NATIVE_T>
+  template<typename NATIVE_T, bool END_TO_END = false>
   class AlignerT {
       static_assert(std::is_same<NATIVE_T, uint8_t>::value || std::is_same<NATIVE_T, uint16_t>::value, "Invalid type.");
     public:
@@ -113,26 +113,6 @@ namespace vargas {
 
       /**
        * @brief
-       * Default constructor uses the following score values: \n
-       * Match : 2 \n
-       * Mismatch penalty : 2 \n
-       * Gap Open penalty : 3 \n
-       * Gap Extend penalty : 1 \n
-       * @param max_node_len maximum node length
-       * @param read_len maximum read length
-       */
-      AlignerT(size_t max_node_len, size_t read_len) :
-      _read_len(read_len),
-      _tol(read_len / DEFAULT_TOL_FACTOR),
-      _match_vec(simdpp::splat(2)),
-      _mismatch_vec(simdpp::splat(2)),
-      _gap_open_extend_vec(simdpp::splat(4)),
-      _gap_extend_vec(simdpp::splat(1)),
-      _max_node_len(max_node_len),
-      _alignment_group(read_len) { _alloc(); }
-
-      /**
-       * @brief
        * Set scoring parameters.
        * @param max_node_len max node length
        * @param read_len max read length
@@ -141,9 +121,11 @@ namespace vargas {
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
-      AlignerT(size_t max_node_len, size_t read_len, uint8_t match, uint8_t mismatch, uint8_t open, uint8_t extend) :
+      AlignerT(size_t max_node_len, size_t read_len,
+               uint8_t match = 2, uint8_t mismatch = 2, uint8_t open = 3, uint8_t extend = 1) :
       _read_len(read_len),
       _tol(read_len / DEFAULT_TOL_FACTOR),
+      _bias(_get_bias(read_len, match, mismatch, open, extend)),
       _match_vec(simdpp::splat(match)),
       _mismatch_vec(simdpp::splat(mismatch)),
       _gap_open_extend_vec(simdpp::splat(open + extend)),
@@ -462,7 +444,11 @@ namespace vargas {
               _targets_lower_ptr = _targets_lower.data() + beg_offset;
               _targets_upper_ptr = _targets_upper.data() + beg_offset;
 
-              for (auto gi = begin; gi != end; ++gi) {
+              // seed matrix and first node
+              _seed_matrix(seed);
+              _fill_node(*begin, _alignment_group, seed, seed_map.emplace(begin->id(), _read_len).first->second);
+
+              for (auto gi = begin + 1; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, seed);
                   if (gi->is_pinched()) seed_map.clear();
                   _fill_node(*gi, _alignment_group, seed, seed_map.emplace(gi->id(), _read_len).first->second);
@@ -488,6 +474,21 @@ namespace vargas {
           std::vector<SIMD_T<NATIVE_T>> I_col; /**< Last column of I vector.*/
       };
 
+      void _seed_matrix(_seed &seed) {
+          std::fill(seed.I_col.begin(), seed.I_col.end(), _bias);
+          std::fill(seed.S_col.begin(), seed.S_col.end(), _bias);
+
+          if (END_TO_END) {
+              uint8_t ext = simdpp::extract<0>(_gap_extend_vec);
+              uint8_t open = simdpp::extract<0>(_gap_open_extend_vec) - ext;
+              for (size_t i = 0; i < _read_len; ++i) {
+                  const uint8_t b = open + (i * ext);
+                  seed.I_col[i] = simdpp::sub_sat(seed.I_col[i], b);
+                  seed.S_col[i] = simdpp::sub_sat(seed.S_col[i], b);
+              }
+          }
+      }
+
       /**
        * @brief
        * Returns the best seed from all previous nodes.
@@ -500,7 +501,6 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _get_seed(const std::vector<size_t> &prev_ids,
                      std::unordered_map<size_t, _seed> &seed_map, _seed &seed) const {
-          using namespace simdpp;
           try {
               for (size_t i = 0; i < _read_len; ++i) {
                   seed.I_col[i] = ZERO_CT;
@@ -508,11 +508,14 @@ namespace vargas {
                   for (size_t id : prev_ids) {
                       // Graph should be validated before alignment to ensure proper seed fetch
                       const auto &ns = seed_map.at(id);
-                      seed.I_col[i] = max(seed.I_col[i], ns.I_col[i]);
-                      seed.S_col[i] = max(seed.S_col[i], ns.S_col[i]);
+                      seed.I_col[i] = simdpp::max(seed.I_col[i], ns.I_col[i]);
+                      seed.S_col[i] = simdpp::max(seed.S_col[i], ns.S_col[i]);
                   }
               }
-          } catch (std::exception &e) { throw std::domain_error("Invalid node ordering."); }
+          }
+          catch (std::exception &e) {
+              throw std::domain_error("Invalid node ordering.");
+          }
       }
 
       void _set_nullptr() noexcept {
@@ -580,12 +583,12 @@ namespace vargas {
 
           // top left corner
           _fill_cell_rzcz(read_ptr[0], node_seq[0], s);
-          _fill_cell_finish(0, 0, node_origin);
+          if (!END_TO_END) _fill_cell_finish(0, 0, node_origin);
 
           // top row
           for (size_t c = 1; c < seq_size; ++c) {
               _fill_cell_rz(read_ptr[0], node_seq[c], c);
-              _fill_cell_finish(0, c, node_origin);
+              if (!END_TO_END) _fill_cell_finish(0, c, node_origin);
           }
 
           nxt.S_col[0] = _S_curr[seq_size - 1];
@@ -607,16 +610,25 @@ namespace vargas {
 
               // first col
               _fill_cell_cz(read_ptr[r], node_seq[0], r, s);
-              _fill_cell_finish(r, 0, node_origin);
+              if (!END_TO_END) _fill_cell_finish(r, 0, node_origin);
 
               // Inner grid
               for (size_t c = 1; c < seq_size; ++c) {
                   _fill_cell(read_ptr[r], node_seq[c], r, c);
-                  _fill_cell_finish(r, c, node_origin);
+                  if (!END_TO_END) _fill_cell_finish(r, c, node_origin);
               }
 
               nxt.S_col[r] = _S_curr[seq_size - 1];
 
+          }
+
+          // Look at last row for best scores when end to end
+          if (END_TO_END) {
+              for (size_t r = 0; r < _read_len; ++r) {
+                  for (size_t c = 0; c < seq_size; ++c) {
+                      _fill_cell_finish(r, c, node_origin);
+                  }
+              }
           }
 
           // origin vector of what is now _I_curr
@@ -838,7 +850,7 @@ namespace vargas {
           }
       }
 
-      static std::array<SIMD_T<NATIVE_T>, 5> _make_base_vec() {
+      static const std::array<SIMD_T<NATIVE_T>, 5> _make_base_vec() {
           using rg::Base;
           static_assert(Base::A < 5 && Base::C < 5 && Base::G < 5  && Base::T < 5 && Base::N < 5, "Base enum error.");
           std::array<SIMD_T<NATIVE_T>, 5> v;
@@ -850,15 +862,48 @@ namespace vargas {
           return v;
       }
 
+      static SIMD_T<NATIVE_T> _get_bias(const size_t read_len, const uint8_t match, const uint8_t mismatch,
+                                        const uint8_t gopen, const uint8_t gext) {
+          if (read_len * match > std::numeric_limits<NATIVE_T>::max()) {
+              throw std::invalid_argument("Insufficient bit-width for given match score and read length.");
+          }
+          if (!END_TO_END) return simdpp::splat(0);
+
+          // End to end alignment
+          unsigned int b = std::numeric_limits<NATIVE_T>::max() - (read_len * match);
+          //TODO Could be relaxed - all indels or all mismatch is unreasonable
+          if (gopen + (gext * (read_len - 1)) > b || read_len * mismatch > b) {
+              std::cerr << "Warning: Possibility of score saturation with parameters in end-to-end:\n\t"
+                        << "Read length: " << read_len << " "
+                        << "Match: " << match << " "
+                        << "Mismatch: " << mismatch << " "
+                        << "Gap Open: " << gopen << " "
+                        << "Gap Extend: " << gext << std::endl;
+          }
+          return simdpp::splat(b);
+      }
+
 
       /*********************************** Variables ***********************************/
 
-      const std::array<SIMD_T<NATIVE_T>,5> _base_vec = _make_base_vec();
-      const SIMD_T<NATIVE_T> ZERO_CT = simdpp::splat(0);
       const size_t _read_len; /**< Maximum read length. */
       size_t _tol; /**< If within +- this of target, indicate correct alignment */
 
+      const std::array<SIMD_T<NATIVE_T>, 5> _base_vec = _make_base_vec();
+
+      const SIMD_T<NATIVE_T> ZERO_CT = simdpp::splat(0);
+      const SIMD_T<NATIVE_T> _bias;
+
       SIMD_T<NATIVE_T> _match_vec, _mismatch_vec, _gap_open_extend_vec, _gap_extend_vec;
+
+      SIMD_T<NATIVE_T>
+      *_S_prev = nullptr,    /**< _S_prev[n] => S(i-1, n) */
+      *_S_curr = nullptr,
+      *_D_prev = nullptr,    /**< _D_prev[n] => D(i-1, n) */
+      *_D_curr = nullptr,
+      *_I_prev = nullptr,    /**< _I_prev[r] => I(r, j-1) */
+      *_I_curr = nullptr,
+      *_swp_tmp0;
 
       /**
        * Each vector has an 'a' and a 'b' version. Through each row of the
@@ -875,28 +920,17 @@ namespace vargas {
       *_Ib = nullptr;
 
       SIMD_T<NATIVE_T>
-      *_S_prev = nullptr,    /**< _S_prev[n] => S(i-1, n) */
-      *_S_curr = nullptr,
-      *_D_prev = nullptr,    /**< _D_prev[n] => D(i-1, n) */
-      *_D_curr = nullptr,
-      *_I_prev = nullptr,    /**< _I_prev[r] => I(r, j-1) */
-      *_I_curr = nullptr,
-      *_swp_tmp0;
-
-      SIMD_T<NATIVE_T>
       _tmp0, /**< temporary for use within functions */
       _Ceq,  /**< Match score when read_base == ref_base */
       _Cneq; /**< mismatch penalty */
 
       size_t _curr_pos;
 
-      // Optimal alignment info
+      // alignment info
       SIMD_T<NATIVE_T> _max_score;
+      SIMD_T<NATIVE_T> _sub_score;
       size_t *_max_pos;
       size_t *_max_count;
-
-      // Suboptimal alignment info
-      SIMD_T<NATIVE_T> _sub_score;
       size_t *_sub_pos;
       size_t *_sub_count;
 
@@ -916,6 +950,8 @@ namespace vargas {
 
   using Aligner = AlignerT<uint8_t>;
   using WordAligner = AlignerT<uint16_t>;
+  using AlignerETE = AlignerT<uint8_t, true>;
+  using WordAlignerETE = AlignerT<uint16_t, true>;
 
 }
 

@@ -664,7 +664,7 @@ namespace vargas {
        * @return true if file is open.
        */
       bool good() const {
-          return in.good() || _use_stdio;
+          return in.good() || _use_stdio || _buff.size();
       }
 
       /**

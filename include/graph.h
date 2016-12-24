@@ -427,6 +427,16 @@ namespace vargas {
           }
 
           /**
+           * @return iterator to the next nth Node.
+           */
+          GraphIterator operator+(size_t i) const {
+              auto ret = *this;
+              if (_currID + i < _graph._add_order.size()) ret._currID += i;
+              else ret._currID = _graph._add_order.size();
+              return ret;
+          }
+
+          /**
            * @brief
            * Const reference to the current node. Undefined for end iterator.
            * @return Node

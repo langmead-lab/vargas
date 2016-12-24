@@ -381,7 +381,7 @@ void vargas::isam::open(std::string file_name) {
 }
 
 vargas::isam vargas::isam::subset(size_t n) {
-    if (!good()) throw std::invalid_argument("No SAM file open.");
+    if (!good()) throw std::invalid_argument("No records available.");
     std::vector<Record> pending;
     do { pending.push_back(_pprec); } while (next());
     if (pending.size() == 0) throw std::invalid_argument("No records available.");
@@ -582,13 +582,29 @@ TEST_CASE ("SAM File") {
         }
 
         SUBCASE("Subset") {
-            vargas::isam orig("tmp_s.sam");
-            auto ss = orig.subset(2);
-            CHECK(ss.record().query_name.length()); // First record is loaded
-            CHECK(ss.next());
-            CHECK(ss.record().query_name.length());
-            CHECK_FALSE(ss.next());
+            {
+                vargas::isam orig("tmp_s.sam");
+                auto ss = orig.subset(2);
+                CHECK(ss.record().query_name.length()); // First record is loaded
+                CHECK(ss.next());
+                CHECK(ss.record().query_name.length());
+                CHECK_FALSE(ss.next());
+                try {
+                    // ss is consumed so this should throw
+                    auto sss = ss.subset(1);
+                    CHECK(0);
+                } catch (std::exception &e) { CHECK(1); }
+            }
+
+            {
+                vargas::isam orig("tmp_s.sam");
+                auto s1 = orig.subset(2);
+                auto s2 = s1.subset(1);
+                CHECK(s2.record().query_name.length());
+                CHECK_FALSE(s2.next());
+            }
         }
+
     }
 
     remove("tmp_s.sam");

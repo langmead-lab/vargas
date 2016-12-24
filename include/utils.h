@@ -12,6 +12,8 @@
 #ifndef VARGAS_UTILS_H
 #define VARGAS_UTILS_H
 
+#define RG_UTIL_INCLUDE_DOCTESET 1
+
 #if defined __INTEL_COMPILER
 #define __RG_UNROLL__
 #define RESTRICT restrict

@@ -12,17 +12,6 @@
 #ifndef VARGAS_MAIN_H
 #define VARGAS_MAIN_H
 
-#define ALIGN_SAM_MAX_POS_TAG "mp"
-#define ALIGN_SAM_SUB_POS_TAG "sp"
-#define ALIGN_SAM_MAX_SCORE_TAG "ms"
-#define ALIGN_SAM_SUB_SCORE_TAG "ss"
-#define ALIGN_SAM_MAX_COUNT_TAG "mc"
-#define ALIGN_SAM_SUB_COUNT_TAG "sc"
-#define ALIGN_SAM_COR_FLAG_TAG "cf"
-
-#define UNGROUPED_READGROUP "VA-UNGROUPED"
-
-#include "alignment.h"
 #include "graph.h"
 #include "sim.h"
 #include "cxxopts.hpp"
@@ -33,13 +22,6 @@
  * @param argv command line arguments
  */
 int sim_main(int argc, char *argv[]);
-
-/**
- * Align given reads to specified target graphs.
- * @param argc command line argument count
- * @param argv command line arguments
- */
-int align_main(int argc, char *argv[]);
 
 /**
  * Define graphs from a FASTA and a VCF/BCF file. Allows graphs
@@ -83,7 +65,6 @@ int query_main(int argc, char *argv[]);
 void main_help();
 void export_help(const cxxopts::Options &opts);
 void profile_help(const cxxopts::Options &opts);
-void align_help(const cxxopts::Options &opts);
 void sim_help(const cxxopts::Options &opts);
 void define_help(const cxxopts::Options &opts);
 void convert_help(const cxxopts::Options &opts);

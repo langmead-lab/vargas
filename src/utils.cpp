@@ -9,15 +9,11 @@
  * @file
  */
 
-
-#include <sstream>
 #include "utils.h"
-
 
 std::string rg::current_date() {
     time_t t = time(0);
     struct tm *now = localtime(&t);
-
     std::ostringstream ss;
     ss << (now->tm_year + 1900) << '-'
        << (now->tm_mon + 1) << '-'
@@ -44,3 +40,54 @@ char rg::guess_delim(const std::string &line) {
     }
     throw std::logic_error("Unable to determine delimiter in line: " + line);
 }
+
+#if RG_UTIL_INCLUDE_DOCTESET
+#include "doctest.h"
+
+
+TEST_CASE ("Split strings") {
+    std::string s("a b\tccc  d "), delim(" \t");
+    {
+        auto o = rg::split(s, delim);
+        REQUIRE(o.size() == 4);
+        CHECK(o[0] == "a");
+        CHECK(o[1] == "b");
+        CHECK(o[2] == "ccc");
+        CHECK(o[3] == "d");
+    }
+
+    {
+        delim = " ";
+        auto o = rg::split(s, delim);
+        REQUIRE(o.size() == 3);
+        CHECK(o[0] == "a");
+        CHECK(o[1] == "b\tccc");
+        CHECK(o[2] == "d");
+
+    }
+
+    {
+        delim = " \t";
+        auto o = rg::split(s, delim, false);
+        REQUIRE(o.size() == 5);
+        CHECK(o[0] == "a");
+        CHECK(o[1] == "b");
+        CHECK(o[2] == "ccc");
+        CHECK(o[3] == "");
+        CHECK(o[4] == "d");
+    }
+
+    {
+        delim = " ";
+        auto o = rg::split(s, delim, false);
+        REQUIRE(o.size() == 4);
+        CHECK(o[0] == "a");
+        CHECK(o[1] == "b\tccc");
+        CHECK(o[2] == "");
+        CHECK(o[3] == "d");
+
+    }
+
+}
+
+#endif
