@@ -76,14 +76,14 @@ bool vargas::Sim::_update_read() {
             // Mutation error
             if (rand() % 10000 < 10000 * _prof.mut) {
                 do {
-                    m = rand_base();
+                    m = rg::rand_base();
                 } while (m == read_str[i]);
                 ++sub_err;
             }
 
                 // Insertion
             else if (rand() % 10000 < 5000 * _prof.indel) {
-                read_mut += rand_base();
+                read_mut += rg::rand_base();
                 ++indel_err;
             }
 
@@ -119,14 +119,14 @@ bool vargas::Sim::_update_read() {
 
         for (size_t m : mut_sites) {
             do {
-                read_mut[m] = rand_base();
+                read_mut[m] = rg::rand_base();
             } while (read_mut[m] == read_str[m]);
         }
 
         for (size_t i : indel_sites) {
             if (rand() % 2) {
                 // Insertion
-                read_mut.insert(i, 1, rand_base());
+                read_mut.insert(i, 1, rg::rand_base());
             } else {
                 // Deletion
                 read_mut.erase(i, 1);

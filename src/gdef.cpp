@@ -56,10 +56,10 @@ bool vargas::GraphManager::open(std::istream &in, bool build_base) {
 
     // Pull meta info
     {
-        std::vector<std::string> meta_split = split(line, GDEF_DELIM);
+        std::vector<std::string> meta_split = rg::split(line, GDEF_DELIM);
         std::vector<std::string> tv_pair;
         for (const std::string &tv : meta_split) {
-            split(tv, GDEF_ASSIGN, tv_pair);
+            rg::split(tv, GDEF_ASSIGN, tv_pair);
             if (tv_pair.size() != 2) throw std::invalid_argument("Invalid token: \"" + tv + "\"");
             const std::string &tag = tv_pair[0];
             const std::string &val = tv_pair[1];
@@ -96,7 +96,7 @@ bool vargas::GraphManager::open(std::istream &in, bool build_base) {
         std::vector<std::string> p_pair;
         Graph::Population pop(nsamps);
         while (std::getline(in, line)) {
-            split(line, GDEF_ASSIGN, p_pair);
+            rg::split(line, GDEF_ASSIGN, p_pair);
 
             if (p_pair.size() != 2) {
                 throw std::invalid_argument("Invalid token: \"" + line + "\"");
@@ -128,8 +128,8 @@ std::shared_ptr<const vargas::Graph> vargas::GraphManager::make_subgraph(std::st
     if (label == GDEF_BASEGRAPH) return base();
     label = GDEF_BASEGRAPH + GDEF_SCOPE + label;
 
-    if (ends_with(label, GDEF_REFGRAPH)) return make_ref(label);
-    if (ends_with(label, GDEF_MAXAFGRAPH)) return make_maxaf(label);
+    if (rg::ends_with(label, GDEF_REFGRAPH)) return make_ref(label);
+    if (rg::ends_with(label, GDEF_MAXAFGRAPH)) return make_maxaf(label);
 
     if (_subgraphs.count(label)) return _subgraphs.at(label);
 
@@ -183,8 +183,8 @@ std::shared_ptr<const vargas::Graph> vargas::GraphManager::base() const {
 
 vargas::Graph::Population vargas::GraphManager::filter(std::string label) const {
     if (label == GDEF_BASEGRAPH) return base()->filter();
-    if (ends_with(label, GDEF_REFGRAPH)) return vargas::Graph::Population(0);
-    if (ends_with(label, GDEF_MAXAFGRAPH)) return vargas::Graph::Population(0);
+    if (rg::ends_with(label, GDEF_REFGRAPH)) return vargas::Graph::Population(0);
+    if (rg::ends_with(label, GDEF_MAXAFGRAPH)) return vargas::Graph::Population(0);
     label = GDEF_BASEGRAPH + GDEF_SCOPE + label;
     if (!_subgraph_filters.count(label)) throw std::invalid_argument("Label \"" + label + "\" does not exist.");
     return _subgraph_filters.at(label);
@@ -227,7 +227,7 @@ bool vargas::GraphManager::write(std::string ref_file,
     // Replace new lines with the delim, remove any spaces
     std::replace(defs_str.begin(), defs_str.end(), '\n', GDEF_DELIM);
     defs_str.erase(std::remove_if(defs_str.begin(), defs_str.end(), isspace), defs_str.end());
-    std::vector<std::string> defs = split(defs_str, GDEF_DELIM);
+    std::vector<std::string> defs = rg::split(defs_str, GDEF_DELIM);
 
     // Get number of samples from VCF file
     if (nsamps == 0) {
@@ -256,7 +256,7 @@ bool vargas::GraphManager::write(std::string ref_file,
         }
 
         for (const auto &def : defs) {
-            split(def, GDEF_ASSIGN, pair);
+            rg::split(def, GDEF_ASSIGN, pair);
             if (pair.size() != 2) throw std::invalid_argument("Invalid assignment: \"" + def + "\".");
 
             pair[0] = GDEF_BASEGRAPH + GDEF_SCOPE + pair[0];

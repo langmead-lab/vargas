@@ -25,7 +25,7 @@ std::string vargas::Graph::GID::to_string() const {
 
 vargas::Graph::GID::GID(std::string s) {
     try {
-        std::vector<std::string> s_split = split(s, ',');
+        std::vector<std::string> s_split = rg::split(s, ',');
         outgroup = s[0] == 'o';
         num = std::stoi(s_split[1]);
         id = std::stoi(s_split[2]);
@@ -349,11 +349,11 @@ size_t vargas::GraphFactory::add_sample_filter(std::string filter, bool invert) 
     if (invert) {
         const auto s = _vf->samples();
         auto vcf_samples = std::unordered_set<std::string>(s.begin(), s.end());
-        const auto filter_samples = split(filter, ',');
+        const auto filter_samples = rg::split(filter, ',');
         for (const auto &f : filter_samples) vcf_samples.erase(f);
         filt = std::vector<std::string>(vcf_samples.begin(), vcf_samples.end());
     } else {
-        split(filter, ',', filt);
+        rg::split(filter, ',', filt);
     }
     _vf->create_ingroup(filt);
     return _vf->num_samples();
@@ -391,7 +391,7 @@ vargas::Graph vargas::Graph::subgraph(const size_t min, const size_t max) const 
                 old_to_new[n.id()] = new_id;
             } else {
                 Node cpy = n;
-                std::vector<Base> cropped = n.seq();
+                std::vector<rg::Base> cropped = n.seq();
                 cropped.resize(n.end_pos() - max + 1);
                 cpy.set_seq(cropped);
                 cpy.set_endpos(max);
@@ -404,8 +404,8 @@ vargas::Graph vargas::Graph::subgraph(const size_t min, const size_t max) const 
             // Begin out of range
         else if (n.end_pos() <= max) {
             Node cpy = n;
-            std::vector<Base> seq = n.seq();
-            std::vector<Base> cropped(seq.begin() + min - n.begin_pos(), seq.end());
+            std::vector<rg::Base> seq = n.seq();
+            std::vector<rg::Base> cropped(seq.begin() + min - n.begin_pos(), seq.end());
             cpy.set_seq(cropped);
             new_id = ret.add_node(cpy);
             new_to_old[new_id] = n.id();
@@ -479,6 +479,7 @@ TEST_CASE ("Node class") {
     }
 
     SUBCASE("Set Node params") {
+        using rg::Base;
         n1.set_seq("ACGTN");
         std::vector<bool> a = {0, 0, 1};
         n1.set_population(a);

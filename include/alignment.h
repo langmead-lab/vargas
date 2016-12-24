@@ -206,8 +206,8 @@ namespace vargas {
            */
           __RG_STRONG_INLINE__
           void load_reads(const std::vector<std::string> &batch) {
-              std::vector<std::vector<Base>> _reads;
-              for (auto &b : batch) _reads.push_back(seq_to_num(b));
+              std::vector<std::vector<rg::Base>> _reads;
+              for (auto &b : batch) _reads.push_back(rg::seq_to_num(b));
               load_reads(_reads);
           }
 
@@ -215,7 +215,7 @@ namespace vargas {
            * @param batch load the given vector of reads.
            */
           __RG_STRONG_INLINE__
-          void load_reads(const std::vector<std::vector<Base>> &batch) {
+          void load_reads(const std::vector<std::vector<rg::Base>> &batch) {
               _package_reads(batch);
           }
 
@@ -285,7 +285,7 @@ namespace vargas {
            * @param _reads vector of reads to package
            */
           __RG_STRONG_INLINE__
-          void _package_reads(const std::vector<std::vector<Base>> &_reads) {
+          void _package_reads(const std::vector<std::vector<rg::Base>> &_reads) {
               assert(_reads.size() <= SIMD_T<NATIVE_T>::length);
               // Interleave reads
               // For each read (read[i] is in _packaged_reads[0..n][i]
@@ -300,7 +300,7 @@ namespace vargas {
               // Pad underful batches
               for (size_t r = _reads.size(); r < SIMD_T<NATIVE_T>::length; ++r) {
                   for (size_t p = 0; p < _read_len; ++p) {
-                      insert<NATIVE_T>(Base::N, r, _packaged_reads[p]);
+                      insert<NATIVE_T>(rg::Base::N, r, _packaged_reads[p]);
                   }
               }
           }
@@ -573,7 +573,7 @@ namespace vargas {
 
           assert(n.seq().size() <= _max_node_len);
 
-          const Base *node_seq = n.seq().data();
+          const rg::Base *node_seq = n.seq().data();
           const SIMD_T<NATIVE_T> *read_ptr = read_group.data();
           const size_t seq_size = n.seq().size();
           const size_t node_origin = n.end_pos() - seq_size + 2;
@@ -631,7 +631,7 @@ namespace vargas {
        * @param s alignment seed from previous node
        */
       __RG_STRONG_INLINE__
-      void _fill_cell_rzcz(const SIMD_T<NATIVE_T> &read_base, const Base &ref, const _seed &s) {
+      void _fill_cell_rzcz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const _seed &s) {
           _D(0, ZERO_CT, ZERO_CT);
           _I(0, s.S_col[0]);
           _M(0, read_base, ref, ZERO_CT);
@@ -645,7 +645,7 @@ namespace vargas {
        * @param col _curr_posent column in matrix
        */
       __RG_STRONG_INLINE__
-      void _fill_cell_rz(const SIMD_T<NATIVE_T> &read_base, const Base &ref, const size_t &col) {
+      void _fill_cell_rz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &col) {
           _D(col, ZERO_CT, ZERO_CT);
           _I(0, _S_curr[col - 1]);
           _M(col, read_base, ref, ZERO_CT);
@@ -660,7 +660,7 @@ namespace vargas {
        * @param s alignment seed from previous node
        */
       __RG_STRONG_INLINE__
-      void _fill_cell_cz(const SIMD_T<NATIVE_T> &read_base, const Base &ref, const size_t &row, const _seed &s) {
+      void _fill_cell_cz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &row, const _seed &s) {
           _D(0, _D_prev[0], _S_prev[0]);
           _I(row, s.S_col[row]);
           _M(0, read_base, ref, s.S_col[row - 1]);
@@ -675,7 +675,7 @@ namespace vargas {
        * @param col _curr_posent column in matrix
        */
       __RG_STRONG_INLINE__
-      void _fill_cell(const SIMD_T<NATIVE_T> &read_base, const Base &ref, const size_t &row, const size_t &col) {
+      void _fill_cell(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &row, const size_t &col) {
 
           _D(col, _D_prev[col], _S_prev[col]);
           _I(row, _S_curr[col - 1]);
@@ -731,17 +731,17 @@ namespace vargas {
        * @param Sp Previous S val at col-1 (upper left cell)
        */
       __RG_STRONG_INLINE__
-      void _M(size_t col, const SIMD_T<NATIVE_T> &read, const Base &ref, const SIMD_T<NATIVE_T> &Sp) {
+      void _M(size_t col, const SIMD_T<NATIVE_T> &read, const rg::Base &ref, const SIMD_T<NATIVE_T> &Sp) {
           using namespace simdpp;
 
-          if (ref != Base::N) {
+          if (ref != rg::Base::N) {
               _Ceq = ZERO_CT;
               _Cneq = ZERO_CT;
 
               // Set all mismatching pairs to _mismatch
               _tmp0 = cmp_neq(read, _base_vec[ref]);
               _Cneq = _tmp0 & _mismatch_vec;   // If the read base is Base::N, set to 0 (_Ceq)
-              _tmp0 = cmp_eq(read, _base_vec[Base::N]);
+              _tmp0 = cmp_eq(read, _base_vec[rg::Base::N]);
               _Cneq = blend(_Ceq, _Cneq, _tmp0);
 
               // b is not N, so all equal bases are valid
@@ -839,6 +839,7 @@ namespace vargas {
       }
 
       static std::array<SIMD_T<NATIVE_T>, 5> _make_base_vec() {
+          using rg::Base;
           static_assert(Base::A < 5 && Base::C < 5 && Base::G < 5  && Base::T < 5 && Base::N < 5, "Base enum error.");
           std::array<SIMD_T<NATIVE_T>, 5> v;
           v[Base::A] = simdpp::splat(Base::A);

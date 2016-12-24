@@ -44,12 +44,14 @@
 #include <assert.h>
 #include "simdpp/simd.h"
 
+namespace rg {
+
 /**
  * @enum Base
  * @brief
  * Maps Base characters to integers.
  */
-enum Base: unsigned char { A = 0, C = 1, G = 2, T = 3, N = 4 };
+  enum Base: unsigned char { A = 0, C = 1, G = 2, T = 3, N = 4 };
 
 /**
  * @brief
@@ -57,25 +59,25 @@ enum Base: unsigned char { A = 0, C = 1, G = 2, T = 3, N = 4 };
  * @param c character
  * @return numeral representation
  */
-__RG_STRONG_INLINE__
-Base base_to_num(char c) {
-    switch (c) {
-        case 'A':
-        case 'a':
-            return Base::A;
-        case 'C':
-        case 'c':
-            return Base::C;
-        case 'G':
-        case 'g':
-            return Base::G;
-        case 'T':
-        case 't':
-            return Base::T;
-        default:
-            return Base::N;
-    }
-}
+  __RG_STRONG_INLINE__
+  Base base_to_num(char c) {
+      switch (c) {
+          case 'A':
+          case 'a':
+              return Base::A;
+          case 'C':
+          case 'c':
+              return Base::C;
+          case 'G':
+          case 'g':
+              return Base::G;
+          case 'T':
+          case 't':
+              return Base::T;
+          default:
+              return Base::N;
+      }
+  }
 
 /**
  * @brief
@@ -84,21 +86,22 @@ Base base_to_num(char c) {
  * @param num numeric form
  * @return char in [A,C,G,T,N]
  */
-__RG_STRONG_INLINE__
-char num_to_base(Base num) {
-    switch (num) {
-        case Base::A:
-            return 'A';
-        case Base::C:
-            return 'C';
-        case Base::G:
-            return 'G';
-        case Base::T:
-            return 'T';
-        default:
-            return 'N';
-    }
-}
+  __RG_STRONG_INLINE__
+  char num_to_base(Base num) {
+      switch (num) {
+          case Base::A:
+              return 'A';
+          case Base::C:
+              return 'C';
+          case Base::G:
+              return 'G';
+          case Base::T:
+              return 'T';
+          default:
+              return 'N';
+      }
+  }
+
 
 /**
  * @brief
@@ -106,12 +109,12 @@ char num_to_base(Base num) {
  * @param seq Sequence string
  * @return vector of numerals
  */
-__RG_STRONG_INLINE__
-std::vector<Base> seq_to_num(const std::string &seq) {
-    std::vector<Base> num(seq.length());
-    std::transform(seq.begin(), seq.end(), num.begin(), base_to_num);
-    return num;
-}
+  __RG_STRONG_INLINE__
+  std::vector<Base> seq_to_num(const std::string &seq) {
+      std::vector<Base> num(seq.length());
+      std::transform(seq.begin(), seq.end(), num.begin(), base_to_num);
+      return num;
+  }
 
 /**
  * @brief
@@ -119,15 +122,48 @@ std::vector<Base> seq_to_num(const std::string &seq) {
  * @param num Numeric vector
  * @return sequence string, Sigma={A,G,T,C,N}
  */
-__RG_STRONG_INLINE__
-std::string num_to_seq(const std::vector<Base> &num) {
-    std::ostringstream builder;
-    for (auto &n : num) {
-        builder << num_to_base(n);
-    }
-    return builder.str();
-}
+  __RG_STRONG_INLINE__
+  std::string num_to_seq(const std::vector<Base> &num) {
+      std::ostringstream builder;
+      for (auto &n : num) {
+          builder << num_to_base(n);
+      }
+      return builder.str();
+  }
 
+
+  /**
+   * @brief
+   * Apply binary_op to each token in [in_begin,in_end], split by any element in [d_begin, d_end].
+   * Adapted from http://tristanbrindle.com/posts/a-quicker-study-on-tokenising/
+   * @tparam InIter Type of input iterator
+   * @tparam DelimIter Type of split iterator
+   * @tparam BinOp Binary Op to apply fo each token
+   * @param in_begin Input begin iterator
+   * @param in_end Input end iterator
+   * @param d_begin Delimiter begin iterator
+   * @param d_end Delimiter end iterator
+   * @param binary_op operation to apply to each token
+   */
+  template<typename InIter, typename DelimIter, class BinOp>
+  void for_each_token(InIter in_begin, InIter in_end, DelimIter d_begin, DelimIter d_end, BinOp binary_op) {
+      while (in_begin != in_end) {
+          const auto pos = std::find_first_of(in_begin, in_end, d_begin, d_end);
+          binary_op(in_begin, pos);
+          if (pos == in_end) break;
+          in_begin = std::next(pos);
+      }
+  }
+
+  /**
+   * @brief
+   * Split a string into tokens with any delimiter in delims.
+   * @param str String to split
+   * @param delims List of delimiters to split by
+   * @param skip_empty Skip empty elements
+   * @return vector of tokens
+   */
+  std::vector<std::string> split(const std::string &str, const std::string &delims = ",", bool skip_empty = true);
 
 /**
  * @brief
@@ -136,7 +172,19 @@ std::string num_to_seq(const std::vector<Base> &num) {
  * @param delim split string at delim, discarding the delim
  * @return vector to store results in
  */
-std::vector<std::string> split(const std::string &s, char delim);
+  inline std::vector<std::string> split(const std::string &s, char delim) {
+      return split(s, std::string(1, delim));
+  }
+
+  /**
+    * @brief
+    * Guesses the delimiter of a line. Checks the following, with the first that succesfully splits
+    * the string returned.
+    * "<newline><tab>:;,=|/"
+    * @param line
+    * @return delimiter of the line.
+    */
+  char guess_delim(const std::string &line);
 
 /**
  * @brief
@@ -145,8 +193,9 @@ std::vector<std::string> split(const std::string &s, char delim);
  * @param delim split string at delim, discarding the delim
  * @param vec vector to store results in
  */
-void split(const std::string &s,
-           char delim, std::vector<std::string> &vec);
+  inline void split(const std::string &s, char delim, std::vector<std::string> &vec) {
+      vec = std::move(split(s, std::string(1, delim)));
+  }
 
 /**
  * @brief
@@ -154,7 +203,9 @@ void split(const std::string &s,
  * @param s string to split
  * @param vec vector to store results in
  */
-void split(const std::string &s, std::vector<std::string> &vec);
+  inline void split(const std::string &s, std::vector<std::string> &vec) {
+      vec = std::move(split(s, std::string(1, rg::guess_delim(s))));
+  }
 
 
 /**
@@ -162,81 +213,109 @@ void split(const std::string &s, std::vector<std::string> &vec);
  * Opens a file and checks if its valid.
  * @param filename File to check if valid.
  */
-inline bool file_exists(std::string filename) {
-    std::ifstream f(filename);
-    return f.good();
-}
+  inline bool file_exists(std::string filename) {
+      std::ifstream f(filename);
+      return f.good();
+  }
 
 /**
  * @return random base character in [ACGTN].
  */
-__RG_STRONG_INLINE__
-char rand_base() {
-    switch (rand() % 5) {
-        case 0:
-            return 'A';
-        case 1:
-            return 'T';
-        case 2:
-            return 'C';
-        case 3:
-            return 'G';
-        default:
-            return 'N';
-    }
-}
-
-/**
- * @brief
- * Guesses the delimiter of a line. Checks the following, with the first that succesfully splits
- * the string returned.
- * "<newline><tab>:;,=|/"
- * @param line
- * @return delimiter of the line.
- */
-__RG_STRONG_INLINE__
-char guess_delim(const std::string &line) {
-    static const std::string options = "\n\t:;,=|/";
-    for (const char d : options) {
-        if (split(line, d).size() > 1) return d;
-    }
-    throw std::logic_error("Unable to determine delimiter in line: " + line);
-}
-
-std::string current_date();
+  __RG_STRONG_INLINE__
+  char rand_base() {
+      switch (rand() % 5) {
+          case 0:
+              return 'A';
+          case 1:
+              return 'T';
+          case 2:
+              return 'C';
+          case 3:
+              return 'G';
+          default:
+              return 'N';
+      }
+  }
 
 
-template<typename T>
-__RG_STRONG_INLINE__
-double chrono_duration(const std::chrono::time_point<T> &start_time) {
-    return std::chrono::duration_cast<std::chrono::duration<double>>(
-    std::chrono::steady_clock::now() - start_time).count();
-}
+  /**
+   * @brief
+   * Date in format:
+   *    YEAR-MONTH-DAY
+   * @return curent date
+   */
+  std::string current_date();
 
-template<typename T>
-__RG_STRONG_INLINE__
-double chrono_duration(const std::chrono::time_point<T> &start_time, const std::chrono::time_point<T> &end) {
-    return std::chrono::duration_cast<std::chrono::duration<double>>(end - start_time).count();
-}
+  /**
+   * @tparam T
+   * @param start_time
+   * @param end_time
+   * @return Time between start and end times.
+   */
+  template<typename T>
+  __RG_STRONG_INLINE__
+  double chrono_duration(const std::chrono::time_point<T> &start_time, const std::chrono::time_point<T> &end_time) {
+      return std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time).count();
+  }
 
-__RG_STRONG_INLINE__
-bool ends_with(std::string const &fullString, std::string const &ending) {
-    if (fullString.length() >= ending.length())
-        return 0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending);
-    else return false;
-}
+  /**
+   * @tparam T
+   * @param start_time
+   * @return Time between start time and now.
+   */
+  template<typename T>
+  __RG_STRONG_INLINE__
+  double chrono_duration(const std::chrono::time_point<T> &start_time) {
+      return chrono_duration(start_time, std::chrono::steady_clock::now());
+  }
 
-namespace rg {
+  /**
+   * @brief
+   * Checks if a string ends with some substring
+   * @param full_string
+   * @param ending
+   * @return True if full_string ends with ending
+   */
+  __RG_STRONG_INLINE__
+  bool ends_with(std::string const &full_string, std::string const &ending) {
+      if (full_string.length() >= ending.length())
+          return full_string.compare(full_string.length() - ending.length(), ending.length(), ending) == 0;
+      else return false;
+  }
 
+
+  /**
+   * @brief
+   * Wrapper around std::to_string that allows transparent usage with to_string(std::string)
+   * @tparam T Type to convert to string
+   * @param val
+   * @return
+   */
   template<typename T>
   __RG_STRONG_INLINE__
   typename std::enable_if<std::is_arithmetic<T>::value, std::string>::type to_string(T val) {
       return std::to_string(val);
   }
 
+  /**
+ * @brief
+ * Wrapper around std::to_string that allows transparent usage with to_string(std::string).
+ * T = std::string pass through.
+ * @tparam T Type to convert to string
+ * @param val
+ * @return
+ */
   __RG_STRONG_INLINE__
   std::string to_string(std::string s) { return s; }
 
+  /**
+   * @brief
+   * Convert from a string to the respective type.
+   * Float types.
+   * @tparam T Type to convert to
+   * @param s
+   * @param ret
+   */
   template<typename T>
   __RG_STRONG_INLINE__
   typename std::enable_if<std::is_floating_point<T>::value>::type
@@ -244,6 +323,14 @@ namespace rg {
       ret = std::stod(s);
   }
 
+  /**
+ * @brief
+ * Convert from a string to the respective type.
+ * Integer types.
+ * @tparam T Type to convert to
+ * @param s
+ * @param ret
+ */
   template<typename T>
   __RG_STRONG_INLINE__
   typename std::enable_if<std::is_integral<T>::value>::type
@@ -251,6 +338,14 @@ namespace rg {
       ret = std::stoi(s);
   }
 
+  /**
+ * @brief
+ * Convert from a string to the respective type.
+ * std::string pass through.
+ * @tparam T Type to convert to
+ * @param s
+ * @param ret
+ */
   __RG_STRONG_INLINE__
   void from_string(const std::string &s, std::string &ret) { ret = s; }
 

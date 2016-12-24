@@ -176,7 +176,7 @@ namespace vargas {
           Node() : _id(_newID++) {}
 
           Node(size_t pos, const std::string &seq, const Population &pop, bool ref, float af) :
-          _endPos(pos), _seq(seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) {}
+          _endPos(pos), _seq(rg::seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) {}
 
           /**
            * @return length of the sequence
@@ -211,14 +211,14 @@ namespace vargas {
            * Sequence as a vector of unsigned chars.
            * @return seq
            */
-          const std::vector<Base> &seq() const { return _seq; }
+          const std::vector<rg::Base> &seq() const { return _seq; }
 
           /**
            * @brief
            * Sequence is stored numerically. Return as a string.
            * @return seq
            */
-          std::string seq_str() const { return num_to_seq(_seq); }
+          std::string seq_str() const { return rg::num_to_seq(_seq); }
 
           /**
            * @brief
@@ -302,14 +302,14 @@ namespace vargas {
            * Set the stored node sequence. Sequence is converted to numeric form.
            * @param seq
            */
-          void set_seq(const std::string &seq) { _seq = seq_to_num(seq); }
+          void set_seq(const std::string &seq) { _seq = rg::seq_to_num(seq); }
 
           /**
            * @brief
            * Set the stored node sequence
            * @param seq
            */
-          void set_seq(std::vector<Base> &seq) { this->_seq = seq; }
+          void set_seq(std::vector<rg::Base> &seq) { this->_seq = seq; }
 
           /**
            * @brief
@@ -354,7 +354,7 @@ namespace vargas {
 
         private:
           size_t _endPos; // End position of the sequence
-          std::vector<Base> _seq; // sequence in numeric form
+          std::vector<rg::Base> _seq; // sequence in numeric form
           Population _individuals; // Each bit marks an individual, 1 if they have this node
           bool _ref = false; // Part of the reference sequence if true
           bool _pinch = false; // If this node is removed, the graph will split into two distinct subgraphs

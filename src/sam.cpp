@@ -30,7 +30,7 @@ const std::string vargas::SAM::Record::REQUIRED_TLEN = "TLEN";
 const std::string vargas::SAM::Record::REQUIRED_QUAL = "QUAL";
 
 void vargas::SAM::Optional::add(std::string a) {
-    const std::vector<std::string> s = split(a, ':');
+    const std::vector<std::string> s = rg::split(a, ':');
     assert(s[0].length() == 2);
     if (s.size() == 2) {
         aux[s[0]] = s[1];
@@ -71,7 +71,7 @@ void vargas::SAM::Header::Sequence::parse(std::string line) {
     URI = "";
     aux.clear();
 
-    std::vector<std::string> tags = split(line, '\t');
+    std::vector<std::string> tags = rg::split(line, '\t');
     for (auto &p : tags) {
         if (p.at(0) == '@') continue;
         std::string tag = p.substr(0, 2);
@@ -128,7 +128,7 @@ void vargas::SAM::Header::ReadGroup::parse(std::string line) {
     sample = "";
     aux.clear();
 
-    std::vector<std::string> tags = split(line, '\t');
+    std::vector<std::string> tags = rg::split(line, '\t');
     for (auto &p : tags) {
         if (p.at(0) == '@') continue;
         std::string tag = p.substr(0, 2);
@@ -185,7 +185,7 @@ void vargas::SAM::Header::Program::parse(std::string line) {
     version = "";
     aux.clear();
 
-    std::vector<std::string> tags = split(line, '\t');
+    std::vector<std::string> tags = rg::split(line, '\t');
     for (auto &p : tags) {
         if (p.at(0) == '@') continue;
         std::string tag = p.substr(0, 2);
@@ -234,15 +234,15 @@ void vargas::SAM::Header::parse(std::string hdr) {
     read_groups.clear();
     programs.clear();
 
-    std::vector<std::string> lines = split(hdr, '\n');
+    std::vector<std::string> lines = rg::split(hdr, '\n');
 
     // @HD line
-    std::vector<std::string> tags = split(lines[0], '\t');
+    std::vector<std::string> tags = rg::split(lines[0], '\t');
     if (tags[0] != "@HD") throw std::invalid_argument("First line must start with \"@HD\"");
     std::vector<std::string> pair;
     for (auto &p : tags) {
         if (p.at(0) == '@') continue;
-        split(p, ':', pair);
+        rg::split(p, ':', pair);
         if (pair.size() != 2) continue;
         if (pair[0] == "VN") {
             version = pair[1];
@@ -309,7 +309,7 @@ std::string vargas::SAM::Record::to_string() const {
 }
 
 void vargas::SAM::Record::parse(std::string line) {
-    std::vector<std::string> cols = split(line, '\t');
+    std::vector<std::string> cols = rg::split(line, '\t');
     if (cols.size() < 11) throw std::invalid_argument("Record should have at least 11 columns");
     query_name = cols[0];
     flag = std::stoi(cols[1]);

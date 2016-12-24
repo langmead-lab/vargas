@@ -179,10 +179,10 @@ int sim_main(int argc, char *argv[]) {
     vargas::GraphManager gm;
 
     const std::vector<std::string>
-    mut_split = split(mut, ','),
-    indel_split = split(indel, ','),
-    vnode_split = split(vnodes, ','),
-    vbase_split = split(vbases, ',');
+    mut_split = rg::split(mut, ','),
+    indel_split = rg::split(indel, ','),
+    vnode_split = rg::split(vnodes, ','),
+    vbase_split = rg::split(vbases, ',');
 
     if (sim_src_isfile) {
         std::ifstream in(sim_src);
@@ -195,7 +195,7 @@ int sim_main(int argc, char *argv[]) {
     std::cerr << "Loading base graph... " << std::flush;
     auto start_time = std::chrono::steady_clock::now();
     gm.open(gdf_file);
-    std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
+    std::cerr << rg::chrono_duration(start_time) << " seconds." << std::endl;
     std::cerr << gdf_file
               << "- FASTA: " << gm.reference()
               << " VCF: " << gm.variants()
@@ -209,7 +209,7 @@ int sim_main(int argc, char *argv[]) {
     } else {
         std::replace(sim_src.begin(), sim_src.end(), '\n', gm.GDEF_DELIM);
         sim_src.erase(std::remove_if(sim_src.begin(), sim_src.end(), isspace), sim_src.end());
-        subdef_split = split(sim_src, gm.GDEF_DELIM);
+        subdef_split = rg::split(sim_src, gm.GDEF_DELIM);
 
         // validate graph labels
         for (const std::string &l : subdef_split) {
@@ -230,7 +230,7 @@ int sim_main(int argc, char *argv[]) {
     int rg_id = 0;
     vargas::SAM::Header::ReadGroup rg;
     rg.seq_center = "vargas_sim";
-    rg.date = current_date();
+    rg.date = rg::current_date();
     rg.aux.set(SIM_SAM_REF_TAG, gm.reference());
     rg.aux.set(SIM_SAM_VCF_TAG, gm.variants());
 
@@ -269,7 +269,7 @@ int sim_main(int argc, char *argv[]) {
             }
         }
     }
-    std::cerr << chrono_duration(start_time)
+    std::cerr << rg::chrono_duration(start_time)
               << " seconds. "
               << sam_hdr.read_groups.size() << " read groups over "
               << subdef_split.size() << " subgraphs. " << std::endl;
@@ -309,7 +309,7 @@ int sim_main(int argc, char *argv[]) {
         }
     }
 
-    std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
+    std::cerr << rg::chrono_duration(start_time) << " seconds." << std::endl;
 
     return 0;
 }
@@ -385,7 +385,7 @@ int align_main(int argc, char *argv[]) {
     std::vector<std::string> alignment_pairs;
     if (align_targets.length() != 0) {
         std::replace(align_targets.begin(), align_targets.end(), '\n', ';');
-        alignment_pairs = split(align_targets, ';');
+        alignment_pairs = rg::split(align_targets, ';');
     }
 
     std::cerr << "Match=" << match
@@ -438,7 +438,7 @@ int align_main(int argc, char *argv[]) {
             std::vector<std::string> pair;
             std::string tag, val, target_val;
             for (const std::string &p : alignment_pairs) {
-                split(p, pair);
+                rg::split(p, pair);
                 if (pair.size() != 2)
                     throw std::invalid_argument("Malformed alignment pair \"" + p + "\".");
                 if (pair[0].at(2) != ':')
@@ -459,7 +459,7 @@ int align_main(int argc, char *argv[]) {
             }
         }
 
-        std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
+        std::cerr << rg::chrono_duration(start_time) << " seconds." << std::endl;
 
         // graph label to vector of reads
 
@@ -494,7 +494,7 @@ int align_main(int argc, char *argv[]) {
     start_time = std::chrono::steady_clock::now();
     vargas::GraphManager gm(gdf_file);
     std::cerr << "(" << gm.base()->node_map()->size() << " nodes), ";
-    std::cerr << chrono_duration(start_time) << " seconds." << std::endl;
+    std::cerr << rg::chrono_duration(start_time) << " seconds." << std::endl;
     std::cerr << "Estimated aligner memory usage: "
               << threads * vargas::Aligner::estimated_size(gm.node_len(), read_len) / 1000000 << "MB" << std::endl;
 
@@ -564,7 +564,7 @@ int align_main(int argc, char *argv[]) {
 
     auto end_time = std::chrono::steady_clock::now();
     auto cput = (std::clock() - start_cpu) / (double) CLOCKS_PER_SEC;
-    std::cerr << chrono_duration(start_time, end_time) << " seconds, "
+    std::cerr << rg::chrono_duration(start_time, end_time) << " seconds, "
               << cput << " CPU seconds, "
               << cput / total << " CPU s/alignment.\n" << std::endl;
 
@@ -598,7 +598,7 @@ int convert_main(int argc, char **argv) {
     auto start_time = std::chrono::steady_clock::now();
 
     format.erase(std::remove(format.begin(), format.end(), ' '), format.end());
-    std::vector<std::string> fmt_split = split(format, ',');
+    std::vector<std::string> fmt_split = rg::split(format, ',');
 
     std::unordered_set<std::string> warned;
 
@@ -702,7 +702,7 @@ int profile(int argc, char *argv[]) {
 
         for (size_t i = 0; i < nreads; ++i) {
             std::ostringstream rd;
-            for (size_t r = 0; r < read_len; ++r) rd << rand_base();
+            for (size_t r = 0; r < read_len; ++r) rd << rg::rand_base();
             reads.push_back(rd.str());
         }
 

@@ -14,7 +14,7 @@
 vargas::Region vargas::parse_region(const std::string &region_str) {
     vargas::Region ret;
 
-    std::vector<std::string> regionSplit = split(region_str, ':');
+    std::vector <std::string> regionSplit = rg::split(region_str, ':');
 
     // Name
     if (regionSplit.size() != 2)
@@ -26,7 +26,7 @@ vargas::Region vargas::parse_region(const std::string &region_str) {
     regionSplit[1].erase(std::remove(regionSplit[1].begin(), regionSplit[1].end(), ','), regionSplit[1].end());
 
     // Range
-    regionSplit = split(regionSplit[1], '-');
+    regionSplit = rg::split(regionSplit[1], '-');
     if (regionSplit.size() != 2)
         throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY\n\t" + region_str);
 

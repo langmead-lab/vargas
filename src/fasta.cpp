@@ -34,7 +34,7 @@ void vargas::ofasta::write(const std::string &name, const std::string &sequence)
 
 int vargas::ifasta::open(const std::string &file_name) {
     // Check if a Fasta index exists. If it doesn't build it.
-    if (!file_exists(file_name + ".fai")) {
+    if (!rg::file_exists(file_name + ".fai")) {
         if (fai_build(file_name.c_str()) != 0) {
             return -1;
         }
