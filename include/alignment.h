@@ -18,17 +18,23 @@
 #ifndef VARGAS_ALIGNMENT_H
 #define VARGAS_ALIGNMENT_H
 
+#include "utils.h"
+#include "simdpp/simd.h"
+#include "graph.h"
+#include "doctest.h"
+
+#include <array>
 #include <vector>
 #include <algorithm>
 #include <iostream>
 #include <cstdlib>
 #include <string>
-#include "utils.h"
-#include "simdpp/simd.h"
-#include "graph.h"
-#include "doctest.h"
-#include <array>
 
+#define VA_ALIGN_DEBUG 0 // Print score matrix if 1
+
+#if VA_ALIGN_DEBUG
+#include <iomanip>
+#endif
 
 #define DEFAULT_TOL_FACTOR 4 // If the pos is +- read_len/tol, count as correct alignment
 
@@ -126,6 +132,7 @@ namespace vargas {
       _read_len(read_len),
       _tol(read_len / DEFAULT_TOL_FACTOR),
       _bias(_get_bias(read_len, match, mismatch, open, extend)),
+      _bias_vec(simdpp::splat(_bias)),
       _match_vec(simdpp::splat(match)),
       _mismatch_vec(simdpp::splat(mismatch)),
       _gap_open_extend_vec(simdpp::splat(open + extend)),
@@ -297,13 +304,23 @@ namespace vargas {
           std::vector<size_t> max_pos; /**< Best positions */
           std::vector<size_t> sub_pos; /**< Second best positions */
 
-          std::vector<size_t > max_count; /**< Occurances of max_pos */
-          std::vector<size_t > sub_count; /**< Occurances of _sub_pos */
+          std::vector<size_t> max_count; /**< Occurances of max_pos */
+          std::vector<size_t> sub_count; /**< Occurances of _sub_pos */
 
           std::vector<NATIVE_T> max_score; /**< Best scores */
           std::vector<NATIVE_T> sub_score; /**< Second best scores */
 
           std::vector<uint8_t> correctness_flag; /**< 1 for target matching best score, 2 for matching sub score, 0 otherwise */
+
+          NATIVE_T bias;
+
+          /**
+           * Size of results, assuming user does not modify indivudal vectors.
+           * @return size
+           */
+          size_t size() const {
+              return max_pos.size();
+          }
 
           /**
            * @brief
@@ -328,13 +345,10 @@ namespace vargas {
        * @param extend gap extend penalty
        */
       void set_scores(int8_t match, int8_t mismatch, int8_t open, int8_t extend) {
-          using namespace simdpp;
-
-          _match_vec = splat(match);
-          _mismatch_vec = splat(mismatch);
-          _gap_open_extend_vec = splat(open + extend);
-          _gap_extend_vec = splat(extend);
-
+          _match_vec = simdpp::splat(match);
+          _mismatch_vec = simdpp::splat(mismatch);
+          _gap_open_extend_vec = simdpp::splat(open + extend);
+          _gap_extend_vec = simdpp::splat(extend);
       }
 
       /**
@@ -406,9 +420,9 @@ namespace vargas {
        */
       inline void align_into(const std::vector<std::string> &read_group, std::vector<size_t> targets,
                              Graph::const_iterator begin, Graph::const_iterator end, Results &aligns) {
-          using namespace simdpp;
 
           assert(targets.size() == read_group.size());
+          aligns.bias = _bias;
 
           _targets_lower.resize(targets.size());
           _targets_upper.resize(targets.size());
@@ -475,8 +489,8 @@ namespace vargas {
       };
 
       void _seed_matrix(_seed &seed) {
-          std::fill(seed.I_col.begin(), seed.I_col.end(), _bias);
-          std::fill(seed.S_col.begin(), seed.S_col.end(), _bias);
+          std::fill(seed.I_col.begin(), seed.I_col.end(), _bias_vec);
+          std::fill(seed.S_col.begin(), seed.S_col.end(), _bias_vec);
 
           if (END_TO_END) {
               uint8_t ext = simdpp::extract<0>(_gap_extend_vec);
@@ -568,6 +582,13 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_node(const Graph::Node &n, const AlignmentGroup &read_group, const _seed &s, _seed &nxt) {
 
+          #if VA_ALIGN_DEBUG
+          const size_t fw = _bias > 0 ? 4 : 3;
+          std::cerr << "X " << std::setw(fw) << (int)_bias << "|";
+          for(const char c : n.seq_str()) std::cerr << std::setw(fw) << c << " ";
+          std::cerr << '\n';
+          #endif
+
           // Empty nodes represents deletions
           if (n.seq().size() == 0) {
               nxt = s;
@@ -583,13 +604,22 @@ namespace vargas {
 
           // top left corner
           _fill_cell_rzcz(read_ptr[0], node_seq[0], s);
-          if (!END_TO_END) _fill_cell_finish(0, 0, node_origin);
+          _fill_cell_finish_prox(0, 0, node_origin);
 
           // top row
           for (size_t c = 1; c < seq_size; ++c) {
               _fill_cell_rz(read_ptr[0], node_seq[c], c);
-              if (!END_TO_END) _fill_cell_finish(0, c, node_origin);
+              _fill_cell_finish_prox(0, c, node_origin);
           }
+
+          #if VA_ALIGN_DEBUG
+          std::cerr << rg::num_to_base((rg::Base)simdpp::extract<0>(read_ptr[0])) << " " << std::setw(fw)
+                    << (int)simdpp::extract<0>(s.S_col[0]) << "|";
+          for (size_t c = 0; c < seq_size; ++c) {
+              std::cerr << std::setw(fw) << (int)simdpp::extract<0>(_S_curr[c]) - _bias << " ";
+          }
+          std::cerr << "\n";
+          #endif
 
           nxt.S_col[0] = _S_curr[seq_size - 1];
 
@@ -610,24 +640,35 @@ namespace vargas {
 
               // first col
               _fill_cell_cz(read_ptr[r], node_seq[0], r, s);
-              if (!END_TO_END) _fill_cell_finish(r, 0, node_origin);
+              _fill_cell_finish_prox(r, 0, node_origin);
 
               // Inner grid
               for (size_t c = 1; c < seq_size; ++c) {
                   _fill_cell(read_ptr[r], node_seq[c], r, c);
-                  if (!END_TO_END) _fill_cell_finish(r, c, node_origin);
+                  _fill_cell_finish_prox(r, c, node_origin);
               }
+
+              #if VA_ALIGN_DEBUG
+              std::cerr << rg::num_to_base((rg::Base)simdpp::extract<0>(read_ptr[r])) << " " << std::setw(fw)
+                        << (int)simdpp::extract<0>(s.S_col[r]) << "|";
+              for (size_t c = 0; c < seq_size; ++c) {
+                  std::cerr << std::setw(fw) << (int)simdpp::extract<0>(_S_curr[c]) - _bias << " ";
+              }
+              std::cerr << "\n";
+              #endif
 
               nxt.S_col[r] = _S_curr[seq_size - 1];
 
           }
 
+          #if VA_ALIGN_DEBUG
+          std::cerr << "\n";
+          #endif
+
           // Look at last row for best scores when end to end
           if (END_TO_END) {
-              for (size_t r = 0; r < _read_len; ++r) {
-                  for (size_t c = 0; c < seq_size; ++c) {
-                      _fill_cell_finish(r, c, node_origin);
-                  }
+              for (size_t c = 0; c < seq_size; ++c) {
+                  _fill_cell_finish(c, node_origin);
               }
           }
 
@@ -644,9 +685,9 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _fill_cell_rzcz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const _seed &s) {
-          _D(0, ZERO_CT, ZERO_CT);
+          _D(0, _bias_vec, _bias_vec);
           _I(0, s.S_col[0]);
-          _M(0, read_base, ref, ZERO_CT);
+          _M(0, read_base, ref, _bias_vec);
       }
 
       /**
@@ -658,9 +699,9 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _fill_cell_rz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &col) {
-          _D(col, ZERO_CT, ZERO_CT);
+          _D(col, _bias_vec, _bias_vec);
           _I(0, _S_curr[col - 1]);
-          _M(col, read_base, ref, ZERO_CT);
+          _M(col, read_base, ref, _bias_vec);
       }
 
       /**
@@ -780,12 +821,8 @@ namespace vargas {
        * @param node_origin Current position, used to get absolute alignment position
        */
       __RG_STRONG_INLINE__ __RG_UNROLL__
-      void _fill_cell_finish(const size_t &row, const size_t &col, const size_t &node_origin) {
+      void _fill_cell_finish(const size_t &col, const size_t &node_origin) {
           using namespace simdpp;
-
-          // S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
-          _S_curr[col] = max(_D_curr[col], _S_curr[col]);
-          _S_curr[col] = max(_I_curr[row], _S_curr[col]);
 
           _curr_pos = node_origin + col;    // absolute position in reference sequence
 
@@ -850,6 +887,26 @@ namespace vargas {
           }
       }
 
+      /**
+       * @brief
+       * Chooses score selection based on end-to-end
+       * @param row _curr_posent row
+       * @param col _curr_posent column
+       * @param node_origin Current position, used to get absolute alignment position
+       */
+      __RG_STRONG_INLINE__
+      void _fill_cell_finish_prox(const size_t &row, const size_t &col, const size_t &node_origin) {
+          // S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
+          _S_curr[col] = max(_D_curr[col], _S_curr[col]);
+          _S_curr[col] = max(_I_curr[row], _S_curr[col]);
+
+          if (!END_TO_END) _fill_cell_finish(col, node_origin);
+      }
+
+      /**
+       * @brief
+       * Map each base to a vector of bases. Prevents repeated splat()
+       */
       static const std::array<SIMD_T<NATIVE_T>, 5> _make_base_vec() {
           using rg::Base;
           static_assert(Base::A < 5 && Base::C < 5 && Base::G < 5  && Base::T < 5 && Base::N < 5, "Base enum error.");
@@ -862,25 +919,26 @@ namespace vargas {
           return v;
       }
 
-      static SIMD_T<NATIVE_T> _get_bias(const size_t read_len, const uint8_t match, const uint8_t mismatch,
-                                        const uint8_t gopen, const uint8_t gext) {
+      static NATIVE_T _get_bias(const size_t read_len, const uint8_t match, const uint8_t mismatch,
+                                const uint8_t gopen, const uint8_t gext) {
           if (read_len * match > std::numeric_limits<NATIVE_T>::max()) {
               throw std::invalid_argument("Insufficient bit-width for given match score and read length.");
           }
-          if (!END_TO_END) return simdpp::splat(0);
+          if (!END_TO_END) return 0;
 
           // End to end alignment
           unsigned int b = std::numeric_limits<NATIVE_T>::max() - (read_len * match);
+
           //TODO Could be relaxed - all indels or all mismatch is unreasonable
           if (gopen + (gext * (read_len - 1)) > b || read_len * mismatch > b) {
-              std::cerr << "Warning: Possibility of score saturation with parameters in end-to-end:\n\t"
+              std::cerr << "Warning: Possibility of score saturation with parameters in end-to-end mode:\n\t"
                         << "Read length: " << read_len << " "
-                        << "Match: " << match << " "
-                        << "Mismatch: " << mismatch << " "
-                        << "Gap Open: " << gopen << " "
-                        << "Gap Extend: " << gext << std::endl;
+                        << "Match: " << (int) match << " "
+                        << "Mismatch: " << (int) mismatch << " "
+                        << "Gap Open: " << (int) gopen << " "
+                        << "Gap Extend: " << (int) gext << std::endl;
           }
-          return simdpp::splat(b);
+          return b;
       }
 
 
@@ -892,7 +950,8 @@ namespace vargas {
       const std::array<SIMD_T<NATIVE_T>, 5> _base_vec = _make_base_vec();
 
       const SIMD_T<NATIVE_T> ZERO_CT = simdpp::splat(0);
-      const SIMD_T<NATIVE_T> _bias;
+      const NATIVE_T _bias;
+      const SIMD_T<NATIVE_T> _bias_vec;
 
       SIMD_T<NATIVE_T> _match_vec, _mismatch_vec, _gap_open_extend_vec, _gap_extend_vec;
 
@@ -954,6 +1013,8 @@ namespace vargas {
   using WordAlignerETE = AlignerT<uint16_t, true>;
 
 }
+
+TEST_SUITE("Aligners");
 
 TEST_CASE ("Alignment") {
 
@@ -1031,6 +1092,7 @@ TEST_CASE ("Alignment") {
 
         vargas::Aligner a(5, 7);
         vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
+        CHECK(aligns.bias == 0);
         CHECK(aligns.max_score[0] == 8);
         CHECK(aligns.max_pos[0] == 8);
         CHECK((int) aligns.correctness_flag[0] == 1);
@@ -1083,6 +1145,8 @@ TEST_CASE ("Alignment") {
         vargas::Aligner a(5, 10, 2, 6, 5, 3);
         vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
 
+        CHECK(aligns.bias == 0);
+
         CHECK(aligns.max_score[0] == 8);
         CHECK(aligns.max_pos[0] == 8);
         CHECK((int) aligns.correctness_flag[0] == 1);
@@ -1124,4 +1188,60 @@ TEST_CASE ("Alignment") {
         CHECK((int) aligns.correctness_flag[9] == 1);
     }
 }
+
+TEST_CASE ("End to End alignment") {
+    // Example from bowtie 2 manual
+    vargas::Graph g;
+
+    SUBCASE("BWT2 Local example") {
+        /**
+         * Read:      ACGGTTGCGTTAA-TCCGCCACG
+         *                ||||||||| ||||||
+         * Reference: TAACTTGCGTTAAATCCGCCTGG
+         */
+        const std::string read("ACGGTTGCGTTAATCCGCCACG"), ref("TAACTTGCGTTAAATCCGCCTGG");
+        {
+            vargas::Graph::Node n;
+            n.set_as_ref();
+            n.set_seq(ref);
+            n.set_endpos(22); // 23 length -1 (for 0 indexed)
+            g.add_node(n);
+        }
+        vargas::Aligner a(100, 22, 2, 6, 5, 3);
+        auto res = a.align({read}, g.begin(), g.end());
+        REQUIRE(res.size() == 1);
+        CHECK(res.max_score[0] == 22);
+        CHECK(res.max_pos[0] == 20);
+        CHECK(res.bias == 0);
+    }
+
+    SUBCASE("BWT2 ETE example") {
+        /**
+         * Read:      GACTGGGCGATCTCGACTTCG
+         *            |||||  |||||||||| |||
+         * Reference: GACTG--CGATCTCGACATCG
+         */
+        const std::string read("GACTGGGCGATCTCGACTTCG"), ref("GACTGCGATCTCGACATCG");
+        {
+            vargas::Graph::Node n;
+            n.set_as_ref();
+            n.set_seq(ref);
+            n.set_endpos(18); // 19 length -1 (for 0 indexed) - 1 (pos of last base, not one after)
+            g.add_node(n);
+        }
+        vargas::AlignerETE a(100, 21, 0, 6, 5, 3);
+        auto res = a.align({read}, g.begin(), g.end());
+        REQUIRE(res.size() == 1);
+        CHECK(res.bias == 255);
+        CHECK(res.max_pos[0] == 19);
+        CHECK(res.max_score[0] == (255 - 17)); // Best score -17 with bias 255
+    }
+
+    SUBCASE("Bound check") {
+        CHECK_THROWS(vargas::AlignerETE(100, 100, 3, 2, 2, 2));
+    }
+}
+TEST_SUITE_END();
+
+
 #endif //VARGAS_ALIGNMENT_H
