@@ -11,7 +11,6 @@
 
 #include "align_main.h"
 #include "alignment.h"
-#include "graph.h"
 #include "sam.h"
 #include "gdef.h"
 #include "doctest.h"
@@ -20,6 +19,7 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+
 
 int align_main(int argc, char *argv[]) {
     std::string cl;
@@ -33,7 +33,7 @@ int align_main(int argc, char *argv[]) {
     // hisat similar params: match = 2, mismatch = 6, open = 5, extend = 3
     size_t match, mismatch, gopen, gext, threads, read_len, tolerance, chunk_size;
     std::string read_file, gdf_file, align_targets, out_file;
-    bool align_targets_isfile = false;
+    bool align_targets_isfile = false, end_to_end = false;
 
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
     try {
@@ -47,6 +47,7 @@ int align_main(int argc, char *argv[]) {
         ("n,mismatch", "<N> Mismatch penalty.", cxxopts::value(mismatch)->default_value("2"))
         ("o,gap_open", "<N> Gap opening penalty.", cxxopts::value(gopen)->default_value("3"))
         ("e,gap_extend", "<N> Gap extension penalty.", cxxopts::value(gext)->default_value("1"))
+        ("x,endtoend", "Perform end to end alignment", cxxopts::value(end_to_end))
         ("c,tolerance", "<N> Correct if within readlen/N.",
          cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
         ("u,chunk", "<N> Partition tasks into chunks with max size N.",
@@ -232,10 +233,13 @@ int align_main(int argc, char *argv[]) {
 
 
     vargas::osam aligns_out(out_file, reads_hdr);
-    std::vector<std::unique_ptr<vargas::Aligner>> aligners(threads);
+    std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
-        aligners[k] =
-        std::unique_ptr<vargas::Aligner>(new vargas::Aligner(gm.node_len(), read_len, match, mismatch, gopen, gext));
+        if (end_to_end) {
+            aligners[k] = rg::make_unique<vargas::AlignerETE>(gm.node_len(), read_len, match, mismatch, gopen, gext);
+        } else {
+            aligners[k] = rg::make_unique<vargas::Aligner>(gm.node_len(), read_len, match, mismatch, gopen, gext);
+        }
         aligners[k]->set_correctness_tolerance(tolerance);
     }
 
@@ -266,6 +270,7 @@ int align_main(int argc, char *argv[]) {
             rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
             rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
             rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correctness_flag[j]);
+            rec.aux.set(ALIGN_SAM_END_TO_END_TAG, end_to_end);
         }
     }
 

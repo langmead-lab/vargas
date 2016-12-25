@@ -23,6 +23,7 @@
 #define ALIGN_SAM_MAX_COUNT_TAG "mc"
 #define ALIGN_SAM_SUB_COUNT_TAG "sc"
 #define ALIGN_SAM_COR_FLAG_TAG "cf"
+#define ALIGN_SAM_END_TO_END_TAG "ee"
 
 #include "cxxopts.hpp"
 

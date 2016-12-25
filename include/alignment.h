@@ -43,9 +43,9 @@ namespace vargas {
   template <typename NATIVE_T>
   using SIMD_T = typename std::conditional<std::is_same<uint8_t, NATIVE_T>::value,
                                            simdpp::uint8<SIMDPP_FAST_INT8_SIZE>,
-                                           std::conditional<std::is_same<uint16_t, NATIVE_T>::value,
-                                                            simdpp::uint16<SIMDPP_FAST_INT16_SIZE>,
-                                                            simdpp::uint32<SIMDPP_FAST_INT32_SIZE>>>::type;
+                                           typename std::conditional<std::is_same<uint16_t, NATIVE_T>::value,
+                                                                     simdpp::uint16<SIMDPP_FAST_INT16_SIZE>,
+                                                                     simdpp::uint32<SIMDPP_FAST_INT32_SIZE>>::type>::type;
 
   /**
 * @brief
@@ -71,6 +71,133 @@ namespace vargas {
   void insert(NATIVE_T elem, uint8_t i, const SIMD_T<NATIVE_T> &vec) {
       ((NATIVE_T *) &vec)[i] = elem;
   }
+
+
+  /**
+   * @brief
+   * Struct to return the alignment results
+   */
+  struct Results {
+      std::vector<size_t> max_pos; /**< Best positions */
+      std::vector<size_t> sub_pos; /**< Second best positions */
+
+      std::vector<size_t> max_count; /**< Occurances of max_pos */
+      std::vector<size_t> sub_count; /**< Occurances of _sub_pos */
+
+      std::vector<int> max_score; /**< Best scores */
+      std::vector<int> sub_score; /**< Second best scores */
+
+      std::vector<uint8_t>
+      correctness_flag; /**< 1 for target matching best score, 2 for matching sub score, 0 otherwise */
+
+      size_t bias;
+      size_t tol;
+      bool end_to_end;
+
+      /**
+       * Size of results, assuming user does not modify indivudal vectors.
+       * @return size
+       */
+      size_t size() const {
+          return max_pos.size();
+      }
+
+      /**
+       * @brief
+       * Resize all result vectors.
+       */
+      void resize(size_t size) {
+          max_pos.resize(size);
+          sub_pos.resize(size);
+          max_count.resize(size);
+          sub_count.resize(size);
+          max_score.resize(size);
+          sub_score.resize(size);
+          correctness_flag.resize(size);
+      }
+  };
+
+  /**
+   * @brief
+   * Common base class to all template versions of Aligners
+   */
+  class AlignerBase {
+    public:
+      virtual ~AlignerBase() = 0;
+
+
+      /**
+       * Set the scoring scheme used for the alignments.
+       * @param match match score
+       * @param mismatch mismatch score
+       * @param open gap open penalty
+       * @param extend gap extend penalty
+       */
+      virtual void set_scores(uint8_t, uint8_t, uint8_t, uint8_t) = 0;
+
+      /**
+       * @brief
+       * If the best score is +/- this tolerence of the target, count it as correct.
+       * Impacts the corflag.
+       * @param tol
+       */
+      virtual void set_correctness_tolerance(const size_t) = 0;
+
+      /**
+       * @return Current correctness tolerance
+       */
+      virtual size_t tolerance() const = 0;
+
+      /**
+       * @brief
+       * Align a batch of reads to a graph range, return a vector of alignments
+       * corresponding to the reads.
+       * @param read_group vector of reads to align to
+       * @param targets Origin of read, determines correctness_flag
+       * @param begin iterator to beginning of graph
+       * @param end iterator to end of graph
+       * @param aligns Results packet to populate
+       */
+      virtual void align_into(const std::vector<std::string> &, std::vector<size_t>,
+                              Graph::const_iterator, Graph::const_iterator, Results &) = 0;
+
+      /**
+       * @brief
+       * Align a batch of reads to a graph range, return a vector of alignments
+       * corresponding to the reads.
+       * @param read_group vector of reads to align to
+       * @param targets Keep cell scores for the given positions
+       * @param begin iterator to beginning of graph
+       * @param end iterator to end of graph
+       * @return Results packet
+       */
+      virtual Results align(const std::vector<std::string> &read_group, const std::vector<size_t> &targets,
+                            Graph::const_iterator begin, Graph::const_iterator end) {
+          Results aligns;
+          align_into(read_group, targets, begin, end, aligns);
+          return aligns;
+      }
+
+      /**
+ * @brief
+ * Align a batch of reads to a graph range, return a vector of alignments
+ * corresponding to the reads.
+ * @param read_group vector of reads to align to
+ * @param begin iterator to beginning of graph
+ * @param end iterator to end of graph
+ * @return Results packet
+ */
+      virtual Results align(const std::vector<std::string> &read_group,
+                            Graph::const_iterator begin, Graph::const_iterator end) {
+          std::vector<size_t> targets(read_group.size());
+          std::fill(targets.begin(), targets.end(), 0);
+          return align(read_group, targets, begin, end);
+      }
+
+      static constexpr size_t default_tolerance() { return DEFAULT_TOL_FACTOR; }
+
+  };
+  inline AlignerBase::~AlignerBase() {}
 
   /**
    * @brief Main SIMD SW Aligner.
@@ -105,9 +232,11 @@ namespace vargas {
    * // ATTA, score:8 pos:18
    * // CCNT, score:8 pos:80
    * @endcode
+   * @tparam NATIVE_T Native data type of score matrix element. One of uint8_t, uint16_t, uint32_t
+   * @tparam END_TO_END If true, perform end to end alignment
    */
   template<typename NATIVE_T, bool END_TO_END = false>
-  class AlignerT {
+  class AlignerT: public AlignerBase {
       static_assert(std::is_same<NATIVE_T, uint8_t>::value || std::is_same<NATIVE_T, uint16_t>::value, "Invalid type.");
     public:
 
@@ -132,11 +261,11 @@ namespace vargas {
       _read_len(read_len),
       _tol(read_len / DEFAULT_TOL_FACTOR),
       _bias(_get_bias(read_len, match, mismatch, open, extend)),
-      _bias_vec(simdpp::splat(_bias)),
-      _match_vec(simdpp::splat(match)),
-      _mismatch_vec(simdpp::splat(mismatch)),
-      _gap_open_extend_vec(simdpp::splat(open + extend)),
-      _gap_extend_vec(simdpp::splat(extend)),
+      _bias_vec(simdpp::splat<SIMD_T<NATIVE_T>>(_bias)),
+      _match_vec(simdpp::splat<SIMD_T<NATIVE_T>>(match)),
+      _mismatch_vec(simdpp::splat<SIMD_T<NATIVE_T>>(mismatch)),
+      _gap_open_extend_vec(simdpp::splat<SIMD_T<NATIVE_T>>(open + extend)),
+      _gap_extend_vec(simdpp::splat<SIMD_T<NATIVE_T>>(extend)),
       _max_node_len(max_node_len),
       _alignment_group(read_len) { _alloc(); }
 
@@ -145,30 +274,8 @@ namespace vargas {
           _dealloc();
       }
 
-      //TODO implement these
-      AlignerT(const AlignerT<NATIVE_T> &a) : _read_len(a._read_len), _tol(a._tol),
-                                              _match_vec(a._match_vec), _mismatch_vec(a._mismatch_vec),
-                                              _gap_open_extend_vec(a._gap_open_extend_vec), _gap_extend_vec(a._gap_extend_vec),
-                                              _max_node_len(a._max_node_len), _alignment_group(a._read_len) { _alloc(); }
-
-      AlignerT(AlignerT<NATIVE_T> &&a) : _read_len(a._read_len), _tol(a._tol),
-                                         _match_vec(a._match_vec), _mismatch_vec(a._mismatch_vec),
-                                         _gap_open_extend_vec(a._gap_open_extend_vec), _gap_extend_vec(a._gap_extend_vec),
-                                         _max_node_len(a._max_node_len), _alignment_group(a._read_len) {
-          _Sa = a._Sa;
-          _Sb = a._Sb;
-          _Da = a._Da;
-          _Db = a._Db;
-          _Ia = a._Ia;
-          _Ib = a._Ib;
-          _S_prev = a._S_prev;
-          _S_curr = a._S_curr;
-          _D_prev = a._D_prev;
-          _D_curr = a._D_curr;
-          _I_prev = a._I_prev;
-          _I_curr = a._I_curr;
-          a._set_nullptr();
-      }
+      AlignerT(const AlignerT<NATIVE_T, END_TO_END> &a) = delete;
+      AlignerT(AlignerT<NATIVE_T, END_TO_END> &&a) = delete;
       AlignerT &operator=(const AlignerT<NATIVE_T> &) = delete;
       AlignerT &operator=(AlignerT<NATIVE_T> &&) = delete;
 
@@ -296,133 +403,33 @@ namespace vargas {
 
       };
 
-      /**
-       * @brief
-       * Struct to return the alignment results
-       */
-      struct Results {
-          std::vector<size_t> max_pos; /**< Best positions */
-          std::vector<size_t> sub_pos; /**< Second best positions */
-
-          std::vector<size_t> max_count; /**< Occurances of max_pos */
-          std::vector<size_t> sub_count; /**< Occurances of _sub_pos */
-
-          std::vector<NATIVE_T> max_score; /**< Best scores */
-          std::vector<NATIVE_T> sub_score; /**< Second best scores */
-
-          std::vector<uint8_t> correctness_flag; /**< 1 for target matching best score, 2 for matching sub score, 0 otherwise */
-
-          NATIVE_T bias;
-
-          /**
-           * Size of results, assuming user does not modify indivudal vectors.
-           * @return size
-           */
-          size_t size() const {
-              return max_pos.size();
-          }
-
-          /**
-           * @brief
-           * Resize all result vectors.
-           */
-          void resize(size_t size) {
-              max_pos.resize(size);
-              sub_pos.resize(size);
-              max_count.resize(size);
-              sub_count.resize(size);
-              max_score.resize(size);
-              sub_score.resize(size);
-              correctness_flag.resize(size);
-          }
-      };
-
-      /**
-       * Set the scoring scheme used for the alignments.
-       * @param match match score
-       * @param mismatch mismatch score
-       * @param open gap open penalty
-       * @param extend gap extend penalty
-       */
-      void set_scores(int8_t match, int8_t mismatch, int8_t open, int8_t extend) {
-          _match_vec = simdpp::splat(match);
-          _mismatch_vec = simdpp::splat(mismatch);
-          _gap_open_extend_vec = simdpp::splat(open + extend);
-          _gap_extend_vec = simdpp::splat(extend);
+      void set_scores(uint8_t match, uint8_t mismatch, uint8_t open, uint8_t extend) override {
+          _match_vec = simdpp::splat<SIMD_T<NATIVE_T>>(match);
+          _mismatch_vec = simdpp::splat<SIMD_T<NATIVE_T>>(mismatch);
+          _gap_open_extend_vec = simdpp::splat<SIMD_T<NATIVE_T>>(open + extend);
+          _gap_extend_vec = simdpp::splat<SIMD_T<NATIVE_T>>(extend);
       }
 
-      /**
-       * @brief
-       * If the best score is +/- this tolerence of the target, count it as correct.
-       * Impacts the corflag.
-       * @param tol
-       */
-      void set_correctness_tolerance(const size_t tol) {
+      void set_correctness_tolerance(const size_t tol) override {
           _tol = tol;
       }
 
-      /**
-       * @return Current correctness tolerance
-       */
-      size_t tolerance() const {
+      size_t tolerance() const override {
           return _tol;
       }
-
-      static constexpr size_t default_tolerance() { return DEFAULT_TOL_FACTOR; }
 
       /**
        * @return maximum number of reads that can be aligned at once.
        */
       static constexpr size_t read_capacity() { return SIMD_T<NATIVE_T>::length; }
 
-      /**
-       * @brief
-       * Align a batch of reads to a graph range, return a vector of alignments
-       * corresponding to the reads.
-       * @param read_group vector of reads to align to
-       * @param begin iterator to beginning of graph
-       * @param end iterator to end of graph
-       * @return Results packet
-       */
-      Results align(const std::vector<std::string> &read_group,
-                    Graph::const_iterator begin, Graph::const_iterator end) {
-          std::vector<size_t> targets(read_group.size());
-          std::fill(targets.begin(), targets.end(), 0);
-          return align(read_group, targets, begin, end);
-      }
-
-      /**
-       * @brief
-       * Align a batch of reads to a graph range, return a vector of alignments
-       * corresponding to the reads.
-       * @param read_group vector of reads to align to
-       * @param targets Keep cell scores for the given positions
-       * @param begin iterator to beginning of graph
-       * @param end iterator to end of graph
-       * @return Results packet
-       */
-      Results align(const std::vector<std::string> &read_group, const std::vector<size_t> &targets,
-                    Graph::const_iterator begin, Graph::const_iterator end) {
-          Results aligns;
-          align_into(read_group, targets, begin, end, aligns);
-          return aligns;
-      }
-
-      /**
-       * @brief
-       * Align a batch of reads to a graph range, return a vector of alignments
-       * corresponding to the reads.
-       * @param read_group vector of reads to align to
-       * @param targets Origin of read, determines correctness_flag
-       * @param begin iterator to beginning of graph
-       * @param end iterator to end of graph
-       * @param aligns Results packet to populate
-       */
-      inline void align_into(const std::vector<std::string> &read_group, std::vector<size_t> targets,
-                             Graph::const_iterator begin, Graph::const_iterator end, Results &aligns) {
+      void align_into(const std::vector<std::string> &read_group, std::vector<size_t> targets,
+                      Graph::const_iterator begin, Graph::const_iterator end, Results &aligns) override {
 
           assert(targets.size() == read_group.size());
           aligns.bias = _bias;
+          aligns.tol = _tol;
+          aligns.end_to_end = END_TO_END;
 
           _targets_lower.resize(targets.size());
           _targets_upper.resize(targets.size());
@@ -468,12 +475,14 @@ namespace vargas {
                   _fill_node(*gi, _alignment_group, seed, seed_map.emplace(gi->id(), _read_len).first->second);
               }
 
-              std::memcpy(aligns.max_score.data() + beg_offset, &_max_score, len * sizeof(NATIVE_T));
-              std::memcpy(aligns.sub_score.data() + beg_offset, &_sub_score, len * sizeof(NATIVE_T));
+              // Copy max scores
+              for (size_t i = 0; i < len; ++i) {
+                  aligns.max_score[beg_offset + i] = extract<NATIVE_T>(i, _max_score);
+                  aligns.sub_score[beg_offset + i] = extract<NATIVE_T>(i, _sub_score);
+              }
           }
           // Crop off potential buffer
           aligns.resize(read_group.size());
-
       }
 
     private:
@@ -493,8 +502,8 @@ namespace vargas {
           std::fill(seed.S_col.begin(), seed.S_col.end(), _bias_vec);
 
           if (END_TO_END) {
-              uint8_t ext = simdpp::extract<0>(_gap_extend_vec);
-              uint8_t open = simdpp::extract<0>(_gap_open_extend_vec) - ext;
+              NATIVE_T ext = extract<NATIVE_T>(0, _gap_extend_vec);
+              NATIVE_T open = extract<NATIVE_T>(0, _gap_open_extend_vec) - ext;
               for (size_t i = 0; i < _read_len; ++i) {
                   const uint8_t b = open + (i * ext);
                   seed.I_col[i] = simdpp::sub_sat(seed.I_col[i], b);
@@ -911,18 +920,18 @@ namespace vargas {
           using rg::Base;
           static_assert(Base::A < 5 && Base::C < 5 && Base::G < 5  && Base::T < 5 && Base::N < 5, "Base enum error.");
           std::array<SIMD_T<NATIVE_T>, 5> v;
-          v[Base::A] = simdpp::splat(Base::A);
-          v[Base::C] = simdpp::splat(Base::C);
-          v[Base::G] = simdpp::splat(Base::G);
-          v[Base::T] = simdpp::splat(Base::T);
-          v[Base::N] = simdpp::splat(Base::N);
+          v[Base::A] = simdpp::splat<SIMD_T<NATIVE_T>>(Base::A);
+          v[Base::C] = simdpp::splat<SIMD_T<NATIVE_T>>(Base::C);
+          v[Base::G] = simdpp::splat<SIMD_T<NATIVE_T>>(Base::G);
+          v[Base::T] = simdpp::splat<SIMD_T<NATIVE_T>>(Base::T);
+          v[Base::N] = simdpp::splat<SIMD_T<NATIVE_T>>(Base::N);
           return v;
       }
 
       static NATIVE_T _get_bias(const size_t read_len, const uint8_t match, const uint8_t mismatch,
                                 const uint8_t gopen, const uint8_t gext) {
           if (read_len * match > std::numeric_limits<NATIVE_T>::max()) {
-              throw std::invalid_argument("Insufficient bit-width for given match score and read length.");
+              throw std::domain_error("Insufficient bit-width for given match score and read length.");
           }
           if (!END_TO_END) return 0;
 
@@ -949,7 +958,7 @@ namespace vargas {
 
       const std::array<SIMD_T<NATIVE_T>, 5> _base_vec = _make_base_vec();
 
-      const SIMD_T<NATIVE_T> ZERO_CT = simdpp::splat(0);
+      const SIMD_T<NATIVE_T> ZERO_CT = simdpp::splat<SIMD_T<NATIVE_T>>(0);
       const NATIVE_T _bias;
       const SIMD_T<NATIVE_T> _bias_vec;
 
@@ -1091,7 +1100,7 @@ TEST_CASE ("Alignment") {
         const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 6};
 
         vargas::Aligner a(5, 7);
-        vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
+        vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
         CHECK(aligns.bias == 0);
         CHECK(aligns.max_score[0] == 8);
         CHECK(aligns.max_pos[0] == 8);
@@ -1143,7 +1152,7 @@ TEST_CASE ("Alignment") {
 
         // hisat like params
         vargas::Aligner a(5, 10, 2, 6, 5, 3);
-        vargas::Aligner::Results aligns = a.align(reads, origins, g.begin(), g.end());
+        vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
 
         CHECK(aligns.bias == 0);
 
