@@ -734,6 +734,35 @@ namespace vargas {
        */
       bool validate() const;
 
+      /**
+       * @brief
+       * Statistics about the current graph size.
+       */
+      struct Stats {
+          size_t num_nodes = 0;
+          size_t num_edges = 0;
+          size_t total_length = 0;
+          size_t num_snps = 0;
+          size_t num_dels = 0;
+      };
+
+      /**
+       * @return Counted statistics about the curent graph.
+       */
+      Stats statistics() const {
+          Stats ret;
+          for (auto i : *this) {
+              ++ret.num_nodes;
+              ret.total_length += i.length();
+              ret.num_snps += (i.length() == 1);
+              ret.num_dels += (i.length() == 0);
+              if (_next_map.count(i.id())) {
+                  ret.num_edges += _next_map.at(i.id()).size();
+              }
+          }
+          return ret;
+      }
+
 
     private:
       size_t _root = 0; // Root of the Graph

@@ -65,14 +65,14 @@ int align_main(int argc, char *argv[]) {
 
     if (chunk_size < vargas::Aligner::read_capacity() ||
     chunk_size % vargas::Aligner::read_capacity() != 0) {
-        std::cerr << "Warning: Chunk size is not a multiple of SIMD vector length: "
+        std::cerr << "WARN: Chunk size is not a multiple of SIMD vector length: "
                   << vargas::Aligner::read_capacity() << std::endl;
     }
 
     #ifndef _OPENMP
     // Disable threads if no openMP.
     if (threads != 1) {
-        std::cerr << "Warning: Threads specified without OpenMP Compilation." << std::endl;
+        std::cerr << "WARN: Threads specified without OpenMP Compilation." << std::endl;
     }
     threads = 1;
     #endif
@@ -215,7 +215,7 @@ int align_main(int argc, char *argv[]) {
 
     const size_t num_tasks = task_list.size();
     if (num_tasks < threads) {
-        std::cerr << "Warning: Number of threads is greater than number of tasks. Try decreasing --chunk.\n";
+        std::cerr << "WARN: Number of threads is greater than number of tasks. Try decreasing --chunk.\n";
     }
 
     #ifdef _OPENMP

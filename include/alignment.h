@@ -112,6 +112,20 @@ namespace vargas {
       return any_set(a) || any_set(b);
   }
 
+  struct ScoreProfile {
+      ScoreProfile() {};
+
+      ScoreProfile(uint8_t match, uint8_t mismatch, uint8_t gopen, uint8_t gext) :
+      match(match), mismatch(mismatch), read_gopen(gopen), read_gext(gext), ref_gopen(gopen), ref_gext(gext) {}
+
+      ScoreProfile(uint8_t match, uint8_t mismatch,
+                   uint8_t rd_gopen, uint8_t rd_gext, uint8_t ref_gopen, uint8_t ref_gext) :
+      match(match), mismatch(mismatch),
+      read_gopen(rd_gopen), read_gext(rd_gext), ref_gopen(ref_gopen), ref_gext(ref_gext) {}
+
+      uint8_t match, mismatch, read_gopen, read_gext, ref_gopen, ref_gext;
+  };
+
   /**
    * @brief
    * Struct to return the alignment results
@@ -175,6 +189,13 @@ namespace vargas {
 
       /**
        * @brief
+       * Set the score profile from a ScoreProfile - gap penalties between ref/read may vary.
+       * @param prof
+       */
+      virtual void set_scores(const ScoreProfile &prof) = 0;
+
+      /**
+       * @brief
        * If the best score is +/- this tolerence of the target, count it as correct.
        * Impacts the corflag.
        * @param tol
@@ -233,6 +254,9 @@ namespace vargas {
       }
 
       static constexpr size_t default_tolerance() { return DEFAULT_TOL_FACTOR; }
+
+    protected:
+      ScoreProfile _prof;
 
   };
   inline AlignerBase::~AlignerBase() {}
@@ -294,18 +318,24 @@ namespace vargas {
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
-      AlignerT(size_t max_node_len, size_t read_len,
-               uint8_t match = 2, uint8_t mismatch = 2, uint8_t open = 3, uint8_t extend = 1) :
+      AlignerT(const size_t max_node_len, const size_t read_len,
+               const uint8_t match = 2, const uint8_t mismatch = 2, const uint8_t open = 3, const uint8_t extend = 1) :
       _read_len(read_len),
       _tol(read_len / DEFAULT_TOL_FACTOR),
-      _match_vec(simdpp::splat<SIMD_T<NATIVE_T>>(match)),
-      _mismatch_vec(simdpp::splat<SIMD_T<NATIVE_T>>(mismatch)),
-      _gap_open_extend_vec(simdpp::splat<SIMD_T<NATIVE_T>>(open + extend)),
-      _gap_extend_vec(simdpp::splat<SIMD_T<NATIVE_T>>(extend)),
       _max_node_len(max_node_len),
       _alignment_group(read_len) {
+          set_scores(match, mismatch, open, extend);
           _bias = _get_bias(read_len, match, mismatch, open, extend); // May throw
           _bias_vec = simdpp::splat<SIMD_T<NATIVE_T>>(_bias);
+          _alloc();
+      }
+
+      AlignerT(size_t max_node_len, size_t read_len, const ScoreProfile &prof) :
+      _read_len(read_len),
+      _tol(read_len / DEFAULT_TOL_FACTOR),
+      _max_node_len(max_node_len),
+      _alignment_group(read_len) {
+          set_scores(prof); // May throw
           _alloc();
       }
 
@@ -444,10 +474,27 @@ namespace vargas {
       };
 
       void set_scores(uint8_t match, uint8_t mismatch, uint8_t open, uint8_t extend) override {
+          _prof = ScoreProfile(match, mismatch, open, extend);
           _match_vec = simdpp::splat<SIMD_T<NATIVE_T>>(match);
           _mismatch_vec = simdpp::splat<SIMD_T<NATIVE_T>>(mismatch);
-          _gap_open_extend_vec = simdpp::splat<SIMD_T<NATIVE_T>>(open + extend);
-          _gap_extend_vec = simdpp::splat<SIMD_T<NATIVE_T>>(extend);
+          _gap_open_extend_vec_rd = simdpp::splat<SIMD_T<NATIVE_T>>(open + extend);
+          _gap_extend_vec_rd = simdpp::splat<SIMD_T<NATIVE_T>>(extend);
+          _gap_open_extend_vec_ref = simdpp::splat<SIMD_T<NATIVE_T>>(open + extend);
+          _gap_extend_vec_ref = simdpp::splat<SIMD_T<NATIVE_T>>(extend);
+          _bias = _get_bias(_read_len, match, mismatch, open, extend);
+          _bias_vec = simdpp::splat<SIMD_T<NATIVE_T>>(_bias);
+      }
+
+      void set_scores(const ScoreProfile &prof) override {
+          _prof = prof;
+          _match_vec = simdpp::splat<SIMD_T<NATIVE_T>>(prof.match);
+          _mismatch_vec = simdpp::splat<SIMD_T<NATIVE_T>>(prof.mismatch);
+          _gap_open_extend_vec_rd = simdpp::splat<SIMD_T<NATIVE_T>>(prof.read_gopen + prof.read_gext);
+          _gap_extend_vec_rd = simdpp::splat<SIMD_T<NATIVE_T>>(prof.read_gext);
+          _gap_open_extend_vec_ref = simdpp::splat<SIMD_T<NATIVE_T>>(prof.ref_gopen + prof.read_gext);
+          _gap_extend_vec_ref = simdpp::splat<SIMD_T<NATIVE_T>>(prof.ref_gext);
+          _bias = _get_bias(_read_len, prof.match, prof.mismatch, prof.read_gopen, prof.read_gext);
+          _bias_vec = simdpp::splat<SIMD_T<NATIVE_T>>(_bias);
       }
 
       void set_correctness_tolerance(const size_t tol) override {
@@ -542,10 +589,8 @@ namespace vargas {
           std::fill(seed.S_col.begin(), seed.S_col.end(), _bias_vec);
 
           if (END_TO_END) {
-              NATIVE_T ext = extract<NATIVE_T>(0, _gap_extend_vec);
-              NATIVE_T open = extract<NATIVE_T>(0, _gap_open_extend_vec) - ext;
               for (size_t i = 0; i < _read_len; ++i) {
-                  const uint8_t b = open + (i * ext);
+                  const uint8_t b = _prof.read_gopen + (i * _prof.read_gext);
                   seed.I_col[i] = simdpp::sub_sat(seed.I_col[i], b);
                   seed.S_col[i] = simdpp::sub_sat(seed.S_col[i], b);
               }
@@ -785,7 +830,7 @@ namespace vargas {
 
       /**
        * @brief
-       * Score if there is a deletion
+       * Score if there is a deletion in read (gap in read)
        * @param col _curr_posent column
        * @param Dp Previous D value at _curr_posent col.
        * @param Sp Previous S value at _curr_posent col.
@@ -796,17 +841,17 @@ namespace vargas {
 
           // D(i,j) = D(i-1,j) - gap_extend
           // Dp is _D_prev[col], 0 for row=0
-          _D_curr[col] = sub_sat(Dp, _gap_extend_vec);   // _tmp0 = S(i-1,j) - ( gap_open + gap_extend)
+          _D_curr[col] = sub_sat(Dp, _gap_extend_vec_rd);   // _tmp0 = S(i-1,j) - ( gap_open + gap_extend)
           // Sp is _S_prev[col], 0 for row=0
           // D(i,j) = max{ D(i-1,j) - gap_extend, S(i-1,j) - ( gap_open + gap_extend) }
-          _tmp0 = sub_sat(Sp, _gap_open_extend_vec);
+          _tmp0 = sub_sat(Sp, _gap_open_extend_vec_rd);
           _D_curr[col] = max(_D_curr[col], _tmp0);
 
       }
 
       /**
        * @brief
-       * Score if there is an insertion
+       * Score if there is an insertion in read (gap in ref)
        * @param row _curr_posent row
        * @param Sc Previous S value (cell to the left)
        */
@@ -815,10 +860,10 @@ namespace vargas {
           using namespace simdpp;
 
           // I(i,j) = I(i,j-1) - gap_extend
-          _I_curr[row] = sub_sat(_I_prev[row], _gap_extend_vec);  // I: I(i,j-1) - gap_extend
+          _I_curr[row] = sub_sat(_I_prev[row], _gap_extend_vec_ref);  // I: I(i,j-1) - gap_extend
           // _tmp0 = S(i,j-1) - (gap_open + gap_extend)
           // Sc is _S_curr[col - 1], seed->S_col[row] for col=0
-          _tmp0 = sub_sat(Sc, _gap_open_extend_vec);
+          _tmp0 = sub_sat(Sc, _gap_open_extend_vec_ref);
           _I_curr[row] = max(_I_curr[row], _tmp0);
 
       }
@@ -979,14 +1024,14 @@ namespace vargas {
 
           //TODO Could be relaxed - all indels or all mismatch is unreasonable
           if (gopen + (gext * (read_len - 1)) > b || read_len * mismatch > b) {
-              std::cerr << "Warning: Possibility of score saturation with parameters in end-to-end mode:\n"
-                        << "Cell width: " << (int) std::numeric_limits<NATIVE_T>::max() << " "
-                        << "Read length: " << read_len << " "
+              std::cerr << "WARN: Possibility of score saturation with parameters in end-to-end mode:\n\t"
+                        << "Cell Width: " << (int) std::numeric_limits<NATIVE_T>::max() << " "
+                        << "Bias: " << b << "\n\t"
+                        << "ReadLen: " << read_len << " "
                         << "Match: " << (int) match << " "
                         << "Mismatch: " << (int) mismatch << " "
-                        << "Gap Open: " << (int) gopen << " "
-                        << "Gap Extend: " << (int) gext << " "
-                        << "Bias: " << b << std::endl;
+                        << "GapOpen: " << (int) gopen << " "
+                        << "GapExt: " << (int) gext << "\n";
           }
           return b;
       }
@@ -1003,7 +1048,8 @@ namespace vargas {
       NATIVE_T _bias;
       SIMD_T<NATIVE_T> _bias_vec;
 
-      SIMD_T<NATIVE_T> _match_vec, _mismatch_vec, _gap_open_extend_vec, _gap_extend_vec;
+      SIMD_T<NATIVE_T> _match_vec, _mismatch_vec,
+      _gap_open_extend_vec_rd, _gap_extend_vec_rd, _gap_open_extend_vec_ref, _gap_extend_vec_ref;
 
       SIMD_T<NATIVE_T>
       *_S_prev = nullptr,    /**< _S_prev[n] => S(i-1, n) */

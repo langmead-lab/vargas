@@ -334,18 +334,15 @@ int convert_main(int argc, char **argv) {
 
     format.erase(std::remove(format.begin(), format.end(), ' '), format.end());
     std::vector<std::string> fmt_split = rg::split(format, ',');
-
     std::unordered_set<std::string> warned;
-
     vargas::isam input(sam_file);
-
     std::string buff, val;
     do {
         buff = "";
         for (auto &tag : fmt_split) {
             val = "*";
             if (!input.record().get(input.header(), tag, val) && warned.count(tag) == 0) {
-                std::cerr << "Warning: Tag \"" << tag << "\" not present." << std::endl;
+                std::cerr << "WARN: Tag \"" << tag << "\" not present." << std::endl;
             }
             buff += val;
             buff += ",";
@@ -381,8 +378,6 @@ int profile(int argc, char *argv[]) {
         return 0;
     }
     if (!opts.count("f")) throw std::invalid_argument("FASTA file required.");
-    if (!opts.count("v")) throw std::invalid_argument("VCF file required.");
-    if (!opts.count("g")) throw std::invalid_argument("Region specifier required.");
 
 
     vargas::GraphFactory gb(fasta);
@@ -492,28 +487,17 @@ int query_main(int argc, char *argv[]) {
 
         #pragma omp parallel for
         for (size_t k = 0; k < q.size(); ++k) {
-            auto s = q[k];
-            size_t tot_len = 0, n_edges = 0, n_nodes = 0, n_snps = 0, n_dels = 0;
-            auto base = gm.make_subgraph(s);
-
-            for (auto i : *base) {
-                ++n_nodes;
-                tot_len += i.length();
-                n_snps += (i.length() == 1);
-                n_dels += (i.length() == 0);
-                if (base->next_map().count(i.id())) {
-                    n_edges += base->next_map().at(i.id()).size();
-                }
-            }
+            const std::string s = q[k];
+            auto res = gm.make_subgraph(s)->statistics();
 
             #pragma omp critical
             {
                 std::cerr << s << " Graph"
-                          << "\n\tGraph Nodes: " << n_nodes
-                          << "\n\tNumber of SNPs: " << n_snps
-                          << "\n\tNumber of Deletions: " << n_dels
-                          << "\n\tTotal Length: " << tot_len
-                          << "\n\tNumber of Edges: " << n_edges
+                          << "\n\tGraph Nodes: " << res.num_nodes
+                          << "\n\tTotal Length: " << res.total_length
+                          << "\n\tNumber of Edges: " << res.num_edges
+                          << "\n\tNumber of SNPs: " << res.num_snps
+                          << "\n\tNumber of Deletions: " << res.num_dels
                           << std::endl;
                 gm.destroy(s);
             }
