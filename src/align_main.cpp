@@ -42,7 +42,7 @@ int align_main(int argc, char *argv[]) {
         ("r,reads", "<str> SAM reads file. (default: stdin)", cxxopts::value(read_file))
         ("a,align", "<str> Alignment targets/file of form \"RG:[ID][gd],target\"", cxxopts::value(align_targets))
         ("f,file", " -a specifies a file name.", cxxopts::value(align_targets_isfile))
-        ("l,rlen", "<N> Maximum read length.", cxxopts::value(read_len)->default_value("50"))
+        ("l,rlen", "<N> Read length.", cxxopts::value(read_len)->default_value("50"))
         ("m,match", "<N> Match score.", cxxopts::value(match)->default_value("2"))
         ("n,mismatch", "<N> Mismatch penalty.", cxxopts::value(mismatch)->default_value("2"))
         ("o,gap_open", "<N> Gap opening penalty.", cxxopts::value(gopen)->default_value("3"))
@@ -62,11 +62,6 @@ int align_main(int argc, char *argv[]) {
         return 0;
     }
     if (!opts.count("g")) throw std::invalid_argument("Graph definition file required.");
-
-    if (read_len * match > 255) {
-        throw std::invalid_argument("Score matrix overflow with read length " + std::to_string(read_len) +
-        " and match score " + std::to_string((int) match) + ".");
-    }
 
     if (chunk_size < vargas::Aligner::read_capacity() ||
     chunk_size % vargas::Aligner::read_capacity() != 0) {
@@ -100,8 +95,9 @@ int align_main(int argc, char *argv[]) {
               << " Mismatch=" << mismatch
               << " GapOpen=" << gopen
               << " GapExtend=" << gext
-              << " MaxReadLen=" << read_len
-              << " CorrectnessTol=" << tolerance
+              << " ReadLen=" << read_len
+              << " CorrectnessFactor=" << tolerance
+              << " EndToEnd=" << std::boolalpha << end_to_end
               << "\nLoading reads... " << std::flush;
 
     auto start_time = std::chrono::steady_clock::now();
@@ -227,21 +223,39 @@ int align_main(int argc, char *argv[]) {
     omp_set_num_threads(threads);
     #endif
 
-    std::cerr << "Aligning with " << threads << " thread(s)..." << std::endl;
-    start_time = std::chrono::steady_clock::now();
-    auto start_cpu = std::clock();
-
+    const bool use_wide = read_len * match > 255;
+    if (use_wide) {
+        std::cerr << "Maximum possible score: " << read_len * match << ". Using 16-bit aligner ("
+                  << vargas::WordAligner::read_capacity() << " reads/vector).\n";
+    }
 
     vargas::osam aligns_out(out_file, reads_hdr);
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
         if (end_to_end) {
-            aligners[k] = rg::make_unique<vargas::AlignerETE>(gm.node_len(), read_len, match, mismatch, gopen, gext);
+            if (use_wide)
+                aligners[k] = rg::make_unique<vargas::WordAlignerETE>(gm.node_len(),
+                                                                      read_len,
+                                                                      match,
+                                                                      mismatch,
+                                                                      gopen,
+                                                                      gext);
+            else
+                aligners[k] =
+                rg::make_unique<vargas::AlignerETE>(gm.node_len(), read_len, match, mismatch, gopen, gext);
         } else {
-            aligners[k] = rg::make_unique<vargas::Aligner>(gm.node_len(), read_len, match, mismatch, gopen, gext);
+            if (use_wide)
+                aligners[k] =
+                rg::make_unique<vargas::WordAligner>(gm.node_len(), read_len, match, mismatch, gopen, gext);
+            else aligners[k] = rg::make_unique<vargas::Aligner>(gm.node_len(), read_len, match, mismatch, gopen, gext);
         }
         aligners[k]->set_correctness_tolerance(tolerance);
     }
+
+
+    std::cerr << "Aligning with " << threads << " thread(s)..." << std::endl;
+    auto start_cpu = std::clock();
+    start_time = std::chrono::steady_clock::now();
 
     #pragma omp parallel for
     for (size_t l = 0; l < num_tasks; ++l) {

@@ -679,6 +679,15 @@ namespace vargas {
 
       /**
        * @brief
+       * Load all reads into memory and close file handles.
+       */
+      void buffer() {
+          do { _buff.push_back(_pprec); } while (next());
+          in.close();
+      }
+
+      /**
+       * @brief
        * Load the rest of the records in the file and return a subset of them.
        * @param n Number of records to keep.
        * @return isam with subset of reads.

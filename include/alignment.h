@@ -72,6 +72,12 @@ namespace vargas {
       ((NATIVE_T *) &vec)[i] = elem;
   }
 
+  //TODO this is sloow, simdpp does not implement
+  __RG_UNROLL__
+  bool extract_bits_any(const SIMD_T<uint16_t> &v) {
+      for (uint8_t i = 0; i < SIMD_T<uint16_t>::length; ++i) if (extract<uint16_t>(i, v)) return true;
+      return false;
+  }
 
   /**
    * @brief
@@ -81,8 +87,8 @@ namespace vargas {
       std::vector<size_t> max_pos; /**< Best positions */
       std::vector<size_t> sub_pos; /**< Second best positions */
 
-      std::vector<size_t> max_count; /**< Occurances of max_pos */
-      std::vector<size_t> sub_count; /**< Occurances of _sub_pos */
+      std::vector<size_t> max_count; /**< # of max_score */
+      std::vector<size_t> sub_count; /**< # of sub_score */
 
       std::vector<int> max_score; /**< Best scores */
       std::vector<int> sub_score; /**< Second best scores */
@@ -124,7 +130,6 @@ namespace vargas {
   class AlignerBase {
     public:
       virtual ~AlignerBase() = 0;
-
 
       /**
        * Set the scoring scheme used for the alignments.
@@ -260,14 +265,16 @@ namespace vargas {
                uint8_t match = 2, uint8_t mismatch = 2, uint8_t open = 3, uint8_t extend = 1) :
       _read_len(read_len),
       _tol(read_len / DEFAULT_TOL_FACTOR),
-      _bias(_get_bias(read_len, match, mismatch, open, extend)),
-      _bias_vec(simdpp::splat<SIMD_T<NATIVE_T>>(_bias)),
       _match_vec(simdpp::splat<SIMD_T<NATIVE_T>>(match)),
       _mismatch_vec(simdpp::splat<SIMD_T<NATIVE_T>>(mismatch)),
       _gap_open_extend_vec(simdpp::splat<SIMD_T<NATIVE_T>>(open + extend)),
       _gap_extend_vec(simdpp::splat<SIMD_T<NATIVE_T>>(extend)),
       _max_node_len(max_node_len),
-      _alignment_group(read_len) { _alloc(); }
+      _alignment_group(read_len) {
+          _bias = _get_bias(read_len, match, mismatch, open, extend); // May throw
+          _bias_vec = simdpp::splat<SIMD_T<NATIVE_T>>(_bias);
+          _alloc();
+      }
 
 
       ~AlignerT() noexcept {
@@ -518,7 +525,7 @@ namespace vargas {
        * @param prev_ids All nodes preceding _curr_posent node
        * @param seed_map ID->seed map for all previous nodes
        * @param seed best seed to populate
-       * @throws std::logic_error if a node listed as a previous node but it has not been encountered yet.
+       * @throws std::domain_error if a node listed as a previous node but it has not been encountered yet.
        * i.e. not topographically sorted.
        */
       __RG_STRONG_INLINE__
@@ -738,7 +745,6 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _fill_cell(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &row, const size_t &col) {
-
           _D(col, _D_prev[col], _S_prev[col]);
           _I(row, _S_curr[col - 1]);
           _M(col, read_base, ref, _S_prev[col - 1]);
@@ -801,13 +807,13 @@ namespace vargas {
               _Cneq = ZERO_CT;
 
               // Set all mismatching pairs to _mismatch
-              _tmp0 = cmp_neq(read, _base_vec[ref]);
+              _tmp0 = read != _base_vec[ref];
               _Cneq = _tmp0 & _mismatch_vec;   // If the read base is Base::N, set to 0 (_Ceq)
-              _tmp0 = cmp_eq(read, _base_vec[rg::Base::N]);
+              _tmp0 = read == _base_vec[rg::Base::N];
               _Cneq = blend(_Ceq, _Cneq, _tmp0);
 
               // b is not N, so all equal bases are valid
-              _tmp0 = cmp_eq(read, _base_vec[ref]);
+              _tmp0 = read == _base_vec[ref];
               _Ceq = _tmp0 & _match_vec;
 
               // Sp is _S_prev[col - 1], 0 for row=0
@@ -836,7 +842,7 @@ namespace vargas {
           _curr_pos = node_origin + col;    // absolute position in reference sequence
 
           _tmp0 = _S_curr[col] > _max_score;
-          if (simdpp::extract_bits_any(_tmp0)) {
+          if (extract_bits_any(_tmp0)) {
               // Check for new or equal high scores
               _max_score = max(_S_curr[col], _max_score);
               for (size_t i = 0; i < SIMD_T<NATIVE_T>::length; ++i) {
@@ -856,7 +862,7 @@ namespace vargas {
           }
 
           _tmp0 = cmp_eq(_S_curr[col], _max_score);
-          if (simdpp::extract_bits_any(_tmp0)) {
+          if (extract_bits_any(_tmp0)) {
               // Check for equal max score.
               for (size_t i = 0; i < SIMD_T<NATIVE_T>::length; ++i) {
                   if (_tmp0_ptr[i]) {
@@ -869,7 +875,7 @@ namespace vargas {
 
 
           _tmp0 = cmp_eq(_S_curr[col], _sub_score);
-          if (simdpp::extract_bits_any(_tmp0)) {
+          if (extract_bits_any(_tmp0)) {
               // Repeat sub score
               for (size_t i = 0; i < SIMD_T<NATIVE_T>::length; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
@@ -882,7 +888,7 @@ namespace vargas {
 
           // Greater than old sub max and less than max score (prevent repeats of max triggering)
           _tmp0 = (_S_curr[col] > _sub_score) & (_S_curr[col] < _max_score);
-          if (simdpp::extract_bits_any(_tmp0)) {
+          if (extract_bits_any(_tmp0)) {
               // new second best score
               for (size_t i = 0; i < SIMD_T<NATIVE_T>::length; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
@@ -940,12 +946,14 @@ namespace vargas {
 
           //TODO Could be relaxed - all indels or all mismatch is unreasonable
           if (gopen + (gext * (read_len - 1)) > b || read_len * mismatch > b) {
-              std::cerr << "Warning: Possibility of score saturation with parameters in end-to-end mode:\n\t"
+              std::cerr << "Warning: Possibility of score saturation with parameters in end-to-end mode:\n"
+                        << "Cell width: " << (int) std::numeric_limits<NATIVE_T>::max() << " "
                         << "Read length: " << read_len << " "
                         << "Match: " << (int) match << " "
                         << "Mismatch: " << (int) mismatch << " "
                         << "Gap Open: " << (int) gopen << " "
-                        << "Gap Extend: " << (int) gext << std::endl;
+                        << "Gap Extend: " << (int) gext << " "
+                        << "Bias: " << b << std::endl;
           }
           return b;
       }
@@ -959,8 +967,8 @@ namespace vargas {
       const std::array<SIMD_T<NATIVE_T>, 5> _base_vec = _make_base_vec();
 
       const SIMD_T<NATIVE_T> ZERO_CT = simdpp::splat<SIMD_T<NATIVE_T>>(0);
-      const NATIVE_T _bias;
-      const SIMD_T<NATIVE_T> _bias_vec;
+      NATIVE_T _bias;
+      SIMD_T<NATIVE_T> _bias_vec;
 
       SIMD_T<NATIVE_T> _match_vec, _mismatch_vec, _gap_open_extend_vec, _gap_extend_vec;
 
