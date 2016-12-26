@@ -185,7 +185,7 @@ std::string vargas::Graph::to_DOT(std::string name) const {
 
 
 void vargas::GraphFactory::build(vargas::Graph &g) {
-    if (!_vf) throw std::invalid_argument("No variant file opened.");
+    if (_vf == nullptr) throw std::invalid_argument("No VCF file opened.");
     g = vargas::Graph();
     _fa.open(_fa_file);
 
@@ -362,6 +362,7 @@ size_t vargas::GraphFactory::add_sample_filter(std::string filter, bool invert) 
 size_t vargas::GraphFactory::open_vcf(std::string const &file_name) {
     _vf.reset();
     _vf = std::unique_ptr<VariantFile>(new VCF(file_name));
+    if (file_name.length() == 0 || file_name == "-") return 0;
     if (!_vf->good()) throw std::invalid_argument("Invalid VCF/BCF file: \"" + file_name + "\"");
     return _vf->num_samples();
 }

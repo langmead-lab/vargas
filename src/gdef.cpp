@@ -104,6 +104,8 @@ bool vargas::GraphManager::open(std::istream &in, bool build_base) {
                 throw std::invalid_argument("Invalid token: \"" + line + "\"");
             }
 
+            if (p_pair[1] == "-") p_pair[1] = "";
+
             if (p_pair[1].length() != nsamps)
                 throw std::range_error("Population length does not match variant file: \"" + p_pair[0] + "\","
                 " expected " + std::to_string(nsamps) + " got " + std::to_string(p_pair[1].length()));
@@ -218,6 +220,12 @@ bool vargas::GraphManager::write(std::string ref_file,
                                  bool build_base,
                                  int nsamps) {
 
+    if (variant_file.length() == 0) variant_file = "-";
+    if (region.length() == 0) {
+        vargas::ifasta f(ref_file);
+        region = f.seq_name(0) + ":0-0";
+    }
+
     std::string out_str = GDEF_FILE_MARKER + "\n"
     + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM
     + GDEF_VAR + GDEF_ASSIGN + variant_file + GDEF_DELIM
@@ -234,8 +242,7 @@ bool vargas::GraphManager::write(std::string ref_file,
     // Get number of samples from VCF file
     if (nsamps == 0) {
         GraphFactory gb(ref_file);
-        gb.open_vcf(variant_file);
-        nsamps = gb.add_sample_filter(_sample_filter, _invert_filter);
+        if (gb.open_vcf(variant_file)) nsamps = gb.add_sample_filter(_sample_filter, _invert_filter);
     }
 
     std::unordered_map<std::string, Graph::Population> populations;
@@ -257,61 +264,63 @@ bool vargas::GraphManager::write(std::string ref_file,
             base.reset();
         }
 
-        for (const auto &def : defs) {
-            rg::split(def, GDEF_ASSIGN, pair);
-            if (pair.size() != 2) throw std::invalid_argument("Invalid assignment: \"" + def + "\".");
+        if (nsamps > 0) {
+            for (const auto &def : defs) {
+                rg::split(def, GDEF_ASSIGN, pair);
+                if (pair.size() != 2) throw std::invalid_argument("Invalid assignment: \"" + def + "\".");
 
-            pair[0] = GDEF_BASEGRAPH + GDEF_SCOPE + pair[0];
-            parent_end = pair[0].find_last_of(GDEF_SCOPE);
-            parent = pair[0].substr(0, parent_end);
+                pair[0] = GDEF_BASEGRAPH + GDEF_SCOPE + pair[0];
+                parent_end = pair[0].find_last_of(GDEF_SCOPE);
+                parent = pair[0].substr(0, parent_end);
 
-            if (populations.count(parent) == 0)
-                throw std::invalid_argument("Parent \"" + parent + "\" not yet defined.");
+                if (populations.count(parent) == 0)
+                    throw std::invalid_argument("Parent \"" + parent + "\" not yet defined.");
 
-            if (pair[0].at(parent_end + 1) == '~')
-                throw std::invalid_argument("Complement graphs cannot be defined explicitly: \"" + def + "\".");
+                if (pair[0].at(parent_end + 1) == '~')
+                    throw std::invalid_argument("Complement graphs cannot be defined explicitly: \"" + def + "\".");
 
-            bool top_n = false;
-            if (pair[1].at(pair[1].length() - 1) == '%') {
-                count = (size_t) (((double) populations.at(parent).count() / 100) *
-                std::stoi(pair[1].substr(0, pair[1].length() - 1)));
-            } else if (pair[1].at(pair[1].length() - 1) == 't') {
-                top_n = true;
-                count = std::stoul(pair[1].substr(0, pair[1].length() - 1));
-            } else count = std::stoul(pair[1]);
+                bool top_n = false;
+                if (pair[1].at(pair[1].length() - 1) == '%') {
+                    count = (size_t) (((double) populations.at(parent).count() / 100) *
+                    std::stoi(pair[1].substr(0, pair[1].length() - 1)));
+                } else if (pair[1].at(pair[1].length() - 1) == 't') {
+                    top_n = true;
+                    count = std::stoul(pair[1].substr(0, pair[1].length() - 1));
+                } else count = std::stoul(pair[1]);
 
-            if (count > populations.at(parent).count())
-                throw std::invalid_argument("Not enough samples available to pick " +
-                std::to_string(count) + " in definition \"" + def + "\", "
-                                            + std::to_string(populations.at(parent).count()) + " available.");
+                if (count > populations.at(parent).count())
+                    throw std::invalid_argument("Not enough samples available to pick " +
+                    std::to_string(count) + " in definition \"" + def + "\", "
+                                                + std::to_string(populations.at(parent).count()) + " available.");
 
-            pop.reset();
+                pop.reset();
 
-            avail_set.clear();
-            for (int j = 0; j < nsamps; ++j) {
-                if (populations.at(parent).at(j)) avail_set.push_back(j);
-            }
-
-            if (top_n) {
-                size_t k = 0;
-                for (int i : avail_set) {
-                    pop.set(i);
-                    if (++k == count) break;
+                avail_set.clear();
+                for (int j = 0; j < nsamps; ++j) {
+                    if (populations.at(parent).at(j)) avail_set.push_back(j);
                 }
-            } else {
-                added.clear();
-                for (size_t k = 0; k < count;) {
-                    r = rand() % avail_set.size();
-                    if (added.count(avail_set[r]) == 0) {
-                        ++k;
-                        pop.set(avail_set[r]);
-                        added.insert(avail_set[r]);
+
+                if (top_n) {
+                    size_t k = 0;
+                    for (int i : avail_set) {
+                        pop.set(i);
+                        if (++k == count) break;
+                    }
+                } else {
+                    added.clear();
+                    for (size_t k = 0; k < count;) {
+                        r = rand() % avail_set.size();
+                        if (added.count(avail_set[r]) == 0) {
+                            ++k;
+                            pop.set(avail_set[r]);
+                            added.insert(avail_set[r]);
+                        }
                     }
                 }
+                populations[parent + GDEF_SCOPE + pair[0].substr(parent_end + 1)] = pop;
+                populations[parent + GDEF_SCOPE + GDEF_NEGATE + pair[0].substr(parent_end + 1)] =
+                ~pop & populations.at(parent);
             }
-            populations[parent + GDEF_SCOPE + pair[0].substr(parent_end + 1)] = pop;
-            populations[parent + GDEF_SCOPE + GDEF_NEGATE + pair[0].substr(parent_end + 1)] =
-            ~pop & populations.at(parent);
         }
     }
 

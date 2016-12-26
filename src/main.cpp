@@ -71,8 +71,8 @@ int define_main(int argc, char *argv[]) {
     try {
         opts.add_options()
         ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta_file))
-        ("v,vcf", "<str> *VCF/BCF File.", cxxopts::value<std::string>(varfile))
-        ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
+        ("v,vcf", "<str> VCF/BCF File.", cxxopts::value<std::string>(varfile))
+        ("g,region", "<str> Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
         ("s,subgraph", "<str> File or definitions of format \"[~]NAME=N[%t],...\".",
          cxxopts::value(subgraph_def))
         ("l,nodelen", "<N> Maximum node length.", cxxopts::value(node_len)->default_value("100000"))
@@ -88,8 +88,6 @@ int define_main(int argc, char *argv[]) {
         return 0;
     }
     if (!opts.count("f")) throw std::invalid_argument("FASTA file required.");
-    if (!opts.count("v")) throw std::invalid_argument("VCF file required.");
-    if (!opts.count("g")) throw std::invalid_argument("Region required.");
 
     // Load subgraph defs
     std::string subgraph_str;

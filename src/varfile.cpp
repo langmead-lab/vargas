@@ -142,19 +142,21 @@ void vargas::VCF::create_ingroup(int percent) {
 
 
 int vargas::VCF::_init() {
-    _bcf = bcf_open(_file_name.c_str(), "r");
-    if (!_bcf) return -1;
+    if (_file_name.length() && _file_name != "-") {
+        _bcf = bcf_open(_file_name.c_str(), "r");
+        if (!_bcf) return -1;
 
-    _header = bcf_hdr_read(_bcf);
-    if (_header == nullptr) {
-        return -2;
-    }
+        _header = bcf_hdr_read(_bcf);
+        if (_header == nullptr) {
+            return -2;
+        }
 
-    // Load samples
-    for (size_t i = 0; i < num_samples() / 2; ++i) {
-        _samples.push_back(_header->samples[i]);
+        // Load samples
+        for (size_t i = 0; i < num_samples() / 2; ++i) {
+            _samples.push_back(_header->samples[i]);
+        }
+        create_ingroup(100);
     }
-    create_ingroup(100);
     return 0;
 }
 
@@ -213,7 +215,7 @@ void vargas::VCF::_apply_ingroup_filter() {
 
 size_t vargas::VCF::num_samples() const {
     if (_header == nullptr) {
-        throw std::invalid_argument("No VCF file loaded.");
+        return 0;
     }
     return (size_t) bcf_hdr_nsamples(_header) * 2;
 }

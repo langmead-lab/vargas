@@ -32,8 +32,7 @@ class dyn_bitset {
      * @param len bitset length
      * @param val true/false
      */
-    dyn_bitset(size_t len,
-               bool val = false) : _bitset(std::vector<std::bitset<core_size>>((len / core_size) + 1)) {
+    dyn_bitset(size_t len, bool val = false) : _bitset(std::vector<std::bitset<core_size>>((len / core_size) + 1)) {
         for (std::bitset<core_size> &n : _bitset) {
             if (val) n.set();
             else n.reset();
@@ -279,6 +278,7 @@ class dyn_bitset {
      * @return string of 0's and 1's
      */
     std::string to_string() const {
+        if (size() == 0) return "-";
         std::ostringstream ss;
         for (size_t c = 0; c < _bitset.size(); ++c) {
             for (size_t i = 0; i < core_size; ++i) {

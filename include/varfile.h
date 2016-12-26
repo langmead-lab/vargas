@@ -247,11 +247,7 @@ namespace vargas {
        * @param min Min position, 0 indexed
        * @param max Max position, 0 indexed, inclusive
        */
-      VCF(std::string file,
-          std::string chr,
-          int min,
-          int max) :
-      VariantFile(chr, min, max), _file_name(file) {
+      VCF(std::string file, std::string chr, int min, int max) : VariantFile(chr, min, max), _file_name(file) {
           _init();
       }
 
@@ -392,7 +388,7 @@ namespace vargas {
 
       /**
        * @brief
-       * Open the specified VCF or BCF file and load the header.
+       * Open the specified VCF or BCF file and load the header. If empty, load an "empty" vcf.
        * @param file filename
        * @return -1 on file open error, -2 on header load error, 0 otherwise
        */

@@ -233,21 +233,20 @@ int align_main(int argc, char *argv[]) {
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
         if (end_to_end) {
-            if (use_wide)
-                aligners[k] = rg::make_unique<vargas::WordAlignerETE>(gm.node_len(),
-                                                                      read_len,
-                                                                      match,
-                                                                      mismatch,
-                                                                      gopen,
-                                                                      gext);
-            else
+            if (use_wide) {
+                aligners[k] =
+                rg::make_unique<vargas::WordAlignerETE>(gm.node_len(), read_len, match, mismatch, gopen, gext);
+            } else {
                 aligners[k] =
                 rg::make_unique<vargas::AlignerETE>(gm.node_len(), read_len, match, mismatch, gopen, gext);
+            }
         } else {
-            if (use_wide)
+            if (use_wide) {
                 aligners[k] =
                 rg::make_unique<vargas::WordAligner>(gm.node_len(), read_len, match, mismatch, gopen, gext);
-            else aligners[k] = rg::make_unique<vargas::Aligner>(gm.node_len(), read_len, match, mismatch, gopen, gext);
+            } else {
+                aligners[k] = rg::make_unique<vargas::Aligner>(gm.node_len(), read_len, match, mismatch, gopen, gext);
+            }
         }
         aligners[k]->set_correctness_tolerance(tolerance);
     }

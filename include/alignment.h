@@ -40,6 +40,9 @@
 
 namespace vargas {
 
+  /**
+   * Corresponding from simdpp type from native type, where NATIVE_T = {uint8_t, uint16_t, uint32_t}
+   */
   template <typename NATIVE_T>
   using SIMD_T = typename std::conditional<std::is_same<uint8_t, NATIVE_T>::value,
                                            simdpp::uint8<SIMDPP_FAST_INT8_SIZE>,
@@ -72,11 +75,41 @@ namespace vargas {
       ((NATIVE_T *) &vec)[i] = elem;
   }
 
-  //TODO this is sloow, simdpp does not implement
-  __RG_UNROLL__
-  bool extract_bits_any(const SIMD_T<uint16_t> &v) {
-      for (uint8_t i = 0; i < SIMD_T<uint16_t>::length; ++i) if (extract<uint16_t>(i, v)) return true;
-      return false;
+  /**
+   * @brief
+   * Only makes sense for mask types, in base case MSB of each byte is checked.
+   * @param c
+   * @return Return true if c != 0
+   */
+  __RG_STRONG_INLINE__
+  bool any_set(const simdpp::uint8x16 &c) {
+      return simdpp::extract_bits_any(c);
+  }
+
+  __RG_STRONG_INLINE__
+  bool any_set(const simdpp::uint16x8 &c) {
+      return extract_bits_any(simdpp::bit_cast<simdpp::uint8x16, simdpp::uint16x8>(c));
+  }
+
+  __RG_STRONG_INLINE__
+  bool any_set(const simdpp::uint32x4 &c) {
+      return extract_bits_any(simdpp::bit_cast<simdpp::uint8x16, simdpp::uint32x4>(c));
+  }
+
+  __RG_STRONG_INLINE__
+  bool any_set(const simdpp::uint8x32 &c) {
+      return extract_bits_any(c);
+  }
+  __RG_STRONG_INLINE__
+  bool any_set(const simdpp::uint16x16 &c) {
+      return any_set(simdpp::bit_cast<simdpp::uint8x32, simdpp::uint16x16>(c));
+  }
+
+  __RG_STRONG_INLINE__
+  bool any_set(const simdpp::uint16<32> &c) {
+      simdpp::uint16x16 a, b;
+      simdpp::split(c, a, b);
+      return any_set(a) || any_set(b);
   }
 
   /**
@@ -842,7 +875,7 @@ namespace vargas {
           _curr_pos = node_origin + col;    // absolute position in reference sequence
 
           _tmp0 = _S_curr[col] > _max_score;
-          if (extract_bits_any(_tmp0)) {
+          if (any_set(_tmp0)) {
               // Check for new or equal high scores
               _max_score = max(_S_curr[col], _max_score);
               for (size_t i = 0; i < SIMD_T<NATIVE_T>::length; ++i) {
@@ -862,7 +895,7 @@ namespace vargas {
           }
 
           _tmp0 = cmp_eq(_S_curr[col], _max_score);
-          if (extract_bits_any(_tmp0)) {
+          if (any_set(_tmp0)) {
               // Check for equal max score.
               for (size_t i = 0; i < SIMD_T<NATIVE_T>::length; ++i) {
                   if (_tmp0_ptr[i]) {
@@ -875,7 +908,7 @@ namespace vargas {
 
 
           _tmp0 = cmp_eq(_S_curr[col], _sub_score);
-          if (extract_bits_any(_tmp0)) {
+          if (any_set(_tmp0)) {
               // Repeat sub score
               for (size_t i = 0; i < SIMD_T<NATIVE_T>::length; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
@@ -888,7 +921,7 @@ namespace vargas {
 
           // Greater than old sub max and less than max score (prevent repeats of max triggering)
           _tmp0 = (_S_curr[col] > _sub_score) & (_S_curr[col] < _max_score);
-          if (extract_bits_any(_tmp0)) {
+          if (any_set(_tmp0)) {
               // new second best score
               for (size_t i = 0; i < SIMD_T<NATIVE_T>::length; ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
@@ -1143,7 +1176,7 @@ TEST_CASE ("Alignment") {
         CHECK((int) aligns.correctness_flag[7] == 1);
     }
 
-    SUBCASE("Different scoring scheme") {
+    SUBCASE("Scoring Scheme") {
 
         std::vector<std::string> reads;
         reads.push_back("NNNNNNCCTT");
@@ -1160,6 +1193,116 @@ TEST_CASE ("Alignment") {
 
         // hisat like params
         vargas::Aligner a(5, 10, 2, 6, 5, 3);
+        vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
+
+        CHECK(aligns.bias == 0);
+
+        CHECK(aligns.max_score[0] == 8);
+        CHECK(aligns.max_pos[0] == 8);
+        CHECK((int) aligns.correctness_flag[0] == 1);
+
+        CHECK(aligns.max_score[1] == 8);
+        CHECK(aligns.max_pos[1] == 8);
+        CHECK((int) aligns.correctness_flag[1] == 1);
+
+        CHECK(aligns.max_score[2] == 8);
+        CHECK(aligns.max_pos[2] == 5);
+        CHECK((int) aligns.correctness_flag[2] == 1);
+
+        CHECK(aligns.max_score[3] == 8);
+        CHECK(aligns.max_pos[3] == 5);
+        CHECK((int) aligns.correctness_flag[3] == 1);
+
+        CHECK(aligns.max_score[4] == 10);
+        CHECK(aligns.max_pos[4] == 7);
+        CHECK((int) aligns.correctness_flag[4] == 1);
+
+        CHECK(aligns.max_score[5] == 4);
+        CHECK(aligns.max_pos[5] == 6);
+        CHECK((int) aligns.correctness_flag[5] == 1);
+
+        CHECK(aligns.max_score[6] == 8);
+        CHECK(aligns.max_pos[6] == 10);
+        CHECK((int) aligns.correctness_flag[6] == 1);
+
+        CHECK(aligns.max_score[7] == 8);
+        CHECK(aligns.max_pos[7] == 4);
+        CHECK((int) aligns.correctness_flag[7] == 1);
+
+        CHECK(aligns.max_score[8] == 12);
+        CHECK(aligns.max_pos[8] == 10);
+        CHECK((int) aligns.correctness_flag[8] == 1);
+
+        CHECK(aligns.max_score[9] == 8);
+        CHECK(aligns.max_pos[9] == 10);
+        CHECK((int) aligns.correctness_flag[9] == 1);
+    }
+
+    SUBCASE("Graph Alignment- Word") {
+        std::vector<std::string> reads;
+        reads.push_back("NNNCCTT");
+        reads.push_back("NNNGGTT");
+        reads.push_back("NNNAAGG");
+        reads.push_back("NNNAACC");
+        reads.push_back("NNAGGGT");
+        reads.push_back("NNNNNGG");
+        reads.push_back("AAATTTA");
+        reads.push_back("AAAGCCC");
+        const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 6};
+
+        vargas::WordAligner a(5, 7);
+        vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
+        CHECK(aligns.bias == 0);
+        CHECK(aligns.max_score[0] == 8);
+        CHECK(aligns.max_pos[0] == 8);
+        CHECK((int) aligns.correctness_flag[0] == 1);
+
+        CHECK(aligns.max_score[1] == 8);
+        CHECK(aligns.max_pos[1] == 8);
+        CHECK((int) aligns.correctness_flag[1] == 1);
+
+        CHECK(aligns.max_score[2] == 8);
+        CHECK(aligns.max_pos[2] == 5);
+        CHECK((int) aligns.correctness_flag[2] == 1);
+
+        CHECK(aligns.max_score[3] == 8);
+        CHECK(aligns.max_pos[3] == 5);
+        CHECK((int) aligns.correctness_flag[3] == 1);
+
+        CHECK(aligns.max_score[4] == 10);
+        CHECK(aligns.max_pos[4] == 7);
+        CHECK((int) aligns.correctness_flag[4] == 1);
+
+        CHECK(aligns.max_score[5] == 4);
+        CHECK(aligns.max_pos[5] == 6);
+        CHECK((int) aligns.correctness_flag[5] == 1);
+
+        CHECK(aligns.max_score[6] == 8);
+        CHECK(aligns.max_pos[6] == 10);
+        CHECK((int) aligns.correctness_flag[6] == 1);
+
+        CHECK(aligns.max_score[7] == 8);
+        CHECK(aligns.max_pos[7] == 4);
+        CHECK((int) aligns.correctness_flag[7] == 1);
+    }
+
+    SUBCASE("Scoring Scheme- Word") {
+
+        std::vector<std::string> reads;
+        reads.push_back("NNNNNNCCTT");
+        reads.push_back("NNNNNNGGTT");
+        reads.push_back("NNNNNNAAGG");
+        reads.push_back("NNNNNNAACC");
+        reads.push_back("NNNNNAGGGT");
+        reads.push_back("NNNNNNNNGG");
+        reads.push_back("NNNAAATTTA");
+        reads.push_back("NNNAAAGCCC");
+        reads.push_back("AAAGAGTTTA");
+        reads.push_back("AAAGAATTTA");
+        const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 6, 10, 10};
+
+        // hisat like params
+        vargas::WordAligner a(5, 10, 2, 6, 5, 3);
         vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
 
         CHECK(aligns.bias == 0);
@@ -1246,12 +1389,24 @@ TEST_CASE ("End to End alignment") {
             n.set_endpos(18); // 19 length -1 (for 0 indexed) - 1 (pos of last base, not one after)
             g.add_node(n);
         }
-        vargas::AlignerETE a(100, 21, 0, 6, 5, 3);
-        auto res = a.align({read}, g.begin(), g.end());
-        REQUIRE(res.size() == 1);
-        CHECK(res.bias == 255);
-        CHECK(res.max_pos[0] == 19);
-        CHECK(res.max_score[0] == (255 - 17)); // Best score -17 with bias 255
+
+        {
+            vargas::AlignerETE a(100, 21, 0, 6, 5, 3);
+            auto res = a.align({read}, g.begin(), g.end());
+            REQUIRE(res.size() == 1);
+            CHECK(res.bias == 255);
+            CHECK(res.max_pos[0] == 19);
+            CHECK(res.max_score[0] == (255 - 17)); // Best score -17 with bias 255
+        }
+
+        {
+            vargas::WordAlignerETE a(100, 21, 0, 6, 5, 3);
+            auto res = a.align({read}, g.begin(), g.end());
+            REQUIRE(res.size() == 1);
+            CHECK(res.bias == 65535);
+            CHECK(res.max_pos[0] == 19);
+            CHECK(res.max_score[0] == (65535 - 17)); // Best score -17 with bias 255
+        }
     }
 
     SUBCASE("Bound check") {
