@@ -50,7 +50,8 @@ int align_main(int argc, char *argv[]) {
         ("x,endtoend", "Perform end to end alignment", cxxopts::value(end_to_end))
         ("c,tolerance", "<N> Correct if within readlen/N.",
          cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
-        ("u,chunk", "<N> Partition tasks into chunks with max size N.",
+        ("u,chunk",
+         "<N> Partition tasks into chunks with max size N.",
          cxxopts::value(chunk_size)->default_value("2048"))
         ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
         ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
@@ -85,117 +86,20 @@ int align_main(int argc, char *argv[]) {
         align_targets = ss.str();
     }
 
-    std::vector<std::string> alignment_pairs;
-    if (align_targets.length() != 0) {
-        std::replace(align_targets.begin(), align_targets.end(), '\n', ';');
-        alignment_pairs = rg::split(align_targets, ';');
-    }
-
     std::cerr << "Match=" << match
               << " Mismatch=" << mismatch
               << " GapOpen=" << gopen
               << " GapExtend=" << gext
               << " ReadLen=" << read_len
               << " CorrectnessFactor=" << tolerance
-              << " EndToEnd=" << std::boolalpha << end_to_end
-              << "\nLoading reads... " << std::flush;
+              << " EndToEnd=" << std::boolalpha << end_to_end << '\n';
 
-    auto start_time = std::chrono::steady_clock::now();
-
-    std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> task_list;
-    vargas::SAM::Header reads_hdr;
-    size_t total = 0;
-    {
-        // Maps a read group ID to a vector of reads
-        std::unordered_map<std::string, std::vector<vargas::SAM::Record>> read_groups;
-        {
-            vargas::isam reads(read_file);
-            reads_hdr = reads.header();
-            std::string read_group;
-            vargas::SAM::Record rec;
-            do {
-                rec = reads.record();
-                if (rec.seq.length() > read_len) {
-                    throw std::invalid_argument("Expected read of length <=" +
-                    std::to_string(read_len) + ", got " + std::to_string(rec.seq.length()));
-                }
-                if (!rec.aux.get("RG", read_group)) {
-                    read_group = UNGROUPED_READGROUP;
-                    rec.aux.set("RG", UNGROUPED_READGROUP);
-                    if (!reads_hdr.read_groups.count(UNGROUPED_READGROUP)) {
-                        reads_hdr.add(vargas::SAM::Header::ReadGroup("@RG\tID:" + std::string(UNGROUPED_READGROUP)));
-                    }
-                }
-                read_groups[read_group].push_back(rec);
-            } while (reads.next());
-        }
-
-        if (alignment_pairs.size() == 0) {
-            for (const auto &p : read_groups) {
-                alignment_pairs.push_back("RG:ID:" + p.first + "\t" + vargas::GraphManager::GDEF_BASEGRAPH);
-            }
-        }
-
-        // Maps target graph to read group ID's
-        std::unordered_map<std::string, std::vector<std::string>> alignment_rg_map;
-        {
-            std::vector<std::string> pair;
-            std::string tag, val, target_val;
-            for (const std::string &p : alignment_pairs) {
-                rg::split(p, pair);
-                if (pair.size() != 2)
-                    throw std::invalid_argument("Malformed alignment pair \"" + p + "\".");
-                if (pair[0].at(2) != ':')
-                    throw std::invalid_argument("Expected source format Read_group_tag:value in \"" + pair[0] + "\".");
-                if (pair[0].substr(0, 2) != "RG")
-                    throw std::invalid_argument("Expected a read group tag \'RG:xx:\', got \"" + pair[0] + "\"");
-
-                tag = pair[0].substr(3, 2);
-                target_val = pair[0].substr(6);
-
-                for (const auto &rg_pair : reads_hdr.read_groups) {
-                    if (tag == "ID") val = rg_pair.second.id;
-                    else if (rg_pair.second.aux.get(tag, val));
-                    else continue;
-                    if (val == target_val) alignment_rg_map[pair[1]].push_back(rg_pair.first);
-                }
-
-            }
-        }
-
-        std::cerr << rg::chrono_duration(start_time) << " seconds." << std::endl;
-
-        // graph label to vector of reads
-
-        for (const auto &sub_rg_pair : alignment_rg_map) {
-            for (const std::string &rgid : sub_rg_pair.second) {
-                // If there is a header line that there are no reads associated with, skip
-                if (read_groups.count(rgid) == 0) continue;
-
-                const auto beg = std::begin(read_groups.at(rgid));
-                const auto end = std::end(read_groups.at(rgid));
-                const size_t nrecords = read_groups.at(rgid).size();
-                const size_t n_chunks = (nrecords / chunk_size) + 1;
-                total += read_groups.at(rgid).size();
-
-                for (size_t i = 0; i < n_chunks; ++i) {
-                    const auto safe_beg = beg + (i * chunk_size);
-                    const auto safe_end = (i + 1) * chunk_size > nrecords ? end : safe_beg + chunk_size;
-                    if (safe_beg != safe_end)
-                        task_list.emplace_back(sub_rg_pair.first, std::vector<vargas::SAM::Record>(safe_beg, safe_end));
-                }
-            }
-        }
-
-
-        std::cerr << '\t' << read_groups.size() << " Read groups.\n"
-                  << '\t' << alignment_rg_map.size() << " Subgraphs.\n"
-                  << '\t' << task_list.size() << " Tasks.\n"
-                  << '\t' << total << " Total alignments.\n";
-    }
+    vargas::isam reads(read_file);
+    auto reads_hdr = reads.header();
+    auto task_list = create_tasks(reads, align_targets, read_len, chunk_size);
 
     std::cerr << "Loading graphs... " << std::flush;
-    start_time = std::chrono::steady_clock::now();
+    auto start_time = std::chrono::steady_clock::now();
     vargas::GraphManager gm(gdf_file);
     std::cerr << "(" << gm.base()->node_map()->size() << " nodes), ";
     std::cerr << rg::chrono_duration(start_time) << " seconds." << std::endl;
@@ -229,25 +133,12 @@ int align_main(int argc, char *argv[]) {
                   << vargas::WordAligner::read_capacity() << " reads/vector).\n";
     }
 
+    vargas::ScoreProfile prof(match, mismatch, gopen, gext);
+
     vargas::osam aligns_out(out_file, reads_hdr);
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
-        if (end_to_end) {
-            if (use_wide) {
-                aligners[k] =
-                rg::make_unique<vargas::WordAlignerETE>(gm.node_len(), read_len, match, mismatch, gopen, gext);
-            } else {
-                aligners[k] =
-                rg::make_unique<vargas::AlignerETE>(gm.node_len(), read_len, match, mismatch, gopen, gext);
-            }
-        } else {
-            if (use_wide) {
-                aligners[k] =
-                rg::make_unique<vargas::WordAligner>(gm.node_len(), read_len, match, mismatch, gopen, gext);
-            } else {
-                aligners[k] = rg::make_unique<vargas::Aligner>(gm.node_len(), read_len, match, mismatch, gopen, gext);
-            }
-        }
+        aligners[k] = make_aligner(prof, gm.node_len(), read_len, use_wide, end_to_end);
         aligners[k]->set_correctness_tolerance(tolerance);
     }
 
@@ -278,20 +169,20 @@ int align_main(int argc, char *argv[]) {
             rec.ref_name = task_list.at(l).first;
             rec.aux.set(ALIGN_SAM_MAX_POS_TAG, aligns.max_pos[j]);
             rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
+            rec.aux.set(ALIGN_SAM_END_TO_END_TAG, end_to_end);
             rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
             rec.aux.set(ALIGN_SAM_SUB_POS_TAG, aligns.sub_pos[j]);
             rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
             rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
             rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correctness_flag[j]);
-            rec.aux.set(ALIGN_SAM_END_TO_END_TAG, end_to_end);
+            rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
         }
     }
 
     auto end_time = std::chrono::steady_clock::now();
     auto cput = (std::clock() - start_cpu) / (double) CLOCKS_PER_SEC;
     std::cerr << rg::chrono_duration(start_time, end_time) << " seconds, "
-              << cput << " CPU seconds, "
-              << cput / total << " CPU s/alignment.\n" << std::endl;
+              << cput << " CPU seconds.\n" << std::endl;
 
     for (size_t l = 0; l < num_tasks; ++l) {
         gm.destroy(task_list.at(l).first);
@@ -301,6 +192,119 @@ int align_main(int argc, char *argv[]) {
     }
 
     return 0;
+}
+
+
+std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>>
+create_tasks(vargas::isam &reads, std::string &align_targets, const size_t read_len, const size_t chunk_size) {
+    std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> task_list;
+    std::unordered_map<std::string, std::vector<vargas::SAM::Record>> read_groups;
+
+    std::vector<std::string> alignment_pairs;
+    if (align_targets.length() != 0) {
+        std::replace(align_targets.begin(), align_targets.end(), '\n', ';');
+        alignment_pairs = rg::split(align_targets, ';');
+    }
+
+    std::cerr << "Loading reads... " << std::flush;
+    auto start_time = std::chrono::steady_clock::now();
+
+    size_t total = 0;
+    auto reads_hdr = reads.header();
+    std::string read_group;
+    vargas::SAM::Record rec;
+    do {
+        rec = reads.record();
+        if (rec.seq.length() > read_len) {
+            throw std::invalid_argument("Expected read of length <=" +
+            std::to_string(read_len) + ", got " + std::to_string(rec.seq.length()));
+        }
+        if (!rec.aux.get("RG", read_group)) {
+            read_group = UNGROUPED_READGROUP;
+            rec.aux.set("RG", UNGROUPED_READGROUP);
+            if (!reads_hdr.read_groups.count(UNGROUPED_READGROUP)) {
+                reads_hdr.add(vargas::SAM::Header::ReadGroup("@RG\tID:" + std::string(UNGROUPED_READGROUP)));
+            }
+        }
+        read_groups[read_group].push_back(rec);
+    } while (reads.next());
+
+
+    if (alignment_pairs.size() == 0) {
+        for (const auto &p : read_groups) {
+            alignment_pairs.push_back("RG:ID:" + p.first + "\t" + vargas::GraphManager::GDEF_BASEGRAPH);
+        }
+    }
+
+    // Maps target graph to read group ID's
+    std::unordered_map<std::string, std::vector<std::string>> alignment_rg_map;
+
+    std::vector<std::string> pair;
+    std::string tag, val, target_val;
+    for (const std::string &p : alignment_pairs) {
+        rg::split(p, pair);
+        if (pair.size() != 2)
+            throw std::invalid_argument("Malformed alignment pair \"" + p + "\".");
+        if (pair[0].at(2) != ':')
+            throw std::invalid_argument("Expected source format Read_group_tag:value in \"" + pair[0] + "\".");
+        if (pair[0].substr(0, 2) != "RG")
+            throw std::invalid_argument("Expected a read group tag \'RG:xx:\', got \"" + pair[0] + "\"");
+
+        tag = pair[0].substr(3, 2);
+        target_val = pair[0].substr(6);
+
+        for (const auto &rg_pair : reads_hdr.read_groups) {
+            if (tag == "ID") val = rg_pair.second.id;
+            else if (rg_pair.second.aux.get(tag, val));
+            else continue;
+            if (val == target_val) alignment_rg_map[pair[1]].push_back(rg_pair.first);
+        }
+
+    }
+
+
+    std::cerr << rg::chrono_duration(start_time) << " seconds." << std::endl;
+
+    // graph label to vector of reads
+    for (const auto &sub_rg_pair : alignment_rg_map) {
+        for (const std::string &rgid : sub_rg_pair.second) {
+            // If there is a header line that there are no reads associated with, skip
+            if (read_groups.count(rgid) == 0) continue;
+
+            const auto beg = std::begin(read_groups.at(rgid));
+            const auto end = std::end(read_groups.at(rgid));
+            const size_t nrecords = read_groups.at(rgid).size();
+            const size_t n_chunks = (nrecords / chunk_size) + 1;
+            total += read_groups.at(rgid).size();
+
+            for (size_t i = 0; i < n_chunks; ++i) {
+                const auto safe_beg = beg + (i * chunk_size);
+                const auto safe_end = (i + 1) * chunk_size > nrecords ? end : safe_beg + chunk_size;
+                if (safe_beg != safe_end)
+                    task_list.emplace_back(sub_rg_pair.first, std::vector<vargas::SAM::Record>(safe_beg, safe_end));
+            }
+        }
+    }
+
+    std::cerr << '\t' << read_groups.size() << " Read groups.\n"
+              << '\t' << alignment_rg_map.size() << " Subgraphs.\n"
+              << '\t' << task_list.size() << " Tasks.\n"
+              << '\t' << total << " Total alignments.\n";
+
+    return task_list;
+}
+
+std::unique_ptr<vargas::AlignerBase> make_aligner(const vargas::ScoreProfile &prof, size_t node_len, size_t read_len,
+                                                  bool use_wide, bool end_to_end) {
+    if (end_to_end) {
+        if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(node_len, read_len, prof);
+        else return rg::make_unique<vargas::AlignerETE>(node_len, read_len, prof);
+
+    } else {
+        if (use_wide) return rg::make_unique<vargas::WordAligner>(node_len, read_len, prof);
+        else return rg::make_unique<vargas::Aligner>(node_len, read_len, prof);
+
+    }
 }
 
 void align_help(const cxxopts::Options &opts) {

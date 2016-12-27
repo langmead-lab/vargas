@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
         if (argc > 1) {
             if (!strcmp(argv[1], "test")) {
                 doctest::Context doc(argc, argv);
-                doc.setOption("abort-after", 10);
+                doc.setOption("abort-after", 50);
                 return doc.run();
             } else if (!strcmp(argv[1], "profile")) {
                 return profile(argc, argv);
