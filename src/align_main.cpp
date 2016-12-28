@@ -42,7 +42,7 @@ int align_main(int argc, char *argv[]) {
         ("r,reads", "<str> SAM reads file. (default: stdin)", cxxopts::value(read_file))
         ("a,align", "<str> Alignment targets/file of form \"RG:[ID][gd],target\"", cxxopts::value(align_targets))
         ("f,file", " -a specifies a file name.", cxxopts::value(align_targets_isfile))
-        ("l,rlen", "<N> Read length.", cxxopts::value(read_len)->default_value("50"))
+        ("l,rlen", "<N> Read length. 0: determine from file.", cxxopts::value(read_len)->default_value("0"))
         ("m,match", "<N> Match score.", cxxopts::value(match)->default_value("2"))
         ("n,mismatch", "<N> Mismatch penalty.", cxxopts::value(mismatch)->default_value("2"))
         ("o,gap_open", "<N> Gap opening penalty.", cxxopts::value(gopen)->default_value("3"))
@@ -166,7 +166,6 @@ int align_main(int argc, char *argv[]) {
         const auto aligns = aligners[tid]->align(read_seqs, targets, subgraph->begin(), subgraph->end());
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             vargas::SAM::Record &rec = task_list.at(l).second.at(j);
-            rec.ref_name = task_list.at(l).first;
             rec.aux.set(ALIGN_SAM_MAX_POS_TAG, aligns.max_pos[j]);
             rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
             rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
@@ -195,7 +194,7 @@ int align_main(int argc, char *argv[]) {
 
 
 std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>>
-create_tasks(vargas::isam &reads, std::string &align_targets, const size_t read_len, const size_t chunk_size) {
+create_tasks(vargas::isam &reads, std::string &align_targets, size_t &read_len, const size_t chunk_size) {
     std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> task_list;
     std::unordered_map<std::string, std::vector<vargas::SAM::Record>> read_groups;
 
@@ -208,15 +207,21 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const size_t read_
     std::cerr << "Loading reads... " << std::flush;
     auto start_time = std::chrono::steady_clock::now();
 
+    bool warned = false;
     size_t total = 0;
     auto reads_hdr = reads.header();
     std::string read_group;
     vargas::SAM::Record rec;
+    if (read_len == 0) read_len = reads.record().seq.length();
     do {
         rec = reads.record();
         if (rec.seq.length() > read_len) {
             throw std::invalid_argument("Expected read of length <=" +
             std::to_string(read_len) + ", got " + std::to_string(rec.seq.length()));
+        } else if (rec.seq.length() < read_len) {
+            rec.seq.resize(read_len, 'N');
+            if (!warned) std::cerr << "\nWARN: Resizing short read to " << read_len << ".\n";
+            warned = true;
         }
         if (!rec.aux.get("RG", read_group)) {
             read_group = UNGROUPED_READGROUP;

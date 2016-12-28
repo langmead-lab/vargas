@@ -47,12 +47,12 @@ int align_main(int argc, char *argv[]);
  * Create a list of alignment jobs.
  * @param reads input read SAM stream
  * @param align_targets List of targets : RG:Subgraph
- * @param read_len
+ * @param read_len If 0, use length of first read
  * @param chunk_size Limit task size to N alignments
  * @return List of jobs of the form <subgraph label, [reads]>
  */
 std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>>
-create_tasks(vargas::isam &reads, std::string &align_targets, const size_t read_len, const size_t chunk_size);
+create_tasks(vargas::isam &reads, std::string &align_targets, size_t &read_len, const size_t chunk_size);
 
 /**
  * @brief

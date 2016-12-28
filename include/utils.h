@@ -54,7 +54,7 @@ namespace rg {
  * @brief
  * Maps Base characters to integers.
  */
-  enum Base: unsigned char { A = 0, C = 1, G = 2, T = 3, N = 4 };
+  enum Base: unsigned char { N = 0, A = 1, C = 2, G = 3, T = 4 };
 
 /**
  * @brief

@@ -524,8 +524,8 @@ namespace vargas {
 
               // Copy scores
               for (uint8_t i = 0; i < len; ++i) {
-                  aligns.max_score[beg_offset + i] = vargas::extract<NATIVE_T>(i, _max_score);
-                  aligns.sub_score[beg_offset + i] = vargas::extract<NATIVE_T>(i, _sub_score);
+                  aligns.max_score[beg_offset + i] = int(vargas::extract<NATIVE_T>(i, _max_score)) - _bias;
+                  aligns.sub_score[beg_offset + i] = int(vargas::extract<NATIVE_T>(i, _sub_score)) - _bias;
                   // All targets past len are set to max(), so will be pushed to end of list.
                   aligns.target_score[beg_offset + _target_subrange[i].idx] = _target_subrange[i].score;
 
