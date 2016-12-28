@@ -347,7 +347,7 @@ int convert_main(int argc, char **argv) {
             buff += val;
             buff += ",";
         }
-        std::cout << buff.substr(0, buff.length() - 1) << '\n'; // Crop leading comma
+        std::cout << buff.substr(0, buff.length() - 1) << '\n'; // Crop trailing comma
     } while (input.next());
 
     std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(

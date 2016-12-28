@@ -24,7 +24,8 @@ set(MAIN_SOURCES
         src/sim.cpp
         src/fasta.cpp
         src/sam.cpp
-        src/align_main.cpp)
+        src/align_main.cpp
+        src/scoring.cpp)
 
 set(HEADERS
         include/alignment.h
@@ -37,7 +38,8 @@ set(HEADERS
         include/sim.h
         include/utils.h
         include/varfile.h
-        include/align_main.h)
+        include/align_main.h
+        include/scoring.h)
 
 option(BUILD_PHI "Build for Xeon Phi, requires icpc" OFF)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")

@@ -32,7 +32,7 @@ int align_main(int argc, char *argv[]) {
     // Load parameters
     // hisat similar params: match = 2, mismatch = 6, open = 5, extend = 3
     size_t match, mismatch, gopen, gext, threads, read_len, tolerance, chunk_size;
-    std::string read_file, gdf_file, align_targets, out_file;
+    std::string read_file, gdf_file, align_targets, out_file, pgid;
     bool align_targets_isfile = false, end_to_end = false;
 
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
@@ -50,10 +50,10 @@ int align_main(int argc, char *argv[]) {
         ("x,endtoend", "Perform end to end alignment", cxxopts::value(end_to_end))
         ("c,tolerance", "<N> Correct if within readlen/N.",
          cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
-        ("u,chunk",
-         "<N> Partition tasks into chunks with max size N.",
+        ("u,chunk", "<N> Partition tasks into chunks with max size N.",
          cxxopts::value(chunk_size)->default_value("2048"))
         ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
+        ("s,assess", "[ID] Get score profile from PG with ID.", cxxopts::value(pgid))
         ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
@@ -62,7 +62,7 @@ int align_main(int argc, char *argv[]) {
         align_help(opts);
         return 0;
     }
-    if (!opts.count("g")) throw std::invalid_argument("Graph definition file required.");
+    if (!opts.count("gdef")) throw std::invalid_argument("Graph definition file required.");
 
     if (chunk_size < vargas::Aligner::read_capacity() ||
     chunk_size % vargas::Aligner::read_capacity() != 0) {
@@ -86,16 +86,19 @@ int align_main(int argc, char *argv[]) {
         align_targets = ss.str();
     }
 
-    std::cerr << "Match=" << match
-              << " Mismatch=" << mismatch
-              << " GapOpen=" << gopen
-              << " GapExtend=" << gext
-              << " ReadLen=" << read_len
-              << " CorrectnessFactor=" << tolerance
-              << " EndToEnd=" << std::boolalpha << end_to_end << '\n';
-
     vargas::isam reads(read_file);
     auto reads_hdr = reads.header();
+
+    vargas::ScoreProfile prof(match, mismatch, gopen, gext);
+    if (pgid.length()) {
+        prof = vargas::program_profile(reads_hdr.programs.at(pgid).command_line);
+    } else {
+        prof.end_to_end = end_to_end;
+        prof.ambig = 0;
+    }
+    prof.tol = tolerance;
+    std::cerr << prof.to_string() << "\n";
+
     auto task_list = create_tasks(reads, align_targets, read_len, chunk_size);
 
     std::cerr << "Loading graphs... " << std::flush;
@@ -105,7 +108,6 @@ int align_main(int argc, char *argv[]) {
     std::cerr << rg::chrono_duration(start_time) << " seconds." << std::endl;
     std::cerr << "Estimated aligner memory usage: "
               << threads * vargas::Aligner::estimated_size(gm.node_len(), read_len) / 1000000 << "MB" << std::endl;
-
 
     {
         vargas::SAM::Header::Program pg;
@@ -133,13 +135,11 @@ int align_main(int argc, char *argv[]) {
                   << vargas::WordAligner::read_capacity() << " reads/vector).\n";
     }
 
-    vargas::ScoreProfile prof(match, mismatch, gopen, gext);
 
     vargas::osam aligns_out(out_file, reads_hdr);
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
-        aligners[k] = make_aligner(prof, gm.node_len(), read_len, use_wide, end_to_end);
-        aligners[k]->set_correctness_tolerance(tolerance);
+        aligners[k] = make_aligner(prof, gm.node_len(), read_len, use_wide);
     }
 
 
@@ -169,13 +169,13 @@ int align_main(int argc, char *argv[]) {
             rec.ref_name = task_list.at(l).first;
             rec.aux.set(ALIGN_SAM_MAX_POS_TAG, aligns.max_pos[j]);
             rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
-            rec.aux.set(ALIGN_SAM_END_TO_END_TAG, end_to_end);
             rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
             rec.aux.set(ALIGN_SAM_SUB_POS_TAG, aligns.sub_pos[j]);
             rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
             rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
-            rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correctness_flag[j]);
+            rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
             rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
+            rec.aux.set(ALIGN_SAM_SCORE_PROFILE, aligns.profile.to_string());
         }
     }
 
@@ -185,7 +185,6 @@ int align_main(int argc, char *argv[]) {
               << cput << " CPU seconds.\n" << std::endl;
 
     for (size_t l = 0; l < num_tasks; ++l) {
-        gm.destroy(task_list.at(l).first);
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             aligns_out.add_record(task_list.at(l).second.at(j));
         }
@@ -295,8 +294,8 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const size_t read_
 }
 
 std::unique_ptr<vargas::AlignerBase> make_aligner(const vargas::ScoreProfile &prof, size_t node_len, size_t read_len,
-                                                  bool use_wide, bool end_to_end) {
-    if (end_to_end) {
+                                                  bool use_wide) {
+    if (prof.end_to_end) {
         if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(node_len, read_len, prof);
         else return rg::make_unique<vargas::AlignerETE>(node_len, read_len, prof);
 
@@ -382,7 +381,7 @@ TEST_CASE ("Coordinate System Matches") {
 
     auto results = aligner.align(seqs, targets, g.begin(), g.end());
 
-    for (auto i : results.correctness_flag) CHECK ((int) i == 1);
+    for (auto i : results.correct) CHECK ((int) i == 1);
 
     remove(tmpfa.c_str());
     remove(tmpvcf.c_str());

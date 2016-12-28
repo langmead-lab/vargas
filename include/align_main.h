@@ -23,12 +23,13 @@
 #define ALIGN_SAM_MAX_COUNT_TAG "mc"
 #define ALIGN_SAM_SUB_COUNT_TAG "sc"
 #define ALIGN_SAM_COR_FLAG_TAG "cf"
-#define ALIGN_SAM_END_TO_END_TAG "ee"
 #define ALIGN_SAM_TARGET_SCORE "ts"
+#define ALIGN_SAM_SCORE_PROFILE "pr"
 
 #include "cxxopts.hpp"
 #include "sam.h"
 
+// Forward decl to prevent main.cpp recompilation for alignment.h changes
 namespace vargas {
   class AlignerBase;
   struct ScoreProfile;
@@ -64,7 +65,7 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const size_t read_
  * @return pointer to new aligner
  */
 std::unique_ptr<vargas::AlignerBase> make_aligner(const vargas::ScoreProfile &prof, size_t node_len, size_t read_len,
-                                                  bool use_wide = false, bool end_to_end = false);
+                                                  bool use_wide = false);
 
 void align_help(const cxxopts::Options &opts);
 
