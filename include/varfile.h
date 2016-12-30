@@ -38,8 +38,9 @@ namespace vargas {
    * Packet to represent a parsed region string.
    */
   struct Region {
-      std::string seq_name;
-      size_t min, max;
+      std::string seq_name; /**< Contig name */
+      size_t min, /**< Min position, inclusive. */
+      max; /**< Max position, inclusive. */
   };
 
   /**
@@ -95,7 +96,8 @@ namespace vargas {
      * If max is <= 0, go until end.
      * @param region region string
      */
-      void set_region(std::string region);
+      void set_region(const std::string &region);
+      void set_region(const Region &region);
 
       /**
      * @brief

@@ -15,6 +15,7 @@
 #include "gdef.h"
 #include "doctest.h"
 #include "sim.h"
+#include "cxxopts.hpp"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -31,7 +32,7 @@ int align_main(int argc, char *argv[]) {
 
     // Load parameters
     // hisat similar params: match = 2, mismatch = 6, open = 5, extend = 3
-    size_t match, mismatch, gopen, gext, threads, read_len, tolerance, chunk_size;
+    size_t match, mismatch, gopen, gext, threads, tolerance, chunk_size, subsample = 0;
     std::string read_file, gdf_file, align_targets, out_file, pgid;
     bool align_targets_isfile = false, end_to_end = false;
 
@@ -40,9 +41,9 @@ int align_main(int argc, char *argv[]) {
         opts.add_options()
         ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf_file))
         ("r,reads", "<str> SAM reads file. (default: stdin)", cxxopts::value(read_file))
+        ("p,subsample", "<N> Subsample N random reads.", cxxopts::value(subsample))
         ("a,align", "<str> Alignment targets/file of form \"RG:[ID][gd],target\"", cxxopts::value(align_targets))
         ("f,file", " -a specifies a file name.", cxxopts::value(align_targets_isfile))
-        ("l,rlen", "<N> Read length. 0: determine from file.", cxxopts::value(read_len)->default_value("0"))
         ("m,match", "<N> Match score.", cxxopts::value(match)->default_value("2"))
         ("n,mismatch", "<N> Mismatch penalty.", cxxopts::value(mismatch)->default_value("2"))
         ("o,gap_open", "<N> Gap opening penalty.", cxxopts::value(gopen)->default_value("3"))
@@ -52,8 +53,8 @@ int align_main(int argc, char *argv[]) {
          cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
         ("u,chunk", "<N> Partition tasks into chunks with max size N.",
          cxxopts::value(chunk_size)->default_value("2048"))
-        ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
-        ("s,assess", "[ID] Get score profile from PG with ID.", cxxopts::value(pgid))
+        ("t,out", "<str> Output file. Can safely be same as -r. (default: stdout)", cxxopts::value(out_file))
+        ("s,assess", "[ID] Get score profile from PG with ID.", cxxopts::value(pgid)->implicit_value("-"))
         ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
@@ -86,12 +87,27 @@ int align_main(int argc, char *argv[]) {
         align_targets = ss.str();
     }
 
-    vargas::isam reads(read_file);
-    auto reads_hdr = reads.header();
+    auto reads = vargas::isam(read_file).subset(subsample);
+    auto &reads_hdr = reads.header();
 
     vargas::ScoreProfile prof(match, mismatch, gopen, gext);
-    if (pgid.length()) {
-        prof = vargas::program_profile(reads_hdr.programs.at(pgid).command_line);
+    if (pgid == "-") {
+        bool check = false;
+        for (const auto &i : reads.header().programs) {
+            if (std::find(vargas::supported_pgid.begin(), vargas::supported_pgid.end(), i.first)
+            != vargas::supported_pgid.end()) {
+                pgid = i.first;
+                prof = vargas::program_profile(i.second.command_line);
+                check = true;
+                break;
+            }
+        }
+        if (!check) throw std::invalid_argument("No suitable scoring profile found in SAM program header.");
+        std::cerr << "Using profile for: " << pgid << "\n";
+    } else if (pgid.length()) {
+        try {
+            prof = vargas::program_profile(reads_hdr.programs.at(pgid).command_line);
+        } catch (std::exception &e) { throw std::invalid_argument("Unrecognized PG ID: " + pgid); }
     } else {
         prof.end_to_end = end_to_end;
         prof.ambig = 0;
@@ -99,7 +115,12 @@ int align_main(int argc, char *argv[]) {
     prof.tol = tolerance;
     std::cerr << prof.to_string() << "\n";
 
-    auto task_list = create_tasks(reads, align_targets, read_len, chunk_size);
+    size_t read_len;
+    bool padded;
+    auto task_list = create_tasks(reads, align_targets, chunk_size, read_len, padded);
+    if (prof.end_to_end && prof.ambig && padded) {
+        std::cerr << "WARN: ETE alignment with N penalty will impact padded read scores.\n";
+    }
 
     std::cerr << "Loading graphs... " << std::flush;
     auto start_time = std::chrono::steady_clock::now();
@@ -136,7 +157,6 @@ int align_main(int argc, char *argv[]) {
     }
 
 
-    vargas::osam aligns_out(out_file, reads_hdr);
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
         aligners[k] = make_aligner(prof, gm.node_len(), read_len, use_wide);
@@ -160,7 +180,14 @@ int align_main(int argc, char *argv[]) {
         for (size_t i = 0; i < num_reads; ++i) {
             const auto &r = task_list.at(l).second.at(i);
             read_seqs[i] = r.seq;
-            targets[i] = r.pos + r.seq.length() - 1;
+            targets[i] = r.pos;
+            if (targets[i] != 0) {
+                targets[i] = r.pos + r.seq.length() - 1;
+                for (const auto &p : r.cigar) {
+                    if (p.second == 'I') targets[i] -= p.first;
+                    else if (p.second == 'D') targets[i] += p.first;
+                }
+            }
         }
         auto subgraph = gm.make_subgraph(task_list.at(l).first);
         const auto aligns = aligners[tid]->align(read_seqs, targets, subgraph->begin(), subgraph->end());
@@ -183,6 +210,7 @@ int align_main(int argc, char *argv[]) {
     std::cerr << rg::chrono_duration(start_time, end_time) << " seconds, "
               << cput << " CPU seconds.\n" << std::endl;
 
+    vargas::osam aligns_out(out_file, reads_hdr);
     for (size_t l = 0; l < num_tasks; ++l) {
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             aligns_out.add_record(task_list.at(l).second.at(j));
@@ -194,7 +222,11 @@ int align_main(int argc, char *argv[]) {
 
 
 std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>>
-create_tasks(vargas::isam &reads, std::string &align_targets, size_t &read_len, const size_t chunk_size) {
+create_tasks(vargas::isam &reads,
+             std::string &align_targets,
+             const size_t chunk_size,
+             size_t &read_len,
+             bool &resized) {
     std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> task_list;
     std::unordered_map<std::string, std::vector<vargas::SAM::Record>> read_groups;
 
@@ -207,22 +239,14 @@ create_tasks(vargas::isam &reads, std::string &align_targets, size_t &read_len, 
     std::cerr << "Loading reads... " << std::flush;
     auto start_time = std::chrono::steady_clock::now();
 
-    bool warned = false;
     size_t total = 0;
-    auto reads_hdr = reads.header();
+    auto &reads_hdr = reads.header();
     std::string read_group;
     vargas::SAM::Record rec;
-    if (read_len == 0) read_len = reads.record().seq.length();
+    read_len = reads.record().seq.length();
     do {
         rec = reads.record();
-        if (rec.seq.length() > read_len) {
-            throw std::invalid_argument("Expected read of length <=" +
-            std::to_string(read_len) + ", got " + std::to_string(rec.seq.length()));
-        } else if (rec.seq.length() < read_len) {
-            rec.seq.resize(read_len, 'N');
-            if (!warned) std::cerr << "\nWARN: Resizing short read to " << read_len << ".\n";
-            warned = true;
-        }
+        if (rec.seq.length() > read_len) read_len = rec.seq.length();
         if (!rec.aux.get("RG", read_group)) {
             read_group = UNGROUPED_READGROUP;
             rec.aux.set("RG", UNGROUPED_READGROUP);
@@ -233,6 +257,16 @@ create_tasks(vargas::isam &reads, std::string &align_targets, size_t &read_len, 
         read_groups[read_group].push_back(rec);
     } while (reads.next());
 
+    // Pad short reads
+    resized = false;
+    for (auto &rg : read_groups) {
+        for (auto &rd : rg.second) {
+            if (rd.seq.size() != read_len) {
+                rd.seq.resize(read_len, 'N');
+                resized = true;
+            }
+        }
+    }
 
     if (alignment_pairs.size() == 0) {
         for (const auto &p : read_groups) {
@@ -290,10 +324,11 @@ create_tasks(vargas::isam &reads, std::string &align_targets, size_t &read_len, 
         }
     }
 
-    std::cerr << '\t' << read_groups.size() << " Read groups.\n"
-              << '\t' << alignment_rg_map.size() << " Subgraphs.\n"
-              << '\t' << task_list.size() << " Tasks.\n"
-              << '\t' << total << " Total alignments.\n";
+    std::cerr << read_groups.size() << "\tRead group(s).\n"
+              << alignment_rg_map.size() << "\tSubgraph(s).\n"
+              << task_list.size() << "\tTask(s).\n"
+              << total << "\tTotal alignments.\n"
+              << read_len << "\tMax read length.\n";
 
     return task_list;
 }
@@ -393,82 +428,87 @@ TEST_CASE ("Coordinate System Matches") {
     remove((tmpfa + ".fai").c_str());
 }
 TEST_CASE ("Correctness flag") {
-    srand(1);
-    vargas::Graph::Node::_newID = 0;
-    using std::endl;
-    std::string tmpfa = "tmp_tc.fa";
-    {
-        std::ofstream fao(tmpfa);
-        fao
-        << ">x" << endl
-        << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
-        << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
-        << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
-        << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
-        << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
-        << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
-        << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
-        << ">y" << endl
-        << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+    try {
+        srand(1);
+        vargas::Graph::Node::_newID = 0;
+        using std::endl;
+        std::string tmpfa = "tmp_tc.fa";
+        {
+            std::ofstream fao(tmpfa);
+            fao
+            << ">x" << endl
+            << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
+            << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
+            << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
+            << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
+            << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
+            << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
+            << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
+            << ">y" << endl
+            << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+        }
+        std::string tmpvcf = "tmp_tc.vcf";
+
+        {
+            std::ofstream vcfo(tmpvcf);
+            vcfo
+            << "##fileformat=VCFv4.1" << endl
+            << "##phasing=true" << endl
+            << "##contig=<ID=x>" << endl
+            << "##contig=<ID=y>" << endl
+            << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+            << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+            << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
+            << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+            << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+            << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+            << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+            << "x\t9\t.\tG\tA,CC,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+            << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
+            << "x\t20\t.\tTTC\t<CN3>,<CN2>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+            << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+        }
+
+        std::string reads_file("tmp_rd.sam");
+        {
+            std::ofstream ro(reads_file);
+            ro << "@HD\tVN:1.0\n*\t4\t*\t14\t255\t*\t*\t0\t0\tGAAATT\t*\n*\t4\t*\t17\t255\t*\t*\t0\t0\tATTTTC\t*";
+        }
+
+        vargas::GraphFactory gb(tmpfa);
+        gb.open_vcf(tmpvcf);
+        gb.set_region("x:0-100");
+        vargas::Graph g = gb.build();
+
+        vargas::Aligner aligner(g.max_node_len(), 6);
+        vargas::isam reads(reads_file);
+
+        std::vector<vargas::SAM::Record> records;
+        std::vector<std::string> read_seq;
+        std::vector<size_t> targets;
+        do {
+            records.push_back(reads.record());
+            read_seq.push_back(reads.record().seq);
+            targets.push_back(reads.record().pos + read_seq.back().length() - 1);
+        } while (reads.next());
+
+        auto res = aligner.align(read_seq, targets, g.begin(), g.end());
+
+        vargas::osam align_out("tmp_aout.sam", reads.header());
+        for (auto &r : records) align_out.add_record(r);
+
+        remove(tmpfa.c_str());
+        remove((tmpfa + ".fai").c_str());
+        remove(tmpvcf.c_str());
+        remove(reads_file.c_str());
+        remove("tmp_aout.sam");
+    } catch (std::exception &e) {
+        std::cerr << e.what();
+        throw;
     }
-    std::string tmpvcf = "tmp_tc.vcf";
-
-    {
-        std::ofstream vcfo(tmpvcf);
-        vcfo
-        << "##fileformat=VCFv4.1" << endl
-        << "##phasing=true" << endl
-        << "##contig=<ID=x>" << endl
-        << "##contig=<ID=y>" << endl
-        << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
-        << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
-        << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
-        << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
-        << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
-        << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
-        << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
-        << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
-        << "x\t9\t.\tG\tA,CC,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
-        << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-        << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
-        << "x\t20\t.\tTTC\t<CN3>,<CN2>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-        << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-        << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
-    }
-
-    std::string reads_file("tmp_rd.sam");
-    {
-        std::ofstream ro(reads_file);
-        ro << "@HD\tVN:1.0\n*\t4\t*\t14\t255\t*\t*\t0\t0\tGAAATT\t*\n*\t4\t*\t17\t255\t*\t*\t0\t0\tATTTTC\t*";
-    }
-
-    vargas::GraphFactory gb(tmpfa);
-    gb.open_vcf(tmpvcf);
-    gb.set_region("x:0-100");
-    vargas::Graph g = gb.build();
-
-    vargas::Aligner aligner(g.max_node_len(), 6);
-    vargas::isam reads(reads_file);
-
-    std::vector<vargas::SAM::Record> records;
-    std::vector<std::string> read_seq;
-    std::vector<size_t> targets;
-    do {
-        records.push_back(reads.record());
-        read_seq.push_back(reads.record().seq);
-        targets.push_back(reads.record().pos + read_seq.back().length() - 1);
-    } while (reads.next());
-
-    auto res = aligner.align(read_seq, targets, g.begin(), g.end());
-
-    vargas::osam align_out("tmp_aout.sam", reads.header());
-    for (auto &r : records) align_out.add_record(r);
-
-    remove(tmpfa.c_str());
-    remove((tmpfa + ".fai").c_str());
-    remove(tmpvcf.c_str());
-    remove(reads_file.c_str());
-    remove("tmp_aout.sam");
 }
 
 TEST_SUITE_END();

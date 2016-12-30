@@ -17,7 +17,60 @@
 #include <sstream>
 #include <iostream>
 
+#define CIGAR_OPERATORS "MIDNSHPX" // Possible modifications in a CIGAR string
+
 namespace vargas {
+
+  /*
+   * Represents a cigar as a vector of Number,type pairs. e.g.
+   * 10M1D10M = {<10,'M'>,<1,'D'>,<10,'M'>}
+   */
+  class Cigar {
+    public:
+      Cigar() = default;
+
+      /**
+       * @param s Parse the cigar string s
+       */
+      Cigar(const std::string &s) {
+          parse(s);
+      }
+
+      /**
+       * @param s Tokenize s into a cigar
+       */
+      void parse(const std::string &s);
+
+      std::string to_string() const {
+          std::ostringstream ss;
+          for (const auto &t : _cigar) {
+              ss << t.first << t.second;
+          }
+          return ss.str();
+      }
+
+      /*
+       * @return pair of <number, operator>
+       */
+      std::pair<size_t, char> &operator[](size_t i) { return _cigar[i]; };
+
+      const std::pair<size_t, char> &at(size_t i) const { return _cigar.at(i); };
+
+      size_t size() const { return _cigar.size(); }
+
+      typename std::vector<std::pair<size_t, char>>::const_iterator begin() const {
+          return _cigar.cbegin();
+      }
+
+      typename std::vector<std::pair<size_t, char>>::const_iterator end() const {
+          return _cigar.cend();
+      }
+
+      Cigar operator=(const std::string &s);
+
+    private:
+      std::vector<std::pair<size_t, char>> _cigar;
+  };
 
   /**
    * @brief
@@ -333,13 +386,18 @@ namespace vargas {
 
           /**
            * @brief
-           * Add a new Program line.
-           * @throws std::out_of_range if program ID already exists
+           * Add a new Program line. If ID is taken, try ID_N, incrementing N until available.
            * @param pg Program
            */
           void add(const Program &pg) {
-              if (programs.count(pg.id) != 0) throw std::out_of_range("Program ID already exists.");
-              programs[pg.id] = pg;
+              if (programs.count(pg.id) != 0) {
+                  auto pgcpy = pg;
+                  int count = 0;
+                  while (programs.count(pgcpy.id)) {
+                      pgcpy.id = pg.id + "_" + std::to_string(++count);
+                  }
+                  programs[pgcpy.id] = pgcpy;
+              } else programs[pg.id] = pg;
           }
 
           /**
@@ -491,7 +549,6 @@ namespace vargas {
           // Mandatory fields
           std::string query_name = "*", /**< Query template name */
           ref_name = "*", /**< Reference sequence name */
-          cigar = "*", /**< Alignment CIGAR */
           ref_next = "*", /**< Refrence name of next mate/read */
           seq = "*", /**< segment sequence */
           qual = "*"; /**< Phred Qual+33 */
@@ -502,6 +559,7 @@ namespace vargas {
           tlen = 0; /**< template length */
 
           Flag flag; /**< Bitwise flag */
+          Cigar cigar; /**< Alignment CIGAR */
 
           Optional aux;
 
@@ -607,6 +665,7 @@ namespace vargas {
       SAM::Header _hdr;
   };
 
+
   /**
  * @brief
  * Provides an interface to read a SAM file.
@@ -707,7 +766,7 @@ namespace vargas {
        * Get the SAM Header.
        * @return SAM::Header
        */
-      const SAM::Header &header() const {
+      SAM::Header &header() {
           return _hdr;
       }
 

@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
         if (argc > 1) {
             if (!strcmp(argv[1], "test")) {
                 doctest::Context doc(argc, argv);
-                doc.setOption("abort-after", 50);
+                doc.setOption("abort-after", 10);
                 return doc.run();
             } else if (!strcmp(argv[1], "profile")) {
                 return profile(argc, argv);
@@ -41,8 +41,6 @@ int main(int argc, char *argv[]) {
                 return sim_main(argc, argv);
             } else if (!strcmp(argv[1], "align")) {
                 return align_main(argc, argv);
-            } else if (!strcmp(argv[1], "export")) {
-                return export_main(argc, argv);
             } else if (!strcmp(argv[1], "convert")) {
                 return convert_main(argc, argv);
             } else if (!strcmp(argv[1], "query")) {
@@ -429,49 +427,20 @@ int profile(int argc, char *argv[]) {
     return 0;
 }
 
-int export_main(int argc, char *argv[]) {
-
-    // Load parameters
-    std::string subgraph, file, out;
-
-    cxxopts::Options opts("vargas export", "Export a graph in DOT format.");
-    try {
-        opts.add_options()
-        ("g,gdef", "<str> *Graph definition file. (default: stdin)", cxxopts::value(file))
-        ("s,subgraph", "<str> Subgraph to export.",
-         cxxopts::value(subgraph)->default_value(vargas::GraphManager::GDEF_BASEGRAPH))
-        ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out))
-        ("h,help", "Display this message.");
-        opts.parse(argc, argv);
-    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
-    if (opts.count("h")) {
-        export_help(opts);
-        return 0;
-    }
-
-    vargas::GraphManager gm;
-    if (file.size()) gm.open(file);
-    else gm.open(std::cin);
-    auto g = gm.make_subgraph(subgraph);
-    if (out.size()) g->to_DOT(out, "g");
-    std::cout << g->to_DOT();
-    return 0;
-}
-
 int query_main(int argc, char *argv[]) {
     std::string region, gdef, fasta, vcf, subgraph, out;
 
     cxxopts::Options opts("vargas query", "Query VCF, Graph, or FASTA files.");
     try {
         opts.add_options()
-        ("d,gdef", "<str> Export graph region as a DOT file.", cxxopts::value(gdef))
-        ("a,stat", "Print statistics about subgraphs.")
+        ("d,gdef", "<str> Graph definition.", cxxopts::value(gdef))
+        ("a,stat", "Print statistics about subgraphs and exit.")
+        ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". Default from gdef.", cxxopts::value(region))
         ("s,subgraph", "<str> Subgraph to export.",
          cxxopts::value(subgraph)->default_value(vargas::GraphManager::GDEF_BASEGRAPH))
-        ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
-        ("t,out", "<str> -d output file. (default: stdout)", cxxopts::value(out))
         ("f,fasta", "<str> Reference FASTA.", cxxopts::value(fasta))
         ("v,vcf", "<str> Variant File.", cxxopts::value(vcf))
+        ("t,out", "<str> -d output file. (default: stdout)", cxxopts::value(out))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
@@ -505,12 +474,18 @@ int query_main(int argc, char *argv[]) {
         return 0;
     }
 
-
-    if (!opts.count("g")) throw std::invalid_argument("Region specifier required.");
-    auto reg = vargas::parse_region(region);
+    vargas::Region reg;
+    reg.min = reg.max = 0;
 
     if (gdef.size()) {
         vargas::GraphManager gm(gdef);
+
+        if (region.length()) reg = vargas::parse_region(region);
+        else {
+            vargas::GraphManager gm;
+            gm.open(gdef, false);
+            reg = vargas::parse_region(gm.region());
+        }
 
         auto sg = gm.make_subgraph(subgraph)->subgraph(reg.min, reg.max);
         if (out.length() == 0) std::cout << sg.to_DOT();
@@ -542,15 +517,19 @@ int query_main(int argc, char *argv[]) {
 
     if (fasta.size()) {
         vargas::ifasta in(fasta);
+        if (!reg.seq_name.length()) reg.seq_name = in.seq_name(0);
         std::cout << fasta << ", " << region
                   << "\n----------------------------------------\n"
                   << in.subseq(reg.seq_name, reg.min, reg.max)
                   << '\n' << std::endl;
+        reg.seq_name = "";
     }
 
     if (vcf.size()) {
         vargas::VCF v(vcf);
-        v.set_region(region);
+        vargas::ifasta in(fasta);
+        if (!reg.seq_name.length()) reg.seq_name = v.sequences().at(0);
+        v.set_region(reg);
         std::cout << vcf << ", " << region
                   << "\n----------------------------------------\n";
         while (v.next()) {

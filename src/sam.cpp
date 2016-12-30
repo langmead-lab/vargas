@@ -299,7 +299,7 @@ std::string vargas::SAM::Record::to_string() const {
        << ref_name << '\t'
        << pos << '\t'
        << mapq << '\t'
-       << cigar << '\t'
+       << cigar.to_string() << '\t'
        << ref_next << '\t'
        << pos_next << '\t'
        << tlen << '\t'
@@ -342,7 +342,7 @@ bool vargas::SAM::Record::get_required(const std::string &tag, std::string &val)
     } else if (tag == REQUIRED_SEQ) {
         val = seq;
     } else if (tag == REQUIRED_CIGAR) {
-        val = cigar;
+        val = cigar.to_string();
     } else if (tag == REQUIRED_FLAG) {
         val = rg::to_string(flag.encode());
     } else if (tag == REQUIRED_PNEXT) {
@@ -389,7 +389,7 @@ vargas::isam vargas::isam::subset(size_t n) {
     std::iota(idx.begin(), idx.end(), 0);
     std::random_shuffle(idx.begin(), idx.begin());
     isam ss;
-    if (n >= pending.size()) {
+    if (n >= pending.size() || n == 0) {
         ss._buff = std::move(pending);
     } else {
         ss._buff.reserve(n);
@@ -398,6 +398,7 @@ vargas::isam vargas::isam::subset(size_t n) {
         }
     }
     ss.next();
+    ss._hdr = _hdr;
     return ss;
 }
 
@@ -423,6 +424,23 @@ void vargas::osam::open(std::string file_name) {
     }
     (_use_stdio ? std::cout : out) << _hdr.to_string() << std::flush;
 }
+
+vargas::Cigar vargas::Cigar::operator=(const std::string &s) {
+    parse(s);
+    return *this;
+}
+
+void vargas::Cigar::parse(const std::string &s) {
+    _cigar.clear();
+    if (s == "*") return;;
+    size_t prev = 0, curr;
+    while (prev != s.length()) {
+        curr = s.find_first_of(CIGAR_OPERATORS, prev);
+        _cigar.push_back(std::pair<size_t, char>(prev == curr ? 1 : std::stoi(s.substr(prev, curr)), s[curr]));
+        prev = ++curr;
+    }
+}
+
 
 TEST_SUITE("SAM Parser");
 
@@ -609,6 +627,23 @@ TEST_CASE ("SAM File") {
 
     remove("tmp_s.sam");
     remove("osam.sam");
+}
+
+TEST_CASE ("Cigar") {
+    std::string s = "MI10M1D10M";
+    vargas::Cigar c = s;
+
+    REQUIRE(c.size() == 5);
+    CHECK(c[0].first == 1);
+    CHECK(c[0].second == 'M');
+    CHECK(c[1].first == 1);
+    CHECK(c[1].second == 'I');
+    CHECK(c[2].first == 10);
+    CHECK(c[2].second == 'M');
+    CHECK(c[3].first == 1);
+    CHECK(c[3].second == 'D');
+    CHECK(c[4].first == 10);
+    CHECK(c[4].second == 'M');
 }
 
 TEST_SUITE_END();

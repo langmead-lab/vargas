@@ -294,6 +294,7 @@ TEST_CASE ("Read sim") {
     }
 
     remove(tmpfa.c_str());
+    remove((tmpfa + ".fai").c_str());
     remove(tmpvcf.c_str());
 }
 

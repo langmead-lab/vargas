@@ -40,11 +40,17 @@ vargas::Region vargas::parse_region(const std::string &region_str) {
     return ret;
 }
 
-void vargas::VariantFile::set_region(std::string region) {
+void vargas::VariantFile::set_region(const std::string &region) {
     auto parsed = parse_region(region);
     _chr = parsed.seq_name;
     _min_pos = parsed.min;
     _max_pos = parsed.max;
+}
+
+void vargas::VariantFile::set_region(const Region &region) {
+    _chr = region.seq_name;
+    _min_pos = region.min;
+    _max_pos = region.max;
 }
 
 void vargas::VariantFile::set_region(std::string chr, int min, int max) {

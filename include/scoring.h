@@ -43,14 +43,14 @@ namespace vargas {
       match(match), mismatch(mismatch),
       read_gopen(rd_gopen), read_gext(rd_gext), ref_gopen(ref_gopen), ref_gext(ref_gext) {}
 
-      uint8_t match, /**< Match bonus */
-      mismatch, /**< Mismatch penalty */
-      read_gopen, /**< Read gap open penalty */
-      read_gext, /**< Read gap extension penalty */
-      ref_gopen, /**< Ref gap open penalty */
-      ref_gext, /**< Ref gap extension penalty */
-      ambig; /**< Ambigious base penalty */
-      size_t tol; /**< Classify as correct if pos == target +- tol */
+      uint8_t match = 2, /**< Match bonus */
+      mismatch = 2, /**< Mismatch penalty */
+      read_gopen = 3, /**< Read gap open penalty */
+      read_gext = 1, /**< Read gap extension penalty */
+      ref_gopen = 3, /**< Ref gap open penalty */
+      ref_gext = 1, /**< Ref gap extension penalty */
+      ambig = 0; /**< Ambigious base penalty */
+      size_t tol = 5; /**< Classify as correct if pos == target +- tol */
       bool end_to_end = false; /**< End to end alignment */
 
       std::string to_string() const;
@@ -88,9 +88,13 @@ namespace vargas {
       void resize(size_t size);
   };
 
+  const std::vector<std::string> supported_pgid = {"bowtie2", "bwa"};
+
   std::vector<std::string> tokenize_cl(std::string cl);
 
   ScoreProfile bwt2(const std::string &cl);
+
+  ScoreProfile bwa_mem(const std::string &cl);
 
   ScoreProfile program_profile(const std::string &cl);
 

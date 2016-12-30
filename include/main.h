@@ -47,14 +47,6 @@ int convert_main(int argc, char **argv);
 
 /**
  * @brief
- * Export the graph in DOT format.
- * @param argc CL arg count
- * @param argv CL args
- */
-int export_main(int argc, char *argv[]);
-
-/**
- * @brief
  * Query sequence files
  * @param argc CL arg count
  * @param argv CL args

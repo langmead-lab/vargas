@@ -52,7 +52,7 @@ int align_main(int argc, char *argv[]);
  * @return List of jobs of the form <subgraph label, [reads]>
  */
 std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>>
-create_tasks(vargas::isam &reads, std::string &align_targets, size_t &read_len, const size_t chunk_size);
+create_tasks(vargas::isam &reads, std::string &align_targets, const size_t chunk_size, size_t &read_len, bool &resized);
 
 /**
  * @brief
