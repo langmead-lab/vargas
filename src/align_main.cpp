@@ -181,13 +181,14 @@ int align_main(int argc, char *argv[]) {
             const auto &r = task_list.at(l).second.at(i);
             read_seqs[i] = r.seq;
             targets[i] = r.pos;
-            if (targets[i] != 0) {
-                targets[i] = r.pos + r.seq.length() - 1;
-                for (const auto &p : r.cigar) {
-                    if (p.second == 'I') targets[i] -= p.first;
-                    else if (p.second == 'D') targets[i] += p.first;
-                }
-            }
+            if (r.pos > 0) {
+                targets[i] = r.pos - 1;
+                if (r.cigar.size()) {
+                    for (const auto &p : r.cigar) {
+                        if (p.second == 'M' || p.second == 'D') targets[i] += p.first;
+                    }
+                } else targets[i] = r.pos + r.seq.length() - 1;
+            } else targets[i] = 0;
         }
         auto subgraph = gm.make_subgraph(task_list.at(l).first);
         const auto aligns = aligners[tid]->align(read_seqs, targets, subgraph->begin(), subgraph->end());

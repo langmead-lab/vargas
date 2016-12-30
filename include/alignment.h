@@ -60,8 +60,8 @@ namespace vargas {
 */
   template <typename NATIVE_T>
   __RG_STRONG_INLINE__
-  NATIVE_T extract(uint8_t i, const SIMD_T<NATIVE_T> &vec) {
-      return ((NATIVE_T *) &vec)[i];
+  constexpr NATIVE_T extract(const uint8_t i, const SIMD_T<NATIVE_T> &vec) {
+      return reinterpret_cast<const NATIVE_T *>(&vec)[i];
   }
 
   /**
@@ -73,8 +73,8 @@ namespace vargas {
    */
   template <typename NATIVE_T>
   __RG_STRONG_INLINE__
-  void insert(NATIVE_T elem, uint8_t i, const SIMD_T<NATIVE_T> &vec) {
-      ((NATIVE_T *) &vec)[i] = elem;
+  void insert(const NATIVE_T elem, const uint8_t i, SIMD_T<NATIVE_T> &vec) {
+      reinterpret_cast<NATIVE_T *>(&vec)[i] = elem;
   }
 
   /**
@@ -882,7 +882,7 @@ namespace vargas {
           using namespace simdpp;
 
           _curr_pos = node_origin + col;    // absolute position in reference sequence
-          while ((unsigned) _target_subrange[curr_search].pos == _curr_pos) {
+          while (_target_subrange[curr_search].pos == _curr_pos) {
               _target_subrange[curr_search].score =
               std::max<int>(vargas::extract<NATIVE_T>(_target_subrange[curr_search].idx, _S_curr[col]),
                             _target_subrange[curr_search].score);
@@ -1551,5 +1551,15 @@ TEST_CASE ("Target score") {
 
 TEST_SUITE_END();
 
-
+TEST_CASE ("prof") {
+    simdpp::uint8x16 v;
+    for (size_t i = 0; i < 16; ++i) vargas::insert<uint8_t>(rand() % 16, i, v);
+    uint8_t prev = 0;
+    auto start = std::chrono::steady_clock::now();
+    for (size_t i = 0; i < 5000000000; ++i) {
+        prev = vargas::extract<uint8_t>(prev, v);
+    }
+    auto stop = rg::chrono_duration(start);
+    std::cerr << prev << stop << "s\n";
+}
 #endif //VARGAS_ALIGNMENT_H

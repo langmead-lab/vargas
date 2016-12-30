@@ -311,18 +311,22 @@ std::string vargas::SAM::Record::to_string() const {
 void vargas::SAM::Record::parse(std::string line) {
     std::vector<std::string> cols = rg::split(line, '\t');
     if (cols.size() < 11) throw std::invalid_argument("Record should have at least 11 columns");
-    query_name = cols[0];
-    flag = std::stoi(cols[1]);
-    ref_name = cols[2];
-    pos = std::stoi(cols[3]);
-    mapq = std::stoi(cols[4]);
-    cigar = cols[5];
-    ref_next = cols[6];
-    pos_next = std::stoi(cols[7]);
-    tlen = std::stoi(cols[8]);
-    seq = cols[9];
-    qual = cols[10];
-    aux.clear();
+    try {
+        query_name = cols[0];
+        flag = std::stoi(cols[1]);
+        ref_name = cols[2];
+        pos = std::stoi(cols[3]);
+        mapq = std::stoi(cols[4]);
+        cigar = cols[5];
+        ref_next = cols[6];
+        pos_next = std::stoi(cols[7]);
+        tlen = std::stoi(cols[8]);
+        seq = cols[9];
+        qual = cols[10];
+        aux.clear();
+    } catch (std::exception &e) {
+        throw std::invalid_argument("Error parsing SAM record:\n" + line);
+    }
 
     // Aux fields
     for (size_t i = 11; i < cols.size(); ++i) {
@@ -432,7 +436,7 @@ vargas::Cigar vargas::Cigar::operator=(const std::string &s) {
 
 void vargas::Cigar::parse(const std::string &s) {
     _cigar.clear();
-    if (s == "*") return;;
+    if (s.length() < 2) return;
     size_t prev = 0, curr;
     while (prev != s.length()) {
         curr = s.find_first_of(CIGAR_OPERATORS, prev);
