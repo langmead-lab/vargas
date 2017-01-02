@@ -31,10 +31,12 @@
 #include <cstdlib>
 #include <string>
 
-#define VA_ALIGN_DEBUG 0 // Print score matrix if 1
-#define SW_GRID 0 // SIMD element to print for debug
+#define VA_ALIGN_DEBUG_M 1 // Print score matrix if 1
+#define VA_ALIGN_DEBUG_I 1 // Print I matrix if 1
+#define VA_ALIGN_DEBUG_D 0 // Print D matrix if 1
+#define SW_GRID 2 // SIMD element to print for debug
 
-#if VA_ALIGN_DEBUG
+#if VA_ALIGN_DEBUG_M
 #include <iomanip>
 #endif
 
@@ -416,16 +418,7 @@ namespace vargas {
 
       void set_scores(uint8_t match, uint8_t mismatch, uint8_t open, uint8_t extend) override {
           _prof = ScoreProfile(match, mismatch, open, extend);
-          _prof.end_to_end = END_TO_END;
-          _match_vec = simdpp::splat<SIMD_T<NATIVE_T>>(match);
-          _mismatch_vec = simdpp::splat<SIMD_T<NATIVE_T>>(mismatch);
-          _gap_open_extend_vec_rd = simdpp::splat<SIMD_T<NATIVE_T>>(open + extend);
-          _gap_extend_vec_rd = simdpp::splat<SIMD_T<NATIVE_T>>(extend);
-          _gap_open_extend_vec_ref = simdpp::splat<SIMD_T<NATIVE_T>>(open + extend);
-          _gap_extend_vec_ref = simdpp::splat<SIMD_T<NATIVE_T>>(extend);
-          _ambig_vec = ZERO_CT;
-          _bias = _get_bias(_read_len, match, mismatch, open, extend);
-          _bias_vec = simdpp::splat<SIMD_T<NATIVE_T>>(_bias);
+          set_scores(_prof);
       }
 
       void set_scores(const ScoreProfile &prof) override {
@@ -440,6 +433,7 @@ namespace vargas {
           _ambig_vec = simdpp::splat<SIMD_T<NATIVE_T>>(prof.ambig);
           _bias = _get_bias(_read_len, prof.match, prof.mismatch, prof.read_gopen, prof.read_gext);
           _bias_vec = simdpp::splat<SIMD_T<NATIVE_T>>(_bias);
+          set_correctness_tolerance(prof.tol);
       }
 
       void set_correctness_tolerance(const size_t tol) override {
@@ -536,8 +530,9 @@ namespace vargas {
        */
       struct _seed {
           _seed() = delete;
-          _seed(const size_t _read_len) : S_col(_read_len) {}
+          _seed(const size_t _read_len) : S_col(_read_len), I_col(_read_len) {}
           std::vector<SIMD_T<NATIVE_T>> S_col; /**< Last column of score matrix.*/
+          std::vector<SIMD_T<NATIVE_T>> I_col;
       };
 
       struct _target {
@@ -548,11 +543,12 @@ namespace vargas {
 
       void _seed_matrix(_seed &seed) {
           std::fill(seed.S_col.begin(), seed.S_col.end(), _bias_vec);
-
+          std::fill(seed.I_col.begin(), seed.I_col.end(), _bias_vec);
           if (END_TO_END) {
               for (size_t i = 0; i < _read_len; ++i) {
                   const uint8_t b = _prof.read_gopen + (i * _prof.read_gext);
                   seed.S_col[i] = simdpp::sub_sat(seed.S_col[i], b);
+                  seed.I_col[i] = simdpp::sub_sat(seed.I_col[i], b);
               }
           }
       }
@@ -573,8 +569,11 @@ namespace vargas {
           try {
               for (size_t i = 0; i < _read_len; ++i) {
                   seed.S_col[i] = ZERO_CT;
+                  seed.I_col[i] = ZERO_CT;
                   for (size_t id : prev_ids) {
-                      seed.S_col[i] = simdpp::max(seed.S_col[i], seed_map.at(id).S_col[i]);
+                      const auto &s = seed_map.at(id);
+                      seed.S_col[i] = simdpp::max(seed.S_col[i], s.S_col[i]);
+                      seed.I_col[i] = simdpp::max(seed.I_col[i], s.I_col[i]);
                   }
               }
           }
@@ -585,8 +584,8 @@ namespace vargas {
 
       __RG_STRONG_INLINE__
       void _set_nullptr() noexcept {
-          _Sa = _Sb = _Da = _Db = _Ia = _Ib = nullptr;
-          _S_prev = _S_curr = _D_prev = _D_curr = _I_prev = _I_curr = nullptr;
+          _Sa = _Sb = _Da = _Db = nullptr;
+          _S_prev = _S_curr = _D_prev = _D_curr = nullptr;
       }
 
       /**
@@ -598,8 +597,6 @@ namespace vargas {
           if (_Sb) delete _Sb;
           if (_Da) delete _Da;
           if (_Db) delete _Db;
-          if (_Ia) delete _Ia;
-          if (_Ib) delete _Ib;
           _set_nullptr();
       }
 
@@ -612,15 +609,11 @@ namespace vargas {
           _Sb = new std::vector<SIMD_T<NATIVE_T>>(_max_node_len);
           _Da = new std::vector<SIMD_T<NATIVE_T>>(_max_node_len);
           _Db = new std::vector<SIMD_T<NATIVE_T>>(_max_node_len);
-          _Ia = new std::vector<SIMD_T<NATIVE_T>>(_read_len);
-          _Ib = new std::vector<SIMD_T<NATIVE_T>>(_read_len);
 
           _S_prev = _Sa->data();
           _S_curr = _Sb->data();
           _D_prev = _Da->data();
           _D_curr = _Db->data();
-          _I_prev = _Ia->data();
-          _I_curr = _Ib->data();
       }
 
       /**
@@ -634,8 +627,14 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_node(const Graph::Node &n, const AlignmentGroup &read_group, const _seed &s, _seed &nxt) {
 
-          #if VA_ALIGN_DEBUG
-          const size_t fw = _bias > 0 ? 4 : 3;
+          #if VA_ALIGN_DEBUG_M
+          size_t fw = _bias > 0 ? 4 : 3;
+          #if VA_ALIGN_DEBUG_I
+          fw *= 2;
+          #endif
+          #if VA_ALIGN_DEBUG_D
+          fw *= 2;
+          #endif
           std::cerr << "X " << std::setw(fw) << (int)_bias << "|";
           for(const char c : n.seq_str()) std::cerr << std::setw(fw) << c << " ";
           std::cerr << '\n';
@@ -659,25 +658,57 @@ namespace vargas {
           int csp = csp_start;
 
           // top left corner
+          _Ic = s.I_col[0];
           _fill_cell_rzcz(read_ptr[0], node_seq[0], s);
-          _fill_cell_finish_prox(0, 0, node_origin, csp);
+          _fill_cell_finish_prox(0, node_origin, csp);
+
+          #if VA_ALIGN_DEBUG_M
+          std::cerr << rg::num_to_base((rg::Base) simdpp::extract<SW_GRID>(read_ptr[0])) << " " << std::setw(fw)
+                    << (int) simdpp::extract<SW_GRID>(s.S_col[0])
+                    #if VA_ALIGN_DEBUG_I
+                    << "," << (int) simdpp::extract<SW_GRID>(s.I_col[0])
+                    #endif
+                    << "|";
+          std::cerr << std::setw(fw) <<
+                    (
+                    std::to_string((int) simdpp::extract<SW_GRID>(_S_curr[0]) - _bias)
+                    #if VA_ALIGN_DEBUG_I
+                    + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
+                    #endif
+                    #if VA_ALIGN_DEBUG_D
+                    + "," + std::to_string((int)simdpp::extract<SW_GRID>(_D_curr[0]) - _bias)
+                    #endif
+                    )
+                    << " ";
+          #endif
 
           // top row
           for (size_t c = 1; c < seq_size; ++c) {
               _fill_cell_rz(read_ptr[0], node_seq[c], c);
-              _fill_cell_finish_prox(0, c, node_origin, csp);
+              _fill_cell_finish_prox(c, node_origin, csp);
+
+              #if VA_ALIGN_DEBUG_M
+              std::cerr << std::setw(fw) <<
+                        (
+                        std::to_string((int) simdpp::extract<SW_GRID>(_S_curr[c]) - _bias)
+                        #if VA_ALIGN_DEBUG_I
+                        + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
+                        #endif
+                        #if VA_ALIGN_DEBUG_D
+                        + "," + std::to_string((int)simdpp::extract<SW_GRID>(_D_curr[c]) - _bias)
+                        #endif
+                        )
+                        << " ";
+              #endif
           }
 
-          #if VA_ALIGN_DEBUG
-          std::cerr << rg::num_to_base((rg::Base)simdpp::extract<SW_GRID>(read_ptr[0])) << " " << std::setw(fw)
-                    << (int)simdpp::extract<SW_GRID>(s.S_col[0]) << "|";
-          for (size_t c = 0; c < seq_size; ++c) {
-              std::cerr << std::setw(fw) << (int)simdpp::extract<SW_GRID>(_S_curr[c]) - _bias << " ";
-          }
+
+          #if VA_ALIGN_DEBUG_M
           std::cerr << "\n";
           #endif
 
           nxt.S_col[0] = _S_curr[seq_size - 1];
+          nxt.I_col[0] = _Ic;
 
           // Rest of the rows
           for (size_t r = 1; r < _read_len; ++r) {
@@ -690,36 +721,68 @@ namespace vargas {
               _D_prev = _D_curr;
               _D_curr = _swp_tmp0;
 
-              _swp_tmp0 = _I_prev;
-              _I_prev = _I_curr;
-              _I_curr = _swp_tmp0;
+
+//              _swp_tmp0 = _I_prev;
+//              _I_prev = _I_curr;
+//              _I_curr = _swp_tmp0;
 
               csp = csp_start;
 
               // first col
               _fill_cell_cz(read_ptr[r], node_seq[0], r, s);
-              _fill_cell_finish_prox(r, 0, node_origin, csp);
+              _fill_cell_finish_prox(0, node_origin, csp);
+
+              #if VA_ALIGN_DEBUG_M
+              std::cerr << rg::num_to_base((rg::Base) simdpp::extract<SW_GRID>(read_ptr[r])) << " " << std::setw(fw)
+                        << (int) simdpp::extract<SW_GRID>(s.S_col[r])
+                        #if VA_ALIGN_DEBUG_I
+                        << "," << (int) simdpp::extract<SW_GRID>(s.I_col[r])
+                        #endif
+                        << "|";
+              std::cerr << std::setw(fw)
+                        <<
+                        (
+                        std::to_string((int) simdpp::extract<SW_GRID>(_S_curr[0]) - _bias)
+                        #if VA_ALIGN_DEBUG_I
+                        + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
+                        #endif
+                        #if VA_ALIGN_DEBUG_D
+                        + "," + std::to_string((int)simdpp::extract<SW_GRID>(_D_curr[0]) - _bias)
+                        #endif
+                        )
+                        << " ";
+              #endif
 
               // Inner grid
               for (size_t c = 1; c < seq_size; ++c) {
-                  _fill_cell(read_ptr[r], node_seq[c], r, c);
-                  _fill_cell_finish_prox(r, c, node_origin, csp);
+                  _fill_cell(read_ptr[r], node_seq[c], c);
+                  _fill_cell_finish_prox(c, node_origin, csp);
+                  #if VA_ALIGN_DEBUG_M
+                  std::cerr << std::setw(fw)
+                            <<
+                            (
+                            std::to_string((int) simdpp::extract<SW_GRID>(_S_curr[c]) - _bias)
+                            #if VA_ALIGN_DEBUG_I
+                            + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
+                            #endif
+                            #if VA_ALIGN_DEBUG_D
+                            + "," + std::to_string((int)simdpp::extract<SW_GRID>(_D_curr[c]) - _bias)
+                            #endif
+                            )
+                            << " ";
+                  #endif
               }
 
-              #if VA_ALIGN_DEBUG
-              std::cerr << rg::num_to_base((rg::Base)simdpp::extract<SW_GRID>(read_ptr[r])) << " " << std::setw(fw)
-                        << (int)simdpp::extract<SW_GRID>(s.S_col[r]) << "|";
-              for (size_t c = 0; c < seq_size; ++c) {
-                  std::cerr << std::setw(fw) << (int)simdpp::extract<SW_GRID>(_S_curr[c]) - _bias << " ";
-              }
+              #if VA_ALIGN_DEBUG_M
               std::cerr << "\n";
               #endif
 
               nxt.S_col[r] = _S_curr[seq_size - 1];
+              nxt.I_col[r] = _Ic;
 
           }
 
-          #if VA_ALIGN_DEBUG
+          #if VA_ALIGN_DEBUG_M
           std::cerr << "\n";
           #endif
 
@@ -742,7 +805,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell_rzcz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const _seed &s) {
           _D(0, _bias_vec, _bias_vec);
-          _I(0, s.S_col[0]);
+          _I(s.S_col[0]);
           _M(0, read_base, ref, _bias_vec);
       }
 
@@ -756,7 +819,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell_rz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &col) {
           _D(col, _bias_vec, _bias_vec);
-          _I(0, _S_curr[col - 1]);
+          _I(_S_curr[col - 1]);
           _M(col, read_base, ref, _bias_vec);
       }
 
@@ -771,7 +834,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell_cz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &row, const _seed &s) {
           _D(0, _D_prev[0], _S_prev[0]);
-          _I(row, s.S_col[row]);
+          _I(s.S_col[row]);
           _M(0, read_base, ref, s.S_col[row - 1]);
       }
 
@@ -784,59 +847,57 @@ namespace vargas {
        * @param col _curr_posent column in matrix
        */
       __RG_STRONG_INLINE__
-      void _fill_cell(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &row, const size_t &col) {
+      void _fill_cell(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &col) {
           _D(col, _D_prev[col], _S_prev[col]);
-          _I(row, _S_curr[col - 1]);
+          _I(_S_curr[col - 1]);
           _M(col, read_base, ref, _S_prev[col - 1]);
       }
 
       /**
        * @brief
-       * Score if there is a deletion in read (gap in read)
-       * @param col _curr_posent column
-       * @param Dp Previous D value at _curr_posent col.
-       * @param Sp Previous S value at _curr_posent col.
+       * Open new gap in Ref vs. extend gap in Ref
+       * @param col idx in node seq
+       * @param Dp Previous D
+       * @param Sp Previous S
        */
       __RG_STRONG_INLINE__
       void _D(const size_t &col, const SIMD_T<NATIVE_T> &Dp, const SIMD_T<NATIVE_T> &Sp) {
-          using namespace simdpp;
-
           // D(i,j) = D(i-1,j) - gap_extend
-          // Dp is _D_prev[col], 0 for row=0
-          _D_curr[col] = sub_sat(Dp, _gap_extend_vec_rd);   // _tmp0 = S(i-1,j) - ( gap_open + gap_extend)
-          // Sp is _S_prev[col], 0 for row=0
+          _D_curr[col] = simdpp::sub_sat(Dp, _gap_extend_vec_ref);
+          // _tmp0 = S(i-1,j) - ( gap_open + gap_extend)
+          _tmp0 = simdpp::sub_sat(Sp, _gap_open_extend_vec_ref);
           // D(i,j) = max{ D(i-1,j) - gap_extend, S(i-1,j) - ( gap_open + gap_extend) }
-          _tmp0 = sub_sat(Sp, _gap_open_extend_vec_rd);
-          _D_curr[col] = max(_D_curr[col], _tmp0);
+          _D_curr[col] = simdpp::max(_D_curr[col], _tmp0);
 
       }
 
       /**
        * @brief
-       * Score if there is an insertion in read (gap in ref)
-       * @param row _curr_posent row
-       * @param Sc Previous S value (cell to the left)
+       * Open gap in Read vs extend gap in Read
+       * @param row idx in node seq
+       * @param Ip Previous I
+       * @param Sc Previous S
        */
       __RG_STRONG_INLINE__
-      void _I(const size_t &row, const SIMD_T<NATIVE_T> &Sc) {
+      void _I(const SIMD_T<NATIVE_T> &Sc) {
           using namespace simdpp;
-
+          _Ip = _Ic;
           // I(i,j) = I(i,j-1) - gap_extend
-          _I_curr[row] = sub_sat(_I_prev[row], _gap_extend_vec_ref);  // I: I(i,j-1) - gap_extend
+          _Ic = simdpp::sub_sat(_Ip, _gap_extend_vec_rd);
           // _tmp0 = S(i,j-1) - (gap_open + gap_extend)
-          // Sc is _S_curr[col - 1], seed->S_col[row] for col=0
-          _tmp0 = sub_sat(Sc, _gap_open_extend_vec_ref);
-          _I_curr[row] = max(_I_curr[row], _tmp0);
+          _tmp0 = simdpp::sub_sat(Sc, _gap_open_extend_vec_rd);
+          // _I_curr[row] = max{ I(i,j-1) - gap_extend, S(i,j-1) - (gap_open + gap_extend) }
+          _Ic = simdpp::max(_Ic, _tmp0);
 
       }
 
       /**
        * @brief
-       * Best score if there is a match/mismatch. Uses _S_prev.
-       * @param col _curr_posent column
-       * @param read read base vector
+       * Best score if there is a match/mismatch.
+       * @param col idx in node seq
+       * @param read base vector
        * @param ref reference sequence base
-       * @param Sp Previous S val at col-1 (upper left cell)
+       * @param Sp upper left cell
        */
       __RG_STRONG_INLINE__
       void _M(size_t col, const SIMD_T<NATIVE_T> &read, const rg::Base &ref, const SIMD_T<NATIVE_T> &Sp) {
@@ -849,6 +910,7 @@ namespace vargas {
               // Set all mismatching pairs to _mismatch
               _tmp0 = read != _base_vec[ref];
               _Cneq = _tmp0 & _mismatch_vec;
+
               // If the read base is Base::N, set to ambig penalty
               _tmp0 = read == _base_vec[rg::Base::N];
               _Cneq = blend(_ambig_vec, _Cneq, _tmp0);
@@ -961,11 +1023,11 @@ namespace vargas {
        * @param node_origin Current position, used to get absolute alignment position
        */
       __RG_STRONG_INLINE__
-      void _fill_cell_finish_prox(const size_t &row, const size_t &col, const size_t &node_origin,
+      void _fill_cell_finish_prox(const size_t &col, const size_t &node_origin,
                                   int &curr_search) {
           // S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
           _S_curr[col] = max(_D_curr[col], _S_curr[col]);
-          _S_curr[col] = max(_I_curr[row], _S_curr[col]);
+          _S_curr[col] = max(_Ic, _S_curr[col]);
 
           if (!END_TO_END) _fill_cell_finish(col, node_origin, curr_search);
       }
@@ -1018,16 +1080,23 @@ namespace vargas {
       NATIVE_T _bias;
       SIMD_T<NATIVE_T> _bias_vec;
 
-      SIMD_T<NATIVE_T> _match_vec, _mismatch_vec,
-      _gap_open_extend_vec_rd, _gap_extend_vec_rd, _gap_open_extend_vec_ref, _gap_extend_vec_ref, _ambig_vec;
+      SIMD_T<NATIVE_T>
+      _match_vec, _mismatch_vec,
+      _gap_open_extend_vec_rd, _gap_extend_vec_rd, _gap_open_extend_vec_ref, _gap_extend_vec_ref,
+      _ambig_vec,
+      _Ip, _Ic,
+      _tmp0, /**< temporary for use within functions */
+      _Ceq,  /**< Match score when read_base == ref_base */
+      _Cneq,
+      _max_score,
+      _sub_score;
+
 
       SIMD_T<NATIVE_T>
       *_S_prev = nullptr,    /**< _S_prev[n] => S(i-1, n) */
       *_S_curr = nullptr,
       *_D_prev = nullptr,    /**< _D_prev[n] => D(i-1, n) */
       *_D_curr = nullptr,
-      *_I_prev = nullptr,    /**< _I_prev[r] => I(r, j-1) */
-      *_I_curr = nullptr,
       *_swp_tmp0;
 
       /**
@@ -1040,21 +1109,12 @@ namespace vargas {
       *_Sa = nullptr,    /**< Matrix row */
       *_Sb = nullptr,
       *_Da = nullptr,    /**< Deletion vector */
-      *_Db = nullptr,
-      *_Ia = nullptr,    /**< Insertion vector */
-      *_Ib = nullptr;
+      *_Db = nullptr;
 
-      SIMD_T<NATIVE_T>
-      _tmp0, /**< temporary for use within functions */
-      _Ceq,  /**< Match score when read_base == ref_base */
-      _Cneq, /**< mismatch penalty */
-      _N_pen; /**< N penalty */
 
       size_t _curr_pos;
 
       // alignment info
-      SIMD_T<NATIVE_T> _max_score;
-      SIMD_T<NATIVE_T> _sub_score;
       size_t *_max_pos;
       size_t *_max_count;
       size_t *_sub_pos;
@@ -1447,13 +1507,13 @@ TEST_CASE ("Indels") {
         std::vector<std::string> reads;
         reads.push_back("ACTGCTNCAGTC"); // perfect alignment, pos 1
         reads.push_back("ACTGCTACAGTC"); // perfect alignment, pos 1, diff N
-        reads.push_back("ACGATCACGCNA"); // 2 del
+        reads.push_back("CCACAGCCCCCC"); // 2 del
         reads.push_back("ACNCACACGATC"); // perfect across edge, pos 20
         reads.push_back("ACNCAACGATCG"); // 1 del across edge, pos 20
         reads.push_back("ACNCACCACGAT"); // 1 ins across edge, pos 20
         reads.push_back("ACTTGCTNCAGT"); // pos 1 insertion
 
-        vargas::Aligner a(50, 12, 2, 2, 3, 1);
+        vargas::Aligner a(50, 12, 2, 4, 3, 1);
         auto res = a.align(reads, g.cbegin(), g.cend());
         REQUIRE(res.size() == 7);
 
@@ -1461,7 +1521,7 @@ TEST_CASE ("Indels") {
         CHECK(res.max_pos[0] == 12);
         CHECK(res.max_score[1] == 22);
         CHECK(res.max_pos[1] == 12);
-        CHECK(res.max_score[2] == 15);
+        CHECK(res.max_score[2] == 19);
         CHECK(res.max_pos[2] == 16);
     }
 
@@ -1551,15 +1611,4 @@ TEST_CASE ("Target score") {
 
 TEST_SUITE_END();
 
-TEST_CASE ("prof") {
-    simdpp::uint8x16 v;
-    for (size_t i = 0; i < 16; ++i) vargas::insert<uint8_t>(rand() % 16, i, v);
-    uint8_t prev = 0;
-    auto start = std::chrono::steady_clock::now();
-    for (size_t i = 0; i < 5000000000; ++i) {
-        prev = vargas::extract<uint8_t>(prev, v);
-    }
-    auto stop = rg::chrono_duration(start);
-    std::cerr << prev << stop << "s\n";
-}
 #endif //VARGAS_ALIGNMENT_H

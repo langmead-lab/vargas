@@ -54,13 +54,14 @@ std::string vargas::SAM::Optional::to_string() const {
 
 std::string vargas::SAM::Header::Sequence::to_string() const {
     std::ostringstream ss;
-    ss << "@SQ" <<
-       "\tSN:" << name <<
-       "\tLN:" << std::to_string(len) <<
-       (genome_assembly.length() > 0 ? "\tAS:" + genome_assembly : "") <<
-       (md5.length() > 0 ? "\tM5:" + md5 : "") <<
-       (species.length() > 0 ? "\tSP:" + species : "") <<
-       (URI.length() > 0 ? "\tUR:" + URI : "") << aux.to_string();
+    ss << "@SQ"
+       << "\tSN:" << name
+       << "\tLN:" << std::to_string(len)
+       << (genome_assembly.length() > 0 ? "\tAS:" + genome_assembly : "")
+       << (md5.length() > 0 ? "\tM5:" + md5 : "")
+       << (species.length() > 0 ? "\tSP:" + species : "")
+       << (URI.length() > 0 ? "\tUR:" + URI : "")
+       << aux.to_string();
     return ss.str();
 }
 
@@ -294,17 +295,18 @@ void vargas::SAM::Record::Flag::decode(unsigned int f) {
 
 std::string vargas::SAM::Record::to_string() const {
     std::ostringstream ss;
-    ss << query_name << '\t'
+    ss << (query_name.size() ? query_name : "*") << '\t'
        << flag.encode() << '\t'
-       << ref_name << '\t'
+       << (ref_name.size() ? ref_name : "*") << '\t'
        << pos << '\t'
        << mapq << '\t'
        << cigar.to_string() << '\t'
-       << ref_next << '\t'
+       << (ref_next.size() ? ref_next : "*") << '\t'
        << pos_next << '\t'
        << tlen << '\t'
        << seq << '\t'
-       << qual << aux.to_string();
+       << (qual.size() ? qual : "*")
+       << aux.to_string();
     return ss.str();
 }
 

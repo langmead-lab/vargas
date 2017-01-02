@@ -185,8 +185,10 @@ int align_main(int argc, char *argv[]) {
                 targets[i] = r.pos - 1;
                 if (r.cigar.size()) {
                     for (const auto &p : r.cigar) {
-                        if (p.second == 'M' || p.second == 'D') targets[i] += p.first;
+                        if (p.second == 'M' || p.second == 'D' || p.second == '=' || p.second == 'X')
+                            targets[i] += p.first;
                     }
+                    // If no cigar is present, use whole read length offset
                 } else targets[i] = r.pos + r.seq.length() - 1;
             } else targets[i] = 0;
         }

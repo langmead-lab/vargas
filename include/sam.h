@@ -42,6 +42,7 @@ namespace vargas {
       void parse(const std::string &s);
 
       std::string to_string() const {
+          if (_cigar.size() == 0) return "*";
           std::ostringstream ss;
           for (const auto &t : _cigar) {
               ss << t.first << t.second;
