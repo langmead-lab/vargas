@@ -252,11 +252,9 @@ namespace vargas {
       _read_len(read_len),
       _max_node_len(max_node_len),
       _alignment_group(read_len),
-      _Sa{max_node_len}, _Sb{max_node_len}, _Dc{max_node_len} {
+      _S{max_node_len}, _Dc{max_node_len} {
           set_scores(prof); // May throw
           set_correctness_tolerance(read_len / DEFAULT_TOL_FACTOR);
-          _S_prev = _Sa.data();
-          _S_curr = _Sb.data();
       }
 
       /**
@@ -624,7 +622,7 @@ namespace vargas {
                     << "|";
           std::cerr << std::setw(fw) <<
                     (
-                    std::to_string((int) simdpp::extract<SW_GRID>(_S_curr[0]) - _bias)
+                    std::to_string((int) simdpp::extract<SW_GRID>(_S[0]) - _bias)
                     #if VA_ALIGN_DEBUG_I
                     + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
                     #endif
@@ -643,7 +641,7 @@ namespace vargas {
               #if VA_ALIGN_DEBUG_M
               std::cerr << std::setw(fw) <<
                         (
-                        std::to_string((int) simdpp::extract<SW_GRID>(_S_curr[c]) - _bias)
+                        std::to_string((int) simdpp::extract<SW_GRID>(_S[c]) - _bias)
                         #if VA_ALIGN_DEBUG_I
                         + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
                         #endif
@@ -660,15 +658,12 @@ namespace vargas {
           std::cerr << "\n";
           #endif
 
-          nxt.S_col[0] = _S_curr[seq_size - 1];
+          nxt.S_col[0] = _S[seq_size - 1];
           nxt.I_col[0] = _Ic;
 
           // Rest of the rows
           for (size_t r = 1; r < _read_len; ++r) {
               // Swap the rows we are filling in. The previous row/col becomes what we fill in.
-              _swp_tmp0 = _S_prev;
-              _S_prev = _S_curr;
-              _S_curr = _swp_tmp0;
 
               csp = csp_start;
 
@@ -686,7 +681,7 @@ namespace vargas {
               std::cerr << std::setw(fw)
                         <<
                         (
-                        std::to_string((int) simdpp::extract<SW_GRID>(_S_curr[0]) - _bias)
+                        std::to_string((int) simdpp::extract<SW_GRID>(_S[0]) - _bias)
                         #if VA_ALIGN_DEBUG_I
                         + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
                         #endif
@@ -705,7 +700,7 @@ namespace vargas {
                   std::cerr << std::setw(fw)
                             <<
                             (
-                            std::to_string((int) simdpp::extract<SW_GRID>(_S_curr[c]) - _bias)
+                            std::to_string((int) simdpp::extract<SW_GRID>(_S[c]) - _bias)
                             #if VA_ALIGN_DEBUG_I
                             + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
                             #endif
@@ -721,7 +716,7 @@ namespace vargas {
               std::cerr << "\n";
               #endif
 
-              nxt.S_col[r] = _S_curr[seq_size - 1];
+              nxt.S_col[r] = _S[seq_size - 1];
               nxt.I_col[r] = _Ic;
 
           }
@@ -763,7 +758,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell_rz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &col) {
           _D(col, _bias_vec, _bias_vec);
-          _I(_S_curr[col - 1]);
+          _I(_S[col - 1]);
           _M(col, read_base, ref, _bias_vec);
       }
 
@@ -777,7 +772,7 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _fill_cell_cz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &row, const _seed &s) {
-          _D(0, _Dc[0], _S_prev[0]);
+          _D(0, _Dc[0], _S[0]);
           _I(s.S_col[row]);
           _M(0, read_base, ref, s.S_col[row - 1]);
       }
@@ -792,9 +787,9 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _fill_cell(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &col) {
-          _D(col, _Dc[col], _S_prev[col]);
-          _I(_S_curr[col - 1]);
-          _M(col, read_base, ref, _S_prev[col - 1]);
+          _D(col, _Dc[col], _S[col]); // _S[col] hasn't been updated yet, so its S(i-1, col)
+          _I(_S[col - 1]); // Prev cell has been updated, so same as S(i, col -1)
+          _M(col, read_base, ref, _Sd);
       }
 
       /**
@@ -846,6 +841,8 @@ namespace vargas {
       void _M(size_t col, const SIMD_T<NATIVE_T> &read, const rg::Base &ref, const SIMD_T<NATIVE_T> &Sp) {
           using namespace simdpp;
 
+          _Sdn = _S[col]; // backup prev row curr cell to use for the next cells S(i-1, j-1)
+
           if (ref != rg::Base::N) {
               _Ceq = ZERO_CT;
               _Cneq = ZERO_CT;
@@ -864,12 +861,14 @@ namespace vargas {
 
               // Sp is _S_prev[col - 1], 0 for row=0
               // Seed->S_col[row - 1] for col=0
-              _S_curr[col] = add_sat(Sp, _Ceq);   // Add match scores
-              _S_curr[col] = sub_sat(_S_curr[col], _Cneq); // Subtract mismatch scores
+              _S[col] = add_sat(Sp, _Ceq);   // Add match scores
+              _S[col] = sub_sat(_S[col], _Cneq); // Subtract mismatch scores
           } else {
               // Penalty for N
-              _S_curr[col] = sub_sat(Sp, _ambig_vec);
+              _S[col] = sub_sat(Sp, _ambig_vec);
           }
+
+          _Sd = _Sdn; // S(i-1, j-1) for the next cell to be filled in
 
       }
 
@@ -889,16 +888,16 @@ namespace vargas {
           _curr_pos = node_origin + col;    // absolute position in reference sequence
           while (_target_subrange[curr_search].pos == _curr_pos) {
               _target_subrange[curr_search].score =
-              std::max<int>(vargas::extract<NATIVE_T>(_target_subrange[curr_search].idx, _S_curr[col]),
+              std::max<int>(vargas::extract<NATIVE_T>(_target_subrange[curr_search].idx, _S[col]),
                             _target_subrange[curr_search].score);
               ++curr_search;
           }
 
 
-          _tmp0 = _S_curr[col] > _max_score;
+          _tmp0 = _S[col] > _max_score;
           if (any_set(_tmp0)) {
               // Check for new or equal high scores
-              _max_score = max(_S_curr[col], _max_score);
+              _max_score = max(_S[col], _max_score);
               for (size_t i = 0; i < read_capacity(); ++i) {
                   if (_tmp0_ptr[i]) {
                       // Demote old max to submax
@@ -916,7 +915,7 @@ namespace vargas {
               }
           }
 
-          _tmp0 = cmp_eq(_S_curr[col], _max_score);
+          _tmp0 = cmp_eq(_S[col], _max_score);
           if (any_set(_tmp0)) {
               // Check for equal max score.
               for (size_t i = 0; i < read_capacity(); ++i) {
@@ -929,7 +928,7 @@ namespace vargas {
           }
 
 
-          _tmp0 = cmp_eq(_S_curr[col], _sub_score);
+          _tmp0 = cmp_eq(_S[col], _sub_score);
           if (any_set(_tmp0)) {
               // Repeat sub score
               for (size_t i = 0; i < read_capacity(); ++i) {
@@ -942,12 +941,12 @@ namespace vargas {
           }
 
           // Greater than old sub max and less than max score (prevent repeats of max triggering)
-          _tmp0 = (_S_curr[col] > _sub_score) & (_S_curr[col] < _max_score);
+          _tmp0 = (_S[col] > _sub_score) & (_S[col] < _max_score);
           if (any_set(_tmp0)) {
               // new second best score
               for (size_t i = 0; i < read_capacity(); ++i) {
                   if (_tmp0_ptr[i] && _curr_pos > _max_pos[i] + _read_len) {
-                      _sub_score_ptr[i] = vargas::extract<NATIVE_T>(i, _S_curr[col]);
+                      _sub_score_ptr[i] = vargas::extract<NATIVE_T>(i, _S[col]);
                       _sub_count[i] = 1;
                       _sub_pos[i] = _curr_pos;
                       if (_curr_pos >= _targets_lower_ptr[i] && _curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 2;
@@ -966,11 +965,10 @@ namespace vargas {
        * @param node_origin Current position, used to get absolute alignment position
        */
       __RG_STRONG_INLINE__
-      void _fill_cell_finish_prox(const size_t &col, const size_t &node_origin,
-                                  int &curr_search) {
+      void _fill_cell_finish_prox(const size_t &col, const size_t &node_origin, int &curr_search) {
           // S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
-          _S_curr[col] = max(_Dc[col], _S_curr[col]);
-          _S_curr[col] = max(_Ic, _S_curr[col]);
+          _S[col] = max(_Dc[col], _S[col]);
+          _S[col] = max(_Ic, _S[col]);
 
           if (!END_TO_END) _fill_cell_finish(col, node_origin, curr_search);
       }
@@ -1026,7 +1024,7 @@ namespace vargas {
       _match_vec, _mismatch_vec, _ambig_vec,
       _gap_open_extend_vec_rd, _gap_extend_vec_rd,
       _gap_open_extend_vec_ref, _gap_extend_vec_ref,
-      _Ip, _Ic,
+      _Ip, _Ic, _Sd, _Sdn,
       _tmp0,
       _Ceq, _Cneq,
       _max_score, _sub_score,
@@ -1040,10 +1038,7 @@ namespace vargas {
        * loops data, and the other is filled in.
        * S and D are padded 1 to provide a left column buffer.
        */
-      std::vector<SIMD_T<NATIVE_T>> _Sa, _Sb, _Dc;
-
-
-      SIMD_T<NATIVE_T> *_S_prev, *_S_curr, *_swp_tmp0;
+      std::vector<SIMD_T<NATIVE_T>> _S, _Dc;
 
       NATIVE_T *const _tmp0_ptr = (NATIVE_T *) &_tmp0;
       NATIVE_T *const _max_score_ptr = (NATIVE_T *) &_max_score;
