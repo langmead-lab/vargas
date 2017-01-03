@@ -157,7 +157,7 @@ int align_main(int argc, char *argv[]) {
 
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
-        aligners[k] = make_aligner(prof, gm.node_len(), read_len, use_wide);
+        aligners[k] = make_aligner(prof, read_len, use_wide);
     }
 
 
@@ -334,15 +334,15 @@ create_tasks(vargas::isam &reads,
     return task_list;
 }
 
-std::unique_ptr<vargas::AlignerBase> make_aligner(const vargas::ScoreProfile &prof, size_t node_len, size_t read_len,
+std::unique_ptr<vargas::AlignerBase> make_aligner(const vargas::ScoreProfile &prof, size_t read_len,
                                                   bool use_wide) {
     if (prof.end_to_end) {
-        if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(node_len, read_len, prof);
-        else return rg::make_unique<vargas::AlignerETE>(node_len, read_len, prof);
+        if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(read_len, prof);
+        else return rg::make_unique<vargas::AlignerETE>(read_len, prof);
 
     } else {
-        if (use_wide) return rg::make_unique<vargas::WordAligner>(node_len, read_len, prof);
-        else return rg::make_unique<vargas::Aligner>(node_len, read_len, prof);
+        if (use_wide) return rg::make_unique<vargas::WordAligner>(read_len, prof);
+        else return rg::make_unique<vargas::Aligner>(read_len, prof);
 
     }
 }
@@ -410,7 +410,7 @@ TEST_CASE ("Coordinate System Matches") {
     prof.len = 5;
     vargas::Sim sim(g, prof);
 
-    vargas::Aligner aligner(g.max_node_len(), 5);
+    vargas::Aligner aligner(5);
     auto reads = sim.get_batch(aligner.read_capacity());
 
     std::vector<std::string> seqs;
@@ -484,7 +484,7 @@ TEST_CASE ("Correctness flag") {
         gb.set_region("x:0-100");
         vargas::Graph g = gb.build();
 
-        vargas::Aligner aligner(g.max_node_len(), 6);
+        vargas::Aligner aligner(6);
         vargas::isam reads(reads_file);
 
         std::vector<vargas::SAM::Record> records;

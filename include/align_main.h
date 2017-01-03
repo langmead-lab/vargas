@@ -64,7 +64,7 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const size_t chunk
  * @param end_to_end End to end alignment
  * @return pointer to new aligner
  */
-std::unique_ptr<vargas::AlignerBase> make_aligner(const vargas::ScoreProfile &prof, size_t node_len, size_t read_len,
+std::unique_ptr<vargas::AlignerBase> make_aligner(const vargas::ScoreProfile &prof, size_t read_len,
                                                   bool use_wide = false);
 
 void align_help(const cxxopts::Options &opts);

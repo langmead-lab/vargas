@@ -73,7 +73,7 @@ int define_main(int argc, char *argv[]) {
         ("g,region", "<str> Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
         ("s,subgraph", "<str> File or definitions of format \"[~]NAME=N[%t],...\".",
          cxxopts::value(subgraph_def))
-        ("l,nodelen", "<N> Maximum node length.", cxxopts::value(node_len)->default_value("100000"))
+        ("l,nodelen", "<N> Maximum node length.", cxxopts::value(node_len)->default_value("10000000"))
         ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
         ("x,invert", "Invert sample filter, exclude -p samples.", cxxopts::value(invert_filter))
         ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
