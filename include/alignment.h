@@ -252,13 +252,11 @@ namespace vargas {
       _read_len(read_len),
       _max_node_len(max_node_len),
       _alignment_group(read_len),
-      _Sa{max_node_len}, _Sb{max_node_len}, _Da{max_node_len}, _Db{max_node_len} {
+      _Sa{max_node_len}, _Sb{max_node_len}, _Dc{max_node_len} {
           set_scores(prof); // May throw
           set_correctness_tolerance(read_len / DEFAULT_TOL_FACTOR);
           _S_prev = _Sa.data();
           _S_curr = _Sb.data();
-          _D_prev = _Da.data();
-          _D_curr = _Db.data();
       }
 
       /**
@@ -631,7 +629,7 @@ namespace vargas {
                     + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
                     #endif
                     #if VA_ALIGN_DEBUG_D
-                    + "," + std::to_string((int)simdpp::extract<SW_GRID>(_D_curr[0]) - _bias)
+                    + "," + std::to_string((int)simdpp::extract<SW_GRID>(_Dc[0]) - _bias)
                     #endif
                     )
                     << " ";
@@ -650,7 +648,7 @@ namespace vargas {
                         + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
                         #endif
                         #if VA_ALIGN_DEBUG_D
-                        + "," + std::to_string((int)simdpp::extract<SW_GRID>(_D_curr[c]) - _bias)
+                        + "," + std::to_string((int)simdpp::extract<SW_GRID>(_Dc[c]) - _bias)
                         #endif
                         )
                         << " ";
@@ -671,10 +669,6 @@ namespace vargas {
               _swp_tmp0 = _S_prev;
               _S_prev = _S_curr;
               _S_curr = _swp_tmp0;
-
-              _swp_tmp0 = _D_prev;
-              _D_prev = _D_curr;
-              _D_curr = _swp_tmp0;
 
               csp = csp_start;
 
@@ -697,7 +691,7 @@ namespace vargas {
                         + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
                         #endif
                         #if VA_ALIGN_DEBUG_D
-                        + "," + std::to_string((int)simdpp::extract<SW_GRID>(_D_curr[0]) - _bias)
+                        + "," + std::to_string((int)simdpp::extract<SW_GRID>(_Dc[0]) - _bias)
                         #endif
                         )
                         << " ";
@@ -716,7 +710,7 @@ namespace vargas {
                             + "," + std::to_string((int) simdpp::extract<SW_GRID>(_Ic) - _bias)
                             #endif
                             #if VA_ALIGN_DEBUG_D
-                            + "," + std::to_string((int)simdpp::extract<SW_GRID>(_D_curr[c]) - _bias)
+                            + "," + std::to_string((int)simdpp::extract<SW_GRID>(_Dc[c]) - _bias)
                             #endif
                             )
                             << " ";
@@ -783,7 +777,7 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _fill_cell_cz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &row, const _seed &s) {
-          _D(0, _D_prev[0], _S_prev[0]);
+          _D(0, _Dc[0], _S_prev[0]);
           _I(s.S_col[row]);
           _M(0, read_base, ref, s.S_col[row - 1]);
       }
@@ -798,7 +792,7 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _fill_cell(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &col) {
-          _D(col, _D_prev[col], _S_prev[col]);
+          _D(col, _Dc[col], _S_prev[col]);
           _I(_S_curr[col - 1]);
           _M(col, read_base, ref, _S_prev[col - 1]);
       }
@@ -813,11 +807,11 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _D(const size_t &col, const SIMD_T<NATIVE_T> &Dp, const SIMD_T<NATIVE_T> &Sp) {
           // D(i,j) = D(i-1,j) - gap_extend
-          _D_curr[col] = simdpp::sub_sat(Dp, _gap_extend_vec_ref);
+          _Dc[col] = simdpp::sub_sat(Dp, _gap_extend_vec_ref);
           // _tmp0 = S(i-1,j) - ( gap_open + gap_extend)
           _tmp0 = simdpp::sub_sat(Sp, _gap_open_extend_vec_ref);
           // D(i,j) = max{ D(i-1,j) - gap_extend, S(i-1,j) - ( gap_open + gap_extend) }
-          _D_curr[col] = simdpp::max(_D_curr[col], _tmp0);
+          _Dc[col] = simdpp::max(_Dc[col], _tmp0);
 
       }
 
@@ -975,7 +969,7 @@ namespace vargas {
       void _fill_cell_finish_prox(const size_t &col, const size_t &node_origin,
                                   int &curr_search) {
           // S(i,j) = max{ D(i,j), I(i,j), S(i-1,j-1) + C(s,t) }
-          _S_curr[col] = max(_D_curr[col], _S_curr[col]);
+          _S_curr[col] = max(_Dc[col], _S_curr[col]);
           _S_curr[col] = max(_Ic, _S_curr[col]);
 
           if (!END_TO_END) _fill_cell_finish(col, node_origin, curr_search);
@@ -1046,10 +1040,10 @@ namespace vargas {
        * loops data, and the other is filled in.
        * S and D are padded 1 to provide a left column buffer.
        */
-      std::vector<SIMD_T<NATIVE_T>> _Sa, _Sb, _Da, _Db;
+      std::vector<SIMD_T<NATIVE_T>> _Sa, _Sb, _Dc;
 
 
-      SIMD_T<NATIVE_T> *_S_prev, *_S_curr, *_D_prev, *_D_curr, *_swp_tmp0;
+      SIMD_T<NATIVE_T> *_S_prev, *_S_curr, *_swp_tmp0;
 
       NATIVE_T *const _tmp0_ptr = (NATIVE_T *) &_tmp0;
       NATIVE_T *const _max_score_ptr = (NATIVE_T *) &_max_score;
@@ -1450,11 +1444,12 @@ TEST_CASE ("Indels") {
         reads.push_back("ACTTGCTNCAGT"); // 1 ins
         reads.push_back("ACNCACCGATCG");
         reads.push_back("NACNCAACGATC");
+        reads.push_back("AGCCTTACAGTG"); // 2 ins
 
         SUBCASE("Same read/ref") {
             vargas::Aligner a(50, 12, 2, 6, 3, 1);
             auto res = a.align(reads, g.cbegin(), g.cend());
-            REQUIRE(res.size() == 9);
+            REQUIRE(res.size() == 10);
 
             CHECK(res.max_score[0] == 22);
             CHECK(res.max_pos[0] == 12);
@@ -1474,13 +1469,16 @@ TEST_CASE ("Indels") {
             CHECK(res.max_pos[7] == 32);
             CHECK(res.max_score[8] == 16);
             CHECK(res.max_pos[8] == 31);
+            CHECK(res.max_score[9] == 15);
+            CHECK(res.max_pos[9] == 52);
+
         }
 
         SUBCASE("Diff read/ref") {
             vargas::ScoreProfile prof(2, 6, 4, 1, 2, 1);
             vargas::Aligner a(50, 12, prof);
             auto res = a.align(reads, g.cbegin(), g.cend());
-            REQUIRE(res.size() == 9);
+            REQUIRE(res.size() == 10);
 
             CHECK(res.max_score[0] == 22);
             CHECK(res.max_pos[0] == 12);
@@ -1500,6 +1498,8 @@ TEST_CASE ("Indels") {
             CHECK(res.max_pos[7] == 32);
             CHECK(res.max_score[8] == 15);
             CHECK(res.max_pos[8] == 31);
+            CHECK(res.max_score[9] == 16);
+            CHECK(res.max_pos[9] == 52);
         }
     }
 

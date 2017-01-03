@@ -13,9 +13,11 @@
  * @file
  */
 
-#include <assert.h>
+
 #include "sam.h"
 #include "doctest.h"
+#include <assert.h>
+#include <numeric>
 
 const std::string vargas::SAM::Record::REQUIRED_POS = "POS";
 const std::string vargas::SAM::Record::REQUIRED_QNAME = "QNAME";
