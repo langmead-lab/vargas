@@ -609,7 +609,6 @@ namespace vargas {
           int csp = csp_start;
 
           // top left corner
-          _Ic = s.I_col[0];
           _fill_cell_rzcz(read_ptr[0], node_seq[0], s);
           _fill_cell_finish_prox(0, node_origin, csp);
 
@@ -666,7 +665,6 @@ namespace vargas {
               // Swap the rows we are filling in. The previous row/col becomes what we fill in.
 
               csp = csp_start;
-
               // first col
               _fill_cell_cz(read_ptr[r], node_seq[0], r, s);
               _fill_cell_finish_prox(0, node_origin, csp);
@@ -744,7 +742,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell_rzcz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const _seed &s) {
           _D(0, _bias_vec, _bias_vec);
-          _I(s.S_col[0]);
+          _I(s.S_col[0], s.I_col[0]);
           _M(0, read_base, ref, _bias_vec);
       }
 
@@ -758,7 +756,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell_rz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &col) {
           _D(col, _bias_vec, _bias_vec);
-          _I(_S[col - 1]);
+          _I(_S[col - 1], _Ic);
           _M(col, read_base, ref, _bias_vec);
       }
 
@@ -773,7 +771,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell_cz(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &row, const _seed &s) {
           _D(0, _Dc[0], _S[0]);
-          _I(s.S_col[row]);
+          _I(s.S_col[row], s.I_col[row]);
           _M(0, read_base, ref, s.S_col[row - 1]);
       }
 
@@ -788,7 +786,7 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell(const SIMD_T<NATIVE_T> &read_base, const rg::Base &ref, const size_t &col) {
           _D(col, _Dc[col], _S[col]); // _S[col] hasn't been updated yet, so its S(i-1, col)
-          _I(_S[col - 1]); // Prev cell has been updated, so same as S(i, col -1)
+          _I(_S[col - 1], _Ic); // Prev cell has been updated, so same as S(i, col -1)
           _M(col, read_base, ref, _Sd);
       }
 
@@ -818,10 +816,9 @@ namespace vargas {
        * @param Sc Previous S
        */
       __RG_STRONG_INLINE__
-      void _I(const SIMD_T<NATIVE_T> &Sc) {
-          _Ip = _Ic;
+      void _I(const SIMD_T<NATIVE_T> &Sc, const SIMD_T<NATIVE_T> &Ip) {
           // I(i,j) = I(i,j-1) - gap_extend
-          _Ic = simdpp::sub_sat(_Ip, _gap_extend_vec_rd);
+          _Ic = simdpp::sub_sat(Ip, _gap_extend_vec_rd);
           // _tmp0 = S(i,j-1) - (gap_open + gap_extend)
           _tmp0 = simdpp::sub_sat(Sc, _gap_open_extend_vec_rd);
           // _I_curr[row] = max{ I(i,j-1) - gap_extend, S(i,j-1) - (gap_open + gap_extend) }
@@ -1024,7 +1021,7 @@ namespace vargas {
       _match_vec, _mismatch_vec, _ambig_vec,
       _gap_open_extend_vec_rd, _gap_extend_vec_rd,
       _gap_open_extend_vec_ref, _gap_extend_vec_ref,
-      _Ip, _Ic, _Sd, _Sdn,
+      _Ic, _Sd, _Sdn,
       _tmp0,
       _Ceq, _Cneq,
       _max_score, _sub_score,
