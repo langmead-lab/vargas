@@ -34,6 +34,7 @@
 #define __RG_STRONG_INLINE__ inline
 #endif
 #else
+#pragma message("No strong inlining")
 #define __RG_STRONG_INLINE__ inline
 #endif
 

@@ -31,9 +31,9 @@
 #include <cstdlib>
 #include <string>
 
-#define VA_ALIGN_DEBUG_M 1 // Print score matrix if 1
-#define VA_ALIGN_DEBUG_I 1 // Print I matrix if 1
-#define VA_ALIGN_DEBUG_D 0 // Print D matrix if 1
+#define VA_ALIGN_DEBUG_M 0 // Print score matrix if 1
+#define VA_ALIGN_DEBUG_I 0 // Print I matrix if 1 and VA_ALIGN_DEBUG_M
+#define VA_ALIGN_DEBUG_D 0 // Print D matrix if 1 and VA_ALIGN_DEBUG_M
 #define SW_GRID 2 // SIMD element to print for debug
 
 #if VA_ALIGN_DEBUG_M
@@ -45,7 +45,7 @@
 namespace vargas {
 
   /**
-   * Corresponding from simdpp type from native type, where NATIVE_T = {uint8_t, uint16_t, uint32_t}
+   * Corresponding simdpp type from native type, where NATIVE_T = {uint8_t, uint16_t, uint32_t}
    */
   template <typename NATIVE_T>
   using SIMD_T = typename std::conditional<std::is_same<uint8_t, NATIVE_T>::value,
@@ -184,14 +184,14 @@ namespace vargas {
       }
 
       /**
- * @brief
- * Align a batch of reads to a graph range, return a vector of alignments
- * corresponding to the reads.
- * @param read_group vector of reads to align to
- * @param begin iterator to beginning of graph
- * @param end iterator to end of graph
- * @return Results packet
- */
+       * @brief
+       * Align a batch of reads to a graph range, return a vector of alignments
+       * corresponding to the reads.
+       * @param read_group vector of reads to align to
+       * @param begin iterator to beginning of graph
+       * @param end iterator to end of graph
+       * @return Results packet
+       */
       virtual Results align(const std::vector<std::string> &read_group,
                             Graph::const_iterator begin, Graph::const_iterator end) {
           std::vector<size_t> targets(read_group.size());
@@ -248,10 +248,17 @@ namespace vargas {
       static_assert(std::is_same<NATIVE_T, uint8_t>::value || std::is_same<NATIVE_T, uint16_t>::value, "Invalid type.");
     public:
 
-      constexpr static size_t estimated_size(size_t nlen, size_t rlen) {
-          return sizeof(AlignerT<NATIVE_T>)
-          + (4 * sizeof(SIMD_T<NATIVE_T>) * nlen)
-          + (2 * sizeof(SIMD_T<NATIVE_T>) * rlen);
+      AlignerT(size_t max_node_len, size_t read_len, const ScoreProfile &prof) :
+      _read_len(read_len),
+      _max_node_len(max_node_len),
+      _alignment_group(read_len),
+      _Sa{max_node_len}, _Sb{max_node_len}, _Da{max_node_len}, _Db{max_node_len} {
+          set_scores(prof); // May throw
+          set_correctness_tolerance(read_len / DEFAULT_TOL_FACTOR);
+          _S_prev = _Sa.data();
+          _S_curr = _Sb.data();
+          _D_prev = _Da.data();
+          _D_curr = _Db.data();
       }
 
       /**
@@ -266,27 +273,8 @@ namespace vargas {
        */
       AlignerT(const size_t max_node_len, const size_t read_len,
                const uint8_t match = 2, const uint8_t mismatch = 2, const uint8_t open = 3, const uint8_t extend = 1) :
-      _read_len(read_len),
-      _max_node_len(max_node_len),
-      _alignment_group(read_len) {
-          set_scores(match, mismatch, open, extend);
-          set_correctness_tolerance(read_len / DEFAULT_TOL_FACTOR);
-          _alloc();
-      }
+      AlignerT(max_node_len, read_len, ScoreProfile(match, mismatch, open, extend)) {}
 
-      AlignerT(size_t max_node_len, size_t read_len, const ScoreProfile &prof) :
-      _read_len(read_len),
-      _max_node_len(max_node_len),
-      _alignment_group(read_len) {
-          set_scores(prof); // May throw
-          set_correctness_tolerance(read_len / DEFAULT_TOL_FACTOR);
-          _alloc();
-      }
-
-
-      ~AlignerT() noexcept {
-          _dealloc();
-      }
 
       AlignerT(const AlignerT<NATIVE_T, END_TO_END> &a) = delete;
       AlignerT(AlignerT<NATIVE_T, END_TO_END> &&a) = delete;
@@ -522,6 +510,7 @@ namespace vargas {
           aligns.profile = _prof;
       }
 
+
     private:
 
       /**
@@ -582,40 +571,6 @@ namespace vargas {
           }
       }
 
-      __RG_STRONG_INLINE__
-      void _set_nullptr() noexcept {
-          _Sa = _Sb = _Da = _Db = nullptr;
-          _S_prev = _S_curr = _D_prev = _D_curr = nullptr;
-      }
-
-      /**
-       * @brief
-       * deletes allocated matrix filling vectors.
-       */
-      void _dealloc() noexcept {
-          if (_Sa) delete _Sa;
-          if (_Sb) delete _Sb;
-          if (_Da) delete _Da;
-          if (_Db) delete _Db;
-          _set_nullptr();
-      }
-
-      /**
-       * @brief
-       * Allocate S and D vectors.
-       */
-      void _alloc() {
-          _Sa = new std::vector<SIMD_T<NATIVE_T>>(_max_node_len);
-          _Sb = new std::vector<SIMD_T<NATIVE_T>>(_max_node_len);
-          _Da = new std::vector<SIMD_T<NATIVE_T>>(_max_node_len);
-          _Db = new std::vector<SIMD_T<NATIVE_T>>(_max_node_len);
-
-          _S_prev = _Sa->data();
-          _S_curr = _Sb->data();
-          _D_prev = _Da->data();
-          _D_curr = _Db->data();
-      }
-
       /**
        * @brief
        * Computes local alignment to the node.
@@ -648,8 +603,8 @@ namespace vargas {
 
           assert(n.seq().size() <= _max_node_len);
 
-          const rg::Base *node_seq = n.seq().data();
-          const SIMD_T<NATIVE_T> *read_ptr = read_group.data();
+          const rg::Base *const node_seq = n.seq().data();
+          const SIMD_T<NATIVE_T> *const read_ptr = read_group.data();
           const size_t seq_size = n.seq().size();
           const size_t node_origin = n.end_pos() - seq_size + 2;
 
@@ -720,11 +675,6 @@ namespace vargas {
               _swp_tmp0 = _D_prev;
               _D_prev = _D_curr;
               _D_curr = _swp_tmp0;
-
-
-//              _swp_tmp0 = _I_prev;
-//              _I_prev = _I_curr;
-//              _I_curr = _swp_tmp0;
 
               csp = csp_start;
 
@@ -880,7 +830,6 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _I(const SIMD_T<NATIVE_T> &Sc) {
-          using namespace simdpp;
           _Ip = _Ic;
           // I(i,j) = I(i,j-1) - gap_extend
           _Ic = simdpp::sub_sat(_Ip, _gap_extend_vec_rd);
@@ -1073,31 +1022,23 @@ namespace vargas {
       /*********************************** Variables ***********************************/
 
       const size_t _read_len; /**< Maximum read length. */
+      const size_t _max_node_len;
+      NATIVE_T _bias;
 
       const std::array<SIMD_T<NATIVE_T>, 5> _base_vec = _make_base_vec();
-
-      const SIMD_T<NATIVE_T> ZERO_CT = simdpp::splat<SIMD_T<NATIVE_T>>(0);
-      NATIVE_T _bias;
-      SIMD_T<NATIVE_T> _bias_vec;
+      const SIMD_T<NATIVE_T> ZERO_CT{simdpp::splat<SIMD_T<NATIVE_T>>(0)};
 
       SIMD_T<NATIVE_T>
-      _match_vec, _mismatch_vec,
-      _gap_open_extend_vec_rd, _gap_extend_vec_rd, _gap_open_extend_vec_ref, _gap_extend_vec_ref,
-      _ambig_vec,
+      _match_vec, _mismatch_vec, _ambig_vec,
+      _gap_open_extend_vec_rd, _gap_extend_vec_rd,
+      _gap_open_extend_vec_ref, _gap_extend_vec_ref,
       _Ip, _Ic,
-      _tmp0, /**< temporary for use within functions */
-      _Ceq,  /**< Match score when read_base == ref_base */
-      _Cneq,
-      _max_score,
-      _sub_score;
+      _tmp0,
+      _Ceq, _Cneq,
+      _max_score, _sub_score,
+      _bias_vec;
 
-
-      SIMD_T<NATIVE_T>
-      *_S_prev = nullptr,    /**< _S_prev[n] => S(i-1, n) */
-      *_S_curr = nullptr,
-      *_D_prev = nullptr,    /**< _D_prev[n] => D(i-1, n) */
-      *_D_curr = nullptr,
-      *_swp_tmp0;
+      AlignmentGroup _alignment_group;
 
       /**
        * Each vector has an 'a' and a 'b' version. Through each row of the
@@ -1105,12 +1046,14 @@ namespace vargas {
        * loops data, and the other is filled in.
        * S and D are padded 1 to provide a left column buffer.
        */
-      std::vector<SIMD_T<NATIVE_T>>
-      *_Sa = nullptr,    /**< Matrix row */
-      *_Sb = nullptr,
-      *_Da = nullptr,    /**< Deletion vector */
-      *_Db = nullptr;
+      std::vector<SIMD_T<NATIVE_T>> _Sa, _Sb, _Da, _Db;
 
+
+      SIMD_T<NATIVE_T> *_S_prev, *_S_curr, *_D_prev, *_D_curr, *_swp_tmp0;
+
+      NATIVE_T *const _tmp0_ptr = (NATIVE_T *) &_tmp0;
+      NATIVE_T *const _max_score_ptr = (NATIVE_T *) &_max_score;
+      NATIVE_T *const _sub_score_ptr = (NATIVE_T *) &_sub_score;
 
       size_t _curr_pos;
 
@@ -1120,18 +1063,11 @@ namespace vargas {
       size_t *_sub_pos;
       size_t *_sub_count;
 
-      NATIVE_T *const _tmp0_ptr = (NATIVE_T *) &_tmp0;
-      NATIVE_T *const _max_score_ptr = (NATIVE_T *) &_max_score;
-      NATIVE_T *const _sub_score_ptr = (NATIVE_T *) &_sub_score;
-
       uint8_t *_cor_flag;
       std::vector<size_t> _targets_lower, _targets_upper;
       size_t *_targets_lower_ptr, *_targets_upper_ptr;
       std::array<_target, SIMD_T<NATIVE_T>::length> _target_subrange;
 
-      const size_t _max_node_len;
-
-      AlignmentGroup _alignment_group;
 
   };
 
@@ -1496,7 +1432,7 @@ TEST_CASE ("Indels") {
 
     {
         vargas::Graph::Node n;
-        n.set_endpos(42);
+        n.set_endpos(67);
         n.set_as_ref();
         n.set_seq("ACGATCGTACGCNAGCTAGCCACAGTGCCCCCCTATATACGAN");
         g.add_node(n);
@@ -1508,21 +1444,63 @@ TEST_CASE ("Indels") {
         reads.push_back("ACTGCTNCAGTC"); // perfect alignment, pos 1
         reads.push_back("ACTGCTACAGTC"); // perfect alignment, pos 1, diff N
         reads.push_back("CCACAGCCCCCC"); // 2 del
-        reads.push_back("ACNCACACGATC"); // perfect across edge, pos 20
-        reads.push_back("ACNCAACGATCG"); // 1 del across edge, pos 20
-        reads.push_back("ACNCACCACGAT"); // 1 ins across edge, pos 20
-        reads.push_back("ACTTGCTNCAGT"); // pos 1 insertion
+        reads.push_back("ACNCACACGATC"); // perfect across edge
+        reads.push_back("ACNCAACGATCG"); // 1 del across edge
+        reads.push_back("ACNCACCACGAT"); // 1 ins across edge
+        reads.push_back("ACTTGCTNCAGT"); // 1 ins
+        reads.push_back("ACNCACCGATCG");
+        reads.push_back("NACNCAACGATC");
 
-        vargas::Aligner a(50, 12, 2, 4, 3, 1);
-        auto res = a.align(reads, g.cbegin(), g.cend());
-        REQUIRE(res.size() == 7);
+        SUBCASE("Same read/ref") {
+            vargas::Aligner a(50, 12, 2, 6, 3, 1);
+            auto res = a.align(reads, g.cbegin(), g.cend());
+            REQUIRE(res.size() == 9);
 
-        CHECK(res.max_score[0] == 22);
-        CHECK(res.max_pos[0] == 12);
-        CHECK(res.max_score[1] == 22);
-        CHECK(res.max_pos[1] == 12);
-        CHECK(res.max_score[2] == 19);
-        CHECK(res.max_pos[2] == 16);
+            CHECK(res.max_score[0] == 22);
+            CHECK(res.max_pos[0] == 12);
+            CHECK(res.max_score[1] == 22);
+            CHECK(res.max_pos[1] == 12);
+            CHECK(res.max_score[2] == 19);
+            CHECK(res.max_pos[2] == 58);
+            CHECK(res.max_score[3] == 22);
+            CHECK(res.max_pos[3] == 31);
+            CHECK(res.max_score[4] == 18);
+            CHECK(res.max_pos[4] == 32);
+            CHECK(res.max_score[5] == 16);
+            CHECK(res.max_pos[5] == 30);
+            CHECK(res.max_score[6] == 16);
+            CHECK(res.max_pos[6] == 11);
+            CHECK(res.max_score[7] == 18);
+            CHECK(res.max_pos[7] == 32);
+            CHECK(res.max_score[8] == 16);
+            CHECK(res.max_pos[8] == 31);
+        }
+
+        SUBCASE("Diff read/ref") {
+            vargas::ScoreProfile prof(2, 6, 4, 1, 2, 1);
+            vargas::Aligner a(50, 12, prof);
+            auto res = a.align(reads, g.cbegin(), g.cend());
+            REQUIRE(res.size() == 9);
+
+            CHECK(res.max_score[0] == 22);
+            CHECK(res.max_pos[0] == 12);
+            CHECK(res.max_score[1] == 22);
+            CHECK(res.max_pos[1] == 12);
+            CHECK(res.max_score[2] == 18);
+            CHECK(res.max_pos[2] == 58);
+            CHECK(res.max_score[3] == 22);
+            CHECK(res.max_pos[3] == 31);
+            CHECK(res.max_score[4] == 17);
+            CHECK(res.max_pos[4] == 32);
+            CHECK(res.max_score[5] == 17);
+            CHECK(res.max_pos[5] == 30);
+            CHECK(res.max_score[6] == 17);
+            CHECK(res.max_pos[6] == 11);
+            CHECK(res.max_score[7] == 17);
+            CHECK(res.max_pos[7] == 32);
+            CHECK(res.max_score[8] == 15);
+            CHECK(res.max_pos[8] == 31);
+        }
     }
 
 }
