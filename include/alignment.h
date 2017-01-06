@@ -23,6 +23,7 @@
 #include "simdpp/simd.h"
 #include "graph.h"
 #include "doctest.h"
+#include "simd.h"
 
 #include <array>
 #include <vector>
