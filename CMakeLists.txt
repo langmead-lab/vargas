@@ -12,7 +12,7 @@ endif ()
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-include_directories(libsimdpp doctest/doctest include htslib cxxopts/src)
+include_directories(doctest/doctest include htslib cxxopts/src)
 link_directories(${PROJECT_SOURCE_DIR}/htslib)
 
 set(MAIN_SOURCES
@@ -48,10 +48,10 @@ endif ()
 
 if (BUILD_PHI)
     message("Building for Xeon Phi")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -xMIC-AVX512 -DVA_SIMD_USE_AVX2 -DSIMDPP_ARCH_X86_AVX512F")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -xMIC-AVX512 -DVA_SIMD_USE_AVX2")
 else ()
     message("Building for SSE4.1")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1 -DVA_SIMD_USE_SSE -DSIMDPP_ARCH_X86_SSE4_1")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1 -DVA_SIMD_USE_SSE")
 endif ()
 
 add_executable(vargas ${MAIN_SOURCES})

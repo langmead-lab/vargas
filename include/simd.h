@@ -12,9 +12,24 @@
 #include <x86intrin.h>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #if !defined(VA_SIMD_USE_SSE) && !defined(VA_SIMD_USE_AVX2) && !defined(VA_SIMD_USE_AVX512)
 #error("No SIMD instruction set defined.")
+#endif
+
+#ifdef VA_SIMD_USE_AVX2
+#define VA_MAX_INT8 32
+#define VA_MAX_INT16 16
+#endif
+
+#ifdef VA_SIMD_USE_SSE
+#if !defined(VA_MAX_INT8)
+#define VA_MAX_INT8 16
+#endif
+#if !defined(VA_MAX_INT16)
+#define VA_MAX_INT16 8
+#endif
 #endif
 
 namespace vargas {
@@ -116,29 +131,32 @@ namespace vargas {
                                                                          typename std::conditional<N == 16,
                                                                                                    __m256i,
                                                                                                    __m512i>::type>::type>::type;
-      static constexpr size_t length = N;
 
-      simd_t v;
+      static constexpr size_t length = N;
+      static constexpr size_t size = sizeof(native_t) * N;
 
       SIMD() = default;
       SIMD(const native_t o) {
-          v = o;
+          *this = o;
       }
       SIMD(const simd_t &o) {
           v = o;
       }
 
+
       __RG_STRONG_INLINE__ SIMD<T, N> operator==(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ SIMD<T, N> operator!() const;
-      __RG_STRONG_INLINE__ SIMD<T, N> &operator=(const SIMD<T, N> &o) {
-          v = o.v;
-          return *this;
-      };
-      __RG_STRONG_INLINE__ SIMD<T, N> &operator=(const native_t o);
+      __RG_STRONG_INLINE__ SIMD<T, N> &operator=(const SIMD<T, N>::native_t o);
       __RG_STRONG_INLINE__ SIMD<T, N> operator+(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ SIMD<T, N> operator-(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ SIMD<T, N> operator>(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ SIMD<T, N> operator<(const SIMD<T, N> &o) const;
+      __RG_STRONG_INLINE__ SIMD<T, N> operator&(const SIMD<T, N> &o) const;
+      __RG_STRONG_INLINE__ SIMD<T, N> operator|(const SIMD<T, N> &o) const;
+      __RG_STRONG_INLINE__ SIMD<T, N> &operator=(const SIMD<T, N> &o) {
+          v = o.v;
+          return *this;
+      };
       __RG_STRONG_INLINE__ SIMD<T, N> operator>=(const SIMD<T, N> &o) const {
           return !(*this < o);
       };
@@ -148,9 +166,10 @@ namespace vargas {
       __RG_STRONG_INLINE__ SIMD<T, N> operator!=(const SIMD<T, N> &o) const {
           return !(*this == o);
       };
-      __RG_STRONG_INLINE__ SIMD<T, N> operator&(const SIMD<T, N> &o) const;
-      __RG_STRONG_INLINE__ SIMD<T, N> operator|(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ bool any() const;
+      __RG_STRONG_INLINE__ SIMD<T, N> and_not(const SIMD<T, N> &o) const;
+
+      simd_t v;
   };
 
   template<typename T>
@@ -172,6 +191,8 @@ namespace vargas {
   using int8x32 = SIMD<int8_t, 32>;
   using int16x16 = SIMD<int16_t, 16>;
 
+  template<typename T>
+  using SIMDVector = std::vector<T, aligned_allocator<T, T::size>>;
 
   /************************************ 128b ************************************/
 
@@ -187,7 +208,7 @@ namespace vargas {
       return _mm_xor_si128(v, _mm_cmpeq_epi8(v, v));
   }
   template<>
-  int8x16 &int8x16::operator=(const native_t o) {
+  int8x16 &int8x16::operator=(const int8x16::native_t o) {
       v = _mm_set1_epi8(o);
       return *this;
   }
@@ -219,6 +240,11 @@ namespace vargas {
   bool int8x16::any() const {
       return _mm_movemask_epi8(v);
   }
+  template<>
+  int8x16 int8x16::and_not(const int8x16 &o) const {
+      return _mm_andnot_si128(o.v, v);
+  }
+
   __RG_STRONG_INLINE__ int8x16 max(const int8x16 &a, const int8x16 &b) {
       return _mm_max_epi8(a.v, b.v);
   }
@@ -236,7 +262,7 @@ namespace vargas {
       return _mm_xor_si128(v, _mm_cmpeq_epi16(v, v));
   }
   template<>
-  int16x8 &int16x8::operator=(const native_t o) {
+  int16x8 &int16x8::operator=(const int16x8::native_t o) {
       v = _mm_set1_epi16(o);
       return *this;
   }
@@ -246,7 +272,7 @@ namespace vargas {
   }
   template<>
   int16x8 int16x8::operator-(const int16x8 &o) const {
-      return _mm_sub_epi16(v, o.v);
+      return _mm_subs_epi16(v, o.v);
   }
   template<>
   int16x8 int16x8::operator>(const int16x8 &o) const {
@@ -268,6 +294,10 @@ namespace vargas {
   bool int16x8::any() const {
       return _mm_movemask_epi8(v);
   }
+  template<>
+  int16x8 int16x8::and_not(const int16x8 &o) const {
+      return _mm_andnot_si128(o.v, v);
+  }
   __RG_STRONG_INLINE__ int16x8 max(const int16x8 &a, const int16x8 &b) {
       return _mm_max_epi16(a.v, b.v);
   }
@@ -287,7 +317,7 @@ namespace vargas {
   template<> int8x32 int8x32::operator!() const {
       return _mm256_xor_si256(v, _mm256_cmpeq_epi8(v,v));
   }
-  template<> int8x32 &int8x32::operator=(const native_t o) {
+  template<> int8x32 &int8x32::operator=(const int8x32::native_t o) {
       v = _mm256_set1_epi8(o);
       return *this;
   }
@@ -312,6 +342,10 @@ namespace vargas {
   template<> bool int8x32::any() const {
       return _mm256_movemask_epi8(v);
   }
+    template <>
+  int8x32 int8x32::and_not(const int8x32 &o) const {
+      return _mm256_andnot_si256(o.v, v);
+  }
   __RG_STRONG_INLINE__ int8x32 max(const int8x32 &a, const int8x32 &b) {
       return _mm256_max_epi8(a.v, b.v);
   }
@@ -326,12 +360,8 @@ namespace vargas {
   template<> int16x16 int16x16::operator!() const {
       return _mm256_xor_si256(v, _mm256_cmpeq_epi16(v,v));
   }
-  template<> int16x16 &int16x16::operator=(const native_t o) {
+  template<> int16x16 &int16x16::operator=(const int16x16::native_t o) {
       v = _mm256_set1_epi16(o);
-      return *this;
-  }
-  template<> int16x16 &int16x16::operator=(const int16x16 &o) {
-      v = o.v;
       return *this;
   }
   template<> int16x16 int16x16::operator+(const int16x16 &o) const {
@@ -354,6 +384,10 @@ namespace vargas {
   }
   template<> bool int16x16::any() const {
       return _mm256_movemask_epi8(v);
+  }
+  template <>
+  int16x16 int16x16::and_not(const int16x16 &o) const {
+      return _mm256_andnot_si256(o.v, v);
   }
   __RG_STRONG_INLINE__ int16x16 max(const int16x16 &a, const int16x16 &b) {
       return _mm256_max_epi16(a.v, b.v);

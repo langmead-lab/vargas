@@ -46,7 +46,6 @@
 #include <type_traits>
 #include <assert.h>
 #include <memory>
-#include "simdpp/simd.h"
 
 namespace rg {
 
