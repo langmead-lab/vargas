@@ -39,7 +39,8 @@ set(HEADERS
         include/utils.h
         include/varfile.h
         include/align_main.h
-        include/scoring.h)
+        include/scoring.h
+        include/simd.h)
 
 option(BUILD_PHI "Build for Xeon Phi, requires icpc" OFF)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")

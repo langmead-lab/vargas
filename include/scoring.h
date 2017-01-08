@@ -66,8 +66,8 @@ namespace vargas {
       std::vector<size_t> max_pos; /**< Best positions, 1 indexed */
       std::vector<size_t> sub_pos; /**< Second best positions, 1 indexed */
 
-      std::vector<size_t> max_count; /**< # of max_score */
-      std::vector<size_t> sub_count; /**< # of sub_score */
+      std::vector<int> max_count; /**< # of max_score */
+      std::vector<int> sub_count; /**< # of sub_score */
 
       std::vector<int> max_score; /**< Best scores */
       std::vector<int> sub_score; /**< Second best scores */

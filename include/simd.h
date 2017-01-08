@@ -13,6 +13,8 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <stdlib.h>
+
 
 #if !defined(VA_SIMD_USE_SSE) && !defined(VA_SIMD_USE_AVX2) && !defined(VA_SIMD_USE_AVX512)
 #error("No SIMD instruction set defined.")
@@ -24,10 +26,10 @@
 #endif
 
 #ifdef VA_SIMD_USE_SSE
-#if !defined(VA_MAX_INT8)
+#ifndef VA_MAX_INT8
 #define VA_MAX_INT8 16
 #endif
-#if !defined(VA_MAX_INT16)
+#ifndef VA_MAX_INT16
 #define VA_MAX_INT16 8
 #endif
 #endif
@@ -35,16 +37,15 @@
 namespace vargas {
 
   /**
-   * From libsimdpp:
-   * https://github.com/p12tic/libsimdpp
    * @tparam T
-   * @tparam A
+   * @tparam A alignment
    */
   template<class T, std::size_t A>
-  class aligned_allocator {
-      static_assert(!(A & (A - 1)), "A is not a power of two");
+  struct aligned_allocator {
+      static_assert(!(A & (A - 1)), "A should be a power of two.");
+      // Align on >= 4 byte for 32bit, 8 byte for 64bit
+      const std::size_t al = A < 2 * sizeof(void *) ? 2 * sizeof(void *) : A;
 
-    public:
       using value_type = T;
       using pointer = T *;
       using const_pointer = const T *;
@@ -57,61 +58,37 @@ namespace vargas {
       aligned_allocator(const aligned_allocator &) = default;
       template<class U>
       aligned_allocator(const aligned_allocator<U, A> &) {}
-      ~aligned_allocator() = default;
       aligned_allocator &operator=(const aligned_allocator &) = delete;
+      ~aligned_allocator() = default;
 
       template<class U>
       struct rebind {
-          using other = aligned_allocator<U, A>;
+          typedef aligned_allocator<U, A> other;
       };
 
-      T *address(T &x) const {
-          return &x;
-      }
-
       constexpr std::size_t max_size() const {
-          return (static_cast<std::size_t>(0) - static_cast<std::size_t>(1)) / sizeof(T);
+          return std::numeric_limits<size_t>::max() / sizeof(T);
       }
 
-      // stateless
       bool operator!=(const aligned_allocator &) const { return false; }
       bool operator==(const aligned_allocator &) const { return true; }
 
-      void construct(T *p, const T &t) const {
-          void *pv = static_cast<void *>(p);
-          new(pv) T(t);
-      }
-
-      void destroy(T *p) const {
-          p->~T();
-      }
-
       T *allocate(std::size_t n) const {
           if (n == 0) return nullptr;
+
+          // aligned_alloc needs a multiple of al
+          if (n % al) n += al - (n % al);
           if (n > max_size()) throw std::length_error("aligned_allocator<T,A>::allocate() - Integer overflow.");
 
-          const std::size_t al = A < 2 * sizeof(void *) ? 2 * sizeof(void *) : A;
+          void *p = aligned_alloc(al, n * sizeof(T));
+          if (p == nullptr) throw std::bad_alloc();
 
-          char *pv = new char[n * sizeof(T) + al];
-          std::uintptr_t upv = reinterpret_cast<std::uintptr_t>(pv);
-          upv = (upv + al) & ~(al - 1);
-          char **aligned_pv = reinterpret_cast<char **>(upv);
-          *(aligned_pv - 1) = pv; // original pointer
-
-          return reinterpret_cast<T *>(aligned_pv);
+          return static_cast<T *>(p);
       }
 
       void deallocate(T *p, std::size_t n) const {
-          (void) n;
-          if (!p) return;
-          char **pptr = reinterpret_cast<char **>(p);
-          delete[](*(pptr - 1));
-      }
-
-      template<class U>
-      T *allocate(std::size_t n, const U *hint) const {
-          (void) hint;
-          return allocate(n);
+          (void) n; // get rid of compiler warning
+          free(p);
       }
   };
 
@@ -153,6 +130,8 @@ namespace vargas {
       __RG_STRONG_INLINE__ SIMD<T, N> operator<(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ SIMD<T, N> operator&(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ SIMD<T, N> operator|(const SIMD<T, N> &o) const;
+      __RG_STRONG_INLINE__ native_t at(const int i) const;
+      __RG_STRONG_INLINE__ void insert(const int i, const native_t e);
       __RG_STRONG_INLINE__ SIMD<T, N> &operator=(const SIMD<T, N> &o) {
           v = o.v;
           return *this;
@@ -244,6 +223,98 @@ namespace vargas {
   int8x16 int8x16::and_not(const int8x16 &o) const {
       return _mm_andnot_si128(o.v, v);
   }
+  template<>
+  typename int8x16::native_t int8x16::at(const int i) const {
+      switch (i) {
+          default:
+          case 0:
+              return _mm_extract_epi8(v, 0);
+          case 1:
+              return _mm_extract_epi8(v, 1);
+          case 2:
+              return _mm_extract_epi8(v, 2);
+          case 3:
+              return _mm_extract_epi8(v, 3);
+          case 4:
+              return _mm_extract_epi8(v, 4);
+          case 5:
+              return _mm_extract_epi8(v, 5);
+          case 6:
+              return _mm_extract_epi8(v, 6);
+          case 7:
+              return _mm_extract_epi8(v, 7);
+          case 8:
+              return _mm_extract_epi8(v, 8);
+          case 9:
+              return _mm_extract_epi8(v, 9);
+          case 10:
+              return _mm_extract_epi8(v, 10);
+          case 11:
+              return _mm_extract_epi8(v, 11);
+          case 12:
+              return _mm_extract_epi8(v, 12);
+          case 13:
+              return _mm_extract_epi8(v, 13);
+          case 14:
+              return _mm_extract_epi8(v, 14);
+          case 15:
+              return _mm_extract_epi8(v, 15);
+      }
+  }
+  template<>
+  void int8x16::insert(const int i, typename int8x16::native_t e) {
+      switch (i) {
+          default:
+          case 0:
+              v = _mm_insert_epi8(v, e, 0);
+              return;
+          case 1:
+              v = _mm_insert_epi8(v, e, 1);
+              return;
+          case 2:
+              v = _mm_insert_epi8(v, e, 2);
+              return;
+          case 3:
+              v = _mm_insert_epi8(v, e, 3);
+              return;
+          case 4:
+              v = _mm_insert_epi8(v, e, 4);
+              return;
+          case 5:
+              v = _mm_insert_epi8(v, e, 5);
+              return;
+          case 6:
+              v = _mm_insert_epi8(v, e, 6);
+              return;
+          case 7:
+              v = _mm_insert_epi8(v, e, 7);
+              return;
+          case 8:
+              v = _mm_insert_epi8(v, e, 8);
+              return;
+          case 9:
+              v = _mm_insert_epi8(v, e, 9);
+              return;
+          case 10:
+              v = _mm_insert_epi8(v, e, 10);
+              return;
+          case 11:
+              v = _mm_insert_epi8(v, e, 11);
+              return;
+          case 12:
+              v = _mm_insert_epi8(v, e, 12);
+              return;
+          case 13:
+              v = _mm_insert_epi8(v, e, 13);
+              return;
+          case 14:
+              v = _mm_insert_epi8(v, e, 14);
+              return;
+          case 15:
+              v = _mm_insert_epi8(v, e, 15);
+              return;
+      }
+  }
 
   __RG_STRONG_INLINE__ int8x16 max(const int8x16 &a, const int8x16 &b) {
       return _mm_max_epi8(a.v, b.v);
@@ -298,6 +369,59 @@ namespace vargas {
   int16x8 int16x8::and_not(const int16x8 &o) const {
       return _mm_andnot_si128(o.v, v);
   }
+  template<>
+  typename int16x8::native_t int16x8::at(const int i) const {
+      switch (i) {
+          default:
+          case 0:
+              return _mm_extract_epi16(v, 0);
+          case 1:
+              return _mm_extract_epi16(v, 1);
+          case 2:
+              return _mm_extract_epi16(v, 2);
+          case 3:
+              return _mm_extract_epi16(v, 3);
+          case 4:
+              return _mm_extract_epi16(v, 4);
+          case 5:
+              return _mm_extract_epi16(v, 5);
+          case 6:
+              return _mm_extract_epi16(v, 6);
+          case 7:
+              return _mm_extract_epi16(v, 7);
+      }
+  }
+  template<>
+  void int16x8::insert(const int i, typename int16x8::native_t e) {
+      switch (i) {
+          default:
+          case 0:
+              v = _mm_insert_epi16(v, e, 0);
+              return;
+          case 1:
+              v = _mm_insert_epi16(v, e, 1);
+              return;
+          case 2:
+              v = _mm_insert_epi16(v, e, 2);
+              return;
+          case 3:
+              v = _mm_insert_epi16(v, e, 3);
+              return;
+          case 4:
+              v = _mm_insert_epi16(v, e, 4);
+              return;
+          case 5:
+              v = _mm_insert_epi16(v, e, 5);
+              return;
+          case 6:
+              v = _mm_insert_epi16(v, e, 6);
+              return;
+          case 7:
+              v = _mm_insert_epi16(v, e, 7);
+              return;
+      }
+  }
+
   __RG_STRONG_INLINE__ int16x8 max(const int16x8 &a, const int16x8 &b) {
       return _mm_max_epi16(a.v, b.v);
   }
@@ -342,6 +466,81 @@ namespace vargas {
   template<> bool int8x32::any() const {
       return _mm256_movemask_epi8(v);
   }
+  template<> typename int8x32::native_t int8x32::at(const int i) const {
+      switch (i) {
+          default:
+          case 0: return _mm256_extract_epi8(v, 0);
+          case 1: return _mm256_extract_epi8(v, 1);
+          case 2: return _mm256_extract_epi8(v, 2);
+          case 3: return _mm256_extract_epi8(v, 3);
+          case 4: return _mm256_extract_epi8(v, 4);
+          case 5: return _mm256_extract_epi8(v, 5);
+          case 6: return _mm256_extract_epi8(v, 6);
+          case 7: return _mm256_extract_epi8(v, 7);
+          case 8: return _mm256_extract_epi8(v, 8);
+          case 9: return _mm256_extract_epi8(v, 9);
+          case 10: return _mm256_extract_epi8(v, 10);
+          case 11: return _mm256_extract_epi8(v, 11);
+          case 12: return _mm256_extract_epi8(v, 12);
+          case 13: return _mm256_extract_epi8(v, 13);
+          case 14: return _mm256_extract_epi8(v, 14);
+          case 15: return _mm256_extract_epi8(v, 15);
+          case 16: return _mm256_extract_epi8(v, 16);
+          case 17: return _mm256_extract_epi8(v, 17);
+          case 18: return _mm256_extract_epi8(v, 18);
+          case 19: return _mm256_extract_epi8(v, 19);
+          case 20: return _mm256_extract_epi8(v, 20);
+          case 21: return _mm256_extract_epi8(v, 21);
+          case 22: return _mm256_extract_epi8(v, 22);
+          case 23: return _mm256_extract_epi8(v, 23);
+          case 24: return _mm256_extract_epi8(v, 24);
+          case 25: return _mm256_extract_epi8(v, 25);
+          case 26: return _mm256_extract_epi8(v, 26);
+          case 27: return _mm256_extract_epi8(v, 27);
+          case 28: return _mm256_extract_epi8(v, 28);
+          case 29: return _mm256_extract_epi8(v, 29);
+          case 30: return _mm256_extract_epi8(v, 30);
+          case 31: return _mm256_extract_epi8(v, 31);
+      }
+  }
+    template<>
+  void int8x32::insert(const int i, typename int8x32::native_t e) {
+      switch(i) {
+          default:
+          case 0: v = _mm256_insert_epi8(v, e, 0); return;
+          case 1: v = _mm256_insert_epi8(v, e, 1); return;
+          case 2: v = _mm256_insert_epi8(v, e, 2); return;
+          case 3: v = _mm256_insert_epi8(v, e, 3); return;
+          case 4: v = _mm256_insert_epi8(v, e, 4); return;
+          case 5: v = _mm256_insert_epi8(v, e, 5); return;
+          case 6: v = _mm256_insert_epi8(v, e, 6); return;
+          case 7: v = _mm256_insert_epi8(v, e, 7); return;
+          case 8: v = _mm256_insert_epi8(v, e, 8); return;
+          case 9: v = _mm256_insert_epi8(v, e, 9); return;
+          case 10: v = _mm256_insert_epi8(v, e, 10); return;
+          case 11: v = _mm256_insert_epi8(v, e, 11); return;
+          case 12: v = _mm256_insert_epi8(v, e, 12); return;
+          case 13: v = _mm256_insert_epi8(v, e, 13); return;
+          case 14: v = _mm256_insert_epi8(v, e, 14); return;
+          case 15: v = _mm256_insert_epi8(v, e, 15); return;
+          case 16: v = _mm256_insert_epi8(v, e, 16); return;
+          case 17: v = _mm256_insert_epi8(v, e, 17); return;
+          case 18: v = _mm256_insert_epi8(v, e, 18); return;
+          case 19: v = _mm256_insert_epi8(v, e, 19); return;
+          case 20: v = _mm256_insert_epi8(v, e, 20); return;
+          case 21: v = _mm256_insert_epi8(v, e, 21); return;
+          case 22: v = _mm256_insert_epi8(v, e, 22); return;
+          case 23: v = _mm256_insert_epi8(v, e, 23); return;
+          case 24: v = _mm256_insert_epi8(v, e, 24); return;
+          case 25: v = _mm256_insert_epi8(v, e, 25); return;
+          case 26: v = _mm256_insert_epi8(v, e, 26); return;
+          case 27: v = _mm256_insert_epi8(v, e, 27); return;
+          case 28: v = _mm256_insert_epi8(v, e, 28); return;
+          case 29: v = _mm256_insert_epi8(v, e, 29); return;
+          case 30: v = _mm256_insert_epi8(v, e, 30); return;
+          case 31: v = _mm256_insert_epi8(v, e, 31); return;
+      }
+  }
     template <>
   int8x32 int8x32::and_not(const int8x32 &o) const {
       return _mm256_andnot_si256(o.v, v);
@@ -385,6 +584,50 @@ namespace vargas {
   template<> bool int16x16::any() const {
       return _mm256_movemask_epi8(v);
   }
+  template<> typename int16x16::native_t int16x16::at(const int i) const {
+      switch (i) {
+          default:
+          case 0: return _mm256_extract_epi16(v, 0);
+          case 1: return _mm256_extract_epi16(v, 1);
+          case 2: return _mm256_extract_epi16(v, 2);
+          case 3: return _mm256_extract_epi16(v, 3);
+          case 4: return _mm256_extract_epi16(v, 4);
+          case 5: return _mm256_extract_epi16(v, 5);
+          case 6: return _mm256_extract_epi16(v, 6);
+          case 7: return _mm256_extract_epi16(v, 7);
+          case 8: return _mm256_extract_epi16(v, 8);
+          case 9: return _mm256_extract_epi16(v, 9);
+          case 10: return _mm256_extract_epi16(v, 10);
+          case 11: return _mm256_extract_epi16(v, 11);
+          case 12: return _mm256_extract_epi16(v, 12);
+          case 13: return _mm256_extract_epi16(v, 13);
+          case 14: return _mm256_extract_epi16(v, 14);
+          case 15: return _mm256_extract_epi16(v, 15);
+
+      }
+  }
+    template<>
+  void int16x16::insert(const int i, typename int16x16::native_t e) {
+      switch(i) {
+          default:
+          case 0: v = _mm256_insert_epi16(v, e, 0); return;
+          case 1: v = _mm256_insert_epi16(v, e, 1); return;
+          case 2: v = _mm256_insert_epi16(v, e, 2); return;
+          case 3: v = _mm256_insert_epi16(v, e, 3); return;
+          case 4: v = _mm256_insert_epi16(v, e, 4); return;
+          case 5: v = _mm256_insert_epi16(v, e, 5); return;
+          case 6: v = _mm256_insert_epi16(v, e, 6); return;
+          case 7: v = _mm256_insert_epi16(v, e, 7); return;
+          case 8: v = _mm256_insert_epi16(v, e, 8); return;
+          case 9: v = _mm256_insert_epi16(v, e, 9); return;
+          case 10: v = _mm256_insert_epi16(v, e, 10); return;
+          case 11: v = _mm256_insert_epi16(v, e, 11); return;
+          case 12: v = _mm256_insert_epi16(v, e, 12); return;
+          case 13: v = _mm256_insert_epi16(v, e, 13); return;
+          case 14: v = _mm256_insert_epi16(v, e, 14); return;
+          case 15: v = _mm256_insert_epi16(v, e, 15); return;
+      }
+  }
   template <>
   int16x16 int16x16::and_not(const int16x16 &o) const {
       return _mm256_andnot_si256(o.v, v);
@@ -397,22 +640,6 @@ namespace vargas {
   }
 
   #endif
-
-}
-
-TEST_CASE ("SIMD") {
-    vargas::SIMD<int8_t, 16> a, b;
-    a = 10;
-    b = -4;
-    auto c = a - b;
-    auto d = a < c;
-
-    for (size_t i = 0; i < 16; ++i) {
-        CHECK((int) vargas::extract(i, a) == 10);
-        CHECK((int) vargas::extract(i, b) == -4);
-        CHECK((int) vargas::extract(i, c) == 14);
-        CHECK((uint8_t) vargas::extract(i, d) == 0xFF);
-    }
 
 }
 

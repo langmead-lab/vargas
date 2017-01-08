@@ -460,25 +460,25 @@ TEST_CASE ("SAM Optional") {
     o.set("d", "DD");
 
     {
-        std::string val;
+        std::string val = "";
         CHECK(o.get("a", val));
         CHECK(val == "b");
     }
 
     {
-        int val;
+        int val = -1;
         CHECK(o.get("b", val));
         CHECK(val == 1);
     }
 
     {
-        float val;
+        float val = -1;
         CHECK(o.get("c", val));
         CHECK(val == 1.0);
     }
 
     {
-        std::string val;
+        std::string val = "";
         CHECK(o.get("d", val));
         CHECK(val == "DD");
     }

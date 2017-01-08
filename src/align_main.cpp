@@ -31,10 +31,9 @@ int align_main(int argc, char *argv[]) {
     }
 
     // Load parameters
-    // hisat similar params: match = 2, mismatch = 6, open = 5, extend = 3
     size_t match, mismatch, gopen, gext, threads, tolerance, chunk_size, subsample = 0;
     std::string read_file, gdf_file, align_targets, out_file, pgid;
-    bool align_targets_isfile = false, end_to_end = false;
+    bool align_targets_isfile = false, end_to_end = false, bare = false;
 
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
     try {
@@ -49,6 +48,7 @@ int align_main(int argc, char *argv[]) {
         ("o,gap_open", "<N> Gap opening penalty.", cxxopts::value(gopen)->default_value("3"))
         ("e,gap_extend", "<N> Gap extension penalty.", cxxopts::value(gext)->default_value("1"))
         ("x,endtoend", "Perform end to end alignment", cxxopts::value(end_to_end))
+        ("b,bare", "Only report maximum score and position", cxxopts::value(bare))
         ("c,tolerance", "<N> Correct if within readlen/N.",
          cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
         ("u,chunk", "<N> Partition tasks into chunks with max size N.",
@@ -157,7 +157,7 @@ int align_main(int argc, char *argv[]) {
 
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
-        aligners[k] = make_aligner(prof, read_len, use_wide);
+        aligners[k] = make_aligner(prof, read_len, use_wide, bare);
     }
 
 
@@ -178,7 +178,7 @@ int align_main(int argc, char *argv[]) {
         for (size_t i = 0; i < num_reads; ++i) {
             const auto &r = task_list.at(l).second.at(i);
             read_seqs[i] = r.seq;
-            targets[i] = r.pos;
+            if (!bare) targets[i] = r.pos;
             if (r.pos > 0) {
                 targets[i] = r.pos - 1;
                 if (r.cigar.size()) {
@@ -196,13 +196,15 @@ int align_main(int argc, char *argv[]) {
             vargas::SAM::Record &rec = task_list.at(l).second.at(j);
             rec.aux.set(ALIGN_SAM_MAX_POS_TAG, aligns.max_pos[j]);
             rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
-            rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
-            rec.aux.set(ALIGN_SAM_SUB_POS_TAG, aligns.sub_pos[j]);
-            rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
-            rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
-            rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
-            rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
             rec.aux.set(ALIGN_SAM_SCORE_PROFILE, aligns.profile.to_string());
+            if (!bare) {
+                rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
+                rec.aux.set(ALIGN_SAM_SUB_POS_TAG, aligns.sub_pos[j]);
+                rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
+                rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
+                rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
+                rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
+            }
         }
     }
 
@@ -335,15 +337,17 @@ create_tasks(vargas::isam &reads,
 }
 
 std::unique_ptr<vargas::AlignerBase> make_aligner(const vargas::ScoreProfile &prof, size_t read_len,
-                                                  bool use_wide) {
+                                                  bool use_wide, bool bare) {
     if (prof.end_to_end) {
-        if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(read_len, prof);
+        if (bare && !use_wide) return rg::make_unique<vargas::BareAlignerETE>(read_len, prof);
+        else if (bare) return rg::make_unique<vargas::BareWordAlignerETE>(read_len, prof);
+        else if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(read_len, prof);
         else return rg::make_unique<vargas::AlignerETE>(read_len, prof);
-
     } else {
-        if (use_wide) return rg::make_unique<vargas::WordAligner>(read_len, prof);
+        if (bare && !use_wide) return rg::make_unique<vargas::BareAligner>(read_len, prof);
+        else if (bare) return rg::make_unique<vargas::BareWordAligner>(read_len, prof);
+        else if (use_wide) return rg::make_unique<vargas::WordAligner>(read_len, prof);
         else return rg::make_unique<vargas::Aligner>(read_len, prof);
-
     }
 }
 
