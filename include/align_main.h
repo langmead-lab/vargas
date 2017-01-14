@@ -25,9 +25,12 @@
 #define ALIGN_SAM_COR_FLAG_TAG "cf"
 #define ALIGN_SAM_TARGET_SCORE "ts"
 #define ALIGN_SAM_SCORE_PROFILE "pr"
+#define ALIGN_SAM_SEQ "sq"
+#define ALIGN_SAM_PG_GDF "gd"
 
 #include "cxxopts.hpp"
 #include "sam.h"
+#include "gdef.h"
 
 // Forward decl to prevent main.cpp recompilation for alignment.h changes
 namespace vargas {
@@ -41,6 +44,10 @@ namespace vargas {
  * @param argv command line arguments
  */
 int align_main(int argc, char *argv[]);
+
+void align(vargas::GraphManager &gm,
+           std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
+           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool bare);
 
 /**
  * @brief

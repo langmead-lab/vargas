@@ -390,7 +390,7 @@ namespace vargas {
            * Add a new Program line. If ID is taken, try ID_N, incrementing N until available.
            * @param pg Program
            */
-          void add(const Program &pg) {
+          std::string add(const Program &pg) {
               if (programs.count(pg.id) != 0) {
                   auto pgcpy = pg;
                   int count = 0;
@@ -398,7 +398,11 @@ namespace vargas {
                       pgcpy.id = pg.id + "_" + std::to_string(++count);
                   }
                   programs[pgcpy.id] = pgcpy;
-              } else programs[pg.id] = pg;
+                  return pgcpy.id;
+              } else {
+                  programs[pg.id] = pg;
+              }
+              return pg.id;
           }
 
           /**

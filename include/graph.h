@@ -175,20 +175,20 @@ namespace vargas {
            */
           Node() : _id(_newID++) {}
 
-          Node(size_t pos, const std::string &seq, const Population &pop, bool ref, float af) :
+          Node(unsigned pos, const std::string &seq, const Population &pop, bool ref, float af) :
           _endPos(pos), _seq(rg::seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) {}
 
           /**
            * @return length of the sequence
            */
-          size_t length() const { return _seq.size(); }
+          unsigned length() const { return _seq.size(); }
 
           /**
            * @return position of last base in seq, 0 indexed
            */
-          size_t end_pos() const { return _endPos; }
+          unsigned end_pos() const { return _endPos; }
 
-          size_t begin_pos() const { return _endPos - _seq.size() + 1; }
+          unsigned begin_pos() const { return _endPos - _seq.size() + 1; }
 
           /**
            * @brief
@@ -225,14 +225,14 @@ namespace vargas {
            * Size of the Population of the node. This should be consistant throughout the graph.
            * @return pop_size
            */
-          size_t pop_size() const { return _individuals.size(); }
+          unsigned pop_size() const { return _individuals.size(); }
 
           /**
            * @brief
            * Node id.
            * @return unique node ID
            */
-          size_t id() const { return _id; }
+          unsigned id() const { return _id; }
 
           /**
            * @brief
@@ -260,7 +260,7 @@ namespace vargas {
            * Set the id of the node, should rarely be used as unique ID's are generated.
            * @param id
            */
-          void setID(const size_t id) {
+          void setID(const unsigned id) {
               if (id >= _newID) {
                   this->_id = id;
                   _newID = id + 1;
@@ -272,7 +272,7 @@ namespace vargas {
            * Set the position of the last base in the sequence.
            * @param pos 0-indexed
            */
-          void set_endpos(const size_t pos) { this->_endPos = pos; }
+          void set_endpos(const unsigned pos) { this->_endPos = pos; }
 
           /**
            * @brief
@@ -295,7 +295,7 @@ namespace vargas {
            * @param len number of genotypes
            * @param val true/false for each individual
            */
-          void set_population(size_t len, bool val) { _individuals = Population(len, val); }
+          void set_population(unsigned len, bool val) { _individuals = Population(len, val); }
 
           /**
            * @brief
@@ -350,16 +350,16 @@ namespace vargas {
            */
           bool is_pinched() const { return _pinch; }
 
-          static size_t _newID; /**< ID of the next instance to be created */
+          static unsigned _newID; /**< ID of the next instance to be created */
 
         private:
-          size_t _endPos; // End position of the sequence
+          unsigned _endPos; // End position of the sequence
           std::vector<rg::Base> _seq; // sequence in numeric form
           Population _individuals; // Each bit marks an individual, 1 if they have this node
           bool _ref = false; // Part of the reference sequence if true
           bool _pinch = false; // If this node is removed, the graph will split into two distinct subgraphs
           float _af = 1;
-          size_t _id;
+          unsigned _id;
 
       };
 
@@ -379,7 +379,7 @@ namespace vargas {
            * @param g Graph
            * @param idx Node in the insertion order to begin iterator at.
            */
-          GraphIterator(const Graph &g, const size_t idx = 0) : _graph(g), _currID(idx) {}
+          GraphIterator(const Graph &g, const unsigned idx = 0) : _graph(g), _currID(idx) {}
 
           /**
            * @brief
@@ -429,7 +429,7 @@ namespace vargas {
           /**
            * @return iterator to the next nth Node.
            */
-          GraphIterator operator+(size_t i) const {
+          GraphIterator operator+(unsigned i) const {
               auto ret = *this;
               if (_currID + i < _graph._add_order.size()) ret._currID += i;
               else ret._currID = _graph._add_order.size();
@@ -457,7 +457,7 @@ namespace vargas {
            * All nodes that we've traversed that have incoming edges to the current node.
            * @return vector of previous nodes
            */
-          const std::vector<size_t> &incoming() const {
+          const std::vector<unsigned> &incoming() const {
               try {
                   // Assume the previous edge existing is the common case (DAG w 1 start node)
                   return _graph._prev_map.at(_graph._add_order[_currID]);
@@ -467,7 +467,7 @@ namespace vargas {
           /**
            * @return vector of all outgoing edges
            */
-          const std::vector<size_t> &outgoing() const {
+          const std::vector<unsigned> &outgoing() const {
               try {
                   // Assume the previous edge existing is the common case (DAG w 1 start node)
                   return _graph._next_map.at(_graph._add_order[_currID]);
@@ -483,12 +483,11 @@ namespace vargas {
               return GraphIterator<const T>(_graph, _currID);
           }
 
-
-        private:
+        protected:
 
           const Graph &_graph;
-          size_t _currID;
-          const std::vector<size_t> _empty_vec;
+          unsigned _currID;
+          const std::vector<unsigned> _empty_vec;
 
       };
 
@@ -499,7 +498,7 @@ namespace vargas {
        * @brief
        * Default constructor inits a new Graph, including a new node map.
        */
-      Graph() : _IDMap(std::make_shared<std::unordered_map<size_t, nodeptr>>()) {}
+      Graph() : _IDMap(std::make_shared<std::unordered_map<unsigned, nodeptr>>()) {}
 
       /**
        * @brief
@@ -510,7 +509,7 @@ namespace vargas {
        * @param max_node_len Maximum graph node length
        */
       Graph(const std::string &ref_file, const std::string &vcf_file,
-            const std::string &region, const int max_node_len = 1000000);
+            const std::string &region, const unsigned max_node_len = 100000000);
 
       /**
        * @brief
@@ -546,7 +545,7 @@ namespace vargas {
        * @param n node to add, ID of original node is preserved.
        * @return ID of the inserted node
        */
-      size_t add_node(const Node &n);
+      unsigned add_node(const Node &n);
 
       /**
        * @brief
@@ -555,14 +554,14 @@ namespace vargas {
        * @param n1 Node one ID
        * @param n2 Node two ID
        */
-      bool add_edge(const size_t n1, const size_t n2);
+      bool add_edge(const unsigned n1, const unsigned n2);
 
       /**
        * @brief
        * Sets the root of the Graph.
        * @param id ID of root node
        */
-      void set_root(const size_t id) {
+      void set_root(const unsigned id) {
           _root = id;
       }
 
@@ -578,28 +577,28 @@ namespace vargas {
        * Return root node ID
        * @return root
        */
-      size_t root() const { return _root; }
+      unsigned root() const { return _root; }
 
       /**
        * @brief
        * Maps a ndoe ID to a shared node object
        * @return map of ID, shared_ptr<Node> pairs
        */
-      std::shared_ptr<const std::unordered_map<size_t, nodeptr>> node_map() const { return _IDMap; }
+      std::shared_ptr<const std::unordered_map<unsigned, nodeptr>> node_map() const { return _IDMap; }
 
       /**
        * @brief
        * Maps a node ID to a vector of all next nodes (outgoing edges)
        * @return map of ID, outgoing edge vectors
        */
-      const std::unordered_map<size_t, std::vector<size_t>> &next_map() const { return _next_map; }
+      const std::unordered_map<unsigned, std::vector<unsigned >> &next_map() const { return _next_map; }
 
       /**
        * @brief
        *  Maps a node ID to a vector of all incoming edge nodes
        *  @return map of ID, incoming edges
        */
-      const std::unordered_map<size_t, std::vector<size_t>> &prev_map() const { return _prev_map; }
+      const std::unordered_map<unsigned, std::vector<unsigned >> &prev_map() const { return _prev_map; }
 
       /**
        * @brief
@@ -608,7 +607,7 @@ namespace vargas {
        * @return shared node object
        * @throws std::invalid_argument if node ID does not exist
        */
-      const Node &node(size_t id) const {
+      const Node &node(unsigned id) const {
           if (_IDMap->count(id) == 0) throw std::domain_error("Invalid Node ID.");
           return *(*_IDMap).at(id);
       }
@@ -651,7 +650,7 @@ namespace vargas {
        * Define the graph population size.
        * @param popsize number of genotypes
        */
-      void set_popsize(const size_t popsize) { _pop_size = popsize; }
+      void set_popsize(const unsigned popsize) { _pop_size = popsize; }
 
       /**
        * @brief
@@ -668,7 +667,7 @@ namespace vargas {
       /**
        * @return population size
        */
-      size_t pop_size() const { return _pop_size; }
+      unsigned pop_size() const { return _pop_size; }
 
       /**
        * @brief
@@ -712,19 +711,19 @@ namespace vargas {
        * @param max
        * @return Graph
        */
-      Graph subgraph(const size_t min, const size_t max) const;
+      Graph subgraph(const unsigned min, const unsigned max) const;
 
       /**
        * @brief
        * Set the maximum node length of the graph.
        * @param len max node length
        */
-      void node_len(size_t len) { _max_node_len = len; }
+      void node_len(unsigned len) { _max_node_len = len; }
 
       /**
        * @return max node len
        */
-      size_t max_node_len() const { return _max_node_len; }
+      unsigned max_node_len() const { return _max_node_len; }
 
       /**
        * @brief
@@ -734,16 +733,23 @@ namespace vargas {
        */
       bool validate() const;
 
+      const Region &region() const {
+          return _region;
+      }
+      void set_region(const Region &region) {
+          _region = region;
+      }
+
       /**
        * @brief
        * Statistics about the current graph size.
        */
       struct Stats {
-          size_t num_nodes = 0;
-          size_t num_edges = 0;
-          size_t total_length = 0;
-          size_t num_snps = 0;
-          size_t num_dels = 0;
+          unsigned num_nodes = 0;
+          unsigned num_edges = 0;
+          unsigned total_length = 0;
+          unsigned num_snps = 0;
+          unsigned num_dels = 0;
       };
 
       /**
@@ -765,26 +771,27 @@ namespace vargas {
 
 
     private:
-      size_t _root = 0; // Root of the Graph
+      unsigned _root = 0; // Root of the Graph
       // maps a node ID to a nodeptr. Any derived graphs use the same base node ID map.
-      std::shared_ptr<std::unordered_map<size_t, nodeptr>> _IDMap;
+      std::shared_ptr<std::unordered_map<unsigned, nodeptr>> _IDMap;
       // maps a node ID to the vector of nodes it points to
-      std::unordered_map<size_t, std::vector<size_t>> _next_map;
+      std::unordered_map<unsigned, std::vector<unsigned >> _next_map;
       // maps a node ID to a vector of node ID's that point to it
-      std::unordered_map<size_t, std::vector<size_t>> _prev_map;
-      std::vector<size_t> _add_order; // Order nodes were added
+      std::unordered_map<unsigned, std::vector<unsigned >> _prev_map;
+      std::vector<unsigned> _add_order; // Order nodes were added
       // Description, used by the builder to store construction params
       std::string _desc;
-      size_t _pop_size = 0;
-      size_t _max_node_len;
+      unsigned _pop_size = 0;
+      unsigned _max_node_len;
       Population _filter;
+      Region _region;
 
       /**
        * Given a subset of nodes from Graph g, rebuild all applicable edges in the new graph.
        * @param g underlying parent graph
        * @param includedNodes subset of g's nodes to include
        */
-      void _build_derived_edges(const Graph &g, const std::unordered_map<size_t, nodeptr> &includedNodes);
+      void _build_derived_edges(const Graph &g, const std::unordered_map<unsigned, nodeptr> &includedNodes);
 
   };
 
@@ -856,14 +863,14 @@ namespace vargas {
        * Set maximum node length. If <= 0, length is unbounded.
        * @param max maximum node length.
        */
-      void node_len(size_t max) { _max_node_len = max; }
+      void node_len(unsigned max) { _max_node_len = max; }
 
       /**
        * Open the given file
        * @param file_name
        * @return Number of samples
        */
-      size_t open_vcf(std::string const &file_name);
+      unsigned open_vcf(std::string const &file_name);
 
       /**
        * @brief
@@ -872,14 +879,14 @@ namespace vargas {
        * @param invert Use the samples not specified in filter
        * @return Number of samples in the filter.
        */
-      size_t add_sample_filter(std::string filter, bool invert = false);
+      unsigned add_sample_filter(std::string filter, bool invert = false);
 
       /**
        * Open the given file
        * @param file_name
        * @return Number of samples
        */
-      size_t open_bcf(std::string const &file_name) {
+      unsigned open_bcf(std::string const &file_name) {
           return open_vcf(file_name);
       }
 
@@ -912,10 +919,8 @@ namespace vargas {
        * @param chain if a single linear node is split, map the beginning of the sequence to the end.
        */
       __RG_STRONG_INLINE__
-      void _build_edges(Graph &g,
-                        std::unordered_set<size_t> &prev,
-                        std::unordered_set<size_t> &curr,
-                        std::unordered_map<size_t, size_t> *chain = nullptr);
+      void _build_edges(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr,
+                        std::unordered_map<unsigned, unsigned> *chain = nullptr);
 
       /**
        * @brief
@@ -928,11 +933,8 @@ namespace vargas {
        * @return ending position
        */
       __RG_STRONG_INLINE__
-      int _build_linear_ref(Graph &g,
-                            std::unordered_set<size_t> &prev,
-                            std::unordered_set<size_t> &curr,
-                            size_t pos,
-                            size_t target);
+      int _build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr,
+                            unsigned pos, unsigned target);
 
       /**
        * @brief
@@ -947,10 +949,9 @@ namespace vargas {
       std::string _fa_file;
       std::unique_ptr<VariantFile> _vf;
       ifasta _fa;
-      Graph g;
 
       // Graph construction parameters
-      size_t _max_node_len = 10000000; // If a node is longer, split into multiple nodes
+      unsigned _max_node_len = 10000000; // If a node is longer, split into multiple nodes
   };
 
   /**

@@ -58,7 +58,7 @@ namespace vargas {
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
-      virtual void set_scores(uint8_t, uint8_t, uint8_t, uint8_t) = 0;
+      virtual void set_scores(unsigned, unsigned, unsigned, unsigned) = 0;
 
       /**
        * @brief
@@ -73,12 +73,12 @@ namespace vargas {
        * Impacts the corflag.
        * @param tol
        */
-      virtual void set_correctness_tolerance(const size_t) = 0;
+      virtual void set_correctness_tolerance(const unsigned) = 0;
 
       /**
        * @return Current correctness tolerance
        */
-      virtual size_t tolerance() const = 0;
+      virtual unsigned tolerance() const = 0;
 
       /**
        * @brief
@@ -90,7 +90,7 @@ namespace vargas {
        * @param end iterator to end of graph
        * @param aligns Results packet to populate
        */
-      virtual void align_into(const std::vector<std::string> &, const std::vector<size_t> &,
+      virtual void align_into(const std::vector<std::string> &, const std::vector<unsigned> &,
                               Graph::const_iterator, Graph::const_iterator, Results &) = 0;
 
       /**
@@ -103,7 +103,7 @@ namespace vargas {
        * @param end iterator to end of graph
        * @return Results packet
        */
-      virtual Results align(const std::vector<std::string> &read_group, const std::vector<size_t> &targets,
+      virtual Results align(const std::vector<std::string> &read_group, const std::vector<unsigned> &targets,
                             Graph::const_iterator begin, Graph::const_iterator end) {
           Results aligns;
           align_into(read_group, targets, begin, end, aligns);
@@ -121,12 +121,12 @@ namespace vargas {
        */
       virtual Results align(const std::vector<std::string> &read_group,
                             Graph::const_iterator begin, Graph::const_iterator end) {
-          std::vector<size_t> targets(read_group.size());
+          std::vector<unsigned> targets(read_group.size());
           std::fill(targets.begin(), targets.end(), 0);
           return align(read_group, targets, begin, end);
       }
 
-      static constexpr size_t default_tolerance() { return DEFAULT_TOL_FACTOR; }
+      static constexpr unsigned default_tolerance() { return DEFAULT_TOL_FACTOR; }
 
     protected:
       ScoreProfile _prof;
@@ -170,16 +170,16 @@ namespace vargas {
    * @tparam native_t Native data type of score matrix element. One of uint8_t, uint16_t, uint32_t
    * @tparam END_TO_END If true, perform end to end alignment
    */
-  template<typename native_t, size_t N, bool END_TO_END = false, bool AUX = true>
+  template<typename simd_t, bool END_TO_END, bool AUX>
   class AlignerT: public AlignerBase {
     public:
 
-      using simd_t = SIMD<native_t, N>; // TODO dynamic size
+      using native_t = typename simd_t::native_t;
 
-      AlignerT(size_t read_len, const ScoreProfile &prof) :
-      _read_len(read_len),
+      AlignerT(unsigned read_len, const ScoreProfile &prof) :
       _alignment_group(read_len),
-      _S(read_len + 1), _Dc(read_len + 1), _Ic(read_len + 1) {
+      _S(read_len + 1), _Dc(read_len + 1), _Ic(read_len + 1),
+      _read_len(read_len) {
           set_scores(prof); // May throw
           set_correctness_tolerance(read_len / DEFAULT_TOL_FACTOR);
       }
@@ -193,15 +193,22 @@ namespace vargas {
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
-      AlignerT(const size_t read_len,
-               const uint8_t match = 2, const uint8_t mismatch = 2, const uint8_t open = 3, const uint8_t extend = 1) :
+      AlignerT(unsigned read_len,
+               unsigned match = 2, unsigned mismatch = 2, unsigned open = 3, unsigned extend = 1) :
       AlignerT(read_len, ScoreProfile(match, mismatch, open, extend)) {}
 
 
-      AlignerT(const AlignerT<native_t, N, END_TO_END> &a) = delete;
-      AlignerT(AlignerT<native_t, N, END_TO_END> &&a) = delete;
-      AlignerT &operator=(const AlignerT<native_t, N> &) = delete;
-      AlignerT &operator=(AlignerT<native_t, N> &&) = delete;
+      template<typename S, bool E, bool A>
+      AlignerT(const AlignerT<S, E, A> &a) = delete;
+
+      template<typename S, bool E, bool A>
+      AlignerT(AlignerT<S, E, A> &&a) = delete;
+
+      template<typename S, bool E, bool A>
+      AlignerT &operator=(const AlignerT<S, E, A> &) = delete;
+
+      template<typename S, bool E, bool A>
+      AlignerT &operator=(AlignerT<S, E, A> &&) = delete;
 
       /**
        * @brief
@@ -214,10 +221,10 @@ namespace vargas {
       class AlignmentGroup {
         public:
 
-          AlignmentGroup(size_t read_len) : _read_len(read_len), _packaged_reads(read_len) {}
+          AlignmentGroup(unsigned read_len) : _packaged_reads(read_len), _read_len(read_len) {}
 
           __RG_STRONG_INLINE__
-          void load_reads(const std::vector<std::string> &reads, const size_t begin, const size_t end) {
+          void load_reads(const std::vector<std::string> &reads, const unsigned begin, const unsigned end) {
               load_reads(std::vector<std::string>(reads.begin() + begin, reads.begin() + end));
           }
 
@@ -243,7 +250,7 @@ namespace vargas {
            * Return the i'th base of every read in a simd vector.
            * @param i base index.
            */
-          const simd_t &at(const size_t i) const {
+          const simd_t &at(const unsigned i) const {
               return _packaged_reads.at(i);
           }
 
@@ -270,7 +277,7 @@ namespace vargas {
            * Returns optimal number of reads in a batch based on SIMD architecture.
            * @return batch size.
            */
-          static constexpr size_t group_size() { return simd_t::length; }
+          static constexpr unsigned group_size() { return simd_t::length; }
 
           /**
            * @return iterator to the beginning of the packaged reads.
@@ -288,7 +295,6 @@ namespace vargas {
 
         private:
 
-          const size_t _read_len;
 
           /**
            * _packaged_reads[i] contains all i'th bases.
@@ -297,6 +303,7 @@ namespace vargas {
            * of reads.
            */
           SIMDVector<simd_t> _packaged_reads;
+          const unsigned _read_len;
 
           /**
            * Interleaves reads so all same-index base positions are in one
@@ -308,25 +315,25 @@ namespace vargas {
               assert(_reads.size() <= group_size());
               // Interleave reads
               // For each read (read[i] is in _packaged_reads[0..n][i]
-              for (size_t r = 0; r < _reads.size(); ++r) {
+              for (unsigned r = 0; r < _reads.size(); ++r) {
                   assert(_reads[r].size() == _read_len);
                   // Put each base in the appropriate vector element
-                  for (size_t p = 0; p < _read_len; ++p) {
-                      _packaged_reads[p].insert(r, _reads[r][p]);
+                  for (unsigned p = 0; p < _read_len; ++p) {
+                      _packaged_reads[p][r] = _reads[r][p];
                   }
               }
 
               // Pad underful batches
-              for (size_t r = _reads.size(); r < group_size(); ++r) {
-                  for (size_t p = 0; p < _read_len; ++p) {
-                      _packaged_reads[p].insert(r, rg::Base::N);
+              for (unsigned r = _reads.size(); r < group_size(); ++r) {
+                  for (unsigned p = 0; p < _read_len; ++p) {
+                      _packaged_reads[p][r] = rg::Base::N;
                   }
               }
           }
 
       };
 
-      void set_scores(uint8_t match, uint8_t mismatch, uint8_t open, uint8_t extend) override {
+      void set_scores(unsigned match, unsigned mismatch, unsigned open, unsigned extend) override {
           _prof = ScoreProfile(match, mismatch, open, extend);
           set_scores(_prof);
       }
@@ -346,25 +353,25 @@ namespace vargas {
           set_correctness_tolerance(prof.tol);
       }
 
-      void set_correctness_tolerance(const size_t tol) override {
+      void set_correctness_tolerance(const unsigned tol) override {
           _prof.tol = tol;
       }
 
-      size_t tolerance() const override {
+      unsigned tolerance() const override {
           return _prof.tol;
       }
 
       /**
        * @return maximum number of reads that can be aligned at once.
        */
-      static constexpr size_t read_capacity() { return simd_t::length; }
+      static constexpr unsigned read_capacity() { return simd_t::length; }
 
-      void align_into(const std::vector<std::string> &read_group, const std::vector<size_t> &targets,
+      void align_into(const std::vector<std::string> &read_group, const std::vector<unsigned> &targets,
                       Graph::const_iterator begin, Graph::const_iterator end, Results &aligns) override {
 
           assert(targets.size() == read_group.size());
 
-          const size_t num_groups = 1 + ((read_group.size() - 1) / read_capacity());
+          const unsigned num_groups = 1 + ((read_group.size() - 1) / read_capacity());
           // Possible oversize if there is a partial group
           aligns.resize(num_groups * read_capacity());
 
@@ -373,23 +380,23 @@ namespace vargas {
               _targets_upper.resize(num_groups * read_capacity());
 
               std::transform(targets.begin(), targets.end(), _targets_lower.begin(),
-                             [this](size_t x) { return x - _prof.tol; });
+                             [this](unsigned x) { return x - _prof.tol; });
               std::transform(targets.begin(), targets.end(), _targets_upper.begin(),
-                             [this](size_t x) { return x + _prof.tol; });
+                             [this](unsigned x) { return x + _prof.tol; });
               std::fill(aligns.correct.begin(), aligns.correct.end(), 0);
           }
 
           // Keep the scores at the positions, overwrites position. [0] is current position, 1-:ead_capacity + 1 is pos
-          std::unordered_map<size_t, _seed> seed_map; // Maps node ID's to the ending matrix columns of the node
+          std::unordered_map<unsigned, _seed> seed_map; // Maps node ID's to the ending matrix columns of the node
           _seed seed(_read_len);
 
-          for (size_t group = 0; group < num_groups; ++group) {
+          for (unsigned group = 0; group < num_groups; ++group) {
               seed_map.clear();
 
               // Subset of read set
-              const size_t beg_offset = group * read_capacity();
-              const size_t end_offset = std::min((group + 1) * read_capacity(), read_group.size());
-              const size_t len = end_offset - beg_offset;
+              const unsigned beg_offset = group * read_capacity();
+              const unsigned end_offset = std::min<unsigned>((group + 1) * read_capacity(), read_group.size());
+              const unsigned len = end_offset - beg_offset;
               assert(len <= read_capacity());
 
               _alignment_group.load_reads(read_group, beg_offset, end_offset);
@@ -406,37 +413,40 @@ namespace vargas {
                   _targets_upper_ptr = _targets_upper.data() + beg_offset;
 
                   // Create subrange of targets, and sort by position.
-                  for (uint8_t j = 0; j < len; ++j) {
-                      _target_subrange[j].idx = j;
-                      _target_subrange[j].pos = targets[beg_offset + j];
-                      _target_subrange[j].score = std::numeric_limits<int>::min();
+                  for (unsigned j = 0; j < len; ++j) {
+                      _target_subrange.idx[j] = j;
+                      _target_subrange.pos[j] = targets[beg_offset + j];
+                      _target_subrange.score[j] = std::numeric_limits<int>::min();
                   }
                   // pad with extra
-                  for (size_t j = len; j < read_capacity() + 1; ++j) {
-                      _target_subrange[j].pos = std::numeric_limits<int>::max();
+                  for (unsigned j = len; j < read_capacity() + 1; ++j) {
+                      _target_subrange.pos[j] = std::numeric_limits<int>::max();
                   }
-                  std::sort(_target_subrange.begin(), _target_subrange.end(),
-                            [](const _target &p, const _target &q) {
-                                return p.pos < q.pos;
-                            });
+
+                  // Sort ascending position
+                  for (unsigned c = 0; c < len - 1; ++c) {
+                      for (unsigned d = 0; d < len - c - 1; ++d) {
+                          if (_target_subrange.pos[d] > _target_subrange.pos[d + 1]) {
+                              std::swap(_target_subrange.pos[d], _target_subrange.pos[d + 1]);
+                              std::swap(_target_subrange.idx[d], _target_subrange.idx[d + 1]);
+                              // Scores are all min()
+                          }
+                      }
+                  }
               }
 
-              // seed matrix and first node
-              _seed_matrix(seed);
-              _fill_node(*begin, _alignment_group, seed, seed_map.emplace(begin->id(), _read_len).first->second);
-              for (auto gi = begin + 1; gi != end; ++gi) {
+              for (auto gi = begin; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, seed);
                   if (gi->is_pinched()) seed_map.clear();
                   _fill_node(*gi, _alignment_group, seed, seed_map.emplace(gi->id(), _read_len).first->second);
               }
 
               // Copy scores
-              for (uint8_t i = 0; i < len; ++i) {
-                  aligns.max_score[beg_offset + i] = int(_max_score.at(i)) - _bias;
+              for (unsigned char i = 0; i < len; ++i) {
+                  aligns.max_score[beg_offset + i] = int(_max_score[i]) - _bias;
                   if (AUX) {
-                      aligns.sub_score[beg_offset + i] = int(_sub_score.at(i)) - _bias;
-                      aligns.target_score[beg_offset + _target_subrange[i].idx] =
-                      int(_target_subrange[i].score) - _bias;
+                      aligns.sub_score[beg_offset + i] = int(_sub_score[i]) - _bias;
+                      aligns.target_score[beg_offset + _target_subrange.idx[i]] = _target_subrange.score[i] - _bias;
                   }
 
               }
@@ -456,21 +466,21 @@ namespace vargas {
        */
       struct _seed {
           _seed() = delete;
-          _seed(const size_t _read_len) : S_col(_read_len + 1), I_col(_read_len + 1) {}
+          _seed(const unsigned _read_len) : S_col(_read_len + 1), I_col(_read_len + 1) {}
           SIMDVector<simd_t> S_col; /**< Last column of score matrix.*/
           SIMDVector<simd_t> I_col;
       };
 
       struct _target {
-          int idx;
-          int score;
-          size_t pos;
+          unsigned char idx[simd_t::length + 1];
+          int score[simd_t::length + 1];
+          unsigned pos[simd_t::length + 1];
       };
 
-      void _seed_matrix(_seed &seed) {
+      void _seed_matrix(_seed &seed) const {
           std::fill(seed.S_col.begin(), seed.S_col.end(), _bias);
           if (END_TO_END) {
-              for (size_t i = 0; i < _read_len; ++i) {
+              for (unsigned i = 0; i < _read_len; ++i) {
                   seed.S_col[i + 1] = seed.S_col[i + 1] - _prof.read_gopen - (i * _prof.read_gext);
               }
           }
@@ -488,22 +498,24 @@ namespace vargas {
        * i.e. not topographically sorted.
        */
       __RG_STRONG_INLINE__
-      void _get_seed(const std::vector<size_t> &prev_ids,
-                     std::unordered_map<size_t, _seed> &seed_map, _seed &seed) const {
-          try {
-              for (size_t i = 1; i < _read_len + 1; ++i) {
-                  seed.S_col[i] = _bias;
-                  seed.I_col[i] = _bias;
-                  for (size_t id : prev_ids) {
-                      const auto &s = seed_map.at(id);
-                      seed.S_col[i] = max(seed.S_col[i], s.S_col[i]);
-                      seed.I_col[i] = max(seed.I_col[i], s.I_col[i]);
-                  }
+      void _get_seed(const std::vector<unsigned> &prev_ids,
+                     std::unordered_map<unsigned, _seed> &seed_map, _seed &seed) const {
+
+          if (prev_ids.size() == 0) {
+              _seed_matrix(seed);
+              return;
+          }
+
+          for (unsigned i = 1; i < _read_len + 1; ++i) {
+              seed.S_col[i] = _bias;
+              seed.I_col[i] = _bias;
+              for (unsigned id : prev_ids) {
+                  const auto &s = seed_map.at(id);
+                  seed.S_col[i] = max(seed.S_col[i], s.S_col[i]);
+                  seed.I_col[i] = max(seed.I_col[i], s.I_col[i]);
               }
           }
-          catch (std::exception &e) {
-              throw std::domain_error("Invalid node ordering.");
-          }
+
       }
 
       /**
@@ -529,29 +541,28 @@ namespace vargas {
 
           const size_t seq_size = n.seq().size();
 
-          size_t curr_pos = n.end_pos() - seq_size + 2;
+          unsigned int curr_pos = n.end_pos() - seq_size + 2;
 
           int csp = 0;
-          if (AUX) while (_target_subrange[csp].pos < curr_pos) ++csp;
+          if (AUX) while (_target_subrange.pos[csp] < curr_pos) ++csp;
 
-          size_t r, c;
           _S = s.S_col;
           _Ic = s.I_col;
 
 
           // Rest of cols
-          for (c = 0; c < seq_size; ++c) {
+          for (unsigned int c = 0; c < seq_size; ++c) {
               _Sd = _bias;
-              for (r = 0; r < _read_len; ++r) {
+              for (unsigned int r = 0; r < _read_len; ++r) {
                   _fill_cell(read_ptr[r], node_seq[c], r + 1, curr_pos);
               }
               if (END_TO_END) _fill_cell_finish(_read_len, curr_pos);
 
               if (AUX) {
-                  while (_target_subrange[csp].pos == curr_pos) {
-                      for (size_t q = END_TO_END ? _read_len : 1; q < _read_len + 1; ++q) {
-                          _target_subrange[csp].score = std::max<int>(_target_subrange[csp].score,
-                                                                      _S[q].at(_target_subrange[csp].idx));
+                  while (_target_subrange.pos[csp] == curr_pos) {
+                      for (unsigned q = END_TO_END ? _read_len : 1; q < _read_len + 1; ++q) {
+                          _target_subrange.score[csp] = std::max<int>(_target_subrange.score[csp],
+                                                                      _S[q][_target_subrange.idx[csp]]);
                       }
                       ++csp;
                   }
@@ -564,7 +575,6 @@ namespace vargas {
 
       }
 
-
       /**
        * @brief
        * Fills the _curr_posent cell.
@@ -574,15 +584,13 @@ namespace vargas {
        * @param col _curr_posent column in matrix
        */
       __RG_STRONG_INLINE__
-      void _fill_cell(const simd_t &read, const rg::Base &ref, const size_t &row,
-                      const size_t &curr_pos) {
+      void _fill_cell(const simd_t &read, const rg::Base &ref, const unsigned &row, const unsigned &curr_pos) {
           _Dc[row] = max(_Dc[row - 1] - _gap_extend_vec_ref, _S[row - 1] - _gap_open_extend_vec_ref);
           _Ic[row] = max(_Ic[row] - _gap_extend_vec_rd, _S[row] - _gap_open_extend_vec_rd);
           simd_t sr;
           if (ref != rg::Base::N) {
-              sr = _Sd + blend(read == rg::Base::N,
-                               _ambig_vec,
-                               blend(read == ref, _match_vec, _mismatch_vec));
+              sr = blend(read == _base_vec[ref], _match_vec, _mismatch_vec);
+              sr = _Sd + blend(read == _base_vec[rg::Base::N], _ambig_vec, sr);
           } else {
               sr = _Sd + _ambig_vec;
           }
@@ -591,8 +599,6 @@ namespace vargas {
           _S[row] = max(_Ic[row], max(_Dc[row], sr));
           if (!END_TO_END) _fill_cell_finish(row, curr_pos);
       }
-
-
 
       /**
        * @brief
@@ -603,13 +609,13 @@ namespace vargas {
        * @param node_origin Current position, used to get absolute alignment position
        */
       __RG_STRONG_INLINE__ __RG_UNROLL__
-      void _fill_cell_finish(const size_t &row, const size_t &curr_pos) {
+      void _fill_cell_finish(const unsigned &row, const unsigned &curr_pos) {
           if (AUX) {
               _tmp0 = _S[row] == _max_score;
-              if (_tmp0.any()) {
+              if (_tmp0) {
                   // Check for equal max score.
-                  for (size_t i = 0; i < read_capacity(); ++i) {
-                      if (_tmp0.at(i)) {
+                  for (unsigned i = 0; i < read_capacity(); ++i) {
+                      if (_tmp0[i]) {
                           if (curr_pos > _max_pos[i] + _read_len) ++(_max_count[i]);
                           _max_pos[i] = curr_pos;
                           if (curr_pos >= _targets_lower_ptr[i] && curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 1;
@@ -619,24 +625,25 @@ namespace vargas {
           }
 
           _tmp0 = _S[row] > _max_score;
-          if (_tmp0.any()) {
+          if (_tmp0) {
               // Check for new or equal high scores
               _max_score = max(_S[row], _max_score);
-              for (size_t i = 0; i < read_capacity(); ++i) {
-                  if (_tmp0.at(i)) {
+              for (unsigned i = 0; i < read_capacity(); ++i) {
+                  if (_tmp0[i]) {
                       // Demote old max to submax
-                      if (AUX && curr_pos > _max_pos[i] + _read_len) {
-                          _sub_score.insert(i, _max_score.at(i));
-                          _sub_pos[i] = _max_pos[i];
-                          _sub_count[i] = _max_count[i];
-                          if (_cor_flag[i] == 1) _cor_flag[i] = 2;
-                          else _cor_flag[i] = 0;
+                      if (AUX) {
+                          if (curr_pos > _max_pos[i] + _read_len) {
+                              _sub_score[i] = _max_score[i];
+                              _sub_pos[i] = _max_pos[i];
+                              _sub_count[i] = _max_count[i];
+                              if (_cor_flag[i] == 1) _cor_flag[i] = 2;
+                              else _cor_flag[i] = 0;
+                          }
+                          if (curr_pos >= _targets_lower_ptr[i] && curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 1;
+                          else if (_cor_flag[i] == 1) _cor_flag[i] = 0;
+                          _max_count[i] = 1;
                       }
-                      if (AUX) _max_count[i] = 1;
                       _max_pos[i] = curr_pos;
-                      if (AUX && curr_pos >= _targets_lower_ptr[i] && curr_pos <= _targets_upper_ptr[i])
-                          _cor_flag[i] = 1;
-                      else if (AUX && _cor_flag[i] == 1) _cor_flag[i] = 0;
                   }
               }
           }
@@ -644,10 +651,10 @@ namespace vargas {
           if (AUX) {
 
               _tmp0 = _S[row] == _sub_score;
-              if (_tmp0.any()) {
+              if (_tmp0) {
                   // Repeat sub score
-                  for (size_t i = 0; i < read_capacity(); ++i) {
-                      if (_tmp0.at(i) && curr_pos > _max_pos[i] + _read_len) {
+                  for (unsigned i = 0; i < read_capacity(); ++i) {
+                      if (_tmp0[i] && curr_pos > _max_pos[i] + _read_len) {
                           _sub_count[i] += curr_pos > (_sub_pos[i] + _read_len);
                           _sub_pos[i] = curr_pos;
                           if (curr_pos >= _targets_lower_ptr[i] && curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 2;
@@ -657,11 +664,11 @@ namespace vargas {
 
               // Greater than old sub max and less than max score (prevent repeats of max triggering)
               _tmp0 = (_S[row] > _sub_score) & (_S[row] < _max_score);
-              if (_tmp0.any()) {
+              if (_tmp0) {
                   // new second best score
-                  for (size_t i = 0; i < read_capacity(); ++i) {
-                      if (_tmp0.at(i) && curr_pos > _max_pos[i] + _read_len) {
-                          _sub_score.insert(i, _S[row].at(i));
+                  for (unsigned i = 0; i < read_capacity(); ++i) {
+                      if (_tmp0[i] && curr_pos > _max_pos[i] + _read_len) {
+                          _sub_score[i] = _S[row][i];
                           _sub_count[i] = 1;
                           _sub_pos[i] = curr_pos;
                           if (curr_pos >= _targets_lower_ptr[i] && curr_pos <= _targets_upper_ptr[i]) _cor_flag[i] = 2;
@@ -669,14 +676,15 @@ namespace vargas {
                       }
                   }
               }
+
           }
 
       }
 
       /**
- * @brief
- * Map each base to a vector of bases. Prevents repeated splat()
- */
+       * @brief
+       * Map each base to a vector of bases. Prevents repeated splat()
+       */
       static const std::array<simd_t, 5> _make_base_vec() {
           using rg::Base;
           static_assert(Base::A < 5 && Base::C < 5 && Base::G < 5 && Base::T < 5 && Base::N < 5, "Base enum error.");
@@ -689,9 +697,8 @@ namespace vargas {
           return v;
       }
 
-
-      static native_t _get_bias(const size_t read_len, const uint8_t match, const uint8_t mismatch,
-                                const uint8_t gopen, const uint8_t gext) {
+      static native_t _get_bias(const unsigned read_len, const unsigned match, const unsigned mismatch,
+                                const unsigned gopen, const unsigned gext) {
           static bool has_warned = false;
           if (read_len * match > std::numeric_limits<native_t>::max() - std::numeric_limits<native_t>::min()) {
               throw std::domain_error("Insufficient bit-width for given match score and read length.");
@@ -704,8 +711,9 @@ namespace vargas {
           //TODO Could be relaxed - all indels or all mismatch is unreasonable
           if (!has_warned && (gopen + (gext * (read_len - 1)) > b || read_len * mismatch > b)) {
               std::cerr << "WARN: Possibility of score saturation with parameters in end-to-end mode:\n\t"
-                        << "Cell Width: " << (int) std::numeric_limits<native_t>::max() << ", "
-                        << "Bias: " << b << "\n";
+                        << "Cell Width: "
+                        << (int) std::numeric_limits<native_t>::max() - (int) std::numeric_limits<native_t>::min()
+                        << ", Bias: " << b << "\n";
               has_warned = true;
           }
           return b;
@@ -714,9 +722,10 @@ namespace vargas {
 
       /*********************************** Variables ***********************************/
 
-      const size_t _read_len; /**< Maximum read length. */
-      native_t _bias;
-
+      AlignmentGroup _alignment_group;
+      SIMDVector<simd_t> _S, _Dc, _Ic;
+      std::vector<unsigned> _targets_lower, _targets_upper;
+      _target _target_subrange; // Pad with one max so serve as buffer
       const std::array<simd_t, 5> _base_vec = _make_base_vec();
 
       simd_t
@@ -727,33 +736,24 @@ namespace vargas {
       _tmp0,
       _max_score, _sub_score;
 
-      AlignmentGroup _alignment_group;
+      unsigned *_max_pos, *_sub_pos, *_targets_lower_ptr, *_targets_upper_ptr;
+      int *_max_count, *_sub_count;
+      unsigned char *_cor_flag;
 
-      SIMDVector<simd_t> _S, _Dc, _Ic;
-
-      // alignment info
-      size_t *_max_pos;
-      size_t *_sub_pos;
-      int *_max_count;
-      int *_sub_count;
-
-      uint8_t *_cor_flag;
-      std::vector<size_t> _targets_lower, _targets_upper;
-      size_t *_targets_lower_ptr, *_targets_upper_ptr;
-      std::array<_target, simd_t::length + 1> _target_subrange; // Pad with one max so serve as buffer
-
+      native_t _bias;
+      const unsigned int _read_len;
 
   };
 
-  using Aligner = AlignerT<int8_t, VA_MAX_INT8, false>;
-  using WordAligner = AlignerT<int16_t, VA_MAX_INT16, false>;
-  using AlignerETE = AlignerT<int8_t, VA_MAX_INT8, true>;
-  using WordAlignerETE = AlignerT<int16_t, VA_MAX_INT16, true>;
+  using Aligner = AlignerT<int8_fast, false, true>;
+  using WordAligner = AlignerT<int16_fast, false, true>;
+  using AlignerETE = AlignerT<int8_fast, true, true>;
+  using WordAlignerETE = AlignerT<int16_fast, true, true>;
   // Only report high score and pos
-  using BareAligner = AlignerT<int8_t, VA_MAX_INT8, false, false>;
-  using BareAlignerETE = AlignerT<int8_t, VA_MAX_INT8, true, false>;
-  using BareWordAligner = AlignerT<int16_t, VA_MAX_INT16, false, false>;
-  using BareWordAlignerETE = AlignerT<int16_t, VA_MAX_INT16, true, false>;
+  using BareAligner = AlignerT<int8_fast, false, false>;
+  using BareAlignerETE = AlignerT<int8_fast, true, false>;
+  using BareWordAligner = AlignerT<int16_fast, false, false>;
+  using BareWordAlignerETE = AlignerT<int16_fast, true, false>;
 
 }
 
@@ -831,7 +831,7 @@ TEST_CASE ("Alignment") {
         reads.push_back("NNNNNGG");
         reads.push_back("AAATTTA");
         reads.push_back("AAAGCCC");
-        const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 6};
+        const std::vector<unsigned> origins = {8, 8, 5, 5, 7, 6, 10, 6};
 
         vargas::Results aligns;
         {
@@ -892,7 +892,7 @@ TEST_CASE ("Alignment") {
         reads.push_back("NNNAAAGCCC");
         reads.push_back("AAAGAGTTTA");
         reads.push_back("AAAGAATTTA");
-        const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 4, 10, 10};
+        const std::vector<unsigned> origins = {8, 8, 5, 5, 7, 6, 10, 4, 10, 10};
 
         // hisat like params
         vargas::Aligner a(10, 2, 6, 5, 3);
@@ -980,7 +980,7 @@ TEST_CASE ("Alignment") {
         reads.push_back("NNNNNGG");
         reads.push_back("AAATTTA");
         reads.push_back("AAAGCCC");
-        const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 6};
+        const std::vector<unsigned> origins = {8, 8, 5, 5, 7, 6, 10, 6};
 
         vargas::WordAligner a(7);
         vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
@@ -1038,7 +1038,7 @@ TEST_CASE ("Alignment") {
         reads.push_back("NNNAAAGCCC");
         reads.push_back("AAAGAGTTTA");
         reads.push_back("AAAGAATTTA");
-        const std::vector<size_t> origins = {8, 8, 5, 5, 7, 6, 10, 4, 10, 10};
+        const std::vector<unsigned> origins = {8, 8, 5, 5, 7, 6, 10, 4, 10, 10};
 
         // hisat like params
         vargas::WordAligner a(10, 2, 6, 5, 3);
@@ -1263,7 +1263,7 @@ TEST_CASE ("Target score") {
     g.add_node(n);
 
     const std::vector<std::string> reads = {"AAAA"};
-    const std::vector<size_t> targets = {19};
+    const std::vector<unsigned> targets = {19};
     vargas::Aligner aligner(4);
     auto res = aligner.align(reads, targets, g.begin(), g.end());
     REQUIRE(res.size() == 1);

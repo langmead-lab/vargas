@@ -15,7 +15,7 @@
 #include "graph.h"
 
 
-size_t vargas::Graph::Node::_newID = 0;
+unsigned vargas::Graph::Node::_newID = 0;
 
 std::string vargas::Graph::GID::to_string() const {
     std::ostringstream ss;
@@ -38,11 +38,9 @@ vargas::Graph::GID::GID(std::string s) {
 
 }
 
-vargas::Graph::Graph(const std::string &ref_file,
-                     const std::string &vcf_file,
-                     const std::string &region,
-                     const int max_node_len) {
-    _IDMap = std::make_shared<std::unordered_map<size_t, nodeptr>>();
+vargas::Graph::Graph(const std::string &ref_file, const std::string &vcf_file,
+                     const std::string &region, const unsigned max_node_len) {
+    _IDMap = std::make_shared<std::unordered_map<unsigned, nodeptr>>();
     GraphFactory gb(ref_file);
     gb.open_vcf(vcf_file);
     gb.set_region(region);
@@ -56,9 +54,10 @@ vargas::Graph::Graph(const vargas::Graph &g,
     _IDMap = g._IDMap;
     _pop_size = g.pop_size();
     _filter = filter;
+    _region = g._region;
 
     // Add all nodes
-    std::unordered_map<size_t, nodeptr> includedNodes;
+    std::unordered_map<unsigned, nodeptr> includedNodes;
     for (auto &nid : g._add_order) {
         auto &n = (*_IDMap)[nid];
         if (n->belongs(filter)) {
@@ -80,7 +79,9 @@ vargas::Graph::Graph(const Graph &g, Type type) {
     _IDMap = g._IDMap;
     _pop_size = g.pop_size();
     _filter = Population(_pop_size, true);
-    std::unordered_map<size_t, nodeptr> includedNodes;
+    _region = g._region;
+
+    std::unordered_map<unsigned, nodeptr> includedNodes;
 
     if (type == Type::REF) {
         for (auto &nid : g._add_order) {
@@ -92,16 +93,16 @@ vargas::Graph::Graph(const Graph &g, Type type) {
         }
         _desc = g.desc() + "\n#filter: REF";
     } else if (type == Type::MAXAF) {
-        size_t curr = g.root();
-        size_t maxid, size;
+        unsigned curr = g.root();
+        unsigned maxid, size;
         while (true) {
             includedNodes[curr] = (*g._IDMap).at(curr);
             _add_order.push_back(curr);
             if (g._next_map.count(curr) == 0) break; // end of graph
             maxid = g._next_map.at(curr).at(0);
             size = g._next_map.at(curr).size();
-            for (size_t i = 1; i < size; ++i) {
-                const size_t &id = g._next_map.at(curr).at(i);
+            for (unsigned i = 1; i < size; ++i) {
+                const unsigned &id = g._next_map.at(curr).at(i);
                 if ((*g._IDMap).at(id)->freq() > (*g._IDMap).at(maxid)->freq())
                     maxid = id;
             }
@@ -117,7 +118,7 @@ vargas::Graph::Graph(const Graph &g, Type type) {
 
 
 void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
-                                         const std::unordered_map<size_t, nodeptr> &includedNodes) {
+                                         const std::unordered_map<unsigned, nodeptr> &includedNodes) {
     // Add all edges for included nodes
     for (auto &n : includedNodes) {
         if (g._next_map.count(n.second->id()) == 0) continue;
@@ -136,7 +137,7 @@ void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
 }
 
 
-size_t vargas::Graph::add_node(const Node &n) {
+unsigned vargas::Graph::add_node(const Node &n) {
     if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
     if (_IDMap->size() == 0) _root = n.id(); // first node added is default root
 
@@ -146,17 +147,17 @@ size_t vargas::Graph::add_node(const Node &n) {
 }
 
 
-bool vargas::Graph::add_edge(const size_t n1,
-                             const size_t n2) {
+bool vargas::Graph::add_edge(const unsigned n1,
+                             const unsigned n2) {
     // Check if the nodes exist
     if (_IDMap->count(n1) == 0 || _IDMap->count(n2) == 0) return false;
 
     // init if first edge to be added
     if (_next_map.count(n1) == 0) {
-        _next_map[n1] = std::vector<size_t>();
+        _next_map[n1] = std::vector<unsigned>();
     }
     if (_prev_map.count(n2) == 0) {
-        _prev_map[n2] = std::vector<size_t>();
+        _prev_map[n2] = std::vector<unsigned>();
     }
     _next_map[n1].push_back(n2);
     _prev_map[n2].push_back(n1);
@@ -194,14 +195,15 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
     if (!_fa.good()) throw std::invalid_argument("Invalid FASTA file: " + _fa_file);
 
     // If no region is specified, the default is the first sequence in the FASTA file
-    if (vf.region_chr().length() == 0) {
+    if (vf.region().seq_name.length() == 0) {
         vf.set_region(_fa.sequence_names()[0] + ":0-0");
     }
+    g.set_region(vf.region());
 
-    int curr = vf.region_lower(); // The Graph has been built up to this position, exclusive
-    std::unordered_set<size_t> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
-    std::unordered_set<size_t> curr_unconnected; // ID's of nodes added that are unconnected
-    std::unordered_map<size_t, size_t> chain;
+    int curr = vf.region().min; // The Graph has been built up to this position, exclusive
+    std::unordered_set<unsigned> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
+    std::unordered_set<unsigned> curr_unconnected; // ID's of nodes added that are unconnected
+    std::unordered_map<unsigned, unsigned> chain;
 
     g.set_popsize(vf.num_samples());
     const Graph::Population all_pop(g.pop_size(), true);
@@ -211,7 +213,7 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
         auto &af = vf.frequencies();
 
         curr = _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.pos());
-        assert(_fa.subseq(_vf->region_chr(), curr, curr + vf.ref().length() - 1) == vf.ref() &&
+        assert(_fa.subseq(_vf->region().seq_name, curr, curr + vf.ref().length() - 1) == vf.ref() &&
         ("Variant and FASTA Reference does not match at position " + std::to_string(curr)) != "");
 
         curr += vf.ref().length();
@@ -230,9 +232,9 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
         }
 
         //alt nodes
-        size_t prev_split, curr_split, chain_origin;
+        unsigned prev_split, curr_split, chain_origin;
         chain.clear();
-        for (size_t i = 1; i < vf.alleles().size(); ++i) {
+        for (unsigned i = 1; i < vf.alleles().size(); ++i) {
             const std::string &allele = vf.alleles()[i];
             if (allele == vf.ref()) continue; // Remove duplicate nodes, REF is substituted in for unknown tags
             auto allele_split = _split_seq(allele);
@@ -248,7 +250,7 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
                     prev_split = chain_origin = g.add_node(n);
                     curr_unconnected.insert(prev_split);
                 }
-                for (size_t i = 1; i < allele_split.size(); ++i) {
+                for (unsigned i = 1; i < allele_split.size(); ++i) {
                     Graph::Node n;
                     n.set_endpos(curr - 1);
                     n.set_population(pop);
@@ -266,11 +268,11 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
 
     }
     // Nodes after last variant
-    _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.region_upper());
+    _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.region().max);
 
     std::string desc = "#Reference: " + _fa.file();
-    desc += "\n#Region: " + vf.region_chr() + ":" + std::to_string(vf.region_lower()) + "-"
-    + std::to_string(vf.region_upper());
+    desc += "\n#Region: " + vf.region().seq_name + ":" + std::to_string(vf.region().min) + "-"
+    + std::to_string(vf.region().max);
     g.set_desc(desc);
     g.node_len(_max_node_len);
 
@@ -279,12 +281,11 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
 }
 
 
-void vargas::GraphFactory::_build_edges(vargas::Graph &g,
-                                        std::unordered_set<size_t> &prev,
-                                        std::unordered_set<size_t> &curr,
-                                        std::unordered_map<size_t, size_t> *chain) {
-    for (size_t pID : prev) {
-        for (size_t cID : curr) {
+void vargas::GraphFactory::_build_edges(vargas::Graph &g, std::unordered_set<unsigned> &prev,
+                                        std::unordered_set<unsigned> &curr,
+                                        std::unordered_map<unsigned, unsigned> *chain) {
+    for (unsigned pID : prev) {
+        for (unsigned cID : curr) {
             g.add_edge(pID, cID);
         }
     }
@@ -300,15 +301,12 @@ void vargas::GraphFactory::_build_edges(vargas::Graph &g,
 }
 
 
-int vargas::GraphFactory::_build_linear_ref(Graph &g,
-                                            std::unordered_set<size_t> &prev,
-                                            std::unordered_set<size_t> &curr,
-                                            size_t pos,
-                                            size_t target) {
+int vargas::GraphFactory::_build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev,
+                                            std::unordered_set<unsigned> &curr, unsigned pos, unsigned target) {
 
-    if (target == 0) target = _fa.seq_len(_vf->region_chr());
+    if (target == 0) target = _fa.seq_len(_vf->region().seq_name);
     if (pos == target) return target; // For adjacent var positions
-    auto split_seq = _split_seq(_fa.subseq(_vf->region_chr(), pos, target - 1));
+    auto split_seq = _split_seq(_fa.subseq(_vf->region().seq_name, pos, target - 1));
     for (const auto s : split_seq) {
         Graph::Node n;
         n.pinch();
@@ -330,9 +328,9 @@ std::vector<std::string> vargas::GraphFactory::_split_seq(std::string seq) {
         split.push_back(seq);
         return split;
     }
-    size_t num_nodes = seq.length() / _max_node_len;
-    size_t rem = seq.length() % _max_node_len;
-    for (size_t i = 0; i < num_nodes; ++i) {
+    unsigned num_nodes = seq.length() / _max_node_len;
+    unsigned rem = seq.length() % _max_node_len;
+    for (unsigned i = 0; i < num_nodes; ++i) {
         split.push_back(seq.substr(i * _max_node_len, _max_node_len));
     }
     if (rem > 0) {
@@ -341,7 +339,7 @@ std::vector<std::string> vargas::GraphFactory::_split_seq(std::string seq) {
     return split;
 
 }
-size_t vargas::GraphFactory::add_sample_filter(std::string filter, bool invert) {
+unsigned vargas::GraphFactory::add_sample_filter(std::string filter, bool invert) {
     if (!_vf) throw std::invalid_argument("No VCF file opened, cannot add filter.");
     if (filter.length() == 0 || filter == "-") return _vf->num_samples();
     std::vector<std::string> filt;
@@ -359,7 +357,7 @@ size_t vargas::GraphFactory::add_sample_filter(std::string filter, bool invert) 
     return _vf->num_samples();
 }
 
-size_t vargas::GraphFactory::open_vcf(std::string const &file_name) {
+unsigned vargas::GraphFactory::open_vcf(std::string const &file_name) {
     _vf.reset();
     _vf = std::unique_ptr<VariantFile>(new VCF(file_name));
     if (file_name.length() == 0 || file_name == "-") return 0;
@@ -370,16 +368,16 @@ size_t vargas::GraphFactory::open_vcf(std::string const &file_name) {
 
 vargas::Graph::Population vargas::Graph::subset(int ingroup) const {
     vargas::Graph::Population p(_pop_size);
-    for (size_t i = 0; i < _pop_size; ++i) {
+    for (unsigned i = 0; i < _pop_size; ++i) {
         if (rand() % 100 < ingroup) p.set(i);
     }
     return p;
 }
 
-vargas::Graph vargas::Graph::subgraph(const size_t min, const size_t max) const {
+vargas::Graph vargas::Graph::subgraph(const unsigned min, const unsigned max) const {
     Graph ret;
-    std::unordered_map<size_t, size_t> new_to_old, old_to_new;
-    size_t new_id;
+    std::unordered_map<unsigned, unsigned> new_to_old, old_to_new;
+    unsigned new_id;
     for (const Node &n : *this) {
         if (n.end_pos() < min) continue;
         if (n.is_pinched() && n.begin_pos() > max) break;
@@ -426,11 +424,12 @@ vargas::Graph vargas::Graph::subgraph(const size_t min, const size_t max) const 
     }
 
     ret.set_desc(_desc + "\n subgraph min:" + std::to_string(min) + " max:" + std::to_string(max));
+    ret.set_region(Region(_region.seq_name, min, max));
     return ret;
 }
 
 bool vargas::Graph::validate() const {
-    std::unordered_set<size_t> filled;
+    std::unordered_set<unsigned> filled;
     for (auto gi = begin(); gi != end(); ++gi) {
         filled.insert(gi->id());
         for (auto i : gi.incoming()) {

@@ -195,12 +195,8 @@ vargas::Graph::Population vargas::GraphManager::filter(std::string label) const 
 }
 
 
-bool vargas::GraphManager::write(std::string ref_file,
-                                 std::string variant_file,
-                                 std::string region,
-                                 const std::string &defs,
-                                 int node_len,
-                                 std::string out_file,
+bool vargas::GraphManager::write(std::string ref_file, std::string variant_file, std::string region,
+                                 const std::string &defs, int node_len, std::string out_file,
                                  bool build_base) {
     if (out_file.length() == 0)
         return write(ref_file, variant_file, region, defs, node_len, std::cout, build_base);
@@ -211,20 +207,15 @@ bool vargas::GraphManager::write(std::string ref_file,
 }
 
 
-bool vargas::GraphManager::write(std::string ref_file,
-                                 std::string variant_file,
-                                 std::string region,
-                                 std::string defs_str,
-                                 int node_len,
-                                 std::ostream &out,
-                                 bool build_base,
-                                 int nsamps) {
+bool vargas::GraphManager::write(std::string ref_file, std::string variant_file, std::string region,
+                                 std::string defs_str, int node_len, std::ostream &out,
+                                 bool build_base, int nsamps) {
 
     if (variant_file.length() == 0) variant_file = "-";
     if (region.length() == 0) {
         vargas::ifasta f(ref_file);
         region = f.seq_name(0) + ":0-0";
-    }
+    } else if (region.find(':') == std::string::npos) region += ":0-0";
 
     std::string out_str = GDEF_FILE_MARKER + "\n"
     + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM

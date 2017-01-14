@@ -38,8 +38,10 @@ namespace vargas {
    * Packet to represent a parsed region string.
    */
   struct Region {
+      Region() : min(0), max(0) {}
+      Region(const std::string &seq, unsigned min, unsigned max) : seq_name(seq), min(min), max(max) {}
       std::string seq_name; /**< Contig name */
-      size_t min, /**< Min position, inclusive. */
+      unsigned min, /**< Min position, inclusive. */
       max; /**< Max position, inclusive. */
   };
 
@@ -60,7 +62,7 @@ namespace vargas {
    */
   class VariantFile {
     public:
-      VariantFile() : _chr(""), _min_pos(-1), _max_pos(-1) {}
+      VariantFile() {}
 
       /**
        * @brief
@@ -69,10 +71,7 @@ namespace vargas {
        * @param min Minimum position, 0 indexed
        * @param max Max position, inclusive, 0 indexed
        */
-      VariantFile(std::string const &chr,
-                  int const min,
-                  int const max) :
-      _chr(chr), _min_pos(min), _max_pos(max) {}
+      VariantFile(std::string const &chr, unsigned min, unsigned max) : _region(chr, min, max) {}
 
       virtual ~VariantFile() = default;
 
@@ -81,12 +80,12 @@ namespace vargas {
       /**
        * @brief
         * Set the minimum and maximum position, inclusive.
-        * If max is <= 0, go until end.
+        * If max is == 0, go until end.
         * @param chr contig ID
         * @param min Minimum position, 0 indexed
         * @param max Max position, inclusive, 0 indexed
      */
-      void set_region(std::string chr, int min, int max);
+      void set_region(std::string chr, unsigned min, unsigned max);
 
       /**
      * @brief
@@ -99,32 +98,7 @@ namespace vargas {
       void set_region(const std::string &region);
       void set_region(const Region &region);
 
-      /**
-     * @brief
-     * Get the minimum position.
-     * @return 0 indexed minimum pos
-     */
-      int region_lower() const {
-          return _min_pos;
-      }
-
-      /**
-       * @brief
-       * Get the maximum position.
-       * @return 0 indexed maximum position
-       */
-      int region_upper() const {
-          return _max_pos;
-      }
-
-      /**
- * @brief
- * Current contig filter.
- * @return ID of current CHROM filter
- */
-      std::string region_chr() const {
-          return _chr;
-      }
+      const Region &region() const { return _region; }
 
       virtual void create_ingroup(const std::vector<std::string> &) {
           throw std::invalid_argument("No default impl.");
@@ -190,8 +164,7 @@ namespace vargas {
 
 
     protected:
-      std::string _chr;
-      int _min_pos = -1, _max_pos = -1;
+      Region _region;
   };
 
 /**

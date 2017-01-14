@@ -1,6 +1,13 @@
-//
-// Created by gaddra on 12/28/16.
-//
+/**
+ * Ravi Gaddipati
+ * Jan 10, 2016
+ * rgaddip1@jhu.edu
+ *
+ * @brief
+ * Program CL parsing and scoring structs.
+ *
+ * @file
+ */
 
 #include "scoring.h"
 

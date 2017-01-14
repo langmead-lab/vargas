@@ -197,7 +197,7 @@ namespace vargas {
        * batch is returned.
        * @param size nominal number of reads to get.
        */
-      const std::vector<SAM::Record> &get_batch(size_t size);
+      const std::vector<SAM::Record> &get_batch(unsigned size);
 
       /**
        * @brief
@@ -249,8 +249,8 @@ namespace vargas {
     private:
       const vargas::Graph &_graph;
       Profile _prof;
-      const std::unordered_map<size_t, Graph::nodeptr> &_nodes;
-      const std::unordered_map<size_t, std::vector<size_t>> &_next;
+      const std::unordered_map<unsigned, Graph::nodeptr> &_nodes;
+      const std::unordered_map<unsigned, std::vector<unsigned >> &_next;
 
 
       /**
@@ -258,7 +258,7 @@ namespace vargas {
        * representing a running total. Generating a random number and then finding the first index
        * greater than that gives a random node weighted to sequence length.
        */
-      std::vector<size_t> _node_ids;
+      std::vector<unsigned> _node_ids;
       std::vector<uint64_t> _node_weights;
 
       std::vector<SAM::Record> _batch;
@@ -268,7 +268,7 @@ namespace vargas {
       std::mt19937 _rand_generator;
 
       // Abort trying to update the read after N tries
-      const size_t _abort_after = 1000000;
+      const unsigned _abort_after = 1000000;
 
       /**
        * Creates a vector of keys of all outgoing edges. Allows for random node selection
@@ -276,7 +276,7 @@ namespace vargas {
        */
       void _init();
 
-      size_t _random_node_id() {
+      unsigned _random_node_id() {
           return _node_ids[std::lower_bound(_node_weights.begin(), _node_weights.end(),
                                             _node_weight_dist(_rand_generator)) - _node_weights.begin()];
       }

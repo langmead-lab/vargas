@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 int define_main(int argc, char *argv[]) {
     std::string fasta_file, varfile, region, subgraph_def, out_file, dot_file, sample_filter;
     bool invert_filter = false;
-    int node_len;
+    unsigned node_len = 100000000;
 
     cxxopts::Options opts("vargas define", "Define subgraphs deriving from a reference and VCF file.");
     try {
@@ -73,7 +73,7 @@ int define_main(int argc, char *argv[]) {
         ("g,region", "<str> Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
         ("s,subgraph", "<str> File or definitions of format \"[~]NAME=N[%t],...\".",
          cxxopts::value(subgraph_def))
-        ("l,nodelen", "<N> Maximum node length.", cxxopts::value(node_len)->default_value("10000000"))
+        //  ("l,nodelen", "<N> Maximum node length.", cxxopts::value(node_len)->default_value("10000000"))
         ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
         ("x,invert", "Invert sample filter, exclude -p samples.", cxxopts::value(invert_filter))
         ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
@@ -318,7 +318,7 @@ int convert_main(int argc, char **argv) {
     try {
         opts.add_options()
         ("f,format", "<str> *Output format.", cxxopts::value<std::string>(format))
-        ("s,sam", "<str> SAM file. (default: stdin)", cxxopts::value<std::string>(sam_file))
+        ("s,sam", "<str,...> *SAM files.", cxxopts::value<std::string>(sam_file))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
@@ -333,20 +333,27 @@ int convert_main(int argc, char **argv) {
     format.erase(std::remove(format.begin(), format.end(), ' '), format.end());
     std::vector<std::string> fmt_split = rg::split(format, ',');
     std::unordered_set<std::string> warned;
-    vargas::isam input(sam_file);
-    std::string buff, val;
-    do {
-        buff = "";
-        for (auto &tag : fmt_split) {
-            val = "*";
-            if (!input.record().get(input.header(), tag, val) && warned.count(tag) == 0) {
-                std::cerr << "WARN: Tag \"" << tag << "\" not present." << std::endl;
+
+    auto files = rg::split(sam_file, ',');
+
+    for (const auto &f : files) {
+        vargas::isam input(f);
+        std::string buff, val;
+        do {
+            if (files.size() > 1) buff = f + ",";
+            else buff = "";
+            for (auto &tag : fmt_split) {
+                val = "*";
+                if (!input.record().get(input.header(), tag, val) && warned.count(tag) == 0) {
+                    std::cerr << "WARN: Tag \"" << tag << "\" not present." << std::endl;
+                    warned.insert(tag);
+                }
+                buff += val;
+                buff += ",";
             }
-            buff += val;
-            buff += ",";
-        }
-        std::cout << buff.substr(0, buff.length() - 1) << '\n'; // Crop trailing comma
-    } while (input.next());
+            std::cout << buff.substr(0, buff.length() - 1) << '\n'; // Crop trailing comma
+        } while (input.next());
+    }
 
     std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
     std::chrono::steady_clock::now() - start_time).count()

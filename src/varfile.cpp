@@ -41,22 +41,17 @@ vargas::Region vargas::parse_region(const std::string &region_str) {
 }
 
 void vargas::VariantFile::set_region(const std::string &region) {
-    auto parsed = parse_region(region);
-    _chr = parsed.seq_name;
-    _min_pos = parsed.min;
-    _max_pos = parsed.max;
+    _region = parse_region(region);
 }
 
 void vargas::VariantFile::set_region(const Region &region) {
-    _chr = region.seq_name;
-    _min_pos = region.min;
-    _max_pos = region.max;
+    _region = region;
 }
 
-void vargas::VariantFile::set_region(std::string chr, int min, int max) {
-    _min_pos = min;
-    _max_pos = max;
-    _chr = chr;
+void vargas::VariantFile::set_region(std::string chr, unsigned min, unsigned max) {
+    _region.seq_name = chr;
+    _region.max = max;
+    _region.min = min;
 }
 
 
@@ -82,11 +77,11 @@ bool vargas::VCF::next() {
     if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
     unpack_all();
     // Check if its within the filter range
-    if (_max_pos > 0 && _curr_rec->pos > _max_pos) {
+    if (_region.max > 0 && (unsigned) _curr_rec->pos > _region.max) {
         return false;
     }
-    if (_curr_rec->pos < _min_pos ||
-    (_chr.length() != 0 && strcmp(_chr.c_str(), bcf_hdr_id2name(_header, _curr_rec->rid)))) {
+    if ((unsigned) _curr_rec->pos < _region.min ||
+    (_region.seq_name.length() != 0 && strcmp(_region.seq_name.c_str(), bcf_hdr_id2name(_header, _curr_rec->rid)))) {
         return next();
     }
     genotypes();

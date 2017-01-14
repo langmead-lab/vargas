@@ -35,7 +35,7 @@ bool vargas::Sim::_update_read() {
 
     while (true) {
         // Extract len subseq
-        size_t len = _prof.len - read_str.length();
+        unsigned len = _prof.len - read_str.length();
         if (len > _nodes.at(curr_node)->length() - curr_pos) len = _nodes.at(curr_node)->length() - curr_pos;
         read_str += _nodes.at(curr_node)->seq_str().substr(curr_pos, len);
         curr_pos += len;
@@ -71,7 +71,7 @@ bool vargas::Sim::_update_read() {
 
     // Rate based errors
     if (_prof.rand) {
-        for (size_t i = 0; i < read_str.length(); ++i) {
+        for (unsigned i = 0; i < read_str.length(); ++i) {
             char m = read_str[i];
             // Mutation error
             if (rand() % 10000 < 10000 * _prof.mut) {
@@ -98,11 +98,11 @@ bool vargas::Sim::_update_read() {
         // Fixed number of errors
         sub_err = (int) std::round(_prof.mut);
         indel_err = (int) std::round(_prof.indel);
-        std::set<size_t> mut_sites;
-        std::set<size_t> indel_sites;
+        std::set<unsigned> mut_sites;
+        std::set<unsigned> indel_sites;
         read_mut = read_str;
         {
-            size_t loc;
+            unsigned loc;
             for (int j = 0; j < sub_err; ++j) {
                 do {
                     loc = rand() % read_mut.length();
@@ -117,13 +117,13 @@ bool vargas::Sim::_update_read() {
             }
         }
 
-        for (size_t m : mut_sites) {
+        for (unsigned m : mut_sites) {
             do {
                 read_mut[m] = rg::rand_base();
             } while (read_mut[m] == read_str[m]);
         }
 
-        for (size_t i : indel_sites) {
+        for (unsigned i : indel_sites) {
             if (rand() % 2) {
                 // Insertion
                 read_mut.insert(i, 1, rg::rand_base());
@@ -154,7 +154,7 @@ bool vargas::Sim::_update_read() {
 }
 bool vargas::Sim::update_read() {
     // Call internal function. update_read is a wrapper to prevent stack overflow
-    size_t counter = 0;
+    unsigned counter = 0;
     while (!_update_read()) {
         ++counter;
         if (counter == _abort_after) {
@@ -165,10 +165,10 @@ bool vargas::Sim::update_read() {
     }
     return true;
 }
-const std::vector<vargas::SAM::Record> &vargas::Sim::get_batch(size_t size) {
+const std::vector<vargas::SAM::Record> &vargas::Sim::get_batch(unsigned size) {
     _batch.clear();
     if (size == 0) return _batch;
-    for (size_t i = 0; i < size; ++i) {
+    for (unsigned i = 0; i < size; ++i) {
         if (!update_read()) break;
         _batch.push_back(_read);
     }
