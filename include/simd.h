@@ -124,15 +124,12 @@ namespace vargas {
       static_assert(std::is_same<T, char>::value || std::is_same<T, int16_t>::value, "Invalid T in SIMD<T,N>");
 
       using native_t = T;
-      using simd_t = typename std::conditional<std::is_same<char, T>::value,
-                                               typename std::conditional<N == 16, __m128i,
-                                                                         typename std::conditional<N == 32,
-                                                                                                   __m256i,
-                                                                                                   __m512i>::type>::type,
-                                               typename std::conditional<N == 8, __m128i,
-                                                                         typename std::conditional<N == 16,
-                                                                                                   __m256i,
-                                                                                                   __m512i>::type>::type>::type;
+
+      #ifdef VA_SIMD_USE_SSE
+      using simd_t = __m128i;
+      #else
+      using simd_t = __m256i;
+      #endif
 
       static constexpr unsigned length = N;
       static constexpr unsigned size = sizeof(native_t) * N;
@@ -365,7 +362,7 @@ namespace vargas {
   template<> int16x16 int16x16::operator==(const int16x16 &o) const {
       return _mm256_cmpeq_epi16(v, o.v);
   }
-  template<> int16x16 int16x16::operator!(const int16x16 &o) const {
+  template<> int16x16 int16x16::operator^(const int16x16 &o) const {
       return _mm256_xor_si256(v, o.v);
   }
   template<> int16x16 &int16x16::operator=(const int16x16::native_t o) {

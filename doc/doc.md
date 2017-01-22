@@ -32,9 +32,12 @@ vargas is built with cmake.
     cd ..
     export PATH=${PWD}/bin:$PATH
 
-To  build for Xeon Phi:
+To  build for Xeon Phi using an intel compiler:
 
-    cmake -DCMAKE_C_COMPILER=icc -DCMAKE_CXX_COMPILER=icpc -DBUILD_PHI=ON -DCMAKE_BUILD_TYPE=Release ..
+    cmake -DCMAKE_CXX_COMPILER=icpc -DBUILD_PHI=ON -DCMAKE_BUILD_TYPE=Release ..
+    make
+
+Note `icpc` requires up to 35GB memory.
 
 # Modes of operation {#modes}
 

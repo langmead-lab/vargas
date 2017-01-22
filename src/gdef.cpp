@@ -11,6 +11,7 @@
  */
 
 #include "gdef.h"
+#include "utils.h"
 
 const std::string vargas::GraphManager::GDEF_FILE_MARKER = "@gdef";
 const std::string vargas::GraphManager::GDEF_REF = "ref";
@@ -212,10 +213,21 @@ bool vargas::GraphManager::write(std::string ref_file, std::string variant_file,
                                  bool build_base, int nsamps) {
 
     if (variant_file.length() == 0) variant_file = "-";
+    vargas::ifasta f(ref_file);
     if (region.length() == 0) {
-        vargas::ifasta f(ref_file);
-        region = f.seq_name(0) + ":0-0";
-    } else if (region.find(':') == std::string::npos) region += ":0-0";
+        region = f.seq_name(0);
+        std::cerr << "No region defined, using \"" << region << "\".\n";
+    }
+    if (region.find(':') == std::string::npos) region += ":0-0";
+
+    const auto &snames = f.sequence_names();
+    const auto rname = rg::split(region, ':')[0];
+    if (std::find(snames.begin(), snames.end(), rname) == snames.end()) {
+        std::cerr << "Available sequences:\n";
+        rg::print_vec(snames);
+        std::cerr << '\n';
+        throw std::invalid_argument("Sequence \"" + rname + "\" does not exist.");
+    }
 
     std::string out_str = GDEF_FILE_MARKER + "\n"
     + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM

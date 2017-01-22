@@ -31,9 +31,9 @@ int align_main(int argc, char *argv[]) {
     }
 
     // Load parameters
-    size_t match, mismatch, gopen, gext, threads, tolerance, chunk_size, subsample = 0;
+    unsigned match, mismatch, gopen, gext, threads, tolerance, chunk_size, subsample = 0;
     std::string read_file, gdf, align_targets, out_file, pgid;
-    bool align_targets_isfile = false, end_to_end = false, bare = false;
+    bool align_targets_isfile = false, end_to_end = false;
 
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
     try {
@@ -48,7 +48,6 @@ int align_main(int argc, char *argv[]) {
         ("o,gap_open", "<N> Gap opening penalty.", cxxopts::value(gopen)->default_value("3"))
         ("e,gap_extend", "<N> Gap extension penalty.", cxxopts::value(gext)->default_value("1"))
         ("x,endtoend", "Perform end to end alignment", cxxopts::value(end_to_end))
-        ("b,bare", "Only report maximum score and position", cxxopts::value(bare))
         ("c,tolerance", "<N> Correct if within readlen/N.",
          cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
         ("u,chunk", "<N> Partition tasks into chunks with max size N.",
@@ -149,7 +148,7 @@ int align_main(int argc, char *argv[]) {
 
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
-        aligners[k] = make_aligner(prof, read_len, use_wide, bare);
+        aligners[k] = make_aligner(prof, read_len, use_wide);
     }
 
     auto files = rg::split(gdf, ',');
@@ -160,7 +159,7 @@ int align_main(int argc, char *argv[]) {
         std::cerr << "(" << gm.base()->node_map()->size() << " nodes), "
                   << rg::chrono_duration(start_time) << "s.\n";
 
-        align(gm, task_list, aligners, bare);
+        align(gm, task_list, aligners);
 
         std::string fname = out_file;
         if (fname.length() > 0 && files.size() > 1) {
@@ -182,7 +181,7 @@ int align_main(int argc, char *argv[]) {
 }
 
 void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
-           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool bare) {
+           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners) {
 
     std::cerr << "Aligning... " << std::flush;
     auto start_cpu = std::clock();
@@ -203,7 +202,7 @@ void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vec
         for (size_t i = 0; i < num_reads; ++i) {
             const auto &r = task_list.at(l).second.at(i);
             read_seqs[i] = r.seq;
-            if (!bare) targets[i] = r.pos;
+            targets[i] = r.pos;
             if (r.pos > 0) {
                 targets[i] = r.pos - 1;
                 if (r.cigar.size()) {
@@ -223,14 +222,12 @@ void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vec
             rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
             rec.aux.set(ALIGN_SAM_SCORE_PROFILE, aligns.profile.to_string());
             rec.aux.set(ALIGN_SAM_SEQ, subgraph->region().seq_name);
-            if (!bare) {
-                rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
-                rec.aux.set(ALIGN_SAM_SUB_POS_TAG, aligns.sub_pos[j]);
-                rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
-                rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
-                rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
-                rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
-            }
+            rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
+            rec.aux.set(ALIGN_SAM_SUB_POS_TAG, aligns.sub_pos[j]);
+            rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
+            rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
+            rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
+            rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
         }
     }
 
@@ -243,11 +240,8 @@ void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vec
 
 
 std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>>
-create_tasks(vargas::isam &reads,
-             std::string &align_targets,
-             const size_t chunk_size,
-             size_t &read_len,
-             bool &resized) {
+create_tasks(vargas::isam &reads, std::string &align_targets,
+             const size_t chunk_size, size_t &read_len, bool &resized) {
     std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> task_list;
     std::unordered_map<std::string, std::vector<vargas::SAM::Record>> read_groups;
 
@@ -355,16 +349,12 @@ create_tasks(vargas::isam &reads,
 }
 
 std::unique_ptr<vargas::AlignerBase> make_aligner(const vargas::ScoreProfile &prof, size_t read_len,
-                                                  bool use_wide, bool bare) {
+                                                  bool use_wide) {
     if (prof.end_to_end) {
-        if (bare && !use_wide) return rg::make_unique<vargas::BareAlignerETE>(read_len, prof);
-        else if (bare) return rg::make_unique<vargas::BareWordAlignerETE>(read_len, prof);
-        else if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(read_len, prof);
+        if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(read_len, prof);
         else return rg::make_unique<vargas::AlignerETE>(read_len, prof);
     } else {
-        if (bare && !use_wide) return rg::make_unique<vargas::BareAligner>(read_len, prof);
-        else if (bare) return rg::make_unique<vargas::BareWordAligner>(read_len, prof);
-        else if (use_wide) return rg::make_unique<vargas::WordAligner>(read_len, prof);
+        if (use_wide) return rg::make_unique<vargas::WordAligner>(read_len, prof);
         else return rg::make_unique<vargas::Aligner>(read_len, prof);
     }
 }
@@ -374,7 +364,7 @@ void align_help(const cxxopts::Options &opts) {
     using std::endl;
 
     cerr << opts.help() << "\n" << endl;
-    cerr << "Elements per vector: " << vargas::Aligner::read_capacity() << endl;
+    cerr << "Elements per SIMD vector: " << vargas::Aligner::read_capacity() << endl;
 }
 
 TEST_SUITE("System");

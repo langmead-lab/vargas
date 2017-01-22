@@ -329,10 +329,10 @@ namespace vargas {
               Optional aux;
 
               /**
-     * @brief
-     * Prints a header-formatted line containing all populated tags
-     * @return formatted line
-     */
+               * @brief
+               * Prints a header-formatted line containing all populated tags
+               * @return formatted line
+               */
               std::string to_string() const;
 
               /**
@@ -389,6 +389,7 @@ namespace vargas {
            * @brief
            * Add a new Program line. If ID is taken, try ID_N, incrementing N until available.
            * @param pg Program
+           * @return Assigned ID
            */
           std::string add(const Program &pg) {
               if (programs.count(pg.id) != 0) {

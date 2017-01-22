@@ -13,19 +13,22 @@
 
 bool vargas::Sim::_update_read() {
 
-    uint32_t curr_indiv;
+    uint32_t curr_indiv, curr_node;
+    const bool has_pop = _graph.pop_size() != 0;
 
     // Pick an individual
-    do {
-        curr_indiv = rand() % _graph.pop_size();
-    } while (!_graph.filter()[curr_indiv]);
+
+    if (has_pop) {
+        do {
+            curr_indiv = rand() % _graph.pop_size();
+        } while (!_graph.filter()[curr_indiv]);
+    }
 
 
     // Pick random weighted node and position within the node
-    uint32_t curr_node;
     do {
         curr_node = _random_node_id();
-    } while (!_nodes.at(curr_node)->belongs(curr_indiv));
+    } while (has_pop && !_nodes.at(curr_node)->belongs(curr_indiv));
     unsigned curr_pos = rand() % _nodes.at(curr_node)->length();
 
 
@@ -52,8 +55,11 @@ bool vargas::Sim::_update_read() {
         if (_next.find(curr_node) == _next.end()) return false; // End of graph
 
         std::vector<uint32_t> valid_next;
-        for (const uint32_t n : _next.at(curr_node)) {
-            if (_nodes.at(n)->belongs(curr_indiv)) valid_next.push_back(n);
+        if (!has_pop) valid_next = _next.at(curr_node);
+        else {
+            for (const uint32_t n : _next.at(curr_node)) {
+                if (_nodes.at(n)->belongs(curr_indiv)) valid_next.push_back(n);
+            }
         }
         if (valid_next.size() == 0) return false;
         curr_node = valid_next[rand() % valid_next.size()];
@@ -139,7 +145,7 @@ bool vargas::Sim::_update_read() {
     _read.flag.aligned = true;
 
     _read.seq = read_mut;
-    _read.aux.set(SIM_SAM_INDIV_TAG, (int) curr_indiv);
+    if (has_pop) _read.aux.set(SIM_SAM_INDIV_TAG, (int) curr_indiv);
     _read.aux.set(SIM_SAM_INDEL_ERR_TAG, indel_err);
     _read.aux.set(SIM_SAM_VAR_BASE_TAG, var_bases);
     _read.aux.set(SIM_SAM_VAR_NODES_TAG, var_nodes);

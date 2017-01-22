@@ -46,6 +46,7 @@
 #include <type_traits>
 #include <assert.h>
 #include <memory>
+#include <iostream>
 
 namespace rg {
 
@@ -352,6 +353,13 @@ namespace rg {
   __RG_STRONG_INLINE__
   void from_string(const std::string &s, std::string &ret) { ret = s; }
 
+  template<typename T>
+  void print_vec(const std::vector<T> &v, std::ostream &os = std::cerr) {
+      os << v[0];
+      for (unsigned i = 1; i < v.size(); ++i) {
+          os << ", " << v[i];
+      }
+  }
 
   /**
    * make_unique, from:
@@ -389,6 +397,12 @@ namespace rg {
   typename _Unique_if<T>::_Known_bound
   make_unique(Args &&...) = delete;
 
+}
+
+template<typename T>
+inline std::ostream &operator<<(std::ostream &os, const std::vector<T> &v) {
+    rg::print_vec(v, os);
+    return os;
 }
 
 #endif //VARGAS_UTILS_H

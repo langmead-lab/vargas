@@ -335,6 +335,7 @@ int convert_main(int argc, char **argv) {
     std::unordered_set<std::string> warned;
 
     auto files = rg::split(sam_file, ',');
+    if (files.size() == 0) files.resize(1);
 
     for (const auto &f : files) {
         vargas::isam input(f);
@@ -459,7 +460,8 @@ int query_main(int argc, char *argv[]) {
     if (opts.count("a")) {
         vargas::GraphManager gm(gdef);
 
-        auto q = gm.labels();
+        //TODO all subgraphs
+        std::vector<std::string> q{"BASE"};
 
         #pragma omp parallel for
         for (size_t k = 0; k < q.size(); ++k) {
@@ -566,38 +568,11 @@ void main_help() {
 
     std::string arch = "None: no SIMD instruction set specified!";
 
-    #if SIMDPP_USE_SSE2
-    arch = "SSE2";
-    #endif
-    #if SIMDPP_USE_SSE3
-    arch = "SSE3";
-    #endif
-    #if SIMDPP_USE_SSSE3
-    arch = "SSSE3";
-    #endif
-    #if SIMDPP_USE_SSE4_1
+    #if DVA_SIMD_USE_SSE
     arch = "SSE4.1";
     #endif
-    #if SIMDPP_USE_AVX
-    arch = "AVX";
-    #endif
-    #if SIMDPP_USE_AVX2
+    #if DVA_SIMD_USE_AVX2
     arch = "AVX2";
-    #endif
-    #if SIMDPP_USE_FMA3
-    arch = "FMA3";
-    #endif
-    #if SIMDPP_USE_FMA4
-    arch = "FMA4";
-    #endif
-    #if SIMDPP_USE_XOP
-    arch = "XOP";
-    #endif
-    #if SIMDPP_USE_AVX512F
-    arch = "AVX512F";
-    #endif
-    #if SIMDPP_USE_NEON
-    arch = "NEON";
     #endif
 
     cerr << arch << "\n" << std::endl;
