@@ -48,10 +48,10 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 endif ()
 
 if (BUILD_PHI)
-    message("Building for Xeon Phi")
+    message("   Building for Xeon Phi")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -xMIC-AVX512 -DVA_SIMD_USE_AVX2")
 else ()
-    message("Building for SSE4.1")
+    message("   Building for SSE4.1")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1 -DVA_SIMD_USE_SSE")
 endif ()
 

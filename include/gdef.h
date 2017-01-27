@@ -48,7 +48,7 @@ namespace vargas {
    * GDEF file format:
    * @code{.unparsed}
    * @gdef[:TYPE]
-   * ref=REFERENCE,var=VCF,reg=REGION,nlen=NODE_LEN
+   * ref=REFERENCE,var=VCF,reg=REGION
    * label=POP_FILTER
    * ...
    * label=POP_FILTER
@@ -225,7 +225,6 @@ namespace vargas {
        * @param variant_file Variant file name
        * @param region Region in the format 'CHR:MIN-MAX'
        * @param defs subgraph definition string
-       * @param node_len maximum graph node length.
        * @param out_file Output file name
        * @param build_base If true, build the base graph.
        * @return true on success
@@ -235,7 +234,6 @@ namespace vargas {
                  std::string variant_file,
                  std::string region,
                  const std::string &defs,
-                 int node_len,
                  std::string out_file,
                  bool build_base = true);
 
@@ -246,7 +244,6 @@ namespace vargas {
        * @param variant_file Variant file name
        * @param region Region in the format 'CHR:MIN-MAX'
        * @param defs subgraph definition string
-       * @param node_len maximum graph node length.
        * @param out output stream
        * @param build_base If true, build the base graph.
        * @param nsamps if unspecified the number of samples will be determined from the VCF file
@@ -256,7 +253,6 @@ namespace vargas {
                  std::string variant_file,
                  std::string region,
                  std::string defs,
-                 int node_len,
                  std::ostream &out,
                  bool build_base,
                  int nsamps = 0);
@@ -268,7 +264,6 @@ namespace vargas {
        * @param vcf_file Variant file name
        * @param region Region in the format 'CHR:MIN-MAX'
        * @param defs subgraph definition string
-       * @param max_node_len maximum graph node length.
        * @param out output stream
        * @return true on success
        */
@@ -276,9 +271,8 @@ namespace vargas {
                           std::string vcf_file,
                           std::string region,
                           std::string defs,
-                          int max_node_len,
                           std::ostream &out) {
-          return write(ref_file, vcf_file, region, defs, max_node_len, out, true);
+          return write(ref_file, vcf_file, region, defs, out, true);
       }
 
       /**
@@ -288,7 +282,6 @@ namespace vargas {
          * @param vcf_file Variant file name
          * @param region Region in the format 'CHR:MIN-MAX'
          * @param defs subgraph definition string
-         * @param max_node_len maximum graph node length.
          * @param out output file name
          * @return true on success
          */
@@ -296,9 +289,8 @@ namespace vargas {
                           std::string vcf_file,
                           std::string region,
                           std::string defs,
-                          int max_node_len,
                           std::string out) {
-          return write(ref_file, vcf_file, region, defs, max_node_len, out, true);
+          return write(ref_file, vcf_file, region, defs, out, true);
       }
 
       /**
@@ -347,13 +339,6 @@ namespace vargas {
           return _subgraph_filters.size();
       }
 
-      /*
-       * @return Configured maximum node length
-       */
-      int node_len() const {
-          return _node_len;
-      }
-
       /**
        * @return Reference file fame
        */
@@ -380,7 +365,6 @@ namespace vargas {
       static const std::string GDEF_REF;
       static const std::string GDEF_VAR;
       static const std::string GDEF_REGION;
-      static const std::string GDEF_NODELEN;
       static const std::string GDEF_BASEGRAPH;
       static const std::string GDEF_REFGRAPH;
       static const std::string GDEF_MAXAFGRAPH;
@@ -401,7 +385,6 @@ namespace vargas {
 
       std::string _ref_file, _variant_file, _region, _sample_filter = "-";
       bool _invert_filter;
-      int _node_len;
 
   };
 

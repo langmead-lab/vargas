@@ -17,7 +17,6 @@ const std::string vargas::GraphManager::GDEF_FILE_MARKER = "@gdef";
 const std::string vargas::GraphManager::GDEF_REF = "ref";
 const std::string vargas::GraphManager::GDEF_VAR = "var";
 const std::string vargas::GraphManager::GDEF_REGION = "reg";
-const std::string vargas::GraphManager::GDEF_NODELEN = "nlen";
 const std::string vargas::GraphManager::GDEF_BASEGRAPH = "BASE";
 const std::string vargas::GraphManager::GDEF_REFGRAPH = "REF";
 const std::string vargas::GraphManager::GDEF_MAXAFGRAPH = "MAXAF";
@@ -67,7 +66,6 @@ bool vargas::GraphManager::open(std::istream &in, bool build_base) {
             if (tag == GDEF_REF) _ref_file = val;
             else if (tag == GDEF_VAR) _variant_file = val;
             else if (tag == GDEF_REGION) _region = val;
-            else if (tag == GDEF_NODELEN) _node_len = std::stoi(val);
             else if (tag == GDEF_SAMPLE_FILTER) _sample_filter = val;
             else if (tag == GDEF_NEGATE_FILTER) _invert_filter = val == "1";
         }
@@ -84,7 +82,6 @@ bool vargas::GraphManager::open(std::istream &in, bool build_base) {
 
 
         gb.set_region(_region);
-        gb.node_len(_node_len);
 
         if (build_base) {
             _subgraphs[GDEF_BASEGRAPH] = std::make_shared<Graph>(gb.build());
@@ -197,19 +194,19 @@ vargas::Graph::Population vargas::GraphManager::filter(std::string label) const 
 
 
 bool vargas::GraphManager::write(std::string ref_file, std::string variant_file, std::string region,
-                                 const std::string &defs, int node_len, std::string out_file,
+                                 const std::string &defs, std::string out_file,
                                  bool build_base) {
     if (out_file.length() == 0)
-        return write(ref_file, variant_file, region, defs, node_len, std::cout, build_base);
+        return write(ref_file, variant_file, region, defs, std::cout, build_base);
 
     std::ofstream out(out_file);
     if (!out.good()) throw std::invalid_argument("Invalid output file: \"" + out_file + "\".");
-    return write(ref_file, variant_file, region, defs, node_len, out, build_base);
+    return write(ref_file, variant_file, region, defs, out, build_base);
 }
 
 
 bool vargas::GraphManager::write(std::string ref_file, std::string variant_file, std::string region,
-                                 std::string defs_str, int node_len, std::ostream &out,
+                                 std::string defs_str, std::ostream &out,
                                  bool build_base, int nsamps) {
 
     if (variant_file.length() == 0) variant_file = "-";
@@ -233,7 +230,6 @@ bool vargas::GraphManager::write(std::string ref_file, std::string variant_file,
     + GDEF_REF + GDEF_ASSIGN + ref_file + GDEF_DELIM
     + GDEF_VAR + GDEF_ASSIGN + variant_file + GDEF_DELIM
     + GDEF_REGION + GDEF_ASSIGN + region + GDEF_DELIM
-    + GDEF_NODELEN + GDEF_ASSIGN + std::to_string(node_len) + GDEF_DELIM
     + GDEF_NEGATE_FILTER + GDEF_ASSIGN + (_invert_filter ? "1" : "0") + GDEF_DELIM
     + GDEF_SAMPLE_FILTER + GDEF_ASSIGN + _sample_filter + '\n';
 
@@ -440,7 +436,6 @@ TEST_CASE ("Graph Manager") {
                               tmpvcf,
                               "x:0-10",
                               "ingroup = 2;~ingroup:1_1=1;ingroup:1_2=1;top=2t",
-                              100000,
                               ss);
             gm.open(ss);
 

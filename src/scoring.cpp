@@ -119,15 +119,7 @@ vargas::ScoreProfile vargas::bwt2(const std::string &cl) {
 
 vargas::ScoreProfile vargas::bwa_mem(const std::string &cl) {
     auto sp = tokenize_cl(cl);
-    int n = 0;
-    for (size_t i = 1; i < sp.size(); ++i) {
-        // token without a -X before is index or reads
-        if (sp[i].find('-') == std::string::npos && sp[i - 1].find('-') == std::string::npos) ++n;
-    }
-    // Will have 2 for unpaired (dx + reads)
-    if (std::find(sp.begin(), sp.end(), "-p") != sp.end() || n > 2) {
-        throw std::invalid_argument("BWA MEM: Unpaired read alignment expected.");
-    }
+
     ScoreProfile ret;
     ret.end_to_end = false;
     ret.ambig = 0;

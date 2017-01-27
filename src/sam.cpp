@@ -241,21 +241,21 @@ void vargas::SAM::Header::parse(std::string hdr) {
 
     // @HD line
     std::vector<std::string> tags = rg::split(lines[0], '\t');
-    if (tags[0] != "@HD") throw std::invalid_argument("First line must start with \"@HD\"");
-    std::vector<std::string> pair;
-    for (auto &p : tags) {
-        if (p.at(0) == '@') continue;
-        rg::split(p, ':', pair);
-        if (pair.size() != 2) continue;
-        if (pair[0] == "VN") {
-            version = pair[1];
-        } else if (pair[0] == "SO") {
-            sorting_order = pair[1];
-        } else if (pair[0] == "GO") {
-            grouping = pair[1];
+    if (tags[0] == "@HD") {
+        std::vector<std::string> pair;
+        for (auto &p : tags) {
+            if (p.at(0) == '@') continue;
+            rg::split(p, ':', pair);
+            if (pair.size() != 2) continue;
+            if (pair[0] == "VN") {
+                version = pair[1];
+            } else if (pair[0] == "SO") {
+                sorting_order = pair[1];
+            } else if (pair[0] == "GO") {
+                grouping = pair[1];
+            }
         }
     }
-
     // Other lines
     for (auto &l : lines) {
         std::string tag = l.substr(0, 3);

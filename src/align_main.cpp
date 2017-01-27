@@ -414,7 +414,6 @@ TEST_CASE ("Coordinate System Matches") {
 
     vargas::GraphFactory gb(tmpfa);
     gb.open_vcf(tmpvcf);
-    gb.node_len(5);
     gb.set_region("x:0-50");
     vargas::Graph g = gb.build();
 

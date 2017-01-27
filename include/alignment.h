@@ -407,7 +407,7 @@ namespace vargas {
 
           // Keep the scores at the positions, overwrites position. [0] is current position, 1-:ead_capacity + 1 is pos
           std::unordered_map<unsigned, _seed < simd_t>>
-          seed_map; // Maps node ID's to the ending matrix columns of the node
+          seed_map; // Maps node ID to the ending matrix cols of the node
           _seed <simd_t> seed(_read_len);
 
           for (unsigned group = 0; group < num_groups; ++group) {

@@ -39,12 +39,11 @@ vargas::Graph::GID::GID(std::string s) {
 }
 
 vargas::Graph::Graph(const std::string &ref_file, const std::string &vcf_file,
-                     const std::string &region, const unsigned max_node_len) {
+                     const std::string &region) {
     _IDMap = std::make_shared<std::unordered_map<unsigned, nodeptr>>();
     GraphFactory gb(ref_file);
     gb.open_vcf(vcf_file);
     gb.set_region(region);
-    gb.node_len(max_node_len);
     gb.build(*this);
 }
 
@@ -67,11 +66,6 @@ vargas::Graph::Graph(const vargas::Graph &g,
     }
 
     _build_derived_edges(g, includedNodes);
-
-    // Use the same description but add the filter we used
-    _desc = g.desc() + "\n#Sample filter: ";
-    _desc += filter.to_string();
-    _max_node_len = g._max_node_len;
 }
 
 
@@ -91,7 +85,6 @@ vargas::Graph::Graph(const Graph &g, Type type) {
                 _add_order.push_back(nid);
             }
         }
-        _desc = g.desc() + "\n#filter: REF";
     } else if (type == Type::MAXAF) {
         unsigned curr = g.root();
         unsigned maxid, size;
@@ -108,11 +101,9 @@ vargas::Graph::Graph(const Graph &g, Type type) {
             }
             curr = maxid;
         }
-        _desc = g.desc() + "\n#filter: MAXAF";
     }
 
     _build_derived_edges(g, includedNodes);
-    _max_node_len = g._max_node_len;
 
 }
 
@@ -203,7 +194,6 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
     int curr = vf.region().min; // The Graph has been built up to this position, exclusive
     std::unordered_set<unsigned> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
     std::unordered_set<unsigned> curr_unconnected; // ID's of nodes added that are unconnected
-    std::unordered_map<unsigned, unsigned> chain;
 
     g.set_popsize(vf.num_samples());
     const Graph::Population all_pop(g.pop_size(), true);
@@ -232,49 +222,26 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
         }
 
         //alt nodes
-        unsigned prev_split, curr_split, chain_origin;
-        chain.clear();
         for (unsigned i = 1; i < vf.alleles().size(); ++i) {
             const std::string &allele = vf.alleles()[i];
             if (allele == vf.ref()) continue; // Remove duplicate nodes, REF is substituted in for unknown tags
-            auto allele_split = _split_seq(allele);
             Graph::Population pop(vf.allele_pop(allele));
             if (g.pop_size() == 1 || (pop && all_pop)) { // Only add if someone has the allele. == 1 for KSNP
-                {
-                    Graph::Node n;
-                    n.set_endpos(curr - 1);
-                    n.set_population(pop);
-                    n.set_seq(allele_split[0]);
-                    n.set_af(af[i]);
-                    n.set_not_ref();
-                    prev_split = chain_origin = g.add_node(n);
-                    curr_unconnected.insert(prev_split);
-                }
-                for (unsigned i = 1; i < allele_split.size(); ++i) {
-                    Graph::Node n;
-                    n.set_endpos(curr - 1);
-                    n.set_population(pop);
-                    n.set_seq(allele_split[i]);
-                    n.set_af(af[i]);
-                    n.set_not_ref();
-                    curr_split = g.add_node(n);
-                    g.add_edge(prev_split, curr_split);
-                    prev_split = curr_split;
-                    chain[chain_origin] = prev_split;
-                }
+                Graph::Node n;
+                n.set_endpos(curr - 1);
+                n.set_population(pop);
+                n.set_seq(allele);
+                n.set_af(af[i]);
+                n.set_not_ref();
+                curr_unconnected.insert(g.add_node(n));
+
             }
         }
-        _build_edges(g, prev_unconnected, curr_unconnected, &chain);
+        _build_edges(g, prev_unconnected, curr_unconnected);
 
     }
     // Nodes after last variant
     _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.region().max);
-
-    std::string desc = "#Reference: " + _fa.file();
-    desc += "\n#Region: " + vf.region().seq_name + ":" + std::to_string(vf.region().min) + "-"
-    + std::to_string(vf.region().max);
-    g.set_desc(desc);
-    g.node_len(_max_node_len);
 
     _fa.close();
     _vf.reset();
@@ -282,8 +249,7 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
 
 
 void vargas::GraphFactory::_build_edges(vargas::Graph &g, std::unordered_set<unsigned> &prev,
-                                        std::unordered_set<unsigned> &curr,
-                                        std::unordered_map<unsigned, unsigned> *chain) {
+                                        std::unordered_set<unsigned> &curr) {
     for (unsigned pID : prev) {
         for (unsigned cID : curr) {
             g.add_edge(pID, cID);
@@ -291,13 +257,6 @@ void vargas::GraphFactory::_build_edges(vargas::Graph &g, std::unordered_set<uns
     }
     prev = curr;
     curr.clear();
-
-    if (chain) {
-        for (auto &r : *chain) {
-            prev.erase(r.first);
-            prev.insert(r.second);
-        }
-    }
 }
 
 
@@ -306,39 +265,19 @@ int vargas::GraphFactory::_build_linear_ref(Graph &g, std::unordered_set<unsigne
 
     if (target == 0) target = _fa.seq_len(_vf->region().seq_name);
     if (pos == target) return target; // For adjacent var positions
-    auto split_seq = _split_seq(_fa.subseq(_vf->region().seq_name, pos, target - 1));
-    for (const auto s : split_seq) {
-        Graph::Node n;
-        n.pinch();
-        n.set_population(g.pop_size(), true);
-        n.set_as_ref();
-        n.set_seq(s);
-        pos += s.length();
-        n.set_endpos(pos - 1);
-        curr.insert(g.add_node(n));
-        _build_edges(g, prev, curr);
-    }
+
+    Graph::Node n;
+    n.pinch();
+    n.set_population(g.pop_size(), true);
+    n.set_as_ref();
+    n.set_seq(_fa.subseq(_vf->region().seq_name, pos, target - 1));
+    n.set_endpos(target - 1);
+    curr.insert(g.add_node(n));
+    _build_edges(g, prev, curr);
     return target;
 }
 
 
-std::vector<std::string> vargas::GraphFactory::_split_seq(std::string seq) {
-    std::vector<std::string> split;
-    if (seq.length() <= _max_node_len) {
-        split.push_back(seq);
-        return split;
-    }
-    unsigned num_nodes = seq.length() / _max_node_len;
-    unsigned rem = seq.length() % _max_node_len;
-    for (unsigned i = 0; i < num_nodes; ++i) {
-        split.push_back(seq.substr(i * _max_node_len, _max_node_len));
-    }
-    if (rem > 0) {
-        split.push_back(seq.substr(num_nodes * _max_node_len, rem));
-    }
-    return split;
-
-}
 unsigned vargas::GraphFactory::add_sample_filter(std::string filter, bool invert) {
     if (!_vf) throw std::invalid_argument("No VCF file opened, cannot add filter.");
     if (filter.length() == 0 || filter == "-") return _vf->num_samples();
@@ -423,7 +362,6 @@ vargas::Graph vargas::Graph::subgraph(const unsigned min, const unsigned max) co
         }
     }
 
-    ret.set_desc(_desc + "\n subgraph min:" + std::to_string(min) + " max:" + std::to_string(max));
     ret.set_region(Region(_region.seq_name, min, max));
     return ret;
 }
@@ -852,7 +790,6 @@ TEST_CASE ("Graph Factory") {
         SUBCASE("Basic Graph") {
             vargas::GraphFactory gb(tmpfa);
             gb.open_vcf(tmpvcf);
-            gb.node_len(5);
             gb.set_region("x:0-15");
 
             vargas::Graph g;
@@ -860,12 +797,7 @@ TEST_CASE ("Graph Factory") {
 
             auto giter = g.begin();
 
-            CHECK((*giter).seq_str() == "CAAAT");
-            CHECK((*giter).belongs(0) == true); // its a ref
-            CHECK((*giter).is_ref());
-
-            ++giter;
-            CHECK((*giter).seq_str() == "AAG");
+            CHECK((*giter).seq_str() == "CAAATAAG");
             CHECK((*giter).belongs(0) == true); // its a ref
             CHECK((*giter).is_ref());
 
@@ -891,10 +823,7 @@ TEST_CASE ("Graph Factory") {
             CHECK(giter->is_ref());
 
             ++giter;
-            CHECK((*giter).seq_str() == "CCCCC");
-            CHECK(!giter->is_ref());
-            ++giter;
-            CHECK((*giter).seq_str() == "CC");
+            CHECK((*giter).seq_str() == "CCCCCCC");
             CHECK(!giter->is_ref());
 
             ++giter;
@@ -908,7 +837,6 @@ TEST_CASE ("Graph Factory") {
         SUBCASE("Deriving a Graph") {
             vargas::GraphFactory gb(tmpfa);
             gb.open_vcf(tmpvcf);
-            gb.node_len(5);
             gb.set_region("x:0-15");
 
             vargas::Graph g;
@@ -918,15 +846,11 @@ TEST_CASE ("Graph Factory") {
             vargas::Graph g2(g, filter);
             auto iter = g2.begin();
 
-            CHECK((*iter).seq_str() == "CAAAT");
-            ++iter;
-            CHECK((*iter).seq_str() == "AAG");
+            CHECK((*iter).seq_str() == "CAAATAAG");
             ++iter;
             CHECK((*iter).seq_str() == "T");
             ++iter;
-            CHECK((*iter).seq_str() == "CCCCC");
-            ++iter;
-            CHECK((*iter).seq_str() == "CC");
+            CHECK((*iter).seq_str() == "CCCCCCC");
 
         }
 
@@ -934,7 +858,6 @@ TEST_CASE ("Graph Factory") {
             vargas::GraphFactory gb(tmpfa);
             CHECK_THROWS(gb.add_sample_filter("-"));
             gb.open_vcf(tmpvcf);
-            gb.node_len(5);
             gb.set_region("x:0-15");
 
             SUBCASE("No inversion") {
@@ -942,12 +865,7 @@ TEST_CASE ("Graph Factory") {
                 auto g = gb.build();
 
                 auto giter = g.begin();
-                CHECK((*giter).seq_str() == "CAAAT");
-                CHECK((*giter).belongs(0) == true); // its a ref
-                CHECK((*giter).is_ref());
-
-                ++giter;
-                CHECK((*giter).seq_str() == "AAG");
+                CHECK((*giter).seq_str() == "CAAATAAG");
                 CHECK((*giter).belongs(0) == true); // its a ref
                 CHECK((*giter).is_ref());
 
@@ -964,12 +882,7 @@ TEST_CASE ("Graph Factory") {
                 auto g = gb.build();
 
                 auto giter = g.begin();
-                CHECK((*giter).seq_str() == "CAAAT");
-                CHECK((*giter).belongs(0) == true); // its a ref
-                CHECK((*giter).is_ref());
-
-                ++giter;
-                CHECK((*giter).seq_str() == "AAG");
+                CHECK((*giter).seq_str() == "CAAATAAG");
                 CHECK((*giter).belongs(0) == true); // its a ref
                 CHECK((*giter).is_ref());
 
@@ -988,12 +901,7 @@ TEST_CASE ("Graph Factory") {
                 auto g = gb.build();
 
                 auto giter = g.begin();
-                CHECK((*giter).seq_str() == "CAAAT");
-                CHECK((*giter).belongs(0) == true); // its a ref
-                CHECK((*giter).is_ref());
-
-                ++giter;
-                CHECK((*giter).seq_str() == "AAG");
+                CHECK((*giter).seq_str() == "CAAATAAG");
                 CHECK((*giter).belongs(0) == true); // its a ref
                 CHECK((*giter).is_ref());
 
@@ -1010,12 +918,7 @@ TEST_CASE ("Graph Factory") {
                 auto g = gb.build();
 
                 auto giter = g.begin();
-                CHECK((*giter).seq_str() == "CAAAT");
-                CHECK((*giter).belongs(0) == true); // its a ref
-                CHECK((*giter).is_ref());
-
-                ++giter;
-                CHECK((*giter).seq_str() == "AAG");
+                CHECK((*giter).seq_str() == "CAAATAAG");
                 CHECK((*giter).belongs(0) == true); // its a ref
                 CHECK((*giter).is_ref());
 

@@ -506,10 +506,9 @@ namespace vargas {
        * @param ref_file FASTA file name
        * @param vcf_file VCF or BCF file name
        * @param region region in the format chromosome:start-end
-       * @param max_node_len Maximum graph node length
        */
       Graph(const std::string &ref_file, const std::string &vcf_file,
-            const std::string &region, const unsigned max_node_len = 100000000);
+            const std::string &region);
 
       /**
        * @brief
@@ -558,22 +557,6 @@ namespace vargas {
 
       /**
        * @brief
-       * Sets the root of the Graph.
-       * @param id ID of root node
-       */
-      void set_root(const unsigned id) {
-          _root = id;
-      }
-
-      /**
-       * @brief
-       * Set the graph description.
-       * @param description
-       */
-      void set_desc(const std::string &description) { _desc = description; }
-
-      /**
-       * @brief
        * Return root node ID
        * @return root
        */
@@ -611,11 +594,6 @@ namespace vargas {
           if (_IDMap->count(id) == 0) throw std::domain_error("Invalid Node ID.");
           return *(*_IDMap).at(id);
       }
-
-      /**
-       * @return description of graph
-       */
-      std::string desc() const { return _desc; }
 
       /**
        * @brief
@@ -715,18 +693,6 @@ namespace vargas {
 
       /**
        * @brief
-       * Set the maximum node length of the graph.
-       * @param len max node length
-       */
-      void node_len(unsigned len) { _max_node_len = len; }
-
-      /**
-       * @return max node len
-       */
-      unsigned max_node_len() const { return _max_node_len; }
-
-      /**
-       * @brief
        * Ensures that the graph is topologically sorted.
        * @param begin Graph begin iterator
        * @param end Graph end iterator
@@ -779,10 +745,7 @@ namespace vargas {
       // maps a node ID to a vector of node ID's that point to it
       std::unordered_map<unsigned, std::vector<unsigned >> _prev_map;
       std::vector<unsigned> _add_order; // Order nodes were added
-      // Description, used by the builder to store construction params
-      std::string _desc;
       unsigned _pop_size = 0;
-      unsigned _max_node_len;
       Population _filter;
       Region _region;
 
@@ -807,7 +770,6 @@ namespace vargas {
    * #include "graph.h"
    *
    * Vargas::GraphFactory gb("reference.fa", "var.bcf");
-   * gb.node_len(5);
    * gb.ingroup(100);
    * gb.region("x:0-15");
    *
@@ -857,13 +819,6 @@ namespace vargas {
           if (!_vf) throw std::invalid_argument("No variant file opened.");
           _vf->set_region(chr, min, max);
       }
-
-      /**
-       * @brief
-       * Set maximum node length. If <= 0, length is unbounded.
-       * @param max maximum node length.
-       */
-      void node_len(unsigned max) { _max_node_len = max; }
 
       /**
        * Open the given file
@@ -916,11 +871,9 @@ namespace vargas {
        * @param g build edges for Graph g
        * @param prev previous unconnected nodes (linked to main graph already)
        * @param curr current unconnected nodes
-       * @param chain if a single linear node is split, map the beginning of the sequence to the end.
        */
       __RG_STRONG_INLINE__
-      void _build_edges(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr,
-                        std::unordered_map<unsigned, unsigned> *chain = nullptr);
+      void _build_edges(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr);
 
       /**
        * @brief
@@ -936,22 +889,12 @@ namespace vargas {
       int _build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr,
                             unsigned pos, unsigned target);
 
-      /**
-       * @brief
-       * Splits a sequence into multiple sequences if neccessary to conform to the
-       * max_node_len spec.
-       * @return vector of split sequences
-       */
-      __RG_STRONG_INLINE__
-      std::vector<std::string> _split_seq(std::string seq);
 
     private:
       std::string _fa_file;
       std::unique_ptr<VariantFile> _vf;
       ifasta _fa;
 
-      // Graph construction parameters
-      unsigned _max_node_len = 10000000; // If a node is longer, split into multiple nodes
   };
 
   /**
