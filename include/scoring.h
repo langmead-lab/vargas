@@ -73,11 +73,9 @@ namespace vargas {
  * Aligner results
  */
   struct Results {
-      std::vector<unsigned> max_pos; /**< Best positions, 1 indexed */
-      std::vector<unsigned> sub_pos; /**< Second best positions, 1 indexed */
-
-      std::vector<int> max_count; /**< # of max_score */
-      std::vector<int> sub_count; /**< # of sub_score */
+      using positions = std::vector<std::vector<unsigned>>;
+      positions max_pos; /**< Best positions, 1 indexed */
+      positions sub_pos; /**< Second best positions, 1 indexed */
 
       std::vector<int> max_score; /**< Best scores */
       std::vector<int> sub_score; /**< Second best scores */

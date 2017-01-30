@@ -338,6 +338,7 @@ void vargas::SAM::Record::parse(std::string line) {
     }
 
 }
+
 bool vargas::SAM::Record::get_required(const std::string &tag, std::string &val) const {
     if (tag == REQUIRED_POS) {
         val = rg::to_string(pos);
@@ -371,6 +372,12 @@ void vargas::isam::open(std::istream &is) {
         hdr << _curr_line << '\n';
     }
     if (hdr.str().length() > 0) _hdr << hdr.str();
+
+    // FASTA -> SAM
+    if (_curr_line.at(0) == '>') {
+
+    }
+
     _pprec << _curr_line;
 }
 
@@ -388,26 +395,24 @@ void vargas::isam::open(std::string file_name) {
     }
 }
 
-vargas::isam vargas::isam::subset(size_t n) {
+void vargas::isam::subset(size_t n) {
     if (!good()) throw std::invalid_argument("No records available.");
     std::vector<Record> pending;
     do { pending.push_back(_pprec); } while (next());
     if (pending.size() == 0) throw std::invalid_argument("No records available.");
+
     std::vector<size_t> idx(pending.size());
     std::iota(idx.begin(), idx.end(), 0);
     std::random_shuffle(idx.begin(), idx.begin());
-    isam ss;
+
     if (n >= pending.size() || n == 0) {
-        ss._buff = std::move(pending);
+        _buff = pending;
     } else {
-        ss._buff.reserve(n);
         for (size_t i = 0; i < n; ++i) {
-            ss._buff.push_back(pending[i]);
+            _buff.push_back(pending[idx[i]]);
         }
     }
-    ss.next();
-    ss._hdr = _hdr;
-    return ss;
+    next();
 }
 
 bool vargas::isam::next() {
@@ -610,24 +615,24 @@ TEST_CASE ("SAM File") {
         SUBCASE("Subset") {
             {
                 vargas::isam orig("tmp_s.sam");
-                auto ss = orig.subset(2);
-                CHECK(ss.record().query_name.length()); // First record is loaded
-                CHECK(ss.next());
-                CHECK(ss.record().query_name.length());
-                CHECK_FALSE(ss.next());
+                orig.subset(2);
+                CHECK(orig.record().query_name.length()); // First record is loaded
+                CHECK(orig.next());
+                CHECK(orig.record().query_name.length());
+                CHECK_FALSE(orig.next());
                 try {
                     // ss is consumed so this should throw
-                    auto sss = ss.subset(1);
+                    orig.subset(1);
                     CHECK(0);
                 } catch (std::exception &e) { CHECK(1); }
             }
 
             {
                 vargas::isam orig("tmp_s.sam");
-                auto s1 = orig.subset(2);
-                auto s2 = s1.subset(1);
-                CHECK(s2.record().query_name.length());
-                CHECK_FALSE(s2.next());
+                orig.subset(2);
+                orig.subset(1);
+                CHECK(orig.record().query_name.length());
+                CHECK_FALSE(orig.next());
             }
         }
 
@@ -638,7 +643,7 @@ TEST_CASE ("SAM File") {
 }
 
 TEST_CASE ("Cigar") {
-    std::string s = "MI10M1D10M";
+    std::string s = "MI10M1D100M";
     vargas::Cigar c = s;
 
     REQUIRE(c.size() == 5);
@@ -650,7 +655,7 @@ TEST_CASE ("Cigar") {
     CHECK(c[2].second == 'M');
     CHECK(c[3].first == 1);
     CHECK(c[3].second == 'D');
-    CHECK(c[4].first == 10);
+    CHECK(c[4].first == 100);
     CHECK(c[4].second == 'M');
 }
 

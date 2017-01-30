@@ -13,7 +13,7 @@
 #define VARGAS_ALIGN_MAIN_H
 
 // Assign all reads without a read group to a RG:ID of:
-#define UNGROUPED_READGROUP "VA-UNGROUPED"
+#define UNGROUPED_READGROUP "VAUGRP"
 
 // Output alignment tags
 #define ALIGN_SAM_MAX_POS_TAG "mp"
@@ -47,7 +47,7 @@ int align_main(int argc, char *argv[]);
 
 void align(vargas::GraphManager &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
-           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners);
+           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool primary);
 
 /**
  * @brief
@@ -59,7 +59,7 @@ void align(vargas::GraphManager &gm,
  * @return List of jobs of the form <subgraph label, [reads]>
  */
 std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>>
-create_tasks(vargas::isam &reads, std::string &align_targets, const size_t chunk_size, size_t &read_len, bool &resized);
+create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_size, size_t &read_len, bool &resized);
 
 /**
  * @brief
@@ -73,6 +73,8 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const size_t chunk
  */
 std::unique_ptr<vargas::AlignerBase>
 make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide = false);
+
+void load_fast(std::string &file, const bool fastq, vargas::isam &ret);
 
 void align_help(const cxxopts::Options &opts);
 

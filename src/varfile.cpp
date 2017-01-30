@@ -40,18 +40,8 @@ vargas::Region vargas::parse_region(const std::string &region_str) {
     return ret;
 }
 
-void vargas::VariantFile::set_region(const std::string &region) {
-    _region = parse_region(region);
-}
-
-void vargas::VariantFile::set_region(const Region &region) {
+void vargas::VCF::set_region(const Region &region) {
     _region = region;
-}
-
-void vargas::VariantFile::set_region(std::string chr, unsigned min, unsigned max) {
-    _region.seq_name = chr;
-    _region.max = max;
-    _region.min = min;
 }
 
 
@@ -324,7 +314,7 @@ TEST_CASE ("VCF File handler") {
 
         SUBCASE("CHROM Filtering") {
             vargas::VCF vcf;
-            vcf.set_region("y:0-0");
+            vcf.set_region(std::string("y:0-0"));
             vcf.open(tmpvcf);
 
             vcf.next();
@@ -336,7 +326,7 @@ TEST_CASE ("VCF File handler") {
 
         SUBCASE("Region filtering") {
             vargas::VCF vcf;
-            vcf.set_region("x:0-14");
+            vcf.set_region(std::string("x:0-14"));
             vcf.open(tmpvcf);
 
             vcf.next();

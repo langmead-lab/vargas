@@ -208,7 +208,7 @@ namespace rg {
  * @param vec vector to store results in
  */
   inline void split(const std::string &s, std::vector<std::string> &vec) {
-      vec = std::move(split(s, std::string(1, rg::guess_delim(s))));
+      vec = split(s, std::string(1, rg::guess_delim(s)));
   }
 
 
@@ -354,11 +354,18 @@ namespace rg {
   void from_string(const std::string &s, std::string &ret) { ret = s; }
 
   template<typename T>
-  void print_vec(const std::vector<T> &v, std::ostream &os = std::cerr) {
+  std::string vec_to_str(const std::vector<T> &v, const std::string sep = ", ") {
+      std::stringstream os;
       os << v[0];
       for (unsigned i = 1; i < v.size(); ++i) {
-          os << ", " << v[i];
+          os << sep << v[i];
       }
+      return os.str();
+  }
+
+  template<typename T>
+  void print_vec(const std::vector<T> &v, std::ostream &os = std::cerr) {
+      os << vec_to_str(v);
   }
 
   /**

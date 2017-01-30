@@ -753,11 +753,19 @@ namespace vargas {
 
       /**
        * @brief
-       * Load the rest of the records in the file and return a subset of them.
-       * @param n Number of records to keep.
-       * @return isam with subset of reads.
+       * Push a record onto the SAM buffer.
+       * @param rec Record
        */
-      isam subset(size_t n);
+      void push(const SAM::Record &rec) {
+          _buff.push_back(rec);
+      }
+
+      /**
+       * @brief
+       * Load the rest of the records in the file and keep a subset of them.
+       * @param n Number of records to keep.
+       */
+      void subset(size_t n);
 
       /**
        * @brief
@@ -813,8 +821,7 @@ namespace vargas {
        * @param file_name file to write
        * @param hdr SAM::Header of the file
        */
-      osam(std::string file_name,
-           const SAM::Header &hdr) {
+      osam(std::string file_name, const SAM::Header &hdr) {
           _hdr = hdr;
           open(file_name);
       }

@@ -48,8 +48,6 @@ std::string vargas::ScoreProfile::to_string() const {
 void vargas::Results::resize(size_t size) {
     max_pos.resize(size);
     sub_pos.resize(size);
-    max_count.resize(size);
-    sub_count.resize(size);
     max_score.resize(size);
     sub_score.resize(size);
     correct.resize(size);
@@ -58,9 +56,7 @@ void vargas::Results::resize(size_t size) {
 
 std::vector<std::string> vargas::tokenize_cl(std::string cl) {
     std::replace_if(cl.begin(), cl.end(), isspace, ' ');
-    cl.erase(std::unique(cl.begin(), cl.end(),
-                         [](char a, char b) { return a == b && a == '-'; }),
-             cl.end());
+    cl.erase(std::unique(cl.begin(), cl.end(), [](char a, char b) { return a == b && a == '-'; }), cl.end());
     return rg::split(cl, " =");
 }
 

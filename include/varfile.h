@@ -32,6 +32,17 @@
 #include "htslib/hts.h"
 
 namespace vargas {
+  struct Region;
+
+  /**
+     * @brief
+     * Parse a region in the format:
+     * SEQ_NAME:MIN_POS-MAX_POS
+     * Commas are stripped.
+     * @param region_str
+     * @return Region packet.
+     */
+  Region parse_region(const std::string &region_str);
 
   /**
    * @brief
@@ -40,132 +51,18 @@ namespace vargas {
   struct Region {
       Region() : min(0), max(0) {}
       Region(const std::string &seq, unsigned min, unsigned max) : seq_name(seq), min(min), max(max) {}
+      Region(std::string str) {
+          auto r = parse_region(str);
+          seq_name = r.seq_name;
+          min = r.min;
+          max = r.max;
+      }
       std::string seq_name; /**< Contig name */
       unsigned min, /**< Min position, inclusive. */
       max; /**< Max position, inclusive. */
   };
 
-  /**
-   * @brief
-   * Parse a region in the format:
-   * SEQ_NAME:MIN_POS-MAX_POS
-   * Commas are stripped.
-   * @param region_str
-   * @return Region packet.
-   */
-  Region parse_region(const std::string &region_str);
 
-  /**
-   * @brief
-   * Base class for files representing variants in a reference. Provides an interface
-   * to iterate through variants, and encapsulates a reference region.
-   */
-  class VariantFile {
-    public:
-      VariantFile() {}
-
-      /**
-       * @brief
-       * Specify a region of the reference sequence.
-       * @param chr Chromosome
-       * @param min Minimum position, 0 indexed
-       * @param max Max position, inclusive, 0 indexed
-       */
-      VariantFile(std::string const &chr, unsigned min, unsigned max) : _region(chr, min, max) {}
-
-      virtual ~VariantFile() = default;
-
-      typedef dyn_bitset<64> Population;
-
-      /**
-       * @brief
-        * Set the minimum and maximum position, inclusive.
-        * If max is == 0, go until end.
-        * @param chr contig ID
-        * @param min Minimum position, 0 indexed
-        * @param max Max position, inclusive, 0 indexed
-     */
-      void set_region(std::string chr, unsigned min, unsigned max);
-
-      /**
-     * @brief
-     * Parse a region string in the format: \n
-     * CHR:XX,XXX-YY,YYY \n
-     * commas are stripped, range is inclusive. 0 indexed.
-     * If max is <= 0, go until end.
-     * @param region region string
-     */
-      void set_region(const std::string &region);
-      void set_region(const Region &region);
-
-      const Region &region() const { return _region; }
-
-      virtual void create_ingroup(const std::vector<std::string> &) {
-          throw std::invalid_argument("No default impl.");
-      };
-
-      /**
-       * @brief
-       * Load the next VCF record. All information is unpacked,
-       * subject to sample set restrictions.
-       * Upon initilization, the first record is loaded.
-       * @return false on read error or if outside restriction range.
-       */
-      virtual bool next() = 0;
-
-      /**
-       * @return true if the opened file is good.
-       */
-      virtual bool good() = 0;
-
-      /**
-       * @return Current reference sequence
-       */
-      virtual std::string ref() const = 0;
-
-      /**
-       * @return Vector of alleles at the current position
-       */
-      virtual const std::vector<std::string> &alleles() const = 0;
-
-      /**
-       * @return Current position of variant
-       */
-      virtual int pos() const = 0;
-
-      /**
-       * @brief
-       * Allele frequencies corresponding to alleles()
-       * @return vector of freqs, 0-1
-       */
-      virtual const std::vector<float> &frequencies() const = 0;
-
-      /**
-       * @brief
-       * Samples in the file. If samples are unknown, an empty vector is returned.
-       * @return vector of sample names
-       */
-      virtual const std::vector<std::string> &samples() const = 0;
-
-      /**
-       * @brief
-       * Number of samples in the file.
-       * @return
-       */
-      virtual size_t num_samples() const = 0;
-
-      /**
-       * @brief
-       * Population that posseses the the given allele. If the variant source does not
-       * have this information, {1, 1} is returned.
-       * @return Population of the given allele at the current position.
-       */
-      virtual const Population &allele_pop(const std::string allele = "") const = 0;
-
-
-    protected:
-      Region _region;
-  };
 
 /**
  * @brief
@@ -204,15 +101,17 @@ namespace vargas {
  *
  * @endcode
  */
-  class VCF: public VariantFile {
+  class VCF {
     public:
+
+      typedef dyn_bitset<64> Population;
 
       VCF() {}
 
       /**
        * @param file VCF/BCF File name
        */
-      explicit VCF(std::string file) : _file_name(file) {
+      VCF(std::string file) : _file_name(file) {
           _init();
       }
 
@@ -222,11 +121,11 @@ namespace vargas {
        * @param min Min position, 0 indexed
        * @param max Max position, 0 indexed, inclusive
        */
-      VCF(std::string file, std::string chr, int min, int max) : VariantFile(chr, min, max), _file_name(file) {
+      VCF(std::string file, std::string chr, int min, int max) : _file_name(file), _region(chr, min, max) {
           _init();
       }
 
-      ~VCF() override {
+      ~VCF() {
           close();
       }
 
@@ -374,7 +273,7 @@ namespace vargas {
 
       void close();
 
-      bool good() override {
+      bool good() {
           return _header && _bcf;
       }
 
@@ -400,14 +299,14 @@ namespace vargas {
        * num_samples() counts each haplotype as distinct. num_samples() = samples().size() * 2
        * @return Number of samples the VCF has. Each sample represents two genotypes.
        */
-      size_t num_samples() const override;
+      size_t num_samples() const;
 
       /**
        * @brief
        * Get a vector of sample names.
        * @return vector of samples
        */
-      const std::vector<std::string> &samples() const override {
+      const std::vector<std::string> &samples() const {
           return _samples;
       }
 
@@ -417,7 +316,7 @@ namespace vargas {
        * subject to sample set restrictions.
        * @return false on read error or if outside restriction range.
        */
-      bool next() override;
+      bool next();
 
       /**
        * @brief
@@ -522,7 +421,7 @@ namespace vargas {
        * @param allele allele to get the population of
        * @return Population of indviduals that have the allele
        */
-      const Population &allele_pop(const std::string allele) const override {
+      const Population &allele_pop(const std::string allele) const {
           return _genotype_indivs.at(allele);
       }
 
@@ -557,7 +456,7 @@ namespace vargas {
        * Include only the provided sample names in the Graph.
        * @param samples vector of sample names
        */
-      void create_ingroup(const std::vector<std::string> &samples) override {
+      void create_ingroup(const std::vector<std::string> &samples) {
           _ingroup = samples;
           _apply_ingroup_filter();
       }
@@ -568,6 +467,9 @@ namespace vargas {
       const std::vector<std::string> &ingroup() const {
           return _ingroup;
       }
+
+      void set_region(const Region &region);
+      const Region &region() const { return _region; }
 
     protected:
 
@@ -594,6 +496,7 @@ namespace vargas {
 
     private:
       std::string _file_name; // VCF/BCF file name
+      Region _region;
 
       htsFile *_bcf = nullptr;
       bcf_hdr_t *_header = nullptr;

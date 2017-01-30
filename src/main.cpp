@@ -347,16 +347,14 @@ int convert_main(int argc, char **argv) {
                     std::cerr << "WARN: Tag \"" << tag << "\" not present." << std::endl;
                     warned.insert(tag);
                 }
-                buff += val;
-                buff += ",";
+                buff += "\"" + val + "\",";
             }
-            std::cout << buff.substr(0, buff.length() - 1) << '\n'; // Crop trailing comma
+            buff.resize(buff.size() - 1);
+            std::cout << buff << '\n'; // Crop trailing comma
         } while (input.next());
     }
 
-    std::cerr << std::chrono::duration_cast<std::chrono::duration<double>>(
-    std::chrono::steady_clock::now() - start_time).count()
-              << " seconds." << std::endl;
+    std::cerr << rg::chrono_duration(start_time) << " seconds." << std::endl;
 
     return 0;
 }

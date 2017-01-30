@@ -222,13 +222,6 @@ namespace vargas {
 
           /**
            * @brief
-           * Size of the Population of the node. This should be consistant throughout the graph.
-           * @return pop_size
-           */
-          unsigned pop_size() const { return _individuals.size(); }
-
-          /**
-           * @brief
            * Node id.
            * @return unique node ID
            */
@@ -650,7 +643,7 @@ namespace vargas {
       /**
        * @brief
        * Return a Population of a subset of the graph.
-       * @return Population with ingroup % indivduals set.
+       * @return Population with ingroup % of samples set.
        */
       Population subset(const int ingroup) const;
 
@@ -809,18 +802,6 @@ namespace vargas {
       }
 
       /**
-       * @brief
-       * Set the region of the sequence to build.
-       * @param chr Chromosome/sequence of build
-       * @param min min pos, inclusive
-       * @param max max pos, inclusive
-       */
-      void set_region(std::string chr, int min, int max) {
-          if (!_vf) throw std::invalid_argument("No variant file opened.");
-          _vf->set_region(chr, min, max);
-      }
-
-      /**
        * Open the given file
        * @param file_name
        * @return Number of samples
@@ -892,7 +873,7 @@ namespace vargas {
 
     private:
       std::string _fa_file;
-      std::unique_ptr<VariantFile> _vf;
+      std::unique_ptr<VCF> _vf;
       ifasta _fa;
 
   };

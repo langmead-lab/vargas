@@ -124,12 +124,13 @@ void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
     if (includedNodes.find(g.root()) == includedNodes.end()) {
         throw std::invalid_argument("Currently the root must be common to all graphs.");
     }
-    _root = g.root();
 }
 
 
 unsigned vargas::Graph::add_node(const Node &n) {
-    if (_IDMap->find(n.id()) != _IDMap->end()) return 0; // make sure node isn't duplicate
+    if (_IDMap->find(n.id()) != _IDMap->end()) {
+        throw std::invalid_argument("Duplicate node insertion.");
+    }
     if (_IDMap->size() == 0) _root = n.id(); // first node added is default root
 
     _IDMap->emplace(n.id(), std::make_shared<Node>(n));
@@ -138,8 +139,7 @@ unsigned vargas::Graph::add_node(const Node &n) {
 }
 
 
-bool vargas::Graph::add_edge(const unsigned n1,
-                             const unsigned n2) {
+bool vargas::Graph::add_edge(const unsigned n1, const unsigned n2) {
     // Check if the nodes exist
     if (_IDMap->count(n1) == 0 || _IDMap->count(n2) == 0) return false;
 
@@ -160,8 +160,13 @@ std::string vargas::Graph::to_DOT(std::string name) const {
     std::ostringstream dot;
     dot << "// Each node has the sequence, followed by end_pos,allele_freq\n";
     dot << "digraph " << name << " {\n";
+
     for (const auto n : *_IDMap) {
-        dot << n.second->id() << "[label=\"" << n.second->seq_str()
+        auto seq = n.second->seq_str();
+        if (seq.size() > 19) {
+            seq = seq.substr(0, 8) + "..." + seq.substr(seq.size() - 8, 8);
+        }
+        dot << n.second->id() << "[label=\"" << seq
             << "\nP:" << n.second->end_pos() << ", F:" << n.second->freq() << ", R:" << n.second->is_ref()
             << "\n[" << n.second->individuals().to_string() << "]"
             << "\"];\n";
@@ -298,7 +303,7 @@ unsigned vargas::GraphFactory::add_sample_filter(std::string filter, bool invert
 
 unsigned vargas::GraphFactory::open_vcf(std::string const &file_name) {
     _vf.reset();
-    _vf = std::unique_ptr<VariantFile>(new VCF(file_name));
+    _vf = std::unique_ptr<VCF>(new VCF(file_name));
     if (file_name.length() == 0 || file_name == "-") return 0;
     if (!_vf->good()) throw std::invalid_argument("Invalid VCF/BCF file: \"" + file_name + "\"");
     return _vf->num_samples();

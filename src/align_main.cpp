@@ -33,16 +33,17 @@ int align_main(int argc, char *argv[]) {
     // Load parameters
     unsigned match, mismatch, gopen, gext, threads, tolerance, chunk_size, subsample = 0;
     std::string read_file, gdf, align_targets, out_file, pgid;
-    bool align_targets_isfile = false, end_to_end = false;
+    bool end_to_end = false;
 
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
     try {
         opts.add_options()
         ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf))
-        ("r,reads", "<str> SAM reads file. (default: stdin)", cxxopts::value(read_file))
+        ("r,reads", "<str> Unpaired reads. Default SAM format. (default: stdin)", cxxopts::value(read_file))
+        ("q,fastq", "Reads (-r) are in FASTQ format.")
+        ("f,fasta", "Reads (-r) are in FASTA format.")
         ("p,subsample", "<N> Subsample N random reads.", cxxopts::value(subsample))
-        ("a,align", "<str> Alignment targets/file of form \"RG:[ID][gd],target\"", cxxopts::value(align_targets))
-        ("f,file", " -a specifies a file name.", cxxopts::value(align_targets_isfile))
+        ("a,align", "<str> Alignment targets/file of form \"RG:[ID][gd],target;...\"", cxxopts::value(align_targets))
         ("m,match", "<N> Match score.", cxxopts::value(match)->default_value("2"))
         ("n,mismatch", "<N> Mismatch penalty.", cxxopts::value(mismatch)->default_value("2"))
         ("o,gap_open", "<N> Gap opening penalty.", cxxopts::value(gopen)->default_value("3"))
@@ -63,6 +64,7 @@ int align_main(int argc, char *argv[]) {
         return 0;
     }
     if (!opts.count("gdef")) throw std::invalid_argument("Graph definition file required.");
+    bool primary = opts.count("fastq") || opts.count("fasta");
 
     if (chunk_size < vargas::Aligner::read_capacity() ||
     chunk_size % vargas::Aligner::read_capacity() != 0) {
@@ -70,15 +72,11 @@ int align_main(int argc, char *argv[]) {
                   << vargas::Aligner::read_capacity() << std::endl;
     }
 
-    #ifndef _OPENMP
-    // Disable threads if no openMP.
-    if (threads != 1) {
-        std::cerr << "WARN: Threads specified without OpenMP Compilation." << std::endl;
+    if (align_targets.size() > 0 && (opts.count("fastq") || opts.count("fasta"))) {
+        throw std::invalid_argument("Alignment targets only available for SAM inputs.");
     }
-    threads = 1;
-    #endif
-
-    if (align_targets_isfile) {
+    // If targets doesn't have a comma, assume its a filename
+    if (align_targets.size() > 0 && std::find(align_targets.begin(), align_targets.end(), ',') == align_targets.end()) {
         std::ifstream in(align_targets);
         if (!in.good()) throw std::invalid_argument("Invalid alignment targets file \"" + align_targets + "\".");
         std::stringstream ss;
@@ -86,7 +84,18 @@ int align_main(int argc, char *argv[]) {
         align_targets = ss.str();
     }
 
-    auto reads = vargas::isam(read_file).subset(subsample);
+    vargas::isam reads;
+    if (opts.count("fasta") && opts.count("fasta")) {
+        throw std::invalid_argument("One of FASTQ or FASTA should be selected.");
+    }
+    if (opts.count("fastq")) {
+        load_fast(read_file, true, reads);
+    } else if (opts.count("fasta")) {
+        load_fast(read_file, false, reads);
+    } else {
+        reads.open(read_file);
+    }
+    reads.subset(subsample);
     auto &reads_hdr = reads.header();
 
     vargas::ScoreProfile prof(match, mismatch, gopen, gext);
@@ -111,8 +120,6 @@ int align_main(int argc, char *argv[]) {
         prof.end_to_end = end_to_end;
         prof.ambig = 0;
     }
-    prof.tol = tolerance;
-    std::cerr << "Scoring profile: " << prof.to_string() << "\n";
 
     vargas::SAM::Header::Program pg;
     pg.command_line = cl;
@@ -137,6 +144,8 @@ int align_main(int argc, char *argv[]) {
     #ifdef _OPENMP
     if (threads) threads = threads > task_list.size() ? task_list.size() : threads;
     omp_set_num_threads(threads);
+    #else
+    threads = 1;
     #endif
 
     const bool use_wide = read_len * match > 255;
@@ -145,6 +154,8 @@ int align_main(int argc, char *argv[]) {
                   << vargas::WordAligner::read_capacity() << " reads/vector).\n";
     }
 
+    prof.tol = read_len / tolerance;
+    std::cerr << "Scoring profile: " << prof.to_string() << "\n";
 
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
@@ -159,7 +170,7 @@ int align_main(int argc, char *argv[]) {
         std::cerr << "(" << gm.base()->node_map()->size() << " nodes), "
                   << rg::chrono_duration(start_time) << "s.\n";
 
-        align(gm, task_list, aligners);
+        align(gm, task_list, aligners, primary);
 
         std::string fname = out_file;
         if (fname.length() > 0 && files.size() > 1) {
@@ -181,10 +192,9 @@ int align_main(int argc, char *argv[]) {
 }
 
 void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
-           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners) {
+           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool primary) {
 
     std::cerr << "Aligning... " << std::flush;
-    auto start_cpu = std::clock();
     auto start_time = std::chrono::steady_clock::now();
 
     const auto num_tasks = task_list.size();
@@ -218,30 +228,26 @@ void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vec
         const auto aligns = aligners[tid]->align(read_seqs, targets, subgraph->begin(), subgraph->end());
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             vargas::SAM::Record &rec = task_list.at(l).second.at(j);
-            rec.aux.set(ALIGN_SAM_MAX_POS_TAG, aligns.max_pos[j]);
+            rec.aux.set(ALIGN_SAM_MAX_POS_TAG, rg::vec_to_str(aligns.max_pos[j], ","));
             rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
             rec.aux.set(ALIGN_SAM_SCORE_PROFILE, aligns.profile.to_string());
             rec.aux.set(ALIGN_SAM_SEQ, subgraph->region().seq_name);
-            rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
-            rec.aux.set(ALIGN_SAM_SUB_POS_TAG, aligns.sub_pos[j]);
+            rec.aux.set(ALIGN_SAM_SUB_POS_TAG, rg::vec_to_str(aligns.sub_pos[j], ","));
             rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
-            rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
             rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
             rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
+            if (primary) {
+                //TODO primary
+            }
         }
     }
 
-    auto end_time = std::chrono::steady_clock::now();
-    auto cput = (std::clock() - start_cpu) / (double) CLOCKS_PER_SEC;
-    std::cerr << rg::chrono_duration(start_time, end_time) << "s, "
-              << cput << " CPUs.\n";
+    std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
 }
 
-
 std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>>
-create_tasks(vargas::isam &reads, std::string &align_targets,
-             const size_t chunk_size, size_t &read_len, bool &resized) {
+create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_size, size_t &read_len, bool &resized) {
     std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> task_list;
     std::unordered_map<std::string, std::vector<vargas::SAM::Record>> read_groups;
 
@@ -285,17 +291,16 @@ create_tasks(vargas::isam &reads, std::string &align_targets,
 
     if (alignment_pairs.size() == 0) {
         for (const auto &p : read_groups) {
-            alignment_pairs.push_back("RG:ID:" + p.first + "\t" + vargas::GraphManager::GDEF_BASEGRAPH);
+            alignment_pairs.push_back("RG:ID:" + p.first + "," + vargas::GraphManager::GDEF_BASEGRAPH);
         }
     }
 
     // Maps target graph to read group ID's
     std::unordered_map<std::string, std::vector<std::string>> alignment_rg_map;
 
-    std::vector<std::string> pair;
     std::string tag, val, target_val;
     for (const std::string &p : alignment_pairs) {
-        rg::split(p, pair);
+        auto pair = rg::split(p, ',');
         if (pair.size() != 2)
             throw std::invalid_argument("Malformed alignment pair \"" + p + "\".");
         if (pair[0].at(2) != ':')
@@ -348,8 +353,8 @@ create_tasks(vargas::isam &reads, std::string &align_targets,
     return task_list;
 }
 
-std::unique_ptr<vargas::AlignerBase> make_aligner(const vargas::ScoreProfile &prof, size_t read_len,
-                                                  bool use_wide) {
+std::unique_ptr<vargas::AlignerBase>
+make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide) {
     if (prof.end_to_end) {
         if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(read_len, prof);
         else return rg::make_unique<vargas::AlignerETE>(read_len, prof);
@@ -357,6 +362,35 @@ std::unique_ptr<vargas::AlignerBase> make_aligner(const vargas::ScoreProfile &pr
         if (use_wide) return rg::make_unique<vargas::WordAligner>(read_len, prof);
         else return rg::make_unique<vargas::Aligner>(read_len, prof);
     }
+}
+
+void load_fast(std::string &file, const bool fastq, vargas::isam &ret) {
+    std::string input;
+    if (file.size() == 0) {
+        std::stringstream ss;
+        ss << std::cin.rdbuf();
+        input = ss.str();
+    } else {
+        std::ifstream in(file);
+        if (!in.good()) throw std::invalid_argument("Unable to open file \"" + file + "\"");
+        std::stringstream ss;
+        ss << in.rdbuf();
+        input = ss.str();
+    }
+    const auto lines = rg::split(input, '\n');
+    try {
+        for (unsigned i = 0; i < lines.size(); i += (fastq ? 4 : 2)) {
+            vargas::SAM::Record rec;
+            rec.query_name = std::string(lines.at(i).begin() + 1,
+                                         std::find_if(lines.at(i).begin() + 1, lines.at(i).end(), isspace));
+            rec.seq = lines.at(i + 1);
+            if (fastq) rec.qual = lines.at(i + 3);
+            ret.push(rec);
+        }
+    } catch (std::exception &e) {
+        throw std::runtime_error("Invalid FASTA/Q file.");
+    }
+    ret.next();
 }
 
 void align_help(const cxxopts::Options &opts) {
@@ -369,6 +403,39 @@ void align_help(const cxxopts::Options &opts) {
 
 TEST_SUITE("System");
 
+TEST_CASE ("Load FASTQ") {
+    std::string tmpfq = "tmp_fastq.va";
+    {
+        std::ofstream o(tmpfq);
+        o << "@name desc\nAAAAACCCCC\n+\n!!!!!!!!!!";
+    }
+    vargas::isam ss;
+    load_fast(tmpfq, true, ss);
+
+    CHECK(ss.record().query_name == "name");
+    CHECK(ss.record().seq == "AAAAACCCCC");
+    CHECK(ss.record().qual == "!!!!!!!!!!");
+    CHECK_FALSE(ss.next());
+    remove(tmpfq.c_str());
+}
+TEST_CASE ("Load FASTA") {
+    std::string tmpfq = "tmp_fastq.va";
+    {
+        std::ofstream o(tmpfq);
+        o << ">name desc\nAAAAACCCCC\n>x\nGGGGGTTTTT";
+    }
+    vargas::isam ss;
+    load_fast(tmpfq, false, ss);
+
+    CHECK(ss.record().query_name == "x");
+    CHECK(ss.record().seq == "GGGGGTTTTT");
+    ss.next();
+
+    CHECK(ss.record().query_name == "name");
+    CHECK(ss.record().seq == "AAAAACCCCC");
+    CHECK_FALSE(ss.next());
+    remove(tmpfq.c_str());
+}
 TEST_CASE ("Coordinate System Matches") {
     srand(1);
     vargas::Graph::Node::_newID = 0;
@@ -438,89 +505,6 @@ TEST_CASE ("Coordinate System Matches") {
     remove(tmpfa.c_str());
     remove(tmpvcf.c_str());
     remove((tmpfa + ".fai").c_str());
-}
-TEST_CASE ("Correctness flag") {
-    try {
-        srand(1);
-        vargas::Graph::Node::_newID = 0;
-        using std::endl;
-        std::string tmpfa = "tmp_tc.fa";
-        {
-            std::ofstream fao(tmpfa);
-            fao
-            << ">x" << endl
-            << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
-            << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
-            << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
-            << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
-            << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
-            << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
-            << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
-            << ">y" << endl
-            << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
-        }
-        std::string tmpvcf = "tmp_tc.vcf";
-
-        {
-            std::ofstream vcfo(tmpvcf);
-            vcfo
-            << "##fileformat=VCFv4.1" << endl
-            << "##phasing=true" << endl
-            << "##contig=<ID=x>" << endl
-            << "##contig=<ID=y>" << endl
-            << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
-            << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
-            << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
-            << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
-            << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
-            << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
-            << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
-            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
-            << "x\t9\t.\tG\tA,CC,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
-            << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-            << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
-            << "x\t20\t.\tTTC\t<CN3>,<CN2>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-            << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-            << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
-        }
-
-        std::string reads_file("tmp_rd.sam");
-        {
-            std::ofstream ro(reads_file);
-            ro << "@HD\tVN:1.0\n*\t4\t*\t14\t255\t*\t*\t0\t0\tGAAATT\t*\n*\t4\t*\t17\t255\t*\t*\t0\t0\tATTTTC\t*";
-        }
-
-        vargas::GraphFactory gb(tmpfa);
-        gb.open_vcf(tmpvcf);
-        gb.set_region("x:0-100");
-        vargas::Graph g = gb.build();
-
-        vargas::Aligner aligner(6);
-        vargas::isam reads(reads_file);
-
-        std::vector<vargas::SAM::Record> records;
-        std::vector<std::string> read_seq;
-        std::vector<unsigned> targets;
-        do {
-            records.push_back(reads.record());
-            read_seq.push_back(reads.record().seq);
-            targets.push_back(reads.record().pos + read_seq.back().length() - 1);
-        } while (reads.next());
-
-        auto res = aligner.align(read_seq, targets, g.begin(), g.end());
-
-        vargas::osam align_out("tmp_aout.sam", reads.header());
-        for (auto &r : records) align_out.add_record(r);
-
-        remove(tmpfa.c_str());
-        remove((tmpfa + ".fai").c_str());
-        remove(tmpvcf.c_str());
-        remove(reads_file.c_str());
-        remove("tmp_aout.sam");
-    } catch (std::exception &e) {
-        std::cerr << e.what();
-        throw;
-    }
 }
 
 TEST_SUITE_END();
