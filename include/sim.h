@@ -37,7 +37,6 @@
 #define READ_META_INDEL "ind"
 #define READ_META_VARNODE "vnd"
 #define READ_META_VARBASE "vbs"
-#define READ_META_SRC "src"
 #define READ_META_FASTA_DELIM ';'
 
 #include <random>
@@ -118,7 +117,6 @@ namespace vargas {
           int32_t var_nodes; /**< Number of variant nodes the read traverses. */
           int32_t var_bases; /**< Number of bases that are in variant nodes. */
           int32_t indel_err; /**< Number of insertions and deletions introduced. */
-          Graph::GID src; /**< Read origin graph, as defined in the GDEF file. */
 
 
           /**
@@ -249,7 +247,7 @@ namespace vargas {
     private:
       const vargas::Graph &_graph;
       Profile _prof;
-      const std::unordered_map<unsigned, Graph::nodeptr> &_nodes;
+      const std::unordered_map<unsigned, vargas::Graph::Node> &_nodes;
       const std::unordered_map<unsigned, std::vector<unsigned >> &_next;
 
 

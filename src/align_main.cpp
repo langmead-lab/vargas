@@ -85,7 +85,7 @@ int align_main(int argc, char *argv[]) {
     }
 
     vargas::isam reads;
-    if (opts.count("fasta") && opts.count("fasta")) {
+    if (opts.count("fasta") && opts.count("fastq")) {
         throw std::invalid_argument("One of FASTQ or FASTA should be selected.");
     }
     if (opts.count("fastq")) {
@@ -178,7 +178,7 @@ int align_main(int argc, char *argv[]) {
             fname = fname.substr(0, ld) + "_" + gdef.substr(0, gdef.find_last_of('.'));
             if (ld != std::string::npos) fname += out_file.substr(ld);
         }
-        std::cerr << "Writing to \"" << fname << "\".\n";
+        if (fname.length()) std::cerr << "Writing to \"" << fname << "\".\n";
         reads_hdr.programs[assigned_pgid].aux.set(ALIGN_SAM_PG_GDF, gdef);
         vargas::osam aligns_out(fname, reads_hdr);
         for (size_t l = 0; l < num_tasks; ++l) {
@@ -225,6 +225,7 @@ void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vec
             } else targets[i] = 0;
         }
         auto subgraph = gm.make_subgraph(task_list.at(l).first);
+
         const auto aligns = aligners[tid]->align(read_seqs, targets, subgraph->begin(), subgraph->end());
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             vargas::SAM::Record &rec = task_list.at(l).second.at(j);

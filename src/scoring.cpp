@@ -54,6 +54,26 @@ void vargas::Results::resize(size_t size) {
     target_score.resize(size);
 }
 
+void vargas::Results::finalize(const std::vector<unsigned> &targets) {
+    assert(targets.size() == correct.size());
+    for (unsigned i = 0; i < correct.size(); ++i) {
+        const auto t = targets.at(i);
+        auto eq = std::equal_range(max_pos[i].begin(), max_pos[i].end(), t);
+        if ((eq.first != max_pos[i].end() && t - *eq.first < profile.tol)
+        || (eq.second != max_pos[i].end() && t - *eq.second < profile.tol)) {
+            correct[i] = 1;
+        } else {
+            eq = std::equal_range(sub_pos[i].begin(), sub_pos[i].end(), t);
+            if ((eq.first != sub_pos[i].end() && t - *eq.first < profile.tol)
+            || (eq.second != sub_pos[i].end() && t - *eq.second < profile.tol)) {
+                correct[i] = 2;
+            } else {
+                correct[i] = 0;
+            }
+        }
+    }
+}
+
 std::vector<std::string> vargas::tokenize_cl(std::string cl) {
     std::replace_if(cl.begin(), cl.end(), isspace, ' ');
     cl.erase(std::unique(cl.begin(), cl.end(), [](char a, char b) { return a == b && a == '-'; }), cl.end());

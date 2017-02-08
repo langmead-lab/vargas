@@ -17,30 +17,10 @@
 
 unsigned vargas::Graph::Node::_newID = 0;
 
-std::string vargas::Graph::GID::to_string() const {
-    std::ostringstream ss;
-    ss << (outgroup ? 'o' : 'i') << ',' << num << ',' << id << ',' << pct;
-    return ss.str();
-}
-
-vargas::Graph::GID::GID(std::string s) {
-    try {
-        std::vector<std::string> s_split = rg::split(s, ',');
-        outgroup = s[0] == 'o';
-        num = std::stoi(s_split[1]);
-        id = std::stoi(s_split[2]);
-        pct = s_split[3][0] == '1';
-    }
-    catch (std::exception &e) {
-        std::cerr << "Invalid GID string format: " << s << std::endl;
-        GID();
-    }
-
-}
 
 vargas::Graph::Graph(const std::string &ref_file, const std::string &vcf_file,
                      const std::string &region) {
-    _IDMap = std::make_shared<std::unordered_map<unsigned, nodeptr>>();
+    _IDMap = std::make_shared<std::unordered_map<unsigned, Node>>();
     GraphFactory gb(ref_file);
     gb.open_vcf(vcf_file);
     gb.set_region(region);
@@ -56,11 +36,11 @@ vargas::Graph::Graph(const vargas::Graph &g,
     _region = g._region;
 
     // Add all nodes
-    std::unordered_map<unsigned, nodeptr> includedNodes;
+    std::unordered_set<unsigned> includedNodes;
     for (auto &nid : g._add_order) {
         auto &n = (*_IDMap)[nid];
-        if (n->belongs(filter)) {
-            includedNodes[nid] = n;
+        if (n.belongs(filter)) {
+            includedNodes.insert(nid);
             _add_order.push_back(nid);
         }
     }
@@ -75,13 +55,13 @@ vargas::Graph::Graph(const Graph &g, Type type) {
     _filter = Population(_pop_size, true);
     _region = g._region;
 
-    std::unordered_map<unsigned, nodeptr> includedNodes;
+    std::unordered_set<unsigned> includedNodes;
 
     if (type == Type::REF) {
         for (auto &nid : g._add_order) {
             auto &n = (*_IDMap)[nid];
-            if (n->is_ref()) {
-                includedNodes[nid] = n;
+            if (n.is_ref()) {
+                includedNodes.insert(nid);
                 _add_order.push_back(nid);
             }
         }
@@ -89,14 +69,14 @@ vargas::Graph::Graph(const Graph &g, Type type) {
         unsigned curr = g.root();
         unsigned maxid, size;
         while (true) {
-            includedNodes[curr] = (*g._IDMap).at(curr);
+            includedNodes.insert(curr);
             _add_order.push_back(curr);
             if (g._next_map.count(curr) == 0) break; // end of graph
             maxid = g._next_map.at(curr).at(0);
             size = g._next_map.at(curr).size();
             for (unsigned i = 1; i < size; ++i) {
                 const unsigned &id = g._next_map.at(curr).at(i);
-                if ((*g._IDMap).at(id)->freq() > (*g._IDMap).at(maxid)->freq())
+                if (g._IDMap->at(id).freq() > g._IDMap->at(maxid).freq())
                     maxid = id;
             }
             curr = maxid;
@@ -109,13 +89,13 @@ vargas::Graph::Graph(const Graph &g, Type type) {
 
 
 void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
-                                         const std::unordered_map<unsigned, nodeptr> &includedNodes) {
+                                         const std::unordered_set<unsigned> &includedNodes) {
     // Add all edges for included nodes
     for (auto &n : includedNodes) {
-        if (g._next_map.count(n.second->id()) == 0) continue;
-        for (auto &e : g._next_map.at(n.second->id())) {
+        if (g._next_map.count(n) == 0) continue;
+        for (auto &e : g._next_map.at(n)) {
             if (includedNodes.count(e)) {
-                add_edge(n.second->id(), e);
+                add_edge(n, e);
             }
         }
     }
@@ -133,7 +113,7 @@ unsigned vargas::Graph::add_node(const Node &n) {
     }
     if (_IDMap->size() == 0) _root = n.id(); // first node added is default root
 
-    _IDMap->emplace(n.id(), std::make_shared<Node>(n));
+    _IDMap->emplace(n.id(), n);
     _add_order.push_back(n.id());
     return n.id();
 }
@@ -161,14 +141,14 @@ std::string vargas::Graph::to_DOT(std::string name) const {
     dot << "// Each node has the sequence, followed by end_pos,allele_freq\n";
     dot << "digraph " << name << " {\n";
 
-    for (const auto n : *_IDMap) {
-        auto seq = n.second->seq_str();
+    for (const auto &n : *_IDMap) {
+        auto seq = n.second.seq_str();
         if (seq.size() > 19) {
             seq = seq.substr(0, 8) + "..." + seq.substr(seq.size() - 8, 8);
         }
-        dot << n.second->id() << "[label=\"" << seq
-            << "\nP:" << n.second->end_pos() << ", F:" << n.second->freq() << ", R:" << n.second->is_ref()
-            << "\n[" << n.second->individuals().to_string() << "]"
+        dot << n.second.id() << "[label=\"" << seq
+            << "\nP:" << n.second.end_pos() << ", F:" << n.second.freq() << ", R:" << n.second.is_ref()
+            << "\n[" << n.second.individuals().to_string() << "]"
             << "\"];\n";
     }
     for (const auto &n : _next_map) {
@@ -386,25 +366,6 @@ bool vargas::Graph::validate() const {
     return true;
 }
 
-bool ::vargas::operator==(const vargas::Graph::GID &a, const vargas::Graph::GID &b) {
-    if (a.outgroup != b.outgroup) return false;
-    if (a.pct != b.pct) return false;
-    if (a.num != b.num) return false;
-    return a.id == b.id;
-}
-
-std::ostream &::vargas::operator<<(std::ostream &os, const vargas::Graph::GID &gid) {
-    os << (gid.outgroup ? 'o' : 'i') << ',' << gid.num << ',' << gid.id << ',' << gid.pct;
-    return os;
-}
-
-bool ::vargas::operator<(const vargas::Graph::GID &a, const vargas::Graph::GID &b) {
-    if (a.outgroup != b.outgroup) return a.outgroup < b.outgroup;
-    if (a.pct != b.pct) return a.pct < b.pct;
-    if (a.num != b.num) return a.num < b.num;
-    return a.id < b.id;
-}
-
 TEST_SUITE("Graphs");
 
 TEST_CASE ("Node class") {
@@ -413,13 +374,6 @@ TEST_CASE ("Node class") {
     vargas::Graph::Node n2;
     CHECK(n1.id() == 0);
     CHECK(n2.id() == 1);
-
-    SUBCASE("Node ID change") {
-        n1.setID(1);
-        CHECK(n1.id() == 0);
-        n1.setID(2);
-        CHECK(n1.id() == 2);
-    }
 
     SUBCASE("Set Node params") {
         using rg::Base;

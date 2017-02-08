@@ -94,6 +94,13 @@ namespace vargas {
        * Resize all result vectors.
        */
       void resize(size_t size);
+
+      /**
+       * @brief
+       * populate correct with 1 if max_pos within tol of target, 2 more sub_pos, else 0.
+       * @param targets Read origins
+       */
+      void finalize(const std::vector<unsigned> &targets);
   };
 
   const std::vector<std::string> supported_pgid = {"bowtie2", "bwa"};

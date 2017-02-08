@@ -28,8 +28,8 @@ bool vargas::Sim::_update_read() {
     // Pick random weighted node and position within the node
     do {
         curr_node = _random_node_id();
-    } while (has_pop && !_nodes.at(curr_node)->belongs(curr_indiv));
-    unsigned curr_pos = rand() % _nodes.at(curr_node)->length();
+    } while (has_pop && !_nodes.at(curr_node).belongs(curr_indiv));
+    unsigned curr_pos = rand() % _nodes.at(curr_node).length();
 
 
     int var_bases = 0;
@@ -39,11 +39,11 @@ bool vargas::Sim::_update_read() {
     while (true) {
         // Extract len subseq
         unsigned len = _prof.len - read_str.length();
-        if (len > _nodes.at(curr_node)->length() - curr_pos) len = _nodes.at(curr_node)->length() - curr_pos;
-        read_str += _nodes.at(curr_node)->seq_str().substr(curr_pos, len);
+        if (len > _nodes.at(curr_node).length() - curr_pos) len = _nodes.at(curr_node).length() - curr_pos;
+        read_str += _nodes.at(curr_node).seq_str().substr(curr_pos, len);
         curr_pos += len;
 
-        if (!_nodes.at(curr_node)->is_ref()) {
+        if (!_nodes.at(curr_node).is_ref()) {
             ++var_nodes;
             var_bases += len;
         }
@@ -58,7 +58,7 @@ bool vargas::Sim::_update_read() {
         if (!has_pop) valid_next = _next.at(curr_node);
         else {
             for (const uint32_t n : _next.at(curr_node)) {
-                if (_nodes.at(n)->belongs(curr_indiv)) valid_next.push_back(n);
+                if (_nodes.at(n).belongs(curr_indiv)) valid_next.push_back(n);
             }
         }
         if (valid_next.size() == 0) return false;
@@ -152,7 +152,7 @@ bool vargas::Sim::_update_read() {
     _read.aux.set(SIM_SAM_SUB_ERR_TAG, sub_err);
 
     // +1 from length being 1 indexed but end() being zero indexed, +1 since POS is 1 indexed.
-    _read.pos = _nodes.at(curr_node)->end_pos() - _nodes.at(curr_node)->length() + 2 + curr_pos - _prof.len;
+    _read.pos = _nodes.at(curr_node).end_pos() - _nodes.at(curr_node).length() + 2 + curr_pos - _prof.len;
 
     _read.aux.set(SIM_SAM_READ_ORIG_TAG, read_str);
 
@@ -200,8 +200,7 @@ std::string vargas::Sim::Read::to_fasta() const {
        << READ_META_MUT << ":" << sub_err << READ_META_FASTA_DELIM
        << READ_META_INDEL << ":" << indel_err << READ_META_FASTA_DELIM
        << READ_META_VARNODE << ":" << var_nodes << READ_META_FASTA_DELIM
-       << READ_META_VARBASE << ":" << var_bases << READ_META_FASTA_DELIM
-       << READ_META_SRC << ":" << src
+       << READ_META_VARBASE << ":" << var_bases
        << std::endl
        << read;
     return ss.str();
@@ -209,8 +208,7 @@ std::string vargas::Sim::Read::to_fasta() const {
 
 std::string vargas::Sim::Read::to_csv() const {
     std::ostringstream ss;
-    ss << src << ','
-       << read << ','
+    ss << read << ','
        << end_pos << ','
        << sub_err << ','
        << indel_err << ','

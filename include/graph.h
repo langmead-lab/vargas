@@ -112,49 +112,14 @@ namespace vargas {
 
     public:
 
-      /**
-       * @brief
-       * Uniquely identifies a subgraph when mapped to a Population.
-       * Default constructor indicates whole graph
-       */
-      struct GID {
-
-          /**
-           * @brief
-           * Default GID assumes 100% ingroup.
-           */
-          GID() : num(100), id(0), pct(true), outgroup(false) {}
-
-          /**
-           * @param num if percent, set pct=true. If number of individuals, set pct=false.
-           * @param id Unique ID for a given num
-           * @param pct True if num is a percentage
-           */
-          GID(int num, int id, bool pct = false) : num(num), id(id), pct(pct), outgroup(false) {}
-
-          /**
-           * @brief
-           * Build a GID from a string output from to_string
-           * @param s string form
-           */
-          GID(std::string s);
-
-          int num; /**< Percent or number of individuals included in the graph. */
-          int id; /**< unique id if multiple graphs of num exist. */
-          bool pct; /**< if true, num is a percentage. Otherwise number of individuals.*/
-          bool outgroup; /**< True if the origin was an outgroup graph.*/
-
-          std::string to_string() const;
-      };
-
       using Population = VCF::Population;
 
       /**
         * @enum Type
-        * Indicate a special type of graph, one that only incudes REF nodes
-        * or MAXAF nodes.
+        * Indicate a special type of subgraph, one that only includes REF nodes
+        * or nodes with the maximum allele frequency at a given variant set.
         */
-      enum class Type: char {
+      enum class Type {
           REF, /**< Only include reference nodes. */
           MAXAF, /**< Keep the node with the highest AF at each branch. */
       };
@@ -250,18 +215,6 @@ namespace vargas {
 
           /**
            * @brief
-           * Set the id of the node, should rarely be used as unique ID's are generated.
-           * @param id
-           */
-          void setID(const unsigned id) {
-              if (id >= _newID) {
-                  this->_id = id;
-                  _newID = id + 1;
-              }
-          }
-
-          /**
-           * @brief
            * Set the position of the last base in the sequence.
            * @param pos 0-indexed
            */
@@ -273,14 +226,6 @@ namespace vargas {
            * @param pop
            */
           void set_population(const Population &pop) { _individuals = pop; }
-
-          /**
-           * @brief
-           * Set the population from a vector. Each individual is set if pop[i] evaluates true.
-           * @param pop
-           */
-          template<typename T>
-          void set_population(const std::vector<T> &pop) { _individuals = pop; }
 
           /**
            * @brief
@@ -334,7 +279,6 @@ namespace vargas {
            */
           void pinch() { _pinch = true; }
 
-          void unpinch() { _pinch = false; }
           /**
            * @brief
            * If true, then previous alignment seeds can be cleared as no nodes after the current
@@ -342,6 +286,14 @@ namespace vargas {
            * @return true if pinched
            */
           bool is_pinched() const { return _pinch; }
+
+          std::vector<rg::Base>::const_iterator begin() const {
+              return _seq.cbegin();
+          }
+
+          std::vector<rg::Base>::const_iterator end() const {
+              return _seq.cend();
+          }
 
           static unsigned _newID; /**< ID of the next instance to be created */
 
@@ -355,9 +307,6 @@ namespace vargas {
           unsigned _id;
 
       };
-
-      typedef std::shared_ptr<Node> nodeptr;
-      typedef std::shared_ptr<const Node> const_nodeptr;
 
       /**
        * @brief
@@ -435,7 +384,7 @@ namespace vargas {
            * @return Node
            */
           T &operator*() const {
-              return *(_graph._IDMap->at(_graph._add_order[_currID]));
+              return _graph._IDMap->at(_graph._add_order[_currID]);
           }
 
           /**
@@ -491,7 +440,7 @@ namespace vargas {
        * @brief
        * Default constructor inits a new Graph, including a new node map.
        */
-      Graph() : _IDMap(std::make_shared<std::unordered_map<unsigned, nodeptr>>()) {}
+      Graph() : _IDMap(std::make_shared<std::unordered_map<unsigned, Node>>()) {}
 
       /**
        * @brief
@@ -500,8 +449,7 @@ namespace vargas {
        * @param vcf_file VCF or BCF file name
        * @param region region in the format chromosome:start-end
        */
-      Graph(const std::string &ref_file, const std::string &vcf_file,
-            const std::string &region);
+      Graph(const std::string &ref_file, const std::string &vcf_file, const std::string &region);
 
       /**
        * @brief
@@ -560,7 +508,7 @@ namespace vargas {
        * Maps a ndoe ID to a shared node object
        * @return map of ID, shared_ptr<Node> pairs
        */
-      std::shared_ptr<const std::unordered_map<unsigned, nodeptr>> node_map() const { return _IDMap; }
+      std::shared_ptr<const std::unordered_map<unsigned, Node>> node_map() const { return _IDMap; }
 
       /**
        * @brief
@@ -585,7 +533,7 @@ namespace vargas {
        */
       const Node &node(unsigned id) const {
           if (_IDMap->count(id) == 0) throw std::domain_error("Invalid Node ID.");
-          return *(*_IDMap).at(id);
+          return _IDMap->at(id);
       }
 
       /**
@@ -687,8 +635,6 @@ namespace vargas {
       /**
        * @brief
        * Ensures that the graph is topologically sorted.
-       * @param begin Graph begin iterator
-       * @param end Graph end iterator
        */
       bool validate() const;
 
@@ -704,6 +650,7 @@ namespace vargas {
        * Statistics about the current graph size.
        */
       struct Stats {
+          Stats() = default;
           unsigned num_nodes = 0;
           unsigned num_edges = 0;
           unsigned total_length = 0;
@@ -712,7 +659,7 @@ namespace vargas {
       };
 
       /**
-       * @return Counted statistics about the curent graph.
+       * @return Counted statistics about the current graph.
        */
       Stats statistics() const {
           Stats ret;
@@ -732,11 +679,11 @@ namespace vargas {
     private:
       unsigned _root = 0; // Root of the Graph
       // maps a node ID to a nodeptr. Any derived graphs use the same base node ID map.
-      std::shared_ptr<std::unordered_map<unsigned, nodeptr>> _IDMap;
+      std::shared_ptr<std::unordered_map<unsigned, Node>> _IDMap;
       // maps a node ID to the vector of nodes it points to
-      std::unordered_map<unsigned, std::vector<unsigned >> _next_map;
+      std::unordered_map<unsigned, std::vector<unsigned>> _next_map;
       // maps a node ID to a vector of node ID's that point to it
-      std::unordered_map<unsigned, std::vector<unsigned >> _prev_map;
+      std::unordered_map<unsigned, std::vector<unsigned>> _prev_map;
       std::vector<unsigned> _add_order; // Order nodes were added
       unsigned _pop_size = 0;
       Population _filter;
@@ -747,7 +694,7 @@ namespace vargas {
        * @param g underlying parent graph
        * @param includedNodes subset of g's nodes to include
        */
-      void _build_derived_edges(const Graph &g, const std::unordered_map<unsigned, nodeptr> &includedNodes);
+      void _build_derived_edges(const Graph &g, const std::unordered_set<unsigned> &includedNodes);
 
   };
 
@@ -776,7 +723,7 @@ namespace vargas {
       /**
        * @brief
        * Create a graph builder for the reference file.
-       * @param reffile
+       * @param ref file
        */
       GraphFactory(std::string const &reffile) : _fa_file(reffile) {}
 
@@ -877,29 +824,6 @@ namespace vargas {
       ifasta _fa;
 
   };
-
-  /**
- * @brief
- * Operator used to map Graph::GID's.
- * @param a Graph::GID a
- * @param b Graph::GID b
- */
-  bool operator<(const Graph::GID &a, const Graph::GID &b);
-
-  /**
-   * @brief
-   * Outputs the Graph::GID in a CSV format:\n
-   * [o,i],num,id,pct\n
-   * @param os Output stream
-   * @param gid gid to print
-   */
-  std::ostream &operator<<(std::ostream &os, const Graph::GID &gid);
-
-  /**
-   * @brief
-   * Check if two GID's are equal.
-   */
-  bool operator==(const Graph::GID &a, const Graph::GID &b);
 
 }
 
