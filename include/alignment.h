@@ -402,13 +402,11 @@ namespace vargas {
           aligns.resize(num_groups * read_capacity());
 
           // Keep the scores at the positions, overwrites position. [0] is current position, 1-:ead_capacity + 1 is pos
-          std::unordered_map<unsigned, _seed < simd_t>>
-          seed_map; // Maps node ID to the ending matrix cols of the node
+          std::unordered_map<unsigned, _seed<simd_t>> seed_map; // Maps node ID to the ending matrix cols of the node
           _seed <simd_t> seed(_read_len);
           const std::vector<unsigned> zvec = {0};
 
           for (unsigned group = 0; group < num_groups; ++group) {
-
               seed_map.clear();
 
               // Subset of read set
@@ -419,15 +417,12 @@ namespace vargas {
 
               _alignment_group.load_reads(read_group, beg_offset, end_offset);
               _max_score = std::numeric_limits<native_t>::min();
-              _max_pos = aligns.max_pos.begin() + beg_offset;
+              _max_pos = aligns.max_pos.data() + beg_offset;
 
               _sub_score = std::numeric_limits<native_t>::min();
-              _sub_pos = aligns.sub_pos.begin() + beg_offset;
-
-              // Init all positions to 0
-              std::fill(_max_pos, _max_pos + read_capacity(), zvec);
-              std::fill(_sub_pos, _sub_pos + read_capacity(), zvec);
-
+              _sub_pos = aligns.sub_pos.data() + beg_offset;
+              _max_count = aligns.max_count.data() + beg_offset;
+              _sub_count = aligns.sub_count.data() + beg_offset;
 
               // Create subrange of targets, and sort by position.
               for (unsigned j = 0; j < len; ++j) {
@@ -501,10 +496,7 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       void _get_seed(const std::vector<unsigned> &prev_ids,
-                     std::unordered_map<unsigned, _seed < simd_t>>
-      &seed_map,
-      _seed <simd_t> &seed
-      ) const {
+                     std::unordered_map<unsigned, _seed<simd_t>> &seed_map, _seed<simd_t> &seed) const {
           if (prev_ids.size() == 0) {
               _seed_matrix(seed);
               return;
@@ -611,7 +603,8 @@ namespace vargas {
               // Check for equal max score.
               for (unsigned i = 0; i < read_capacity(); ++i) {
                   if (_tmp0[i]) {
-                      _max_pos[i].push_back(curr_pos);
+                      if (curr_pos > _max_pos[i] + _read_len) ++(_max_count[i]);
+                      _max_pos[i] = curr_pos;
                   }
               }
           }
@@ -623,12 +616,13 @@ namespace vargas {
               for (unsigned i = 0; i < read_capacity(); ++i) {
                   if (_tmp0[i]) {
                       // Demote old max to submax
-                      if (curr_pos > _max_pos[i].back() + _read_len) {
+                      if (curr_pos > _max_pos[i] + _read_len) {
                           _sub_score[i] = _max_score[i];
                           _sub_pos[i] = _max_pos[i];
+                          _sub_count[i] = _max_count[i];
                       }
-                      _max_pos[i].clear();
-                      _max_pos[i].push_back(curr_pos);
+                      _max_count[i] = 1;
+                      _max_pos[i] = curr_pos;
                   }
               }
           }
@@ -638,8 +632,9 @@ namespace vargas {
           if (_tmp0) {
               // Repeat sub score
               for (unsigned i = 0; i < read_capacity(); ++i) {
-                  if (_tmp0[i] && curr_pos > _max_pos[i].back() + _read_len) {
-                      _sub_pos[i].push_back(curr_pos);
+                  if (_tmp0[i] && curr_pos > _max_pos[i] + _read_len) {
+                      _sub_count[i] += curr_pos > (_sub_pos[i] + _read_len);
+                      _sub_pos[i] = curr_pos;
                   }
               }
           }
@@ -649,10 +644,10 @@ namespace vargas {
           if (_tmp0) {
               // new second best score
               for (unsigned i = 0; i < read_capacity(); ++i) {
-                  if (_tmp0[i] && curr_pos > _max_pos[i].back() + _read_len) {
+                  if (_tmp0[i] && curr_pos > _max_pos[i] + _read_len) {
                       _sub_score[i] = _S[row][i];
-                      _sub_pos[i].clear();
-                      _sub_pos[i].push_back(curr_pos);
+                      _sub_count[i] = 1;
+                      _sub_pos[i] = curr_pos;
                   }
               }
           }
@@ -687,7 +682,7 @@ namespace vargas {
 
       AlignmentGroup _alignment_group;
       SIMDVector<simd_t> _S, _Dc, _Ic;
-      _target <simd_t> _target_subrange; // Pad with one max so serve as buffer
+      _target<simd_t> _target_subrange; // Pad with one max so serve as buffer
 
       simd_t
       _match_vec, _mismatch_vec, _ambig_vec,
@@ -695,7 +690,7 @@ namespace vargas {
       _gap_open_extend_vec_ref, _gap_extend_vec_ref,
       _Sd, _max_score, _sub_score;
 
-      Results::positions::iterator _max_pos, _sub_pos;
+      unsigned *_max_pos, *_sub_pos, *_max_count, *_sub_count;
 
       native_t _bias;
       const unsigned int _read_len;
@@ -791,43 +786,43 @@ TEST_CASE ("Alignment") {
             aligns = a.align(reads, origins, g.begin(), g.end());
         }
         CHECK(aligns.max_score[0] == 8);
-        CHECK(aligns.max_pos[0].back() == 8);
+        CHECK(aligns.max_pos[0] == 8);
         CHECK((int) aligns.correct[0] == 1);
         CHECK(aligns.max_score[0] == aligns.target_score[0]); // since cf = 1
 
         CHECK(aligns.max_score[1] == 8);
-        CHECK(aligns.max_pos[1].back() == 8);
+        CHECK(aligns.max_pos[1] == 8);
         CHECK((int) aligns.correct[1] == 1);
         CHECK(aligns.max_score[1] == aligns.target_score[1]); // since cf = 1
 
         CHECK(aligns.max_score[2] == 8);
-        CHECK(aligns.max_pos[2].back() == 5);
+        CHECK(aligns.max_pos[2] == 5);
         CHECK((int) aligns.correct[2] == 1);
         CHECK(aligns.max_score[2] == aligns.target_score[2]); // since cf = 1
 
         CHECK(aligns.max_score[3] == 8);
-        CHECK(aligns.max_pos[3].back() == 5);
+        CHECK(aligns.max_pos[3] == 5);
         CHECK((int) aligns.correct[3] == 1);
         CHECK(aligns.max_score[3] == aligns.target_score[3]); // since cf = 1
 
         CHECK(aligns.max_score[4] == 10);
-        CHECK(aligns.max_pos[4].back() == 7);
+        CHECK(aligns.max_pos[4] == 7);
         CHECK((int) aligns.correct[4] == 1);
         CHECK(aligns.max_score[4] == aligns.target_score[4]); // since cf = 1
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5].back() == 6);
+        CHECK(aligns.max_pos[5] == 6);
         CHECK((int) aligns.correct[5] == 1);
         CHECK(aligns.max_score[5] == aligns.target_score[5]); // since cf = 1
 
         CHECK(aligns.max_score[6] == 8);
-        CHECK(aligns.max_pos[6].back() == 10);
+        CHECK(aligns.max_pos[6] == 10);
         CHECK((int) aligns.correct[6] == 1);
         CHECK(aligns.max_score[6] == aligns.target_score[6]); // since cf = 1
 
         CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7].back() == 4);
-        CHECK((int) aligns.correct[7] == 1);
+        CHECK(aligns.max_pos[7] == 4);
+        CHECK((int) aligns.correct[7] == 0); // lower cost to end after AAAG
         CHECK(aligns.max_score[7] == aligns.target_score[7]); // since cf = 1
     }
 
@@ -851,52 +846,52 @@ TEST_CASE ("Alignment") {
         vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
 
         CHECK(aligns.max_score[0] == 8);
-        CHECK(aligns.max_pos[0].back() == 8);
+        CHECK(aligns.max_pos[0] == 8);
         CHECK((int) aligns.correct[0] == 1);
         CHECK(aligns.max_score[0] == aligns.target_score[0]);
 
         CHECK(aligns.max_score[1] == 8);
-        CHECK(aligns.max_pos[1].back() == 8);
+        CHECK(aligns.max_pos[1] == 8);
         CHECK((int) aligns.correct[1] == 1);
         CHECK(aligns.max_score[1] == aligns.target_score[1]);
 
         CHECK(aligns.max_score[2] == 8);
-        CHECK(aligns.max_pos[2].back() == 5);
+        CHECK(aligns.max_pos[2] == 5);
         CHECK((int) aligns.correct[2] == 1);
         CHECK(aligns.max_score[2] == aligns.target_score[2]);
 
         CHECK(aligns.max_score[3] == 8);
-        CHECK(aligns.max_pos[3].back() == 5);
+        CHECK(aligns.max_pos[3] == 5);
         CHECK((int) aligns.correct[3] == 1);
         CHECK(aligns.max_score[3] == aligns.target_score[3]);
 
         CHECK(aligns.max_score[4] == 10);
-        CHECK(aligns.max_pos[4].back() == 7);
+        CHECK(aligns.max_pos[4] == 7);
         CHECK((int) aligns.correct[4] == 1);
         CHECK(aligns.max_score[4] == aligns.target_score[4]);
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5].back() == 6);
+        CHECK(aligns.max_pos[5] == 6);
         CHECK((int) aligns.correct[5] == 1);
         CHECK(aligns.max_score[5] == aligns.target_score[5]);
 
         CHECK(aligns.max_score[6] == 8);
-        CHECK(aligns.max_pos[6].back() == 10);
+        CHECK(aligns.max_pos[6] == 10);
         CHECK((int) aligns.correct[6] == 1);
         CHECK(aligns.max_score[6] == aligns.target_score[6]);
 
         CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7].back() == 4);
+        CHECK(aligns.max_pos[7] == 4);
         CHECK((int) aligns.correct[7] == 1);
         CHECK(aligns.max_score[7] == aligns.target_score[7]);
 
         CHECK(aligns.max_score[8] == 12);
-        CHECK(aligns.max_pos[8].back() == 10);
+        CHECK(aligns.max_pos[8] == 10);
         CHECK((int) aligns.correct[8] == 1);
         CHECK(aligns.max_score[8] == aligns.target_score[8]);
 
         CHECK(aligns.max_score[9] == 8);
-        CHECK(aligns.max_pos[9].back() == 10);
+        CHECK(aligns.max_pos[9] == 10);
         CHECK((int) aligns.correct[9] == 1);
         CHECK(aligns.max_score[9] == aligns.target_score[9]);
     }
@@ -913,13 +908,13 @@ TEST_CASE ("Alignment") {
         vargas::Aligner a(10, prof);
         vargas::Results aligns = a.align(reads, g.begin(), g.end());
         CHECK(aligns.max_score[0] == 17);
-        CHECK(aligns.max_pos[0].back() == 10);
+        CHECK(aligns.max_pos[0] == 10);
 
         CHECK(aligns.max_score[1] == 14);
-        CHECK(aligns.max_pos[1].back() == 10);
+        CHECK(aligns.max_pos[1] == 10);
 
         CHECK(aligns.max_score[2] == 11);
-        CHECK(aligns.max_pos[2].back() == 10);
+        CHECK(aligns.max_pos[2] == 10);
     }
 
     SUBCASE("Graph Alignment- Word") {
@@ -937,43 +932,43 @@ TEST_CASE ("Alignment") {
         vargas::WordAligner a(7);
         vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
         CHECK(aligns.max_score[0] == 8);
-        CHECK(aligns.max_pos[0].back() == 8);
+        CHECK(aligns.max_pos[0] == 8);
         CHECK((int) aligns.correct[0] == 1);
         CHECK(aligns.max_score[0] == aligns.target_score[0]);
 
         CHECK(aligns.max_score[1] == 8);
-        CHECK(aligns.max_pos[1].back() == 8);
+        CHECK(aligns.max_pos[1] == 8);
         CHECK((int) aligns.correct[1] == 1);
         CHECK(aligns.max_score[1] == aligns.target_score[1]);
 
         CHECK(aligns.max_score[2] == 8);
-        CHECK(aligns.max_pos[2].back() == 5);
+        CHECK(aligns.max_pos[2] == 5);
         CHECK((int) aligns.correct[2] == 1);
         CHECK(aligns.max_score[2] == aligns.target_score[2]);
 
         CHECK(aligns.max_score[3] == 8);
-        CHECK(aligns.max_pos[3].back() == 5);
+        CHECK(aligns.max_pos[3] == 5);
         CHECK((int) aligns.correct[3] == 1);
         CHECK(aligns.max_score[3] == aligns.target_score[3]);
 
         CHECK(aligns.max_score[4] == 10);
-        CHECK(aligns.max_pos[4].back() == 7);
+        CHECK(aligns.max_pos[4] == 7);
         CHECK((int) aligns.correct[4] == 1);
         CHECK(aligns.max_score[4] == aligns.target_score[4]);
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5].back() == 6);
+        CHECK(aligns.max_pos[5] == 6);
         CHECK((int) aligns.correct[5] == 1);
         CHECK(aligns.max_score[5] == aligns.target_score[5]);
 
         CHECK(aligns.max_score[6] == 8);
-        CHECK(aligns.max_pos[6].back() == 10);
+        CHECK(aligns.max_pos[6] == 10);
         CHECK((int) aligns.correct[6] == 1);
         CHECK(aligns.max_score[6] == aligns.target_score[6]);
 
         CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7].back() == 4);
-        CHECK((int) aligns.correct[7] == 1);
+        CHECK(aligns.max_pos[7] == 4);
+        CHECK((int) aligns.correct[7] == 0);
         CHECK(aligns.max_score[7] == aligns.target_score[7]);
     }
 
@@ -997,52 +992,52 @@ TEST_CASE ("Alignment") {
         vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
 
         CHECK(aligns.max_score[0] == 8);
-        CHECK(aligns.max_pos[0].back() == 8);
+        CHECK(aligns.max_pos[0] == 8);
         CHECK((int) aligns.correct[0] == 1);
         CHECK(aligns.max_score[0] == aligns.target_score[0]);
 
         CHECK(aligns.max_score[1] == 8);
-        CHECK(aligns.max_pos[1].back() == 8);
+        CHECK(aligns.max_pos[1] == 8);
         CHECK((int) aligns.correct[1] == 1);
         CHECK(aligns.max_score[1] == aligns.target_score[1]);
 
         CHECK(aligns.max_score[2] == 8);
-        CHECK(aligns.max_pos[2].back() == 5);
+        CHECK(aligns.max_pos[2] == 5);
         CHECK((int) aligns.correct[2] == 1);
         CHECK(aligns.max_score[2] == aligns.target_score[2]);
 
         CHECK(aligns.max_score[3] == 8);
-        CHECK(aligns.max_pos[3].back() == 5);
+        CHECK(aligns.max_pos[3] == 5);
         CHECK((int) aligns.correct[3] == 1);
         CHECK(aligns.max_score[3] == aligns.target_score[3]);
 
         CHECK(aligns.max_score[4] == 10);
-        CHECK(aligns.max_pos[4].back() == 7);
+        CHECK(aligns.max_pos[4] == 7);
         CHECK((int) aligns.correct[4] == 1);
         CHECK(aligns.max_score[4] == aligns.target_score[4]);
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5].back() == 6);
+        CHECK(aligns.max_pos[5] == 6);
         CHECK((int) aligns.correct[5] == 1);
         CHECK(aligns.max_score[5] == aligns.target_score[5]);
 
         CHECK(aligns.max_score[6] == 8);
-        CHECK(aligns.max_pos[6].back() == 10);
+        CHECK(aligns.max_pos[6] == 10);
         CHECK((int) aligns.correct[6] == 1);
         CHECK(aligns.max_score[6] == aligns.target_score[6]);
 
         CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7].back() == 4);
+        CHECK(aligns.max_pos[7] == 4);
         CHECK((int) aligns.correct[7] == 1);
         CHECK(aligns.max_score[7] == aligns.target_score[7]);
 
         CHECK(aligns.max_score[8] == 12);
-        CHECK(aligns.max_pos[8].back() == 10);
+        CHECK(aligns.max_pos[8] == 10);
         CHECK((int) aligns.correct[8] == 1);
         CHECK(aligns.max_score[8] == aligns.target_score[8]);
 
         CHECK(aligns.max_score[9] == 8);
-        CHECK(aligns.max_pos[9].back() == 10);
+        CHECK(aligns.max_pos[9] == 10);
         CHECK((int) aligns.correct[9] == 1);
         CHECK(aligns.max_score[9] == aligns.target_score[9]);
     }
@@ -1092,25 +1087,25 @@ TEST_CASE ("Indels") {
             REQUIRE(res.size() == 10);
 
             CHECK(res.max_score[0] == 22);
-            CHECK(res.max_pos[0].back() == 12);
+            CHECK(res.max_pos[0] == 12);
             CHECK(res.max_score[1] == 22);
-            CHECK(res.max_pos[1].back() == 12);
+            CHECK(res.max_pos[1] == 12);
             CHECK(res.max_score[2] == 19);
-            CHECK(res.max_pos[2].back() == 58);
+            CHECK(res.max_pos[2] == 58);
             CHECK(res.max_score[3] == 22);
-            CHECK(res.max_pos[3].back() == 31);
+            CHECK(res.max_pos[3] == 31);
             CHECK(res.max_score[4] == 18);
-            CHECK(res.max_pos[4].back() == 32);
+            CHECK(res.max_pos[4] == 32);
             CHECK(res.max_score[5] == 16);
-            CHECK(res.max_pos[5].back() == 30);
+            CHECK(res.max_pos[5] == 30);
             CHECK(res.max_score[6] == 16);
-            CHECK(res.max_pos[6].back() == 11);
+            CHECK(res.max_pos[6] == 11);
             CHECK(res.max_score[7] == 18);
-            CHECK(res.max_pos[7].back() == 32);
+            CHECK(res.max_pos[7] == 32);
             CHECK(res.max_score[8] == 16);
-            CHECK(res.max_pos[8].back() == 31);
+            CHECK(res.max_pos[8] == 31);
             CHECK(res.max_score[9] == 15);
-            CHECK(res.max_pos[9].back() == 52);
+            CHECK(res.max_pos[9] == 52);
 
         }
 
@@ -1121,25 +1116,25 @@ TEST_CASE ("Indels") {
             REQUIRE(res.size() == 10);
 
             CHECK(res.max_score[0] == 22);
-            CHECK(res.max_pos[0].back() == 12);
+            CHECK(res.max_pos[0] == 12);
             CHECK(res.max_score[1] == 22);
-            CHECK(res.max_pos[1].back() == 12);
+            CHECK(res.max_pos[1] == 12);
             CHECK(res.max_score[2] == 18);
-            CHECK(res.max_pos[2].back() == 58);
+            CHECK(res.max_pos[2] == 58);
             CHECK(res.max_score[3] == 22);
-            CHECK(res.max_pos[3].back() == 31);
+            CHECK(res.max_pos[3] == 31);
             CHECK(res.max_score[4] == 17);
-            CHECK(res.max_pos[4].back() == 32);
+            CHECK(res.max_pos[4] == 32);
             CHECK(res.max_score[5] == 17);
-            CHECK(res.max_pos[5].back() == 30);
+            CHECK(res.max_pos[5] == 30);
             CHECK(res.max_score[6] == 17);
-            CHECK(res.max_pos[6].back() == 11);
+            CHECK(res.max_pos[6] == 11);
             CHECK(res.max_score[7] == 17);
-            CHECK(res.max_pos[7].back() == 32);
+            CHECK(res.max_pos[7] == 32);
             CHECK(res.max_score[8] == 15);
-            CHECK(res.max_pos[8].back() == 31);
+            CHECK(res.max_pos[8] == 31);
             CHECK(res.max_score[9] == 16);
-            CHECK(res.max_pos[9].back() == 52);
+            CHECK(res.max_pos[9] == 52);
         }
     }
 
@@ -1167,7 +1162,7 @@ TEST_CASE ("End to End alignment") {
         auto res = a.align({read}, g.begin(), g.end());
         REQUIRE(res.size() == 1);
         CHECK(res.max_score[0] == 22);
-        CHECK(res.max_pos[0].back() == 20);
+        CHECK(res.max_pos[0] == 20);
     }
 
     SUBCASE("BWT2 ETE example") {
@@ -1189,7 +1184,7 @@ TEST_CASE ("End to End alignment") {
             vargas::AlignerETE a(21, 0, 6, 5, 3);
             auto res = a.align({read}, g.begin(), g.end());
             REQUIRE(res.size() == 1);
-            CHECK(res.max_pos[0].back() == 19);
+            CHECK(res.max_pos[0] == 19);
             CHECK(res.max_score[0] == -17); // Best score -17 with bias 255
         }
 
@@ -1197,7 +1192,7 @@ TEST_CASE ("End to End alignment") {
             vargas::WordAlignerETE a(21, 0, 6, 5, 3);
             auto res = a.align({read}, g.begin(), g.end());
             REQUIRE(res.size() == 1);
-            CHECK(res.max_pos[0].back() == 19);
+            CHECK(res.max_pos[0] == 19);
             CHECK(res.max_score[0] == -17); // Best score -17 with bias 255
         }
     }
@@ -1221,8 +1216,8 @@ TEST_CASE ("Target score") {
     REQUIRE(res.size() == 1);
     CHECK(res.max_score[0] == 8);
     CHECK(res.sub_score[0] == 6);
-    CHECK(res.max_pos[0].back() == 4);
-    CHECK(res.sub_pos[0].back() == 19);
+    CHECK(res.max_pos[0] == 4);
+    CHECK(res.sub_pos[0] == 19);
     CHECK(res.correct[0] == 2);
     CHECK(res.target_score[0] == 6);
 }

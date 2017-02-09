@@ -48,6 +48,8 @@ std::string vargas::ScoreProfile::to_string() const {
 void vargas::Results::resize(size_t size) {
     max_pos.resize(size);
     sub_pos.resize(size);
+    max_count.resize(size);
+    sub_count.resize(size);
     max_score.resize(size);
     sub_score.resize(size);
     correct.resize(size);
@@ -56,20 +58,14 @@ void vargas::Results::resize(size_t size) {
 
 void vargas::Results::finalize(const std::vector<unsigned> &targets) {
     assert(targets.size() == correct.size());
-    for (unsigned i = 0; i < correct.size(); ++i) {
-        const auto t = targets.at(i);
-        auto eq = std::equal_range(max_pos[i].begin(), max_pos[i].end(), t);
-        if ((eq.first != max_pos[i].end() && t - *eq.first < profile.tol)
-        || (eq.second != max_pos[i].end() && t - *eq.second < profile.tol)) {
+    std::fill(correct.begin(), correct.end(), 0);
+    for (unsigned i = 0; i < targets.size(); ++i) {
+        if (targets.at(i) == 0) continue;
+        else if (targets.at(i) >= max_pos[i] - profile.tol && targets.at(i) <= max_pos[i] + profile.tol) {
             correct[i] = 1;
-        } else {
-            eq = std::equal_range(sub_pos[i].begin(), sub_pos[i].end(), t);
-            if ((eq.first != sub_pos[i].end() && t - *eq.first < profile.tol)
-            || (eq.second != sub_pos[i].end() && t - *eq.second < profile.tol)) {
-                correct[i] = 2;
-            } else {
-                correct[i] = 0;
-            }
+        }
+        else if (targets.at(i) >= sub_pos[i] - profile.tol && targets.at(i) <= sub_pos[i] + profile.tol) {
+            correct[i] = 2;
         }
     }
 }
