@@ -403,7 +403,6 @@ void align_help(const cxxopts::Options &opts) {
 }
 
 TEST_SUITE("System");
-
 TEST_CASE ("Load FASTQ") {
     std::string tmpfq = "tmp_fastq.va";
     {
@@ -507,5 +506,4 @@ TEST_CASE ("Coordinate System Matches") {
     remove(tmpvcf.c_str());
     remove((tmpfa + ".fai").c_str());
 }
-
 TEST_SUITE_END();

@@ -313,16 +313,21 @@ namespace vargas {
        * Forward iterator to traverse the Graph in insertion order. Checks assume underlying graphs are equal.
        */
       template<typename T, typename Unqualified_T = typename std::remove_cv<T>::type>
-      class GraphIterator: public std::iterator<std::forward_iterator_tag, Unqualified_T, std::ptrdiff_t, T *, T &> {
+      class GraphIterator: public std::iterator<std::bidirectional_iterator_tag, Unqualified_T, std::ptrdiff_t, T*, T&> {
         public:
 
+          GraphIterator(const GraphIterator &gi) : _graph(gi._graph), _currID(gi._currID), _empty(0) {}
+
           /**
-           * @brief
            * @param g Graph
            * @param idx Node in the insertion order to begin iterator at.
            */
-          GraphIterator(const Graph &g, const unsigned idx = 0) : _graph(g), _currID(idx) {}
+          GraphIterator(const Graph &g, const unsigned idx = 0) : _graph(g), _currID(idx), _empty(0) {}
 
+          GraphIterator operator=(const GraphIterator &gi) {
+              _graph = gi._graph;
+              _currID = gi._currID;
+          }
           /**
            * @brief
            * Reference to the underlying Graph.
@@ -353,7 +358,7 @@ namespace vargas {
            * @return iterator to the next Node.
            */
           GraphIterator &operator++() {
-              if (_currID < _graph._add_order.size()) ++_currID;
+              if (_currID < _graph.get()._add_order.size()) ++_currID;
               return *this;
           }
 
@@ -364,19 +369,25 @@ namespace vargas {
            */
           GraphIterator operator++(int) {
               auto ret = *this;
-              if (_currID < _graph._add_order.size()) ++_currID;
+              if (_currID < _graph.get()._add_order.size()) ++_currID;
               return ret;
           }
 
-          /**
-           * @return iterator to the next nth Node.
-           */
-          GraphIterator operator+(unsigned i) const {
+          GraphIterator &operator--() {
+              const auto s = _graph.get()._add_order.size();
+              if (_currID == 0) _currID = s;
+              else if (_currID != s) --_currID;
+              return *this;
+          }
+
+          GraphIterator operator--(int) {
               auto ret = *this;
-              if (_currID + i < _graph._add_order.size()) ret._currID += i;
-              else ret._currID = _graph._add_order.size();
+              const auto s = _graph.get()._add_order.size();
+              if (_currID == 0) _currID = s;
+              else if (_currID != s) --_currID;
               return ret;
           }
+
 
           /**
            * @brief
@@ -384,7 +395,7 @@ namespace vargas {
            * @return Node
            */
           T &operator*() const {
-              return _graph._IDMap->at(_graph._add_order[_currID]);
+              return _graph.get()._IDMap->at(_graph.get()._add_order[_currID]);
           }
 
           /**
@@ -402,8 +413,8 @@ namespace vargas {
           const std::vector<unsigned> &incoming() const {
               try {
                   // Assume the previous edge existing is the common case (DAG w 1 start node)
-                  return _graph._prev_map.at(_graph._add_order[_currID]);
-              } catch (std::exception &e) { return _empty_vec; }
+                  return _graph.get()._prev_map.at(_graph.get()._add_order[_currID]);
+              } catch (std::exception &e) { return _empty; }
           }
 
           /**
@@ -412,8 +423,8 @@ namespace vargas {
           const std::vector<unsigned> &outgoing() const {
               try {
                   // Assume the previous edge existing is the common case (DAG w 1 start node)
-                  return _graph._next_map.at(_graph._add_order[_currID]);
-              } catch (std::exception &e) { return _empty_vec; }
+                  return _graph.get()._next_map.at(_graph.get()._add_order[_currID]);
+              } catch (std::exception &e) { return _empty; }
           }
 
           //TODO icc has a problem with this
@@ -425,16 +436,35 @@ namespace vargas {
               return GraphIterator<const T>(_graph, _currID);
           }
 
-        protected:
-
-          const Graph &_graph;
+        private:
+          std::reference_wrapper<const Graph> _graph;
           unsigned _currID;
-          const std::vector<unsigned> _empty_vec;
-
+          const std::vector<unsigned> _empty;
       };
 
-      using iterator = GraphIterator<Graph::Node>;
       using const_iterator = GraphIterator<const Graph::Node>;
+
+      /**
+       * @return begin iterator.
+       */
+      const_iterator begin() const {
+          return const_iterator(*this, 0);
+      }
+
+      /**
+       * @return end iterator.
+       */
+      const_iterator end() const {
+          return const_iterator(*this, _add_order.size());
+      }
+
+      const_iterator rbegin() const {
+          return const_iterator(*this, _add_order.size() - 1);
+      }
+
+      const_iterator rend() const {
+          return end();
+      }
 
       /**
        * @brief
@@ -563,7 +593,6 @@ namespace vargas {
           return to_DOT();
       }
 
-
       /**
        * @brief
        * Define the graph population size.
@@ -594,34 +623,6 @@ namespace vargas {
        * @return Population with ingroup % of samples set.
        */
       Population subset(const int ingroup) const;
-
-      /**
-       * @return begin iterator.
-       */
-      iterator begin() const {
-          return iterator(*this, 0);
-      }
-
-      /**
-       * @return end iterator.
-       */
-      iterator end() const {
-          return iterator(*this, _add_order.size());
-      }
-
-      /**
-     * @return const begin iterator.
-     */
-      const_iterator cbegin() const {
-          return const_iterator(*this, 0);
-      }
-
-      /**
-       * @return const end iterator.
-       */
-      const_iterator cend() const {
-          return const_iterator(*this, _add_order.size());
-      }
 
       /**
        * @brief

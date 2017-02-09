@@ -1083,7 +1083,7 @@ TEST_CASE ("Indels") {
 
         SUBCASE("Same read/ref") {
             vargas::Aligner a(12, 2, 6, 3, 1);
-            auto res = a.align(reads, g.cbegin(), g.cend());
+            auto res = a.align(reads, g.begin(), g.end());
             REQUIRE(res.size() == 10);
 
             CHECK(res.max_score[0] == 22);
@@ -1112,7 +1112,7 @@ TEST_CASE ("Indels") {
         SUBCASE("Diff read/ref") {
             vargas::ScoreProfile prof(2, 6, 4, 1, 2, 1);
             vargas::Aligner a(12, prof);
-            auto res = a.align(reads, g.cbegin(), g.cend());
+            auto res = a.align(reads, g.begin(), g.end());
             REQUIRE(res.size() == 10);
 
             CHECK(res.max_score[0] == 22);
