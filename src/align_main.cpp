@@ -31,7 +31,7 @@ int align_main(int argc, char *argv[]) {
     }
 
     // Load parameters
-    unsigned match, mismatch, gopen, gext, threads, tolerance, chunk_size, subsample = 0;
+    unsigned match, mismatch, gopen, gext, threads, tolerance, chunk_size, subsample;
     std::string read_file, gdf, align_targets, out_file, pgid;
     bool end_to_end = false;
 
@@ -39,10 +39,8 @@ int align_main(int argc, char *argv[]) {
     try {
         opts.add_options()
         ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf))
-        ("r,reads", "<str> Unpaired reads. Default SAM format. (default: stdin)", cxxopts::value(read_file))
-        ("q,fastq", "Reads (-r) are in FASTQ format.")
-        ("f,fasta", "Reads (-r) are in FASTA format.")
-        ("p,subsample", "<N> Subsample N random reads.", cxxopts::value(subsample))
+        ("r,reads", "<str> *Unpaired reads in SAM, FASTQ, or FASTA format.", cxxopts::value(read_file))
+        ("p,subsample", "<N> Subsample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
         ("a,align", "<str> Alignment targets/file of form \"RG:[ID][gd],target;...\"", cxxopts::value(align_targets))
         ("m,match", "<N> Match score.", cxxopts::value(match)->default_value("2"))
         ("n,mismatch", "<N> Mismatch penalty.", cxxopts::value(mismatch)->default_value("2"))
@@ -64,7 +62,8 @@ int align_main(int argc, char *argv[]) {
         return 0;
     }
     if (!opts.count("gdef")) throw std::invalid_argument("Graph definition file required.");
-    bool primary = opts.count("fastq") || opts.count("fasta");
+    if (!opts.count("reads")) throw std::invalid_argument("No read file provided.");
+    ReadFmt format = read_fmt(read_file);
 
     if (chunk_size < vargas::Aligner::read_capacity() ||
     chunk_size % vargas::Aligner::read_capacity() != 0) {
@@ -72,7 +71,7 @@ int align_main(int argc, char *argv[]) {
                   << vargas::Aligner::read_capacity() << std::endl;
     }
 
-    if (align_targets.size() > 0 && (opts.count("fastq") || opts.count("fasta"))) {
+    if (align_targets.size() > 0 && format != ReadFmt::SAM) {
         throw std::invalid_argument("Alignment targets only available for SAM inputs.");
     }
     // If targets doesn't have a comma, assume its a filename
@@ -85,12 +84,9 @@ int align_main(int argc, char *argv[]) {
     }
 
     vargas::isam reads;
-    if (opts.count("fasta") && opts.count("fastq")) {
-        throw std::invalid_argument("One of FASTQ or FASTA should be selected.");
-    }
-    if (opts.count("fastq")) {
+    if (format == ReadFmt::FASTQ) {
         load_fast(read_file, true, reads);
-    } else if (opts.count("fasta")) {
+    } else if (format == ReadFmt::FASTA) {
         load_fast(read_file, false, reads);
     } else {
         reads.open(read_file);
@@ -170,7 +166,7 @@ int align_main(int argc, char *argv[]) {
         std::cerr << "(" << gm.base()->node_map()->size() << " nodes), "
                   << rg::chrono_duration(start_time) << "s.\n";
 
-        align(gm, task_list, aligners, primary);
+        align(gm, task_list, aligners);
 
         std::string fname = out_file;
         if (fname.length() > 0 && files.size() > 1) {
@@ -178,8 +174,9 @@ int align_main(int argc, char *argv[]) {
             fname = fname.substr(0, ld) + "_" + gdef.substr(0, gdef.find_last_of('.'));
             if (ld != std::string::npos) fname += out_file.substr(ld);
         }
-        if (fname.length()) std::cerr << "Writing to \"" << fname << "\".\n";
+        if (fname.length()) std::cerr << "Writing to \"" << (fname == "" ? "stdout" : fname) << "\".\n";
         reads_hdr.programs[assigned_pgid].aux.set(ALIGN_SAM_PG_GDF, gdef);
+
         vargas::osam aligns_out(fname, reads_hdr);
         for (size_t l = 0; l < num_tasks; ++l) {
             for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
@@ -192,7 +189,7 @@ int align_main(int argc, char *argv[]) {
 }
 
 void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
-           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool primary) {
+           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners) {
 
     std::cerr << "Aligning... " << std::flush;
     auto start_time = std::chrono::steady_clock::now();
@@ -237,9 +234,6 @@ void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vec
             rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
             if (targets.at(j) != 0) rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
             rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
-            if (primary) {
-                //TODO primary
-            }
         }
     }
 
@@ -402,6 +396,20 @@ void align_help(const cxxopts::Options &opts) {
     cerr << "Elements per SIMD vector: " << vargas::Aligner::read_capacity() << endl;
 }
 
+ReadFmt read_fmt(const std::string filename) {
+    std::ifstream in(filename);
+    if (!in.good()) throw std::invalid_argument("Invalid read file: " + filename);
+    std::string line;
+    std::getline(in, line);
+    if (line.length() > 0 && line.at(0) == '>') {
+        std::getline(in, line); // Read
+        std::getline(in, line); // either next name or +
+        if (line.at(0) == '+') return ReadFmt::FASTQ;
+        else return ReadFmt::FASTA;
+    }
+    return ReadFmt::SAM;
+}
+
 TEST_SUITE("System");
 TEST_CASE ("Load FASTQ") {
     std::string tmpfq = "tmp_fastq.va";
@@ -437,7 +445,7 @@ TEST_CASE ("Load FASTA") {
     remove(tmpfq.c_str());
 }
 TEST_CASE ("Coordinate System Matches") {
-    srand(1);
+    srand(12345);
     vargas::Graph::Node::_newID = 0;
     using std::endl;
     std::string tmpfa = "tmp_tc.fa";
@@ -489,7 +497,7 @@ TEST_CASE ("Coordinate System Matches") {
     vargas::Sim sim(g, prof);
 
     vargas::Aligner aligner(5);
-    auto reads = sim.get_batch(aligner.read_capacity());
+    auto reads = sim.get_batch(aligner.read_capacity()*2);
 
     std::vector<std::string> seqs;
     std::vector<unsigned> targets;
@@ -500,7 +508,7 @@ TEST_CASE ("Coordinate System Matches") {
 
     auto results = aligner.align(seqs, targets, g.begin(), g.end());
 
-    for (auto i : results.correct) CHECK ((int) i == 1);
+    for (auto i : results.correct) CHECK((int) i == 1);
 
     remove(tmpfa.c_str());
     remove(tmpvcf.c_str());

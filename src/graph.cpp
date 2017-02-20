@@ -754,7 +754,6 @@ TEST_CASE ("Graph Factory") {
             gb.build(g);
 
             SUBCASE("Forward iterator") {
-
                 auto giter = g.begin();
 
                 CHECK((*giter).seq_str() == "CAAATAAG");
@@ -801,18 +800,18 @@ TEST_CASE ("Graph Factory") {
             SUBCASE("Reverse iterator") {
                 auto giter = g.rbegin();
                 CHECK(giter->seq_str() == "TTGGA");
-                --giter;
+                ++giter;
 
                 CHECK(giter->seq_str() == "");
-                --giter;
+                ++giter;
 
                 CHECK(!giter->is_ref());
                 CHECK(giter->seq_str() == "CCCCCCC");
-                --giter;
+                ++giter;
 
                 CHECK(giter->is_ref());
                 CHECK(giter->seq_str() == "C");
-                --giter;
+                ++giter;
 
                 CHECK(giter->belongs(3));
                 CHECK(!giter->belongs(2));
@@ -820,24 +819,24 @@ TEST_CASE ("Graph Factory") {
                 CHECK(!giter->belongs(0));
                 CHECK(!giter->is_ref());
                 CHECK(giter->seq_str() == "T");
-                --giter;
+                ++giter;
 
                 CHECK(giter->seq_str() == "C");
-                --giter;
+                ++giter;
 
                 CHECK(giter->seq_str() == "A");
-                --giter;
+                ++giter;
 
                 CHECK(giter->seq_str() == "G");
-                --giter;
+                ++giter;
 
                 CHECK(giter->is_ref());
                 CHECK(giter->belongs(0) == true);
                 CHECK(giter->seq_str() == "CAAATAAG");
 
-                --giter;
+                ++giter;
                 CHECK(giter == g.rend());
-                --giter;
+                ++giter;
                 CHECK(giter == g.rend());
             }
 

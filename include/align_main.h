@@ -47,7 +47,7 @@ int align_main(int argc, char *argv[]);
 
 void align(vargas::GraphManager &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
-           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool primary);
+           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners);
 
 /**
  * @brief
@@ -75,6 +75,19 @@ std::unique_ptr<vargas::AlignerBase>
 make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide = false);
 
 void load_fast(std::string &file, const bool fastq, vargas::isam &ret);
+
+/**
+ * Read file format type.
+ */
+enum class ReadFmt {SAM, FASTQ, FASTA};
+
+/**
+ * @brief
+ * Identity read file type
+ * @param filename
+ * @return SAM, FASTA, or FASTQ
+ */
+ReadFmt read_fmt(const std::string filename);
 
 void align_help(const cxxopts::Options &opts);
 

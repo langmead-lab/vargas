@@ -113,8 +113,7 @@ namespace vargas {
        * @param build_base If true, build the base graph.
        * @return true on success
        */
-      bool open(std::string file_name,
-                bool build_base = true);
+      bool open(std::string file_name, bool build_base = true);
 
       /**
        * @brief
@@ -125,8 +124,7 @@ namespace vargas {
        * @throws std::invalid_argument Invalid token or a duplicate definition
        * @throws std::range_error Filter length does not match the number of samples in the VCF file
        */
-      bool open(std::istream &in,
-                bool build_base = true);
+      bool open(std::istream &in, bool build_base = true);
 
       /**
        * @brief
@@ -230,12 +228,8 @@ namespace vargas {
        * @return true on success
        * @throws std::invalid_argument Invalid output file
        */
-      bool write(std::string ref_file,
-                 std::string variant_file,
-                 std::string region,
-                 const std::string &defs,
-                 std::string out_file,
-                 bool build_base = true);
+      bool write(std::string ref_file, std::string variant_file, std::string region,
+                 const std::string &defs, std::string out_file, bool build_base = true);
 
       /**
        * @brief
@@ -249,13 +243,8 @@ namespace vargas {
        * @param nsamps if unspecified the number of samples will be determined from the VCF file
        * @return true on success
        */
-      bool write(std::string ref_file,
-                 std::string variant_file,
-                 std::string region,
-                 std::string defs,
-                 std::ostream &out,
-                 bool build_base,
-                 int nsamps = 0);
+      bool write(std::string ref_file, std::string variant_file, std::string region,
+                 std::string defs, std::ostream &out, bool build_base, int nsamps = 0);
 
       /**
        * @brief
@@ -267,11 +256,8 @@ namespace vargas {
        * @param out output stream
        * @return true on success
        */
-      bool write_from_vcf(std::string ref_file,
-                          std::string vcf_file,
-                          std::string region,
-                          std::string defs,
-                          std::ostream &out) {
+      bool write_from_vcf(std::string ref_file, std::string vcf_file, std::string region,
+                          std::string defs, std::ostream &out) {
           return write(ref_file, vcf_file, region, defs, out, true);
       }
 
@@ -285,11 +271,8 @@ namespace vargas {
          * @param out output file name
          * @return true on success
          */
-      bool write_from_vcf(std::string ref_file,
-                          std::string vcf_file,
-                          std::string region,
-                          std::string defs,
-                          std::string out) {
+      bool write_from_vcf(std::string ref_file, std::string vcf_file, std::string region,
+                          std::string defs, std::string out) {
           return write(ref_file, vcf_file, region, defs, out, true);
       }
 
@@ -300,8 +283,7 @@ namespace vargas {
      * @param name of the graph
      * @throws std::invalid_argument if output file cannot be opened
      */
-      void to_DOT(std::string filename,
-                  std::string name) const {
+      void to_DOT(std::string filename, std::string name) const {
           std::ofstream out(filename);
           if (!out.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
           out << to_DOT(name);

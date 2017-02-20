@@ -295,6 +295,14 @@ namespace vargas {
               return _seq.cend();
           }
 
+          std::vector<rg::Base>::const_reverse_iterator rbegin() const {
+              return _seq.crbegin();
+          }
+
+          std::vector<rg::Base>::const_reverse_iterator rend() const {
+              return _seq.crend();
+          }
+
           static unsigned _newID; /**< ID of the next instance to be created */
 
         private:
@@ -312,8 +320,8 @@ namespace vargas {
        * @brief
        * Forward iterator to traverse the Graph in insertion order. Checks assume underlying graphs are equal.
        */
-      template<typename T, typename Unqualified_T = typename std::remove_cv<T>::type>
-      class GraphIterator: public std::iterator<std::bidirectional_iterator_tag, Unqualified_T, std::ptrdiff_t, T*, T&> {
+      template<typename T, bool FWD, typename Unqualified_T = typename std::remove_cv<T>::type>
+      class GraphIterator: public std::iterator<std::forward_iterator_tag, Unqualified_T, std::ptrdiff_t, T*, T&> {
         public:
 
           GraphIterator(const GraphIterator &gi) : _graph(gi._graph), _currID(gi._currID), _empty(0) {}
@@ -338,8 +346,7 @@ namespace vargas {
           /**
            * @return True if iterators point to same node index.
            */
-          template<typename O>
-          bool operator==(const GraphIterator<O> &other) const {
+          bool operator==(const GraphIterator &other) const {
               return _currID == other._currID;
           }
 
@@ -347,8 +354,7 @@ namespace vargas {
            * @return true when current Node ID's are not the same or if the
            * underlying graph is not the same.
            */
-          template<typename O>
-          bool operator!=(const GraphIterator<O> &other) const {
+          bool operator!=(const GraphIterator &other) const {
               return _currID != other._currID;
           }
 
@@ -358,7 +364,15 @@ namespace vargas {
            * @return iterator to the next Node.
            */
           GraphIterator &operator++() {
-              if (_currID < _graph.get()._add_order.size()) ++_currID;
+              if (FWD) {
+                  if (_currID < _graph.get()._add_order.size()) ++_currID;
+              }
+              else {
+                  // reverse iterator
+                  const auto s = _graph.get()._add_order.size();
+                  if (_currID == 0) _currID = s;
+                  else if (_currID != s) --_currID;
+              }
               return *this;
           }
 
@@ -369,25 +383,16 @@ namespace vargas {
            */
           GraphIterator operator++(int) {
               auto ret = *this;
-              if (_currID < _graph.get()._add_order.size()) ++_currID;
+              if (FWD) {
+                  if (_currID < _graph.get()._add_order.size()) ++_currID;
+              }
+              else {
+                  const auto s = _graph.get()._add_order.size();
+                  if (_currID == 0) _currID = s;
+                  else if (_currID != s) --_currID;
+              }
               return ret;
           }
-
-          GraphIterator &operator--() {
-              const auto s = _graph.get()._add_order.size();
-              if (_currID == 0) _currID = s;
-              else if (_currID != s) --_currID;
-              return *this;
-          }
-
-          GraphIterator operator--(int) {
-              auto ret = *this;
-              const auto s = _graph.get()._add_order.size();
-              if (_currID == 0) _currID = s;
-              else if (_currID != s) --_currID;
-              return ret;
-          }
-
 
           /**
            * @brief
@@ -432,8 +437,8 @@ namespace vargas {
            * @brief
            * Allow conversion from iterator to const_iterator
            */
-          operator GraphIterator<const T>() const {
-              return GraphIterator<const T>(_graph, _currID);
+          operator GraphIterator<const T, FWD>() const {
+              return GraphIterator<const T, FWD>(_graph, _currID);
           }
 
         private:
@@ -442,7 +447,8 @@ namespace vargas {
           const std::vector<unsigned> _empty;
       };
 
-      using const_iterator = GraphIterator<const Graph::Node>;
+      using const_iterator = GraphIterator<const Graph::Node, true>;
+      using const_reverse_iterator = GraphIterator<const Graph::Node, false>;
 
       /**
        * @return begin iterator.
@@ -458,12 +464,12 @@ namespace vargas {
           return const_iterator(*this, _add_order.size());
       }
 
-      const_iterator rbegin() const {
-          return const_iterator(*this, _add_order.size() - 1);
+      const_reverse_iterator rbegin() const {
+          return const_reverse_iterator(*this, _add_order.size() - 1);
       }
 
-      const_iterator rend() const {
-          return end();
+      const_reverse_iterator rend() const {
+          return const_reverse_iterator(*this, _add_order.size());
       }
 
       /**
