@@ -247,7 +247,7 @@ namespace vargas {
            * Set the stored node sequence
            * @param seq
            */
-          void set_seq(std::vector<rg::Base> &seq) { this->_seq = seq; }
+          void set_seq(const std::vector<rg::Base> &seq) { this->_seq = seq; }
 
           /**
            * @brief
@@ -270,6 +270,10 @@ namespace vargas {
            * @param af float frequency, between 0 and 1
            */
           void set_af(float af) { _af = af; }
+
+          void set_id(unsigned id) {_id = id;}
+
+          void set_pinch(bool p) { _pinch = p;}
 
           /**
            * @brief
@@ -315,6 +319,9 @@ namespace vargas {
           unsigned _id;
 
       };
+
+      using nodemap_t = std::unordered_map<unsigned, Node>;
+      using edgemap_t = std::unordered_map<unsigned, std::vector<unsigned>>;
 
       /**
        * @brief
@@ -476,7 +483,14 @@ namespace vargas {
        * @brief
        * Default constructor inits a new Graph, including a new node map.
        */
-      Graph() : _IDMap(std::make_shared<std::unordered_map<unsigned, Node>>()) {}
+      Graph() : _IDMap(std::make_shared<nodemap_t>()) {}
+
+      /**
+       * @brief
+       * Create a graph and bind it to an existing node map with given edges.
+       */
+       Graph(std::shared_ptr<nodemap_t> nodes, const edgemap_t &fwd, const edgemap_t &rev)
+       : _IDMap(nodes), _next_map(fwd), _prev_map(rev) {}
 
       /**
        * @brief
@@ -544,21 +558,21 @@ namespace vargas {
        * Maps a ndoe ID to a shared node object
        * @return map of ID, shared_ptr<Node> pairs
        */
-      std::shared_ptr<const std::unordered_map<unsigned, Node>> node_map() const { return _IDMap; }
+      std::shared_ptr<const nodemap_t> node_map() const { return _IDMap; }
 
       /**
        * @brief
        * Maps a node ID to a vector of all next nodes (outgoing edges)
        * @return map of ID, outgoing edge vectors
        */
-      const std::unordered_map<unsigned, std::vector<unsigned >> &next_map() const { return _next_map; }
+      const edgemap_t &next_map() const { return _next_map; }
 
       /**
        * @brief
        *  Maps a node ID to a vector of all incoming edge nodes
        *  @return map of ID, incoming edges
        */
-      const std::unordered_map<unsigned, std::vector<unsigned >> &prev_map() const { return _prev_map; }
+      const edgemap_t &prev_map() const { return _prev_map; }
 
       /**
        * @brief
@@ -686,11 +700,11 @@ namespace vargas {
     private:
       unsigned _root = 0; // Root of the Graph
       // maps a node ID to a nodeptr. Any derived graphs use the same base node ID map.
-      std::shared_ptr<std::unordered_map<unsigned, Node>> _IDMap;
+      std::shared_ptr<nodemap_t> _IDMap;
       // maps a node ID to the vector of nodes it points to
-      std::unordered_map<unsigned, std::vector<unsigned>> _next_map;
+      edgemap_t _next_map;
       // maps a node ID to a vector of node ID's that point to it
-      std::unordered_map<unsigned, std::vector<unsigned>> _prev_map;
+      edgemap_t _prev_map;
       std::vector<unsigned> _add_order; // Order nodes were added
       unsigned _pop_size = 0;
       Population _filter;

@@ -7,3 +7,6 @@
 [submodule "cxxopts"]
 	path = cxxopts
 	url = https://github.com/RaviGaddipati/cxxopts
+[submodule "json"]
+	path = json
+	url = https://github.com/RaviGaddipati/json

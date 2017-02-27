@@ -437,14 +437,14 @@ int query_main(int argc, char *argv[]) {
     cxxopts::Options opts("vargas query", "Query VCF, Graph, or FASTA files.");
     try {
         opts.add_options()
-        ("d,gdef", "<str> Graph definition.", cxxopts::value(gdef))
-        ("a,stat", "Print statistics about subgraphs and exit.")
+        ("d,gdef", "<str> Export graph to DOT.", cxxopts::value(gdef))
+        ("t,out", "<str> DOT graph output file. (default: stdout)", cxxopts::value(out))
+        ("a,stat", "Print statistics about subgraphs in -d and exit. (Default stdin)")
         ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". Default from gdef.", cxxopts::value(region))
         ("s,subgraph", "<str> Subgraph to export.",
          cxxopts::value(subgraph)->default_value(vargas::GraphManager::GDEF_BASEGRAPH))
-        ("f,fasta", "<str> Reference FASTA.", cxxopts::value(fasta))
-        ("v,vcf", "<str> Variant File.", cxxopts::value(vcf))
-        ("t,out", "<str> -d output file. (default: stdout)", cxxopts::value(out))
+        ("f,fasta", "<str> Query region of a FASTA file.", cxxopts::value(fasta))
+        ("v,vcf", "<str> Query region of a VCF file.", cxxopts::value(vcf))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
@@ -501,23 +501,6 @@ int query_main(int argc, char *argv[]) {
 
         std::cout << std::endl;
 
-        vargas::ifasta in(gm.reference());
-        std::cout << gm.reference() << ", " << region
-                  << "\n----------------------------------------\n"
-                  << in.subseq(reg.seq_name, reg.min, reg.max) << "\n\n";
-
-        vargas::VCF vcf(gm.variants());
-        vcf.set_region(region);
-        std::cout << gm.variants() << ", "
-                  << region
-                  << "\n----------------------------------------\n";
-
-        while (vcf.next()) {
-            std::cout << vcf << '\n';
-        }
-
-        std::cout << std::endl;
-
     }
 
     if (fasta.size()) {
@@ -555,11 +538,9 @@ void main_help() {
     cerr << "define          Define a set of graphs for use with sim and align.\n";
     cerr << "sim             Simulate reads from a set of graphs.\n";
     cerr << "align           Align reads to a set of graphs.\n";
-    cerr << "export          Export graph to DOT format.\n";
     cerr << "convert         Convert a SAM file to a CSV file.\n";
     cerr << "query           Pull a region from a GDEF/VCF/FASTA file.\n";
     cerr << "test            Run unit tests.\n";
-    cerr << "profile         Run profiles (debug).\n" << endl;
     cerr << "Compiled for architecture: ";
 
     std::string arch = "None: no SIMD instruction set specified!";

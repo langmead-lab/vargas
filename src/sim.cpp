@@ -13,7 +13,7 @@
 
 bool vargas::Sim::_update_read() {
 
-    uint32_t curr_indiv, curr_node;
+    uint32_t curr_indiv = 0, curr_node;
     const bool has_pop = _graph.pop_size() != 0;
 
     // Pick an individual
