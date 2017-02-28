@@ -702,6 +702,13 @@ namespace vargas {
           unsigned total_length = 0;
           unsigned num_snps = 0;
           unsigned num_dels = 0;
+
+          std::string to_string() const {
+              std::stringstream ss;
+              ss << "Length: " << total_length << ", Nodes: " << num_nodes << ", Edges: " << num_edges
+                 << "\nSNPs: " << num_snps << ", Dels: " << num_dels;
+              return ss.str();
+          }
       };
 
       /**
@@ -869,16 +876,16 @@ namespace vargas {
        * Apply the various parameters and build the Graph from a VCF and a FASTA.
        * @param g Graph to build into
        */
-      void build(Graph &g);
+      void build(Graph &g, unsigned pos_offset=0);
 
       /**
        * @brief
        * Build the graph using the specified params from a VCF and a FASTA.
        * @return Graph Built Graph
        */
-      Graph build() {
+      Graph build(unsigned pos_offset=0) {
           Graph g;
-          build(g);
+          build(g, pos_offset);
           return g;
       }
 
@@ -906,7 +913,7 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       int _build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr,
-                            unsigned pos, unsigned target);
+                            unsigned pos, unsigned target, unsigned pos_offset);
 
 
     private:

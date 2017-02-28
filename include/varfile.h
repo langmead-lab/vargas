@@ -152,15 +152,16 @@ namespace vargas {
               int n_arr = 0;
 
               int n = _get_vals(hdr, rec, tag, &dst, n_arr);
+              /**
               if (n == -1) throw std::invalid_argument("No such tag in header: " + tag);
               else if (n == -2) throw std::invalid_argument("Header and tag type clash: " + tag);
               else if (n == -3) throw std::invalid_argument(tag + " does not exist in record.");
-
+              */
               for (int i = 0; i < n; ++i) {
                   values.push_back(dst[i]);
               }
 
-              free(dst); // get_format_values allocates
+              if (dst) free(dst); // get_format_values allocates
           }
 
           std::vector<T> values;
@@ -218,15 +219,16 @@ namespace vargas {
               int n_arr = 0;
 
               int n = _bcf_get_info_values(hdr, rec, tag, &dst, n_arr);
+              /*
               if (n == -1) throw std::invalid_argument("No such tag in header: " + tag);
               else if (n == -2) throw std::invalid_argument("Header and tag type clash: " + tag);
               else if (n == -3) throw std::invalid_argument(tag + " does not exist in record.");
-
+              */
               for (int i = 0; i < n; ++i) {
                   values.push_back(dst[i]);
               }
 
-              free(dst);
+              if (dst) free(dst);
           }
 
           std::vector<T> values;
@@ -421,8 +423,9 @@ namespace vargas {
        * @param allele allele to get the population of
        * @return Population of indviduals that have the allele
        */
-      const Population &allele_pop(const std::string allele) const {
-          return _genotype_indivs.at(allele);
+      const Population allele_pop(const std::string allele) const {
+          if (_genotype_indivs.count(allele)) return _genotype_indivs.at(allele);
+          else return Population(1, true);
       }
 
       /**

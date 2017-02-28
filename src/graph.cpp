@@ -142,7 +142,7 @@ std::string vargas::Graph::to_DOT(std::string name) const {
     for (const auto &n : *_IDMap) {
         auto seq = n.second.seq_str();
         if (seq.size() > 19) {
-            seq = seq.substr(0, 8) + "..." + seq.substr(seq.size() - 8, 8);
+            seq = seq.substr(0, 4) + ".." + seq.substr(seq.size() - 5, 4);
         }
         dot << n.second.id() << "[label=\"" << seq
             << "\nP:" << n.second.end_pos() << ", F:" << n.second.freq() << ", R:" << n.second.is_ref()
@@ -159,7 +159,7 @@ std::string vargas::Graph::to_DOT(std::string name) const {
 }
 
 
-void vargas::GraphFactory::build(vargas::Graph &g) {
+void vargas::GraphFactory::build(vargas::Graph &g, unsigned pos_offset) {
     if (_vf == nullptr) throw std::invalid_argument("No VCF file opened.");
     g = vargas::Graph(g.node_map());
     _fa.open(_fa_file);
@@ -181,12 +181,13 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
     const Graph::Population all_pop(g.pop_size(), true);
     g.set_filter(all_pop);
 
+
     while (vf.next()) {
         auto &af = vf.frequencies();
 
-        curr = _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.pos());
-        assert(_fa.subseq(_vf->region().seq_name, curr, curr + vf.ref().length() - 1) == vf.ref() &&
-        ("Variant and FASTA Reference does not match at position " + std::to_string(curr)) != "");
+        curr = _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.pos(), pos_offset);
+        //assert(_fa.subseq(_vf->region().seq_name, curr, curr + vf.ref().length() - 1) == vf.ref() &&
+        //("Variant and FASTA Reference does not match at position " + std::to_string(curr)) != "");
 
         curr += vf.ref().length();
 
@@ -195,7 +196,7 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
         // ref node
         {
             Graph::Node n;
-            n.set_endpos(curr - 1);
+            n.set_endpos(curr - 1 + pos_offset);
             n.set_seq(vf.ref());
             n.set_as_ref();
             n.set_population(vf.allele_pop(vf.ref()));
@@ -210,10 +211,10 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
             Graph::Population pop(vf.allele_pop(allele));
             if (g.pop_size() == 1 || (pop && all_pop)) { // Only add if someone has the allele. == 1 for KSNP
                 Graph::Node n;
-                n.set_endpos(curr - 1);
+                n.set_endpos(curr - 1 + pos_offset);
                 n.set_population(pop);
                 n.set_seq(allele);
-                n.set_af(af[i]);
+                if (af.size() > i) n.set_af(af[i]);
                 n.set_not_ref();
                 curr_unconnected.insert(g.add_node(n));
 
@@ -223,7 +224,7 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
 
     }
     // Nodes after last variant
-    _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.region().max);
+    _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.region().max, pos_offset);
 
     _fa.close();
     _vf.reset();
@@ -243,7 +244,8 @@ void vargas::GraphFactory::_build_edges(vargas::Graph &g, std::unordered_set<uns
 
 
 int vargas::GraphFactory::_build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev,
-                                            std::unordered_set<unsigned> &curr, unsigned pos, unsigned target) {
+                                            std::unordered_set<unsigned> &curr, unsigned pos,
+                                            unsigned target, unsigned pos_offset) {
 
     if (target == 0) target = _fa.seq_len(_vf->region().seq_name);
     if (pos == target) return target; // For adjacent var positions
@@ -253,7 +255,7 @@ int vargas::GraphFactory::_build_linear_ref(Graph &g, std::unordered_set<unsigne
     n.set_population(g.pop_size(), true);
     n.set_as_ref();
     n.set_seq(_fa.subseq(_vf->region().seq_name, pos, target - 1));
-    n.set_endpos(target - 1);
+    n.set_endpos(target - 1 + pos_offset);
     curr.insert(g.add_node(n));
     _build_edges(g, prev, curr);
     return target;

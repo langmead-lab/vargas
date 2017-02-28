@@ -70,39 +70,45 @@ namespace vargas {
           open(filename, mode);
       }
 
-      void create_base(const std::string fasta, const std::string vcf, std::string label,
-                       std::vector<Region> region, std::string sample_filter="") {
-          vargas::ifasta ref(fasta);
-          vargas::VCF var(vcf);
-          if (!ref.good()) throw std::invalid_argument("Error opening FASTA \"" + fasta + "\"");
-          if (!var.good()) throw std::invalid_argument("Error opening VCF \"" + vcf + "\"");
+      std::shared_ptr<Graph> &graph(std::string label) {
+          if (_graphs.count(label) == 0) throw std::domain_error("Invalid graph label: " + label);
+          return _graphs[label];
+      }
 
-          if (sample_filter.size()) {
-              sample_filter.erase(std::remove_if(sample_filter.begin(), sample_filter.end(), isspace),
-                                  sample_filter.end());
-              auto filter = rg::split(sample_filter, ',');
-              var.create_ingroup(filter);
-          }
+      void create_base(const std::string fasta, const std::string vcf="",
+                       std::vector<Region> region={}, std::string sample_filter="") {
 
           if (_nodes == nullptr) _nodes = std::make_shared<Graph::nodemap_t>();
           else _nodes->clear();
 
           if (region.size() == 0) {
-              for (const auto &r : ref.sequence_names()) region.emplace_back(r, 0, 0);
+              vargas::ifasta ref(fasta);
+              for (const auto &r : ref.sequence_names()) {
+                  std::cerr << r << ',';
+                  region.emplace_back(r, 0, 0);
+              }
           }
 
-          Graph build_host(_nodes);
-          for (const auto &reg : region) {
+
+          _graphs["base"] = std::make_shared<Graph>(_nodes);
+          unsigned offset = 0;
+          for (auto reg : region) {
+              std::cerr << "Building contig " << reg.seq_name << "\n";
               GraphFactory gf(fasta, vcf);
               gf.add_sample_filter(sample_filter);
               gf.set_region(reg);
-              gf.build(build_host);
-
+              auto g = gf.build(offset);
+              std::cerr << g.statistics().to_string() << "\n\n";
+              offset = g.rbegin()->end_pos();
+              _contig_offsets[offset] = reg.seq_name;
+              _graphs["base"]->assimilate(g);
           }
 
           _j["meta"]["fasta"] = fasta;
-          _j["meta"]["vcf"] = vcf;
-          _j["meta"]["samples"] = var.samples();
+          if (vcf.size()) _j["meta"]["vcf"] = vcf;
+          sample_filter.erase(std::remove_if(sample_filter.begin(), sample_filter.end(), isspace),
+                              sample_filter.end());
+          _j["meta"]["samples"] = rg::split(sample_filter, ',');
 
       }
 
@@ -130,8 +136,15 @@ namespace vargas {
           }
           _nodes.reset();
 
-          // Edges
+          for (auto &o : _contig_offsets) {
+              _j["contigs"][o.second]["offset"] = o.first;
+              _j["contigs"][o.second][o.second] = json::array();
+          }
+
           for (auto &g : _graphs) {
+              for (auto &p : g.second->order()) {
+                  _j["contigs"][absolute_position(g.second->node(p).begin_pos()).first].push_back(p);
+              }
               for (auto &f : g.second->next_map()) {
                   _j["graphs"][g.first]["fwd"][std::to_string(f.first)] = f.second;
               }
@@ -148,7 +161,7 @@ namespace vargas {
               if (mode == json_mode::plaintext) out.open(filename);
               else std::domain_error("Unimplemented");
               if (!out.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
-              out << _j.dump(2);
+              out << _j.dump(-1);
           }
       }
 
@@ -166,8 +179,7 @@ namespace vargas {
           }
 
           // Validate fields
-          if (_j.find("contigs") == _j.end() || _j.find("graphs") == _j.end() ||
-          !_j["contigs"].size() || _j["graphs"].find("base") == _j["graphs"].end()) {
+          if (_j.find("contigs") == _j.end() || _j.find("graphs") == _j.end() || !_j["contigs"].size()) {
               throw std::invalid_argument("Invalid graph file.");
           }
 
@@ -182,6 +194,7 @@ namespace vargas {
                   _nodes->insert({node.id(), node});
                   n.value() = nullptr;
               }
+              contig["nodes"] = nullptr;
           }
 
           // Load graphs
@@ -198,16 +211,23 @@ namespace vargas {
               Graph::edgemap_t fwd, rev;
               for (json::iterator i = graph["fwd"].begin(); i != graph["fwd"].end(); ++i) {
                   fwd[std::stoul(i.key())] = i.value().get<Graph::edgemap_t::mapped_type>();
-                  i.value() = nullptr;
               }
+              graph["fwd"] = nullptr;
               for (json::iterator i = graph["rev"].begin(); i != graph["rev"].end(); ++i) {
                   rev[std::stoul(i.key())] = i.value().get<Graph::edgemap_t::mapped_type>();
-                  i.value() = nullptr;
               }
+              graph["rev"] = nullptr;
 
               _graphs[it.key()] = std::make_shared<Graph>(_nodes, std::move(fwd), std::move(rev), std::move(nids));
           }
 
+      }
+
+      /**
+       * Clear JSON data.
+       */
+      void dump() {
+          _j.clear();
       }
 
       /**
@@ -253,6 +273,73 @@ TEST_CASE("Load graph") {
     }
 
     remove(jfile.c_str());
+}
+
+TEST_CASE("Write graph") {
+    using std::endl;
+    std::string tmpfa = "tmp_tc.fa";
+    {
+        std::ofstream fao(tmpfa);
+        fao
+        << ">x" << endl
+        << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
+        << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
+        << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
+        << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
+        << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
+        << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
+        << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
+        << ">y" << endl
+        << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
+    }
+    std::string tmpvcf = "tmp_tc.vcf";
+    // Write temp VCF file
+    {
+        std::ofstream vcfo(tmpvcf);
+        vcfo
+        << "##fileformat=VCFv4.1" << endl
+        << "##phasing=true" << endl
+        << "##contig=<ID=x>" << endl
+        << "##contig=<ID=y>" << endl
+        << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
+        << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
+        << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
+        << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
+        << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
+        << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
+        << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
+        << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
+        << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
+        << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+        << "y\t34\t.\tC\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+        << "y\t39\t.\tC\tT,G\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+    }
+
+    SUBCASE("Concat graphs") {
+        std::vector<vargas::Region> regions;
+        regions.reserve(24);
+        for (unsigned i = 1; i < 23; ++i) {
+            regions.emplace_back(std::to_string(i), 0, 0);
+        }
+        regions.emplace_back("X", 0, 0);
+        regions.emplace_back("Y", 0, 0);
+
+        {
+            vargas::GraphGen gg;
+            gg.create_base("GRCh38_renamed.fa", "", regions);
+            gg.graph("base")->to_DOT("g.dot", "g");
+            gg.write("graph.json");
+        }
+        {
+            vargas::GraphGen gg;
+            gg.open("graph.json");
+            gg.graph("base")->to_DOT("g2.dot", "g");
+            gg.write("graph2.json");
+        }
+    }
+
+    remove(tmpfa.c_str());
+    remove(tmpvcf.c_str());
 }
 
 #endif //VARGAS_GRAPHGEN_H

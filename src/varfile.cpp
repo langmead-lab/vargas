@@ -66,13 +66,13 @@ bool vargas::VCF::next() {
     if (!_header || !_bcf) return false;
     if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
     unpack_all();
-    // Check if its within the filter range
-    if (_region.max > 0 && (unsigned) _curr_rec->pos > _region.max) {
-        return false;
-    }
     if ((unsigned) _curr_rec->pos < _region.min ||
     (_region.seq_name.length() != 0 && strcmp(_region.seq_name.c_str(), bcf_hdr_id2name(_header, _curr_rec->rid)))) {
         return next();
+    }
+    // Check if its within the filter range
+    if (_region.max > 0 && (unsigned) _curr_rec->pos > _region.max) {
+        return false;
     }
     genotypes();
     return true;
