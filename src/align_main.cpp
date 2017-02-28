@@ -229,7 +229,7 @@ void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vec
             rec.aux.set(ALIGN_SAM_MAX_POS_TAG, aligns.max_pos[j]);
             rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
             rec.aux.set(ALIGN_SAM_SCORE_PROFILE, aligns.profile.to_string());
-            rec.aux.set(ALIGN_SAM_SEQ, subgraph->region().seq_name);
+            // rec.aux.set(ALIGN_SAM_SEQ, subgraph->region().seq_name);
             rec.aux.set(ALIGN_SAM_SUB_POS_TAG, aligns.sub_pos[j]);
             rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
             if (targets.at(j) != 0) rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);

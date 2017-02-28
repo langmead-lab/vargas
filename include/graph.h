@@ -121,7 +121,7 @@ namespace vargas {
         */
       enum class Type {
           REF, /**< Only include reference nodes. */
-          MAXAF, /**< Keep the node with the highest AF at each branch. */
+          MAXAF /**< Keep the node with the highest AF at each branch. */
       };
 
       /**
@@ -485,12 +485,15 @@ namespace vargas {
        */
       Graph() : _IDMap(std::make_shared<nodemap_t>()) {}
 
+      Graph(std::shared_ptr<nodemap_t> nodes) : _IDMap(nodes) {}
+
       /**
        * @brief
        * Create a graph and bind it to an existing node map with given edges.
        */
-       Graph(std::shared_ptr<nodemap_t> nodes, const edgemap_t &fwd, const edgemap_t &rev)
-       : _IDMap(nodes), _next_map(fwd), _prev_map(rev) {}
+       Graph(std::shared_ptr<nodemap_t> nodes, const edgemap_t &fwd, const edgemap_t &rev,
+             const std::vector<unsigned> &node_order)
+       : _IDMap(nodes), _next_map(fwd), _prev_map(rev), _add_order(node_order) {}
 
       /**
        * @brief
@@ -530,7 +533,6 @@ namespace vargas {
        * @brief
        * Add a new node to the Graph.
        * @details
-       * A new node is created so the original can be destroyed.
        * The first node added is set as the Graph root. Nodes must be added in topographical order.
        * @param n node to add, ID of original node is preserved.
        * @return ID of the inserted node
@@ -558,7 +560,7 @@ namespace vargas {
        * Maps a ndoe ID to a shared node object
        * @return map of ID, shared_ptr<Node> pairs
        */
-      std::shared_ptr<const nodemap_t> node_map() const { return _IDMap; }
+      std::shared_ptr<nodemap_t> node_map() const { return _IDMap; }
 
       /**
        * @brief
@@ -659,11 +661,34 @@ namespace vargas {
        */
       bool validate() const;
 
-      const Region &region() const {
-          return _region;
+      const std::vector<unsigned> &order() const {
+          return _add_order;
       }
-      void set_region(const Region &region) {
-          _region = region;
+
+      /**
+       * @brief
+       * Merges g into self. There should be no node ID conflicts, and g positions should be
+       * greater than the maximum position of this.
+       * @details
+       * if a node ID in g is already present, it will keep the original node.
+       * @param g
+       */
+      void assimilate(const Graph &g) {
+          _merge_edges(_next_map, g._next_map);
+          _merge_edges(_prev_map, g._prev_map);
+
+          // Insert new nodes
+          std::set<unsigned> exists;
+          if (_IDMap != g._IDMap) {
+              for (auto &p : *g._IDMap) {
+                  if (!_IDMap->count(p.first)) _IDMap->insert(p);
+                  else exists.insert(p.first);
+              }
+          }
+
+          for (auto i : g._add_order) {
+              if (!exists.count(i)) _add_order.push_back(i);
+          }
       }
 
       /**
@@ -708,7 +733,6 @@ namespace vargas {
       std::vector<unsigned> _add_order; // Order nodes were added
       unsigned _pop_size = 0;
       Population _filter;
-      Region _region;
 
       /**
        * Given a subset of nodes from Graph g, rebuild all applicable edges in the new graph.
@@ -717,7 +741,40 @@ namespace vargas {
        */
       void _build_derived_edges(const Graph &g, const std::unordered_set<unsigned> &includedNodes);
 
+      /**
+       * @brief
+       * Inserts new edges from b into a. If a and b have edges from some node id, merge them into a.
+       * @param a
+       * @param b
+       */
+      void _merge_edges(edgemap_t &a, const edgemap_t &b) {
+          // For each edge pair in b
+          for (const auto &p : b) {
+              // If we already have that in the map, merge the mapped vectors
+              if (a.count(p.first)) {
+                  // Insert new edges
+                  auto &host = a[p.first];
+                  for (auto k : p.second) {
+                      if (std::find(host.begin(), host.end(), k) == host.end()) host.push_back(k);
+                  }
+              } else {
+                  a[p.first] = p.second;
+              }
+          }
+      }
+
   };
+
+  inline Graph &operator+=(Graph &a, const Graph &b) {
+      a.assimilate(b);
+      return a;
+  }
+
+  inline Graph operator+(const Graph &a, const Graph &b) {
+      Graph ret(a.node_map(), a.next_map(), a.prev_map(), a.order());
+      ret.assimilate(b);
+      return ret;
+  }
 
   /**
    * @brief
@@ -765,6 +822,19 @@ namespace vargas {
        * @param region
        */
       void set_region(std::string region) {
+          if (!_vf) throw std::invalid_argument("No variant file opened.");
+          _vf->set_region(region);
+      }
+
+      /**
+       * @brief
+       * Set the region of the graph to build. Format should be
+       * CHR:XX,XXX-YY,YYY
+       * Where CHR is the sequence name, XX,XXX is the min pos and YY,YYY is the max pos.
+       * Both are inclusive.
+       * @param region
+       */
+      void set_region(Region region) {
           if (!_vf) throw std::invalid_argument("No variant file opened.");
           _vf->set_region(region);
       }

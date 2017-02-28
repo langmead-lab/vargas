@@ -33,7 +33,6 @@ vargas::Graph::Graph(const vargas::Graph &g,
     _IDMap = g._IDMap;
     _pop_size = g.pop_size();
     _filter = filter;
-    _region = g._region;
 
     // Add all nodes
     std::unordered_set<unsigned> includedNodes;
@@ -53,7 +52,6 @@ vargas::Graph::Graph(const Graph &g, Type type) {
     _IDMap = g._IDMap;
     _pop_size = g.pop_size();
     _filter = Population(_pop_size, true);
-    _region = g._region;
 
     std::unordered_set<unsigned> includedNodes;
 
@@ -163,7 +161,7 @@ std::string vargas::Graph::to_DOT(std::string name) const {
 
 void vargas::GraphFactory::build(vargas::Graph &g) {
     if (_vf == nullptr) throw std::invalid_argument("No VCF file opened.");
-    g = vargas::Graph();
+    g = vargas::Graph(g.node_map());
     _fa.open(_fa_file);
 
     auto &vf = *_vf;
@@ -174,7 +172,6 @@ void vargas::GraphFactory::build(vargas::Graph &g) {
     if (vf.region().seq_name.length() == 0) {
         vf.set_region(_fa.sequence_names()[0] + ":0-0");
     }
-    g.set_region(vf.region());
 
     int curr = vf.region().min; // The Graph has been built up to this position, exclusive
     std::unordered_set<unsigned> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
@@ -347,7 +344,6 @@ vargas::Graph vargas::Graph::subgraph(const unsigned min, const unsigned max) co
         }
     }
 
-    ret.set_region(Region(_region.seq_name, min, max));
     return ret;
 }
 
@@ -487,7 +483,65 @@ TEST_CASE ("Graph class") {
         CHECK(num_to_seq(g.node(3).seq()) == "TTT");
     }
 
-    SUBCASE("Filtering iterators") {
+    SUBCASE("Graph ops") {
+        /**
+         * Adding three nodes:
+         *[2]   GGG ----- GTGT  [4]
+         *    /    \         \
+         *  AAA    TTT      ATAT -- ACAC
+         *    \    /        [5]     [6]
+         *[1]  CCC(ref)
+         */
+
+        vargas::Graph b;
+        {
+            vargas::Graph::Node n;
+            n.set_seq("GTGT");
+            b.add_node(n);
+        }
+        {
+            vargas::Graph::Node n;
+            n.set_seq("ATAT");
+            b.add_node(n);
+        }
+        {
+            vargas::Graph::Node n;
+            n.set_seq("ACAC");
+            b.add_node(n);
+        }
+        b.add_node(g.node(2));
+        b.add_edge(2,4);
+        b.add_edge(4,5);
+        b.add_edge(5,6);
+
+        auto c = g + b;
+
+        auto i = c.begin();
+
+        CHECK(num_to_seq(i->seq()) == "AAA");
+        ++i;
+
+        // Order of these two don't matter
+        bool mid = (i->seq_str() == "CCC") || (i->seq_str() == "GGG");
+        CHECK(mid);
+        ++i;
+        mid = (i->seq_str() == "CCC") || (i->seq_str() == "GGG");
+        CHECK(mid);
+        ++i;
+
+        CHECK(i->seq_str() == "TTT");
+        ++i;
+        CHECK(i->seq_str() == "GTGT");
+        ++i;
+        CHECK(i->seq_str() == "ATAT");
+        ++i;
+        CHECK(i->seq_str() == "ACAC");
+        ++i;
+        CHECK(i == c.end());
+
+    }
+
+    SUBCASE("Iterators") {
         /**         (ref)
          *     GGG   TTT
          *    /   \ /   \

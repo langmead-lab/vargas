@@ -20,8 +20,8 @@
 
 namespace vargas {
   using json = nlohmann::json;
-  enum class json_mode {cbor, messagepack, plaintext};
-  constexpr json_mode default_json_mode = json_mode::cbor;
+  enum class json_mode {plaintext}; // binary not well implemented yet
+  constexpr json_mode default_json_mode = json_mode::plaintext;
 
   // ADL conversions
   inline void to_json(json &j, const Graph::Node &n) {
@@ -41,60 +41,28 @@ namespace vargas {
 
   /**
    * @brief
-   * Generate and manage a family of graphs from a FASTA and VCF file.
-   * @details
-   * GraphGen makes its own structure of nodes. Any provided graphs reference its node map.
-   * By default store in a binary JSON format.
-   * @code{.json}
-   *
-    // Though there are comments in this example, comments are not supported.
-    {
-        "meta": {
-            "version" : "vargas VER",
-            "fasta" : "Fasta filename",
-            "vcf" : "vcf filename",
-            "command-line" : "Graph generation CL",
-            "samples" : ["sample1", "sample2"]
-        },
-
-        "contigs": {
-            "chr1" : {
-                "min" : 0, // inclusive
-                "max" : null, // null is maximum length, inclusive
-                "offset" : 0, // Positions in nodes are offset by this amount.
-                "nodes": [
-                    {"id": 0, "pos": 5, "af" : 1.0, "seq" : [0,1,2,3,2,1]} // numeric rep of seq
-                    // ... for all nodes
-                ]
-            }
-            // ... for all chromosomes
-        },
-
-        "graphs": {
-            // At minimum, base is defined. Keys should correspond to those found in
-            // ["meta"]["subgraph-def"]
-            "base" : {
-                "def" : {
-                    "parent" : null, // Derived from parent graph
-                    "invert" : false, // Derived from complement of parent
-                    "population" : [1,1,1,1], // Population, ength is len ["samples"]
-                    "snp" : true, // Only include snps
-                    "min-af" : 0, // min allele frequency
-                    "max-af" : null,
-                    "filter" : "ref OR maxaf"
-                },
-                "nodes" : [
-                    // Nodes from each contig
-                    {"contig" : "chr1", "nid" : []} //.. List of node ID nums
-                    // ...
-                ],
-                "edges" : [[0,1],[1,2]] // List of edge pairs
-            }
-            // ... For all subgraphs
-        }
-    }
-   * @endcode
+   * Defintion of a subgraph
+   * @param parent label of parent graph
+   * @param invert use the complement of the parents population
+   * @param snp_only Only consider SNP variants
+   * @param Use a subset of the parent
+   * @param linear Graph is linear
+   * @param type if linear, is it REF or MAXAF
+   * @param population if not linear, population subset
+   * @param min_af if not linear, minimum allele frequency
+   * @param max_af if not linear, max allele frequency
    */
+  struct GraphDef {
+      std::string parent;
+      bool invert;
+      bool snp_only;
+      std::vector<Region> region;
+      bool linear;
+      VCF::Population population;
+      Graph::Type type;
+      float min_af, max_af;
+  };
+
   class GraphGen {
     public:
       GraphGen() = default;
@@ -102,45 +70,124 @@ namespace vargas {
           open(filename, mode);
       }
 
-      void write(const std::string &filename, json_mode mode=default_json_mode);
+      void create_base(const std::string fasta, const std::string vcf, std::string label,
+                       std::vector<Region> region, std::string sample_filter="") {
+          vargas::ifasta ref(fasta);
+          vargas::VCF var(vcf);
+          if (!ref.good()) throw std::invalid_argument("Error opening FASTA \"" + fasta + "\"");
+          if (!var.good()) throw std::invalid_argument("Error opening VCF \"" + vcf + "\"");
+
+          if (sample_filter.size()) {
+              sample_filter.erase(std::remove_if(sample_filter.begin(), sample_filter.end(), isspace),
+                                  sample_filter.end());
+              auto filter = rg::split(sample_filter, ',');
+              var.create_ingroup(filter);
+          }
+
+          if (_nodes == nullptr) _nodes = std::make_shared<Graph::nodemap_t>();
+          else _nodes->clear();
+
+          if (region.size() == 0) {
+              for (const auto &r : ref.sequence_names()) region.emplace_back(r, 0, 0);
+          }
+
+          Graph build_host(_nodes);
+          for (const auto &reg : region) {
+              GraphFactory gf(fasta, vcf);
+              gf.add_sample_filter(sample_filter);
+              gf.set_region(reg);
+              gf.build(build_host);
+
+          }
+
+          _j["meta"]["fasta"] = fasta;
+          _j["meta"]["vcf"] = vcf;
+          _j["meta"]["samples"] = var.samples();
+
+      }
+
+      void generate_graph(std::string label, const GraphDef &def) {
+          if (_graphs.count(def.parent) == 0) throw std::domain_error("Parent graph \"" + def.parent + "\" does not exist.");
+      }
+
+      /**
+       * @brief
+       * Write graphs to a file. Loaded graphs are consumed.
+       * @param filename Output file
+       * @param mode Output mode
+       */
+      void write(const std::string &filename, json_mode mode=default_json_mode) {
+
+          // Don't modify nodes if the nodemap is in use
+          bool purge = true;
+          if (_nodes.use_count() > 1) purge = false;
+
+          // Nodes
+          const std::string empty;
+          for (auto &p : *_nodes) {
+              _j["contigs"][absolute_position(p.second.begin_pos()).first][std::to_string(p.first)] = p.second;
+              if (purge) p.second.set_seq(empty); // Free up some memory
+          }
+          _nodes.reset();
+
+          // Edges
+          for (auto &g : _graphs) {
+              for (auto &f : g.second->next_map()) {
+                  _j["graphs"][g.first]["fwd"][std::to_string(f.first)] = f.second;
+              }
+              for (auto &p : g.second->prev_map()) {
+                  _j["graphs"][g.first]["rev"][std::to_string(p.first)] = p.second;
+              }
+              g.second.reset();
+          }
+          _graphs.clear();
+
+          if (filename.size() == 0) std::cout << _j;
+          else {
+              std::ofstream out;
+              if (mode == json_mode::plaintext) out.open(filename);
+              else std::domain_error("Unimplemented");
+              if (!out.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
+              out << _j.dump(2);
+          }
+      }
+
       void open(const std::string &filename, json_mode mode=default_json_mode) {
-          json j;
-          if (filename.size() == 0) std::cin >> j;
+          _j.clear();
+          if (filename.size() == 0) {
+              std::cin >> _j;
+          }
           else {
               std::ifstream in;
               if (mode == json_mode::plaintext) in.open(filename);
-              else in.open(filename, std::ios::binary);
+              else throw std::domain_error("Unimplemented");
               if (!in.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
-              in >> j;
+              in >> _j;
           }
 
           // Validate fields
-          if (j.find("contigs") == j.end() || j.find("graphs") == j.end() ||
-          !j["contigs"].size() || j["graphs"].find("base") == j["graphs"].end()) {
+          if (_j.find("contigs") == _j.end() || _j.find("graphs") == _j.end() ||
+          !_j["contigs"].size() || _j["graphs"].find("base") == _j["graphs"].end()) {
               throw std::invalid_argument("Invalid graph file.");
           }
 
           // Load nodes
           _nodes.reset();
           _nodes = std::make_shared<Graph::nodemap_t>();
-          for (json::iterator it = j["contigs"].begin(); it != j["contigs"].end(); ++it) {
-              assert(it.value().find("nodes") != it.value().end());
-              assert(it.value().find("offset") != it.value().end());
-              _contig_offsets[it.value()["offset"]] = it.key();
-              std::unordered_map<std::string, Graph::Node> i = it.value()["nodes"];
-              it.value() = nullptr; // Clear as we load to conserve mem
-              std::for_each(i.begin(), i.end(), [this](const std::pair<std::string, Graph::Node> &p) {
-                  this->_nodes->insert({std::stoul(p.first), p.second});
-              });
+          for (json::iterator it = _j["contigs"].begin(); it != _j["contigs"].end(); ++it) {
+              auto &contig = it.value();
+              _contig_offsets[contig["offset"].get<unsigned>()] = it.key();
+              for (json::iterator n = contig["nodes"].begin(); n != contig["nodes"].end(); ++n) {
+                  Graph::Node node = n.value().get<Graph::Node>();
+                  _nodes->insert({node.id(), node});
+                  n.value() = nullptr;
+              }
           }
 
           // Load graphs
           _graphs.clear();
-          for (json::iterator it = j["graphs"].begin(); it != j["graphs"].end(); ++it) {
+          for (json::iterator it = _j["graphs"].begin(); it != _j["graphs"].end(); ++it) {
               auto &graph = it.value();
-              assert(graph.find("nodes") != graph.end());
-              assert(graph.find("fwd") != graph.end());
-              assert(graph.find("rev") != graph.end());
 
               std::vector<unsigned> nids;
               for (json::iterator n = graph["nodes"].begin(); n != graph["nodes"].end(); ++n) {
@@ -151,13 +198,14 @@ namespace vargas {
               Graph::edgemap_t fwd, rev;
               for (json::iterator i = graph["fwd"].begin(); i != graph["fwd"].end(); ++i) {
                   fwd[std::stoul(i.key())] = i.value().get<Graph::edgemap_t::mapped_type>();
+                  i.value() = nullptr;
               }
               for (json::iterator i = graph["rev"].begin(); i != graph["rev"].end(); ++i) {
                   rev[std::stoul(i.key())] = i.value().get<Graph::edgemap_t::mapped_type>();
+                  i.value() = nullptr;
               }
 
-              _graphs[it.key()] = std::make_shared<Graph>(_nodes, fwd, rev);
-              graph = nullptr;
+              _graphs[it.key()] = std::make_shared<Graph>(_nodes, std::move(fwd), std::move(rev), std::move(nids));
           }
 
       }
@@ -173,31 +221,35 @@ namespace vargas {
           return {lb->second, pos - lb->first};
       };
 
-    protected:
-
+      json &get_json() {
+          return _j;
+      }
 
     private:
       std::shared_ptr<Graph::nodemap_t> _nodes;
-      std::unordered_map<std::string, std::shared_ptr<vargas::Graph>> _graphs;
+      std::unordered_map<std::string, std::shared_ptr<vargas::Graph>> _graphs; // Map label to a graph
       std::map<unsigned, std::string> _contig_offsets; // Maps an offset to contig
+      json _j; // Maintains all info except for nodes, graph edges for space
   };
 }
 
 TEST_CASE("Load graph") {
     const std::string jfile = "tmpjson.vargas";
-    {
-        /**
-         * AAAAA->GGGGG
-         */
-        const std::string jstr =
-        "{\"contigs\":{\"chr1\":{\"min\":0,\"max\":null,\"offset\":0,\"nodes\":{\"0\":{\"id\":0,\"pos\":5,\"af\":1.0,\"z\":true,\"seq\":\"AAAAA\"},\"1\":{\"id\":1,\"pos\":10,\"af\":1.0,\"z\":true,\"seq\":\"GGGGG\"}}}},\"graphs\":{\"base\":{\"nodes\":{\"chr1\":[0,1]},\"fwd\":{\"0\":[1]},\"rev\":{\"1\":[0]}}}}";
-        std::ofstream o(jfile);
-        o << jstr;
-    }
+    /**
+     * AAAAA->GGGGG
+     */
+    const std::string jstr =
+    "{\"contigs\":{\"chr1\":{\"min\":0,\"max\":null,\"offset\":0,\"nodes\":{\"0\":{\"id\":0,\"pos\":5,\"af\":1.0,"
+    "\"z\":true,\"seq\":\"AAAAA\"},\"1\":{\"id\":1,\"pos\":10,\"af\":1.0,\"z\":true,\"seq\":\"GGGGG\"}}}},\"graphs\":"
+    "{\"base\":{\"nodes\":{\"chr1\":[0,1]},\"fwd\":{\"0\":[1]},\"rev\":{\"1\":[0]}}}}";
+    std::ofstream o(jfile);
+    o << jstr;
+    o.close();
+
     SUBCASE("File write wrapper") {
         vargas::GraphGen gg;
         gg.open(jfile);
-        gg.absolute_position(13);
+
     }
 
     remove(jfile.c_str());
