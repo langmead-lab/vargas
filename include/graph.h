@@ -666,6 +666,27 @@ namespace vargas {
       }
 
       /**
+       * Set node order.
+       * @param ids Node ID's, topographically ordered
+       */
+      void set_order(const std::vector<unsigned> &ids) {
+          _add_order = ids;
+      }
+
+      /**
+       * @brief
+       * Set forward edges and generate reverse edges.
+       * @param edges forward edges
+       */
+      void set_edges(const edgemap_t &edges) {
+          for (auto &p : edges) {
+              for (auto to : p.second) {
+                  add_edge(p.first, to);
+              }
+          }
+      }
+
+      /**
        * @brief
        * Merges g into self. There should be no node ID conflicts, and g positions should be
        * greater than the maximum position of this.
@@ -706,7 +727,7 @@ namespace vargas {
           std::string to_string() const {
               std::stringstream ss;
               ss << "Length: " << total_length << ", Nodes: " << num_nodes << ", Edges: " << num_edges
-                 << "\nSNPs: " << num_snps << ", Dels: " << num_dels;
+                 << ", SNPs: " << num_snps << ", Dels: " << num_dels;
               return ss.str();
           }
       };

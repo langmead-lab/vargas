@@ -290,6 +290,12 @@ class dyn_bitset {
         return ss.str();
     }
 
+    std::vector<unsigned char> to_vec() const {
+        std::vector<unsigned char> ret(size());
+        for (unsigned i = 0; i < size(); ++i) ret[i] = at(i);
+        return ret;
+    }
+
   protected:
 
     /**

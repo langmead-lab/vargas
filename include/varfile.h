@@ -143,20 +143,18 @@ namespace vargas {
            * @param rec current record
            * @param tag Field to get, e.g. "GT"
            */
-          FormatField(bcf_hdr_t *hdr,
-                      bcf1_t *rec,
-                      std::string tag) : tag(tag) {
+          FormatField(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag) : tag(tag) {
               if (!hdr || !rec || tag.length() == 0) throw std::invalid_argument("Invalid header, rec, or tag.");
 
               T *dst = nullptr;
               int n_arr = 0;
 
               int n = _get_vals(hdr, rec, tag, &dst, n_arr);
-              /**
+
               if (n == -1) throw std::invalid_argument("No such tag in header: " + tag);
               else if (n == -2) throw std::invalid_argument("Header and tag type clash: " + tag);
               else if (n == -3) throw std::invalid_argument(tag + " does not exist in record.");
-              */
+
               for (int i = 0; i < n; ++i) {
                   values.push_back(dst[i]);
               }
@@ -164,33 +162,20 @@ namespace vargas {
               if (dst) free(dst); // get_format_values allocates
           }
 
-          std::vector<T> values;
-          /**< Retrieved values. */
+          std::vector<T> values; /**< Retrieved values. */
           std::string tag; /**< Type of FORMAT or INFO field. */
 
         private:
           // Change the parse type based on what kind of type we have
-          inline int _get_vals(bcf_hdr_t *hdr,
-                               bcf1_t *rec,
-                               std::string tag,
-                               int32_t **dst,
-                               int &ndst) {
+          inline int _get_vals(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, int32_t **dst, int &ndst) {
               return bcf_get_format_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_INT);
           }
 
-          inline int _get_vals(bcf_hdr_t *hdr,
-                               bcf1_t *rec,
-                               std::string tag,
-                               float **dst,
-                               int &ndst) {
+          inline int _get_vals(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, float **dst, int &ndst) {
               return bcf_get_format_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_REAL);
           }
 
-          inline int _get_vals(bcf_hdr_t *hdr,
-                               bcf1_t *rec,
-                               std::string tag,
-                               char **dst,
-                               int &ndst) {
+          inline int _get_vals(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, char **dst, int &ndst) {
               return bcf_get_format_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_STR);
           }
       };

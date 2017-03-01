@@ -66,10 +66,11 @@ bool vargas::VCF::next() {
     if (!_header || !_bcf) return false;
     if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
     unpack_all();
-    if ((unsigned) _curr_rec->pos < _region.min ||
-    (_region.seq_name.length() != 0 && strcmp(_region.seq_name.c_str(), bcf_hdr_id2name(_header, _curr_rec->rid)))) {
+    // Wrong contig
+    if (_region.seq_name.size() && strcmp(_region.seq_name.c_str(), bcf_hdr_id2name(_header, _curr_rec->rid))) {
         return next();
     }
+    else if (unsigned(_curr_rec->pos) < _region.min) return next();
     // Check if its within the filter range
     if (_region.max > 0 && (unsigned) _curr_rec->pos > _region.max) {
         return false;
@@ -270,7 +271,6 @@ TEST_CASE ("VCF File handler") {
             CHECK(vcf.samples()[0] == "s1");
             CHECK(vcf.samples()[1] == "s2");
 
-            // On load, first record is already loaded
             REQUIRE(vcf.genotypes().size() == 4);
             CHECK(vcf.genotypes()[0] == "G");
             CHECK(vcf.genotypes()[1] == "A");
