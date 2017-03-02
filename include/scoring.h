@@ -71,6 +71,7 @@ namespace vargas {
   /**
  * @brief
  * Aligner results
+   * 1 baesd coords.
  */
   struct Results {
       std::vector<unsigned> max_pos, sub_pos, max_count, sub_count;

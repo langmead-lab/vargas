@@ -25,7 +25,8 @@ set(MAIN_SOURCES
         src/fasta.cpp
         src/sam.cpp
         src/align_main.cpp
-        src/scoring.cpp)
+        src/scoring.cpp
+        src/graphgen.cpp)
 
 set(HEADERS
         include/alignment.h
