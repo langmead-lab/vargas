@@ -145,8 +145,18 @@ namespace vargas {
           open(filename, mode);
       }
 
+      /**
+       * @brief
+       * Create a base graph. This replaces any current graphs.
+       * @param fasta filename
+       * @param vcf filename
+       * @param region list of regions to include. Default all.
+       * @param sample_filter Use only these samples. Default all ("")
+       * @return pointer to new base graph
+       */
       std::shared_ptr<Graph> create_base(const std::string fasta, const std::string vcf="",
-                                         std::vector<Region> region={}, std::string sample_filter="") {
+                                         std::vector<Region> region={}, std::string sample_filter="",
+                                         bool print=false) {
 
           if (_nodes == nullptr) _nodes = std::make_shared<Graph::nodemap_t>();
           else _nodes->clear();
@@ -157,7 +167,6 @@ namespace vargas {
               vargas::ifasta ref(fasta);
               if (!ref.good()) throw std::invalid_argument("Invalid reference: " + fasta);
               for (const auto &r : ref.sequence_names()) {
-                  std::cerr << r << ',';
                   region.emplace_back(r, 0, 0);
               }
           }
@@ -190,15 +199,17 @@ namespace vargas {
           base.max_af = 0;
           base.linear = vcf.size() == 0;
           base.type = Graph::Type::REF;
-          _j["graphs"]["base"] = base;
+          _j["graphs"]["base"]["def"] = base;
 
           _graphs["base"] = std::make_shared<Graph>(_nodes);
           unsigned offset = 0;
           for (auto reg : region) {
+              if (print) std::cerr << "Building \"" << reg.seq_name << "\"...\n";
               GraphFactory gf(fasta, vcf);
               gf.add_sample_filter(sample_filter);
               gf.set_region(reg);
               auto g = gf.build(offset);
+              if (print) std::cerr << g.statistics().to_string() << "\n";
               _contig_offsets[offset] = reg.seq_name;
               offset = g.rbegin()->end_pos() + 1;
               _graphs["base"]->assimilate(g);
@@ -290,7 +301,10 @@ namespace vargas {
           auto &nodemap = *_nodes;
           unsigned node_count = 0;
           for (json::iterator it = _j["nodes"].begin(); it != _j["nodes"].end(); ++it) {
-              nodemap[std::stoul(it.key())] = it.value().get<Graph::Node>();
+              unsigned id = std::stoul(it.key());
+              Graph::Node n = it.value();
+              n.set_id(id);
+              nodemap[id] = n;
               it.value() = nullptr;
               ++node_count;
           }
@@ -312,7 +326,8 @@ namespace vargas {
               jgraph["nodes"] = nullptr;
               for (json::iterator e = jgraph["fwd"].begin(); e != jgraph["fwd"].end(); ++e) {
                   unsigned from = std::stoul(e.key());
-                  for (auto to : e.value().get<std::vector<unsigned>>()) {
+                  std::vector<unsigned> tovec = e.value();
+                  for (auto to : tovec) {
                       graph.add_edge(from, to);
                   }
               }
@@ -339,7 +354,8 @@ namespace vargas {
        * @return pair <contig name, position>
        */
       std::pair<std::string, unsigned> absolute_position(unsigned pos) const {
-          std::map<unsigned, std::string>::const_iterator lb = --(_contig_offsets.lower_bound(pos));
+          std::map<unsigned, std::string>::const_iterator lb = _contig_offsets.lower_bound(pos);
+          if (lb != _contig_offsets.begin()) --lb; // For rare case that pos = 0
           return {lb->second, pos - lb->first};
       };
 
@@ -361,11 +377,12 @@ namespace vargas {
           return _graphs[label];
       }
 
+
     private:
       std::shared_ptr<Graph::nodemap_t> _nodes;
       std::unordered_map<std::string, std::shared_ptr<vargas::Graph>> _graphs; // Map label to a graph
       std::map<unsigned, std::string> _contig_offsets; // Maps an offset to contig
-      json _j; // Maintains all info except for nodes, graph edges for space
+      json _j; // Maintains all info except for nodes, graph edges, contigs
   };
 }
 

@@ -25,7 +25,8 @@
 #define ALIGN_SAM_COR_FLAG_TAG "cf"
 #define ALIGN_SAM_TARGET_SCORE "ts"
 #define ALIGN_SAM_SCORE_PROFILE "pr"
-#define ALIGN_SAM_SEQ "sq"
+#define ALIGN_SAM_MAX_SEQ "mu"
+#define ALIGN_SAM_SUB_SEQ "su"
 #define ALIGN_SAM_PG_GDF "gd"
 
 #include "cxxopts.hpp"
@@ -46,7 +47,7 @@ namespace vargas {
  */
 int align_main(int argc, char *argv[]);
 
-void align(vargas::GraphManager &gm,
+void align(vargas::GraphGen &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners);
 

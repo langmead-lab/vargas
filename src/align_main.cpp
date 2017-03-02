@@ -162,9 +162,8 @@ int align_main(int argc, char *argv[]) {
     for (const auto &gdef : files) {
         std::cerr << "\nLoading \"" << gdef << "\"... ";
         auto start_time = std::chrono::steady_clock::now();
-        vargas::GraphManager gm(gdef);
-        std::cerr << "(" << gm.base()->node_map()->size() << " nodes), "
-                  << rg::chrono_duration(start_time) << "s.\n";
+        vargas::GraphGen gm(gdef);
+        std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
         align(gm, task_list, aligners);
 
@@ -188,7 +187,7 @@ int align_main(int argc, char *argv[]) {
     return 0;
 }
 
-void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
+void align(vargas::GraphGen &gm, std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners) {
 
     std::cerr << "Aligning... " << std::flush;
@@ -221,16 +220,21 @@ void align(vargas::GraphManager &gm, std::vector<std::pair<std::string, std::vec
                 } else targets[i] = r.pos + r.seq.length() - 1;
             } else targets[i] = 0;
         }
-        auto subgraph = gm.make_subgraph(task_list.at(l).first);
+        auto subgraph = gm.at(task_list.at(l).first);
 
         const auto aligns = aligners[tid]->align(read_seqs, targets, subgraph->begin(), subgraph->end());
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             vargas::SAM::Record &rec = task_list.at(l).second.at(j);
-            rec.aux.set(ALIGN_SAM_MAX_POS_TAG, aligns.max_pos[j]);
+            auto abs = gm.absolute_position(aligns.max_pos[j]);
+            rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
+            rec.aux.set(ALIGN_SAM_MAX_SEQ, abs.first);
+
+            abs = gm.absolute_position(aligns.sub_pos[j]);
+            rec.aux.set(ALIGN_SAM_SUB_SEQ, abs.first);
+            rec.aux.set(ALIGN_SAM_SUB_POS_TAG, abs.second);
+
             rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
             rec.aux.set(ALIGN_SAM_SCORE_PROFILE, aligns.profile.to_string());
-            // rec.aux.set(ALIGN_SAM_SEQ, subgraph->region().seq_name);
-            rec.aux.set(ALIGN_SAM_SUB_POS_TAG, aligns.sub_pos[j]);
             rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
             if (targets.at(j) != 0) rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
             rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
@@ -286,7 +290,7 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
 
     if (alignment_pairs.size() == 0) {
         for (const auto &p : read_groups) {
-            alignment_pairs.push_back("RG:ID:" + p.first + "," + vargas::GraphManager::GDEF_BASEGRAPH);
+            alignment_pairs.push_back("RG:ID:" + p.first + ",base");
         }
     }
 

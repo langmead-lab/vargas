@@ -61,21 +61,16 @@ int main(int argc, char *argv[]) {
 }
 
 int define_main(int argc, char *argv[]) {
-    std::string fasta_file, varfile, region, subgraph_def, out_file, dot_file, sample_filter;
-    bool invert_filter = false;
+    std::string fasta_file, varfile, region, out_file, sample_filter;
 
     cxxopts::Options opts("vargas define", "Define subgraphs deriving from a reference and VCF file.");
     try {
         opts.add_options()
         ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta_file))
         ("v,vcf", "<str> VCF/BCF File.", cxxopts::value<std::string>(varfile))
-        ("g,region", "<str> Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
-        ("s,subgraph", "<str> File or definitions of format \"[~]NAME=N[%t],...\".",
-         cxxopts::value(subgraph_def))
+        ("g,region", "<str> Region of format \"[CHR:MIN-MAX,...]\".", cxxopts::value(region))
         ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
-        ("x,invert", "Invert sample filter, exclude -p samples.", cxxopts::value(invert_filter))
         ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
-        ("d,dot", "<str> Export hierarchy to a DOT file.", cxxopts::value(dot_file))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options."); }
@@ -85,21 +80,7 @@ int define_main(int argc, char *argv[]) {
     }
     if (!opts.count("f")) throw std::invalid_argument("FASTA file required.");
 
-    // Load subgraph defs
-    std::string subgraph_str;
-    if (subgraph_def.length() == 0) {
-        subgraph_str = "";
-    } else if (vargas::GraphManager::is_definition(subgraph_def)) {
-        subgraph_str = subgraph_def;
-    } else {
-        std::ifstream in(subgraph_def);
-        if (!in.good()) throw std::invalid_argument("Error opening file \"" + subgraph_def + "\".");
-        std::stringstream buff;
-        buff << in.rdbuf();
-        subgraph_str = buff.str();
-    }
-
-    vargas::GraphManager gm;
+    vargas::GraphGen gm;
     if (sample_filter.length()) {
         std::ifstream in(sample_filter);
         if (!in.good()) throw std::invalid_argument("Error opening file: \"" + sample_filter + "\"");
@@ -107,12 +88,16 @@ int define_main(int argc, char *argv[]) {
         ss << in.rdbuf();
         sample_filter = ss.str();
     }
-    gm.set_filter(sample_filter, invert_filter);
-    gm.write(fasta_file, varfile, region, subgraph_str, out_file, false);
-    if (dot_file.length() > 0) gm.to_DOT(dot_file, "subgraphs");
 
-    std::cerr << gm.size() << " subgraph definitions generated." << std::endl;
+    std::vector<vargas::Region> region_vec;
+    if (region.size()) {
+        region.erase(std::remove_if(region.begin(), region.end(), isspace), region.end());
+        auto v = rg::split(region, ',');
+        std::transform(v.begin(), v.end(), std::back_inserter(region_vec), vargas::parse_region);
+    }
 
+    gm.create_base(fasta_file, varfile, region_vec, sample_filter, true);
+    gm.write(out_file);
     return 0;
 }
 

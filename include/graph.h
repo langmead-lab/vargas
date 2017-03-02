@@ -129,7 +129,7 @@ namespace vargas {
        * Represents a node in the directed graphs.
        * @details
        * Sequences are stored numerically.
-       * populations are stored as bitsets, where 1 indicates that individual posesses
+       * populations are stored as bitsets, where 1 indicates that individual has
        * the given allele.
        */
       class Node {
@@ -140,8 +140,22 @@ namespace vargas {
            */
           Node() : _id(_newID++) {}
 
+          Node(const Node &n) : _endPos(n._endPos), _seq(n._seq), _individuals(n._individuals),
+                                _ref(n._ref), _pinch(n._pinch), _af(n._af), _id(n._id) {}
+
           Node(unsigned pos, const std::string &seq, const Population &pop, bool ref, float af) :
           _endPos(pos), _seq(rg::seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) {}
+
+          Node &operator=(const Node &n) {
+              _endPos = n._endPos;
+              _seq = n._seq;
+              _individuals = n._individuals;
+              _ref = n._ref;
+              _pinch = n._pinch;
+              _af = n._af;
+              _id = n._id;
+              return *this;
+          }
 
           /**
            * @return length of the sequence
