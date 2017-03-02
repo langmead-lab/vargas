@@ -151,9 +151,11 @@ namespace vargas {
 
               int n = _get_vals(hdr, rec, tag, &dst, n_arr);
 
+              /*
               if (n == -1) throw std::invalid_argument("No such tag in header: " + tag);
               else if (n == -2) throw std::invalid_argument("Header and tag type clash: " + tag);
               else if (n == -3) throw std::invalid_argument(tag + " does not exist in record.");
+               */
 
               for (int i = 0; i < n; ++i) {
                   values.push_back(dst[i]);
@@ -307,15 +309,6 @@ namespace vargas {
 
       /**
        * @brief
-       * Unpack only the shared information, and loads ref and allele info.
-       */
-      void unpack_shr() {
-          bcf_unpack(_curr_rec, BCF_UN_SHR);
-          _load_shared();
-      }
-
-      /**
-       * @brief
        * Unpacks shared information as well as all sample information.
        * Subject to sample set restrictions.
        */
@@ -365,7 +358,7 @@ namespace vargas {
        * A map is also built, mapping each allele to the subpopulation that has it.
        * @return Vector of alleles, ordered by sample.
        */
-      const std::vector<std::string> &genotypes();
+      const std::vector<std::string> &gen_genotypes();
 
       /**
        * @brief

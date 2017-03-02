@@ -16,9 +16,10 @@ vargas::Region vargas::parse_region(const std::string &region_str) {
 
     std::vector <std::string> regionSplit = rg::split(region_str, ':');
 
-    // Name
-    if (regionSplit.size() != 2)
-        throw std::invalid_argument("Invalid region format, should be CHR:XX,XXX-YY,YYY\n\t" + region_str);
+    if(regionSplit.size() == 1) {
+        regionSplit.push_back("0-0");
+    }
+    else if (regionSplit.size() != 2) throw std::invalid_argument("Invalid region: " + region_str);
 
     ret.seq_name = regionSplit[0];
 
@@ -65,9 +66,8 @@ std::vector<std::string> vargas::VCF::sequences() const {
 bool vargas::VCF::next() {
     if (!_header || !_bcf) return false;
     if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
-    unpack_all();
     // Wrong contig
-    if (_region.seq_name.size() && strcmp(_region.seq_name.c_str(), bcf_hdr_id2name(_header, _curr_rec->rid))) {
+    if (_region.seq_name.size() && strcmp(_region.seq_name.c_str(), bcf_seqname(_header, _curr_rec))) {
         return next();
     }
     else if (unsigned(_curr_rec->pos) < _region.min) return next();
@@ -75,12 +75,13 @@ bool vargas::VCF::next() {
     if (_region.max > 0 && (unsigned) _curr_rec->pos > _region.max) {
         return false;
     }
-    genotypes();
+    unpack_all();
+    gen_genotypes();
     return true;
 }
 
 
-const std::vector<std::string> &vargas::VCF::genotypes() {
+const std::vector<std::string> &vargas::VCF::gen_genotypes() {
     FormatField<int> gt(_header, _curr_rec, "GT");
     _genotypes.resize(gt.values.size());
     for (size_t i = 0; i < _genotypes.size(); ++i) {
@@ -271,11 +272,11 @@ TEST_CASE ("VCF File handler") {
             CHECK(vcf.samples()[0] == "s1");
             CHECK(vcf.samples()[1] == "s2");
 
-            REQUIRE(vcf.genotypes().size() == 4);
-            CHECK(vcf.genotypes()[0] == "G");
-            CHECK(vcf.genotypes()[1] == "A");
-            CHECK(vcf.genotypes()[2] == "C");
-            CHECK(vcf.genotypes()[3] == "T");
+            REQUIRE(vcf.gen_genotypes().size() == 4);
+            CHECK(vcf.gen_genotypes()[0] == "G");
+            CHECK(vcf.gen_genotypes()[1] == "A");
+            CHECK(vcf.gen_genotypes()[2] == "C");
+            CHECK(vcf.gen_genotypes()[3] == "T");
             REQUIRE(vcf.alleles().size() == 4);
             CHECK(vcf.alleles()[0] == "G");
             CHECK(vcf.alleles()[1] == "A");
@@ -286,11 +287,11 @@ TEST_CASE ("VCF File handler") {
 
             // Copy number alleles
             vcf.next();
-            REQUIRE(vcf.genotypes().size() == 4);
-            CHECK(vcf.genotypes()[0] == "CC");
-            CHECK(vcf.genotypes()[1] == "CC");
-            CHECK(vcf.genotypes()[2] == "");
-            CHECK(vcf.genotypes()[3] == "CC");
+            REQUIRE(vcf.gen_genotypes().size() == 4);
+            CHECK(vcf.gen_genotypes()[0] == "CC");
+            CHECK(vcf.gen_genotypes()[1] == "CC");
+            CHECK(vcf.gen_genotypes()[2] == "");
+            CHECK(vcf.gen_genotypes()[3] == "CC");
             REQUIRE(vcf.alleles().size() == 3);
             CHECK(vcf.alleles()[0] == "C");
             CHECK(vcf.alleles()[1] == "CC");
@@ -348,14 +349,14 @@ TEST_CASE ("VCF File handler") {
             CHECK(vcf.ingroup()[0] == "s2");
 
             vcf.next();
-            REQUIRE(vcf.genotypes().size() == 2);
-            CHECK(vcf.genotypes()[0] == "C");
-            CHECK(vcf.genotypes()[1] == "T");
+            REQUIRE(vcf.gen_genotypes().size() == 2);
+            CHECK(vcf.gen_genotypes()[0] == "C");
+            CHECK(vcf.gen_genotypes()[1] == "T");
 
             vcf.next();
-            REQUIRE(vcf.genotypes().size() == 2);
-            CHECK(vcf.genotypes()[0] == "");
-            CHECK(vcf.genotypes()[1] == "CC");
+            REQUIRE(vcf.gen_genotypes().size() == 2);
+            CHECK(vcf.gen_genotypes()[0] == "");
+            CHECK(vcf.gen_genotypes()[1] == "CC");
 
             // Allele set should be complete, ingroup should reflect minimized set
             CHECK(vcf.alleles().size() == 3);
@@ -366,7 +367,7 @@ TEST_CASE ("VCF File handler") {
             vargas::VCF vcf;
             vcf.open(tmpvcf);
             vcf.next();
-            vcf.genotypes();
+            vcf.gen_genotypes();
 
             REQUIRE(vcf.allele_pop("G").size() == 4);
             CHECK(vcf.allele_pop("G")[0]);
@@ -399,7 +400,7 @@ TEST_CASE ("VCF File handler") {
             vcf.open(tmpvcf);
             vcf.create_ingroup({"s1"});
             vcf.next();
-            vcf.genotypes();
+            vcf.gen_genotypes();
 
             REQUIRE(vcf.allele_pop("G").size() == 2);
             CHECK(vcf.allele_pop("G")[0]);

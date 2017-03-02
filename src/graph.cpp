@@ -172,6 +172,12 @@ void vargas::GraphFactory::build(vargas::Graph &g, unsigned pos_offset) {
     if (vf.region().seq_name.length() == 0) {
         vf.set_region(_fa.sequence_names()[0] + ":0-0");
     }
+    else {
+        const auto &snames = _fa.sequence_names();
+        if (std::find(snames.begin(), snames.end(), _vf->region().seq_name) == snames.end()) {
+            throw std::invalid_argument("Sequence \"" + _vf->region().seq_name + "\" not in " + _fa_file);
+        }
+    }
 
     int curr = vf.region().min; // The Graph has been built up to this position, exclusive
     std::unordered_set<unsigned> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
@@ -186,8 +192,8 @@ void vargas::GraphFactory::build(vargas::Graph &g, unsigned pos_offset) {
         auto &af = vf.frequencies();
 
         curr = _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.pos(), pos_offset);
-        //assert(_fa.subseq(_vf->region().seq_name, curr, curr + vf.ref().length() - 1) == vf.ref() &&
-        //("Variant and FASTA Reference does not match at position " + std::to_string(curr)) != "");
+        assert(_fa.subseq(_vf->region().seq_name, curr, curr + vf.ref().length() - 1) == vf.ref() &&
+        ("Variant and FASTA Reference does not match at position " + std::to_string(curr)) != "");
 
         curr += vf.ref().length();
 

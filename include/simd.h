@@ -106,8 +106,9 @@ namespace vargas {
           if (n % al) n += al - (n % al);
           if (n > max_size()) throw std::length_error("aligned_allocator<T,A>::allocate() - Integer overflow.");
 
-          void *p = aligned_alloc(al, n * sizeof(T));
-          if (p == nullptr) throw std::bad_alloc();
+          void *p;
+          int err = posix_memalign(&p, al, n * sizeof(T)); // HHPC, MARCC likes this better than aligned_alloc
+          if (p == nullptr || err != 0) throw std::bad_alloc();
 
           return static_cast<T *>(p);
       }

@@ -618,6 +618,7 @@ TEST_CASE("Write graph") {
         << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
         << "x\t9\t.\tG\tA,C,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
         << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
+        << "y\t5\t.\tC\tT,G\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
         << "y\t34\t.\tC\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
         << "y\t39\t.\tC\tT,G\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
     }
@@ -659,8 +660,20 @@ TEST_CASE("Write graph") {
         CHECK(giter->seq_str() == "TTGGA");
 
         ++giter;
-        CHECK(giter->seq_str() == "GGAGCCAGACAAATC");
+        CHECK(giter->seq_str() == "GGAG");
         CHECK(giter->begin_pos() == 15);
+
+        ++giter;
+        CHECK(giter->seq_str() == "C");
+
+        ++giter;
+        CHECK(giter->seq_str() == "T");
+
+        ++giter;
+        CHECK(giter->seq_str() == "G");
+
+        ++giter;
+        CHECK(giter->seq_str() == "CAGACAAATC");
 
         ++giter;
         CHECK(giter == base->end());
