@@ -528,16 +528,6 @@ void main_help() {
     cerr << "test            Run unit tests.\n";
     cerr << "Compiled for architecture: ";
 
-    std::string arch = "None: no SIMD instruction set specified!";
-
-    #if DVA_SIMD_USE_SSE
-    arch = "SSE4.1";
-    #endif
-    #if DVA_SIMD_USE_AVX2
-    arch = "AVX2";
-    #endif
-
-    cerr << arch << "\n" << std::endl;
 }
 
 void query_help(const cxxopts::Options &opts) {

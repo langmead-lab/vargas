@@ -204,35 +204,27 @@ void vargas::GraphGen::write(const std::string &filename, vargas::json_mode mode
 
 void vargas::GraphGen::open(const std::string &filename, vargas::json_mode mode) {
     _j.clear();
+
+    _nodes = std::make_shared<Graph::nodemap_t>();
+    Callback cb(*_nodes);
+    auto callback = rg::smart_bind(cb, &Callback::callback);
+
     if (filename.size() == 0) {
-        std::cin >> _j;
+        _j = _j.parse(std::cin, callback);
     }
     else {
         std::ifstream in;
         if (mode == json_mode::plaintext) in.open(filename);
         else throw std::domain_error("Unimplemented");
         if (!in.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
-        in >> _j;
+        _j = _j.parse(in, callback);
     }
+
 
     // Validate fields
-    if (_j.find("contigs") == _j.end() || _j.find("graphs") == _j.end() || _j.find("nodes") == _j.end()) {
+    if (_j.find("contigs") == _j.end() || _j.find("graphs") == _j.end()) {
         throw std::invalid_argument("Invalid graph file.");
     }
-
-    // Load nodes
-    _nodes = std::make_shared<Graph::nodemap_t>();
-    auto &nodemap = *_nodes;
-    unsigned node_count = 0;
-    for (json::iterator it = _j["nodes"].begin(); it != _j["nodes"].end(); ++it) {
-        unsigned id = std::stoul(it.key());
-        Graph::Node n = it.value();
-        n.set_id(id);
-        nodemap[id] = n;
-        it.value() = nullptr;
-        ++node_count;
-    }
-    _j["nodes"] = nullptr;
 
     // contigs
     for (json::iterator it = _j["contigs"].begin(); it != _j["contigs"].end(); ++it) {

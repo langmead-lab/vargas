@@ -709,21 +709,21 @@ namespace vargas {
        * @param g
        */
       void assimilate(const Graph &g) {
+          // Insert new nodes
+          std::set<unsigned> shared;
+          for (auto &p : *g._IDMap) {
+              if (!_IDMap->count(p.first)) _IDMap->insert(p);
+              else shared.insert(p.first);
+          }
+
+          _add_order.reserve(_add_order.size() + g._add_order.size());
+          for (auto i : g._add_order) {
+              if (!shared.count(i)) _add_order.push_back(i);
+          }
+          _add_order.shrink_to_fit();
+
           _merge_edges(_next_map, g._next_map);
           _merge_edges(_prev_map, g._prev_map);
-
-          // Insert new nodes
-          std::set<unsigned> exists;
-          if (_IDMap != g._IDMap) {
-              for (auto &p : *g._IDMap) {
-                  if (!_IDMap->count(p.first)) _IDMap->insert(p);
-                  else exists.insert(p.first);
-              }
-          }
-
-          for (auto i : g._add_order) {
-              if (!exists.count(i)) _add_order.push_back(i);
-          }
       }
 
       /**

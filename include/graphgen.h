@@ -78,6 +78,7 @@ namespace vargas {
 
   void from_json(const json &j, GraphDef &gd);
 
+
   class GraphGen {
     public:
       GraphGen() = default;
@@ -150,6 +151,46 @@ namespace vargas {
           if (!count(label)) _graphs[label] = std::make_shared<Graph>();
           return _graphs[label];
       }
+
+    protected:
+
+      /**
+       * Basic FSM to stream nodes into the nodemap as they are parsed.
+       * Prevents holding the json repr of nodes in memory.
+       */
+      class Callback {
+        public:
+          Callback(Graph::nodemap_t &nodes) : _in_nodes(false), _nodes(nodes) {}
+
+          bool callback(int depth, json::parse_event_t event, json &parsed) {
+              if (depth == 1 && event == json::parse_event_t::key) {
+                  if (parsed == "nodes") _in_nodes = true;
+                  else _in_nodes = false;
+                  return true;
+              }
+
+              if (_in_nodes && depth == 2 && event == json::parse_event_t::key) {
+                  _key = parsed;
+                  return true;
+              }
+
+              if (_in_nodes && event == json::parse_event_t::object_end && _key.size()) {
+                  Graph::Node n = parsed;
+                  n.set_id(std::stoul(_key));
+                  _nodes[n.id()] = parsed;
+                  _key = "";
+                  return false;
+              }
+
+              return true;
+          }
+
+        private:
+          bool _in_nodes;
+          std::string _key;
+          Graph::nodemap_t &_nodes;
+      };
+
 
 
     private:

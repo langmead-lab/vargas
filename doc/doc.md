@@ -4,7 +4,7 @@ _Updated: June 26, 2016_
 
 [![Build Status](https://travis-ci.org/RaviGaddipati/vargas.svg?branch=master)](https://travis-ci.org/RaviGaddipati/vargas)
 
-Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned using a SIMD vectorized version of Smith-Waterman, aligning multiple reads at once. The the aligner reports the best positions of reads without traceback to keep memory usage manageable. Additionally, vargas can be used to simulate reads from a DAG while stratifying by various parameters.
+Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned using a SIMD vectorized version of Smith-Waterman, aligning multiple reads at once. Additionally, vargas can be used to simulate reads from a DAG while stratifying by various parameters.
 
 # Building {#building}
 
@@ -21,8 +21,6 @@ Vargas relies on htslib to provide core file processing. Once cloned, the htslib
     cd htslib
     autoconf && ./configure && make
 
-Vargas also uses [libsimdpp](https://github.com/p12tic/libsimdpp) for SIMD support, and [doctest](https://github.com/onqtam/doctest).
-
 ## Compiling {#compile}
 
 vargas is built with cmake.
@@ -38,6 +36,9 @@ To  build for Xeon Phi using an intel compiler:
     make
 
 Note `icpc` requires up to 35GB memory.
+Sometimes (like when using Modules) you may need to specify the compiler explicitly:
+ 
+    cmake -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release ..
 
 # Modes of operation {#modes}
 
@@ -46,16 +47,13 @@ Note `icpc` requires up to 35GB memory.
 `vargas -h`
 
 ```
----------------------- vargas, Nov  5 2016. rgaddip1@jhu.edu ----------------------
-Operating modes 'vargas MODE':
-	define      Define a set of graphs for use with sim and align.
-	sim         Simulate reads from a set of graphs.
-	align       Align reads to a set of graphs.
-	export      Export graph to DOT format.
-	convert     Convert a SAM file to a CSV file.
-	query       Pull a region from a GDEF/VCF/FASTA file.
-	test        Run unit tests.
-	profile     Run profiles (debug).
+---------------------- vargas, Mar  2 2017. rgaddip1@jhu.edu ----------------------
+define          Define a set of graphs for use with sim and align.
+sim             Simulate reads from a set of graphs.
+align           Align reads to a set of graphs.
+convert         Convert a SAM file to a CSV file.
+query           Pull a region from a GDEF/VCF/FASTA file.
+test            Run unit tests.
 ```
 
 ## define {#define}

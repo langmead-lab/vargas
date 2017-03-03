@@ -250,6 +250,11 @@ namespace rg {
    */
   std::string current_date();
 
+  __RG_STRONG_INLINE__
+  std::chrono::time_point now() {
+      return std::chrono::steady_clock::now();
+  }
+
   /**
    * @tparam T
    * @param start_time
@@ -297,7 +302,8 @@ namespace rg {
    */
   template<typename T>
   __RG_STRONG_INLINE__
-  typename std::enable_if<std::is_arithmetic<T>::value, std::string>::type to_string(T val) {
+  typename std::enable_if<std::is_arithmetic<T>::value, std::string>::type
+  to_string(T val) {
       return std::to_string(val);
   }
 
@@ -366,6 +372,30 @@ namespace rg {
   template<typename T>
   void print_vec(const std::vector<T> &v, std::ostream &os = std::cerr) {
       os << vec_to_str(v);
+  }
+
+  template<typename Object, typename R, typename ...Args>
+  struct smart_fun {
+      Object & obj;
+      R (Object::*fun)(Args...);
+      R operator()(Args... args) {
+          return (obj.*fun)(args...);
+      }
+  };
+
+
+  /**
+   * @brief
+   * Return a function proxy for class members.
+   * @details
+   * Usage:
+   * Foo foo;
+   * auto fn = smart_bind(foo, Foo::bar);
+   * Allows stateful function calls.
+   */
+  template<typename C, typename R, typename ...Args>
+  auto smart_bind(C & c, R (C::*fun)(Args...)) -> smart_fun<C, R, Args...> {
+      return smart_fun<C, R, Args...>{c, fun};
   }
 
   /**

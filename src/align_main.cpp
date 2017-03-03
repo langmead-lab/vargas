@@ -405,7 +405,7 @@ ReadFmt read_fmt(const std::string filename) {
     if (!in.good()) throw std::invalid_argument("Invalid read file: " + filename);
     std::string line;
     std::getline(in, line);
-    if (line.length() > 0 && line.at(0) == '>') {
+    if (line.length() > 0 && (line.at(0) == '>' || line.at(0) == '@')) {
         std::getline(in, line); // Read
         std::getline(in, line); // either next name or +
         if (line.at(0) == '+') return ReadFmt::FASTQ;

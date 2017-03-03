@@ -540,7 +540,6 @@ namespace vargas {
 
           _S = s.S_col;
           _Ic = s.I_col;
-
           for (const rg::Base ref_base : n) {
               _Sd = _bias;
               for (unsigned r = 0; r < _read_len; ++r) {
