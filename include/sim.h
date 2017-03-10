@@ -23,8 +23,7 @@
 #define SIM_SAM_SRC_TAG "gd" // Origin subgraph label
 #define SIM_SAM_USE_RATE_TAG "rt" // Errors were generated with rates rather than discrete numbers
 #define SIM_SAM_POPULATION "po" // Which samples were included in the subgraph
-#define SIM_SAM_REF_TAG "fa" // Reference file
-#define SIM_SAM_VCF_TAG "vf" // Variant file
+#define SIM_SAM_GRAPH_TAG "ph" // graph file
 
 // SAM CIGAR modification types
 #define SIM_CIGAR_ALIGNED 'M'

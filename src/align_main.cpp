@@ -12,7 +12,6 @@
 #include "align_main.h"
 #include "alignment.h"
 #include "sam.h"
-#include "gdef.h"
 #include "doctest.h"
 #include "sim.h"
 #include "cxxopts.hpp"
@@ -163,6 +162,7 @@ int align_main(int argc, char *argv[]) {
         std::cerr << "\nLoading \"" << gdef << "\"... ";
         auto start_time = std::chrono::steady_clock::now();
         vargas::GraphGen gm(gdef);
+        gm.dump();
         std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
         align(gm, task_list, aligners);
@@ -233,11 +233,16 @@ void align(vargas::GraphGen &gm, std::vector<std::pair<std::string, std::vector<
             rec.aux.set(ALIGN_SAM_SUB_SEQ, abs.first);
             rec.aux.set(ALIGN_SAM_SUB_POS_TAG, abs.second);
 
+            rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
+            rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
+
             rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
             rec.aux.set(ALIGN_SAM_SCORE_PROFILE, aligns.profile.to_string());
             rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
-            if (targets.at(j) != 0) rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
-            rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
+            if (targets.at(j) != 0) {
+                rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
+                rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
+            }
         }
     }
 
@@ -405,13 +410,11 @@ ReadFmt read_fmt(const std::string filename) {
     if (!in.good()) throw std::invalid_argument("Invalid read file: " + filename);
     std::string line;
     std::getline(in, line);
-    if (line.length() > 0 && (line.at(0) == '>' || line.at(0) == '@')) {
-        std::getline(in, line); // Read
-        std::getline(in, line); // either next name or +
-        if (line.at(0) == '+') return ReadFmt::FASTQ;
-        else return ReadFmt::FASTA;
-    }
-    return ReadFmt::SAM;
+    if (line.size() && line.at(0) == '>') return ReadFmt::FASTA;
+    std::getline(in, line); // Read or some SAM line
+    std::getline(in, line); // either + or some SAM line
+    if (line.at(0) == '+') return ReadFmt::FASTQ;
+    else return ReadFmt::SAM;
 }
 
 TEST_SUITE("System");
@@ -421,6 +424,7 @@ TEST_CASE ("Load FASTQ") {
         std::ofstream o(tmpfq);
         o << "@name desc\nAAAAACCCCC\n+\n!!!!!!!!!!";
     }
+    CHECK(read_fmt(tmpfq) == ReadFmt::FASTQ);
     vargas::isam ss;
     load_fast(tmpfq, true, ss);
 
@@ -436,6 +440,7 @@ TEST_CASE ("Load FASTA") {
         std::ofstream o(tmpfq);
         o << ">name desc\nAAAAACCCCC\n>x\nGGGGGTTTTT";
     }
+    CHECK(read_fmt(tmpfq) == ReadFmt::FASTA);
     vargas::isam ss;
     load_fast(tmpfq, false, ss);
 

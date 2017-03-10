@@ -51,7 +51,6 @@
     "contigs": {
         "chr1" : 0, // Positions in nodes are offset by this amount. 
         "chr2" : 13
-        }
         // ... for all chromosomes
     },
 

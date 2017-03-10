@@ -27,6 +27,8 @@
 
 namespace vargas {
 
+  using rg::pos_t;
+
 /**
  * @brief
  * Represents a Graph of the genome.
@@ -140,14 +142,14 @@ namespace vargas {
            */
           Node() : _id(_newID++) {}
 
-          Node(const Node &n) : _endPos(n._endPos), _seq(n._seq), _individuals(n._individuals),
+          Node(const Node &n) : _end_pos(n._end_pos), _seq(n._seq), _individuals(n._individuals),
                                 _ref(n._ref), _pinch(n._pinch), _af(n._af), _id(n._id) {}
 
           Node(unsigned pos, const std::string &seq, const Population &pop, bool ref, float af) :
-          _endPos(pos), _seq(rg::seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) {}
+          _end_pos(pos), _seq(rg::seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) {}
 
           Node &operator=(const Node &n) {
-              _endPos = n._endPos;
+              _end_pos = n._end_pos;
               _seq = n._seq;
               _individuals = n._individuals;
               _ref = n._ref;
@@ -165,9 +167,9 @@ namespace vargas {
           /**
            * @return position of last base in seq, 0 indexed
            */
-          unsigned end_pos() const { return _endPos; }
+          pos_t end_pos() const { return _end_pos; }
 
-          unsigned begin_pos() const { return _endPos - _seq.size() + 1; }
+          pos_t begin_pos() const { return _end_pos - _seq.size() + 1; }
 
           /**
            * @brief
@@ -232,7 +234,7 @@ namespace vargas {
            * Set the position of the last base in the sequence.
            * @param pos 0-indexed
            */
-          void set_endpos(const unsigned pos) { this->_endPos = pos; }
+          void set_endpos(pos_t pos) { this->_end_pos = pos; }
 
           /**
            * @brief
@@ -324,7 +326,7 @@ namespace vargas {
           static unsigned _newID; /**< ID of the next instance to be created */
 
         private:
-          unsigned _endPos; // End position of the sequence
+          pos_t _end_pos; // End position of the sequence
           std::vector<rg::Base> _seq; // sequence in numeric form
           Population _individuals; // Each bit marks an individual, 1 if they have this node
           bool _ref = false; // Part of the reference sequence if true
@@ -334,8 +336,8 @@ namespace vargas {
 
       };
 
-      using nodemap_t = std::unordered_map<unsigned, Node>;
-      using edgemap_t = std::unordered_map<unsigned, std::vector<unsigned>>;
+      using nodemap_t = std::unordered_map<unsigned, Node>; // Map an ID to a node
+      using edgemap_t = std::unordered_map<unsigned, std::vector<unsigned>>; // Map an ID to a vec of next ID's
 
       /**
        * @brief
@@ -667,7 +669,7 @@ namespace vargas {
        * @param max
        * @return Graph
        */
-      Graph subgraph(const unsigned min, const unsigned max) const;
+      Graph subgraph(const pos_t min, const pos_t max) const;
 
       /**
        * @brief
@@ -818,6 +820,11 @@ namespace vargas {
       return ret;
   }
 
+  inline std::ostream &operator<<(std::ostream &os, const vargas::Graph::Stats s) {
+      os << s.to_string();
+      return os;
+  }
+
   /**
    * @brief
    * Takes a reference sequence and a variant file and builds a graph.
@@ -911,14 +918,14 @@ namespace vargas {
        * Apply the various parameters and build the Graph from a VCF and a FASTA.
        * @param g Graph to build into
        */
-      void build(Graph &g, unsigned pos_offset=0);
+      void build(Graph &g, pos_t pos_offset=0);
 
       /**
        * @brief
        * Build the graph using the specified params from a VCF and a FASTA.
        * @return Graph Built Graph
        */
-      Graph build(unsigned pos_offset=0) {
+      Graph build(pos_t pos_offset=0) {
           Graph g;
           build(g, pos_offset);
           return g;
@@ -948,7 +955,7 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__
       int _build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr,
-                            unsigned pos, unsigned target, unsigned pos_offset);
+                            pos_t pos, pos_t target, pos_t pos_offset);
 
 
     private:

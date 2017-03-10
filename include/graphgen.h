@@ -58,9 +58,6 @@ namespace vargas {
       float min_af, max_af;
   };
 
-  enum class json_mode {plaintext}; // binary not well implemented yet
-  constexpr json_mode default_json_mode = json_mode::plaintext;
-
   // ADL conversions from/to json objects
   void to_json(json &j, const Graph::Node &n);
 
@@ -82,8 +79,8 @@ namespace vargas {
   class GraphGen {
     public:
       GraphGen() = default;
-      GraphGen(const std::string &filename, json_mode mode = default_json_mode) {
-          open(filename, mode);
+      GraphGen(const std::string &filename, bool build=true) {
+          open(filename, build);
       }
 
       /**
@@ -110,9 +107,9 @@ namespace vargas {
        * @param filename Output file
        * @param mode Output mode
        */
-      void write(const std::string &filename, json_mode mode=default_json_mode);
+      void write(const std::string &filename);
 
-      void open(const std::string &filename, json_mode mode=default_json_mode);
+      void open(const std::string &filename, bool build=true);
 
       /**
        * Clear JSON data. After loading graphs this remove all
@@ -152,6 +149,12 @@ namespace vargas {
           return _graphs[label];
       }
 
+      std::vector<std::string> labels() const {
+          std::vector<std::string> ret;
+          for (const auto &i : _graphs) ret.push_back(i.first);
+          return ret;
+      }
+
     protected:
 
       /**
@@ -160,37 +163,16 @@ namespace vargas {
        */
       class Callback {
         public:
-          Callback(Graph::nodemap_t &nodes) : _in_nodes(false), _nodes(nodes) {}
 
-          bool callback(int depth, json::parse_event_t event, json &parsed) {
-              if (depth == 1 && event == json::parse_event_t::key) {
-                  if (parsed == "nodes") _in_nodes = true;
-                  else _in_nodes = false;
-                  return true;
-              }
+          Callback(Graph::nodemap_t &nodes, bool build=true) : _in_nodes(false), _build(build), _nodes(nodes) {}
 
-              if (_in_nodes && depth == 2 && event == json::parse_event_t::key) {
-                  _key = parsed;
-                  return true;
-              }
-
-              if (_in_nodes && event == json::parse_event_t::object_end && _key.size()) {
-                  Graph::Node n = parsed;
-                  n.set_id(std::stoul(_key));
-                  _nodes[n.id()] = parsed;
-                  _key = "";
-                  return false;
-              }
-
-              return true;
-          }
+          bool callback(int depth, json::parse_event_t event, json &parsed);
 
         private:
-          bool _in_nodes;
+          bool _in_nodes, _build;
           std::string _key;
           Graph::nodemap_t &_nodes;
       };
-
 
 
     private:

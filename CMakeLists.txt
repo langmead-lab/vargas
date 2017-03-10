@@ -17,7 +17,6 @@ link_directories(${PROJECT_SOURCE_DIR}/htslib)
 
 set(MAIN_SOURCES
         src/main.cpp
-        src/gdef.cpp
         src/graph.cpp
         src/utils.cpp
         src/varfile.cpp
@@ -32,7 +31,6 @@ set(HEADERS
         include/alignment.h
         include/dyn_bitset.h
         include/fasta.h
-        include/gdef.h
         include/graph.h
         include/main.h
         include/sam.h

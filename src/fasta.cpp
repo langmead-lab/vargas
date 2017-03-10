@@ -60,7 +60,7 @@ std::vector<std::pair<std::string, std::string>> vargas::ifasta::sequences() con
     return ret;
 }
 
-std::string vargas::ifasta::subseq(const std::string &name, int beg, int end) const {
+std::string vargas::ifasta::subseq(const std::string &name, pos_t beg, pos_t end) const {
     int len;
     char *ss = faidx_fetch_seq(_index, name.c_str(), beg, end, &len);
     if (len < 0) {

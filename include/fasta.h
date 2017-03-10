@@ -21,6 +21,8 @@
 
 namespace vargas {
 
+  using rg::pos_t;
+
   /**
    * @brief
    * FASTA file writer.
@@ -87,8 +89,7 @@ namespace vargas {
        * @param name sequence name and any meta information.
        * @param sequence sequence string
        */
-      void write(const std::string &name,
-                 const std::string &sequence);
+      void write(const std::string &name, const std::string &sequence);
 
       /**
        * @brief
@@ -199,7 +200,7 @@ namespace vargas {
        * @param end ending index, inclusive
        * @return subsequence string
        */
-      std::string subseq(const std::string &name, int beg, int end) const;
+      std::string subseq(const std::string &name, pos_t beg, pos_t end) const;
 
       /**
        * @brief
@@ -250,7 +251,7 @@ namespace vargas {
        * @brief
        * iterator through FASTA records.
        */
-      class iter {
+      class iterator {
         public:
 
 
@@ -260,54 +261,54 @@ namespace vargas {
            * @param in ifasta handle
            * @param i index to start: 0 for begin, seq_len() for end
            */
-          iter(ifasta &in, size_t i) : _if(in), _i(i), _end(in.num_seq()) {}
+          iterator(ifasta &in, size_t i) : _if(in), _i(i), _end(in.num_seq()) {}
 
           /**
            * @return true if at same index
            */
-          bool operator==(const iter &other) const {
+          bool operator==(const iterator &other) const {
               return _i == other._i;
           }
 
           /**
            * @return true if not at same index
            */
-          bool operator!=(const iter &other) const {
+          bool operator!=(const iterator &other) const {
               return !operator==(other);
           }
 
           /*
            * @return true if index is lower than other
            */
-          bool operator<(const iter &other) const {
+          bool operator<(const iterator &other) const {
               return _i < other._i;
           }
 
           /*
            * @return true if index is greater than other
            */
-          bool operator>(const iter &other) const {
+          bool operator>(const iterator &other) const {
               return _i > other._i;
           }
 
           /*
            * @return true if index is lower than / equal other
            */
-          bool operator<=(const iter &other) const {
+          bool operator<=(const iterator &other) const {
               return _i <= other._i;
           }
 
           /*
            * @return true if index is greater than / equal other
            */
-          bool operator>=(const iter &other) const {
+          bool operator>=(const iterator &other) const {
               return _i >= other._i;
           }
 
           /**
            * @return iterator to next sequence
            */
-          iter &operator++() {
+          iterator &operator++() {
               if (_i < _end) ++_i;
               return *this;
           };
@@ -340,29 +341,29 @@ namespace vargas {
       /**
        * @return iterator to first sequence in FASTA file
        */
-      iter begin() {
-          return iter(*this, 0);
+      iterator begin() {
+          return iterator(*this, 0);
       }
 
       /**
        * @return iterator to end of FASTA file
        */
-      iter end() {
-          return iter(*this, num_seq());
+      iterator end() {
+          return iterator(*this, num_seq());
       }
 
       /**
        * @param seq_name sequence name to start at
        * @return iter to seq_name
        */
-      iter begin(std::string seq_name) {
+      iterator begin(std::string seq_name) {
           auto f = std::find(_seq_names.begin(), _seq_names.end(), seq_name);
           if (f == _seq_names.end()) return end();
-          return iter(*this, f - _seq_names.begin());
+          return iterator(*this, f - _seq_names.begin());
       }
 
     private:
-      friend class iter;
+      friend class iterator;
       std::vector<std::string> _seq_names;
       std::string _file_name;
       faidx_t *_index = nullptr;

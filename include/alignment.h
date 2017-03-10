@@ -211,8 +211,7 @@ namespace vargas {
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
-      AlignerT(unsigned read_len,
-               unsigned match = 2, unsigned mismatch = 2, unsigned open = 3, unsigned extend = 1) :
+      AlignerT(unsigned read_len, unsigned match = 2, unsigned mismatch = 2, unsigned open = 3, unsigned extend = 1) :
       AlignerT(read_len, ScoreProfile(match, mismatch, open, extend)) {}
 
 
@@ -392,7 +391,7 @@ namespace vargas {
        */
       static constexpr unsigned read_capacity() { return simd_t::length; }
 
-      void align_into(const std::vector<std::string> &read_group, const std::vector<unsigned> &targets,
+      void align_into(const std::vector<std::string> &read_group, const std::vector<pos_t> &targets,
                       Graph::const_iterator begin, Graph::const_iterator end, Results &aligns) override {
 
           assert(targets.size() == read_group.size());
@@ -569,7 +568,7 @@ namespace vargas {
        * @param col _curr_posent column in matrix
        */
       __RG_STRONG_INLINE__
-      void _fill_cell(const simd_t &read, const rg::Base &ref, const unsigned &row, const unsigned &curr_pos) {
+      void _fill_cell(const simd_t &read, const rg::Base &ref, const unsigned &row, const pos_t &curr_pos) {
           _Dc[row] = max(_Dc[row - 1] - _gap_extend_vec_ref, _S[row - 1] - _gap_open_extend_vec_ref);
           _Ic[row] = max(_Ic[row] - _gap_extend_vec_rd, _S[row] - _gap_open_extend_vec_rd);
           simd_t sr;
@@ -595,7 +594,7 @@ namespace vargas {
        * @param node_origin Current position, used to get absolute alignment position
        */
       __RG_STRONG_INLINE__ __RG_UNROLL__
-      void _fill_cell_finish(const unsigned &row, const unsigned &curr_pos) {
+      void _fill_cell_finish(const unsigned &row, const pos_t &curr_pos) {
           simd_t _tmp0;
           _tmp0 = _S[row] == _max_score;
           if (_tmp0) {
@@ -689,7 +688,8 @@ namespace vargas {
       _gap_open_extend_vec_ref, _gap_extend_vec_ref,
       _Sd, _max_score, _sub_score;
 
-      unsigned *_max_pos, *_sub_pos, *_max_count, *_sub_count;
+      pos_t *_max_pos, *_sub_pos;
+      unsigned  *_max_count, *_sub_count;
 
       native_t _bias;
       const unsigned int _read_len;

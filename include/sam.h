@@ -21,6 +21,8 @@
 
 namespace vargas {
 
+  using rg::pos_t;
+
   /*
    * Represents a cigar as a vector of Number,type pairs. e.g.
    * 10M1D10M = {<10,'M'>,<1,'D'>,<10,'M'>}
@@ -555,11 +557,11 @@ namespace vargas {
           // Mandatory fields
           std::string query_name = "*", /**< Query template name */
           ref_name = "*", /**< Reference sequence name */
-          ref_next = "*", /**< Refrence name of next mate/read */
+          ref_next = "*", /**< Reference name of next mate/read */
           seq = "*", /**< segment sequence */
           qual = "*"; /**< Phred Qual+33 */
 
-          int pos = 0, /**< 1 baset leftmost mapping position */
+          int pos = 0, /**< 1 based leftmost mapping position */
           mapq = 255, /**< mapping quality */
           pos_next = 0, /**< position of next mate/read */
           tlen = 0; /**< template length */

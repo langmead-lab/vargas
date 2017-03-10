@@ -15,9 +15,9 @@
 #include <omp.h>
 #endif
 
-#include "gdef.h"
 #include "main.h"
 #include "align_main.h"
+#include "graphgen.h"
 #include <iostream>
 #include <thread>
 #include <algorithm>
@@ -66,9 +66,9 @@ int define_main(int argc, char *argv[]) {
     cxxopts::Options opts("vargas define", "Define subgraphs deriving from a reference and VCF file.");
     try {
         opts.add_options()
-        ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta_file))
-        ("v,vcf", "<str> VCF/BCF File.", cxxopts::value<std::string>(varfile))
-        ("g,region", "<str> Region of format \"[CHR:MIN-MAX,...]\".", cxxopts::value(region))
+        ("f,fasta", "<str> *Reference FASTA filename.", cxxopts::value(fasta_file))
+        ("v,vcf", "<str> Variant file (vcf, vcf.gz, or bcf).", cxxopts::value<std::string>(varfile))
+        ("g,region", "<CHR[:MIN-MAX], ... > CSV list of regions.", cxxopts::value(region))
         ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
         ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
         ("h,help", "Display this message.");
@@ -156,7 +156,7 @@ int sim_main(int argc, char *argv[]) {
         sam_hdr.add(pg);
     }
 
-    vargas::GraphManager gm;
+    vargas::GraphGen gm;
 
     const std::vector<std::string>
     mut_split = rg::split(mut, ','),
@@ -176,24 +176,20 @@ int sim_main(int argc, char *argv[]) {
     auto start_time = std::chrono::steady_clock::now();
     gm.open(gdf_file);
     std::cerr << rg::chrono_duration(start_time) << " seconds." << std::endl;
-    std::cerr << gdf_file
-              << "- FASTA: " << gm.reference()
-              << " VCF: " << gm.variants()
-              << " REGION: " << gm.region() << std::endl;
 
     std::vector<std::string> subdef_split;
     if (sim_src.length() == 0) {
         // Use all subgraphs. If there are none, use the base graph
         subdef_split = gm.labels();
-        if (subdef_split.size() == 0) subdef_split.push_back(vargas::GraphManager::GDEF_BASEGRAPH);
+        if (subdef_split.size() == 0) subdef_split.push_back("base");
     } else {
-        std::replace(sim_src.begin(), sim_src.end(), '\n', gm.GDEF_DELIM);
+        std::replace(sim_src.begin(), sim_src.end(), '\n', ',');
         sim_src.erase(std::remove_if(sim_src.begin(), sim_src.end(), isspace), sim_src.end());
-        subdef_split = rg::split(sim_src, gm.GDEF_DELIM);
+        subdef_split = rg::split(sim_src, ',');
 
         // validate graph labels
         for (const std::string &l : subdef_split) {
-            gm.filter(l); // Will throw if l does not exist
+            gm.at(l);
         }
 
     }
@@ -211,8 +207,7 @@ int sim_main(int argc, char *argv[]) {
     vargas::SAM::Header::ReadGroup rg;
     rg.seq_center = "vargas_sim";
     rg.date = rg::current_date();
-    rg.aux.set(SIM_SAM_REF_TAG, gm.reference());
-    rg.aux.set(SIM_SAM_VCF_TAG, gm.variants());
+    rg.aux.set(SIM_SAM_GRAPH_TAG, gdf_file);
 
     vargas::Sim::Profile prof;
     prof.len = read_len;
@@ -240,7 +235,6 @@ int sim_main(int argc, char *argv[]) {
                     // Each profile and subgraph combination is a unique set of reads
                     for (const std::string &p : subdef_split) {
                         rg.aux.set(SIM_SAM_SRC_TAG, p);
-                        rg.aux.set(SIM_SAM_POPULATION, gm.filter(p).to_string());
                         rg.id = std::to_string(++rg_id);
                         sam_hdr.add(rg);
                         queue[p].emplace(queue[p].end(), rg.id, prof);
@@ -278,10 +272,9 @@ int sim_main(int argc, char *argv[]) {
     #pragma omp parallel for
     for (size_t n = 0; n < num_tasks; ++n) {
         const std::string label = task_list.at(n).first;
-        const auto subgraph_ptr = gm.make_subgraph(label);
+        auto subgraph_ptr = gm.at(label);
         vargas::Sim sim(*subgraph_ptr, task_list.at(n).second.second);
         auto results = sim.get_batch(num_reads);
-        gm.destroy(label);
         for (auto &r : results) r.aux.set("RG", task_list.at(n).second.first);
         #pragma omp critical(sam_out)
         {
@@ -352,7 +345,7 @@ int profile(int argc, char *argv[]) {
     try {
         opts.add_options()
         ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta))
-        ("v,vcf", "<str> *Variant File.", cxxopts::value(bcf))
+        ("v,vcf", "<str> *Variant file (vcf, vcf.gz, or bcf)", cxxopts::value(bcf))
         ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
         ("i,ingroup", "<N> Ingroup percentage.", cxxopts::value(ingroup)->default_value("100"))
         ("n,nreads", "<N> Number of reads.", cxxopts::value(nreads)->default_value("32"))
@@ -417,19 +410,16 @@ int profile(int argc, char *argv[]) {
 }
 
 int query_main(int argc, char *argv[]) {
-    std::string region, gdef, fasta, vcf, subgraph, out;
+    std::string gdef, dot, stat, meta, out;
 
-    cxxopts::Options opts("vargas query", "Query VCF, Graph, or FASTA files.");
+    cxxopts::Options opts("vargas query", "Query a graph.");
     try {
         opts.add_options()
-        ("d,gdef", "<str> Export graph to DOT.", cxxopts::value(gdef))
-        ("t,out", "<str> DOT graph output file. (default: stdout)", cxxopts::value(out))
-        ("a,stat", "Print statistics about subgraphs in -d and exit. (Default stdin)")
-        ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". Default from gdef.", cxxopts::value(region))
-        ("s,subgraph", "<str> Subgraph to export.",
-         cxxopts::value(subgraph)->default_value(vargas::GraphManager::GDEF_BASEGRAPH))
-        ("f,fasta", "<str> Query region of a FASTA file.", cxxopts::value(fasta))
-        ("v,vcf", "<str> Query region of a VCF file.", cxxopts::value(vcf))
+        ("g,gdef", "*<str> Graph file.", cxxopts::value(gdef))
+        ("d,dot", "<str> Export a subgraph as a DOT graph.", cxxopts::value(dot)->default_value("base"))
+        ("t,out", "<str> DOT output file.", cxxopts::value(out)->default_value("stdout"))
+        ("a,stat", "<str> Print statistics about a graph. Default all.", cxxopts::value(stat)->default_value("-"))
+        ("m,meta", "<str> Print the definition of a graph. \"-\" for graph meta information.", cxxopts::value(meta)->default_value("-"))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
@@ -438,77 +428,40 @@ int query_main(int argc, char *argv[]) {
         return 0;
     }
 
-    if (opts.count("a")) {
-        vargas::GraphManager gm(gdef);
-
-        //TODO all subgraphs
-        std::vector<std::string> q{"BASE"};
-
-        #pragma omp parallel for
-        for (size_t k = 0; k < q.size(); ++k) {
-            const std::string s = q[k];
-            auto res = gm.make_subgraph(s)->statistics();
-
-            #pragma omp critical
-            {
-                std::cerr << s << " Graph"
-                          << "\n\tGraph Nodes: " << res.num_nodes
-                          << "\n\tTotal Length: " << res.total_length
-                          << "\n\tNumber of Edges: " << res.num_edges
-                          << "\n\tNumber of SNPs: " << res.num_snps
-                          << "\n\tNumber of Deletions: " << res.num_dels
-                          << std::endl;
-                gm.destroy(s);
-            }
-        }
-        return 0;
+    if (!opts.count("g")) {
+        query_help(opts);
+        throw std::invalid_argument("No graph specified.");
     }
 
-    vargas::Region reg;
-    reg.min = reg.max = 0;
+    vargas::GraphGen gg;
+    if (dot.size() || stat.size()) gg.open(gdef);
+    else gg.open(gdef, false);
 
-    if (gdef.size()) {
-        vargas::GraphManager gm(gdef);
+    if (dot.size()) {
+        if (out == "stdout") std::cout << gg.at(dot)->to_DOT(dot);
+        else gg.at(dot)->to_DOT(out, dot);
+    }
 
-        if (region.length()) reg = vargas::parse_region(region);
+    if (stat.size()) {
+        if (stat == "-") {
+            for (auto &l : gg.labels())
+                std::cout << l << ": " << gg.at(stat)->statistics() << "\n";
+        } else std::cout << gg.at(stat)->statistics();
+    }
+
+    if (meta.size()) {
+        if (meta == "-") {
+            auto j = gg.get_json()["meta"];
+            json patch = R"({"op":"remove", "path":"/samples"})";
+            j.patch(patch);
+            std::cout <<j.dump(4);
+        }
         else {
-            vargas::GraphManager gm;
-            gm.open(gdef, false);
-            reg = vargas::parse_region(gm.region());
+            auto j = gg.get_json()[meta]["def"];
+            json patch = R"({"op":"remove", "path":"/population"})";
+            j.patch(patch);
+            std::cout << j.dump(4);
         }
-
-        auto sg = gm.make_subgraph(subgraph)->subgraph(reg.min, reg.max);
-        if (out.length() == 0) std::cout << sg.to_DOT();
-        else {
-            std::ofstream o(out);
-            o << sg.to_DOT();
-        }
-
-        std::cout << std::endl;
-
-    }
-
-    if (fasta.size()) {
-        vargas::ifasta in(fasta);
-        if (!reg.seq_name.length()) reg.seq_name = in.seq_name(0);
-        std::cout << fasta << ", " << region
-                  << "\n----------------------------------------\n"
-                  << in.subseq(reg.seq_name, reg.min, reg.max)
-                  << '\n' << std::endl;
-        reg.seq_name = "";
-    }
-
-    if (vcf.size()) {
-        vargas::VCF v(vcf);
-        vargas::ifasta in(fasta);
-        if (!reg.seq_name.length()) reg.seq_name = v.sequences().at(0);
-        v.set_region(reg);
-        std::cout << vcf << ", " << region
-                  << "\n----------------------------------------\n";
-        while (v.next()) {
-            std::cout << v << '\n';
-        }
-        std::cout << '\n' << std::endl;
     }
 
     return 0;
@@ -553,9 +506,7 @@ void define_help(const cxxopts::Options &opts) {
          << "The samples are selected from the parent graph, scoped with \':\'.\n"
          << "The BASE graph is implied as the root for all labels. Example:\n"
          << "\ta=50;a:b=10%;~a:c=5\n"
-         << "\'~\' indicates the complement graph. \'"
-         << vargas::GraphManager::GDEF_BASEGRAPH
-         << "\' refers the the whole graph.\n" << endl;
+         << "\'~\' indicates the complement graph.\n\n";
 }
 
 void profile_help(const cxxopts::Options &opts) {

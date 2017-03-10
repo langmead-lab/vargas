@@ -18,8 +18,7 @@
 unsigned vargas::Graph::Node::_newID = 0;
 
 
-vargas::Graph::Graph(const std::string &ref_file, const std::string &vcf_file,
-                     const std::string &region) {
+vargas::Graph::Graph(const std::string &ref_file, const std::string &vcf_file, const std::string &region) {
     _IDMap = std::make_shared<std::unordered_map<unsigned, Node>>();
     GraphFactory gb(ref_file);
     gb.open_vcf(vcf_file);
@@ -28,8 +27,7 @@ vargas::Graph::Graph(const std::string &ref_file, const std::string &vcf_file,
 }
 
 
-vargas::Graph::Graph(const vargas::Graph &g,
-                     const Population &filter) {
+vargas::Graph::Graph(const vargas::Graph &g, const Population &filter) {
     _IDMap = g._IDMap;
     _pop_size = g.pop_size();
     _filter = filter;
@@ -86,8 +84,7 @@ vargas::Graph::Graph(const Graph &g, Type type) {
 }
 
 
-void vargas::Graph::_build_derived_edges(const vargas::Graph &g,
-                                         const std::unordered_set<unsigned> &includedNodes) {
+void vargas::Graph::_build_derived_edges(const vargas::Graph &g, const std::unordered_set<unsigned> &includedNodes) {
     // Add all edges for included nodes
     for (auto &n : includedNodes) {
         if (g._next_map.count(n) == 0) continue;
@@ -159,7 +156,7 @@ std::string vargas::Graph::to_DOT(std::string name) const {
 }
 
 
-void vargas::GraphFactory::build(vargas::Graph &g, unsigned pos_offset) {
+void vargas::GraphFactory::build(vargas::Graph &g, pos_t pos_offset) {
     if (_vf == nullptr) throw std::invalid_argument("No VCF file opened.");
     g = vargas::Graph(g.node_map());
     _fa.open(_fa_file);
@@ -249,9 +246,8 @@ void vargas::GraphFactory::_build_edges(vargas::Graph &g, std::unordered_set<uns
 }
 
 
-int vargas::GraphFactory::_build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev,
-                                            std::unordered_set<unsigned> &curr, unsigned pos,
-                                            unsigned target, unsigned pos_offset) {
+int vargas::GraphFactory::_build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr,
+                                            pos_t pos, pos_t target, pos_t pos_offset) {
 
     if (target == 0) target = _fa.seq_len(_vf->region().seq_name);
     if (pos == target) return target; // For adjacent var positions
@@ -303,7 +299,7 @@ vargas::Graph::Population vargas::Graph::subset(int ingroup) const {
     return p;
 }
 
-vargas::Graph vargas::Graph::subgraph(const unsigned min, const unsigned max) const {
+vargas::Graph vargas::Graph::subgraph(const pos_t min, const pos_t max) const {
     Graph ret;
     std::unordered_map<unsigned, unsigned> new_to_old, old_to_new;
     unsigned new_id;
@@ -694,43 +690,43 @@ TEST_CASE ("Graph class") {
 
     SUBCASE("REF graph") {
         vargas::Graph g2(g, vargas::Graph::Type::REF);
-        auto iter = g2.begin();
+        auto iterator = g2.begin();
 
-        CHECK((*iter).seq_str() == "AAA");
-        ++iter;
-        CHECK((*iter).seq_str() == "CCC");
-        ++iter;
-        CHECK((*iter).seq_str() == "TTT");
-        ++iter;
-        CHECK(iter == g2.end());
+        CHECK((*iterator).seq_str() == "AAA");
+        ++iterator;
+        CHECK((*iterator).seq_str() == "CCC");
+        ++iterator;
+        CHECK((*iterator).seq_str() == "TTT");
+        ++iterator;
+        CHECK(iterator == g2.end());
     }
 
     SUBCASE("MAXAF graph") {
         vargas::Graph g2(g, vargas::Graph::Type::MAXAF);
-        vargas::Graph::const_iterator iter(g2);
+        vargas::Graph::const_iterator iterator(g2);
 
-        CHECK((*iter).seq_str() == "AAA");
-        ++iter;
-        CHECK((*iter).seq_str() == "GGG");
-        ++iter;
-        CHECK((*iter).seq_str() == "TTT");
-        ++iter;
-        CHECK(iter == g2.end());
+        CHECK((*iterator).seq_str() == "AAA");
+        ++iterator;
+        CHECK((*iterator).seq_str() == "GGG");
+        ++iterator;
+        CHECK((*iterator).seq_str() == "TTT");
+        ++iterator;
+        CHECK(iterator == g2.end());
 
     }
 
     SUBCASE("Subgraph") {
         auto g2 = g.subgraph(2, 8);
-        auto iter = g2.begin();
-        CHECK(iter->seq_str() == "AA");
-        ++iter;
-        CHECK(iter->seq_str() == "CCC");
-        ++iter;
-        CHECK(iter->seq_str() == "GGG");
-        ++iter;
-        CHECK(iter->seq_str() == "TT");
-        ++iter;
-        CHECK(iter == g2.end());
+        auto iterator = g2.begin();
+        CHECK(iterator->seq_str() == "AA");
+        ++iterator;
+        CHECK(iterator->seq_str() == "CCC");
+        ++iterator;
+        CHECK(iterator->seq_str() == "GGG");
+        ++iterator;
+        CHECK(iterator->seq_str() == "TT");
+        ++iterator;
+        CHECK(iterator == g2.end());
 
     }
 
@@ -914,13 +910,13 @@ TEST_CASE ("Graph Factory") {
 
             std::vector<bool> filter = {0, 0, 0, 1};
             vargas::Graph g2(g, filter);
-            auto iter = g2.begin();
+            auto iterator = g2.begin();
 
-            CHECK((*iter).seq_str() == "CAAATAAG");
-            ++iter;
-            CHECK((*iter).seq_str() == "T");
-            ++iter;
-            CHECK((*iter).seq_str() == "CCCCCCC");
+            CHECK((*iterator).seq_str() == "CAAATAAG");
+            ++iterator;
+            CHECK((*iterator).seq_str() == "T");
+            ++iterator;
+            CHECK((*iterator).seq_str() == "CCCCCCC");
 
         }
 

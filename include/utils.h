@@ -50,6 +50,8 @@
 
 namespace rg {
 
+  using pos_t = uint32_t;
+
 /**
  * @enum Base
  * @brief
@@ -249,11 +251,6 @@ namespace rg {
    * @return curent date
    */
   std::string current_date();
-
-  __RG_STRONG_INLINE__
-  std::chrono::time_point now() {
-      return std::chrono::steady_clock::now();
-  }
 
   /**
    * @tparam T

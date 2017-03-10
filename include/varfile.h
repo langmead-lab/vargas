@@ -16,6 +16,11 @@
 #ifndef VARGAS_VARFILE_H
 #define VARGAS_VARFILE_H
 
+#include "dyn_bitset.h"
+#include "utils.h"
+#include "htslib/vcfutils.h"
+#include "htslib/hts.h"
+
 #include <string>
 #include <cstdio>
 #include <vector>
@@ -26,13 +31,12 @@
 #include <set>
 #include <unordered_map>
 #include <map>
-#include "dyn_bitset.h"
-#include "utils.h"
-#include "htslib/vcfutils.h"
-#include "htslib/hts.h"
 
 namespace vargas {
-  struct Region;
+
+  using rg::pos_t;
+
+  class Region;
 
   /**
      * @brief
@@ -58,11 +62,9 @@ namespace vargas {
           max = r.max;
       }
       std::string seq_name; /**< Contig name */
-      unsigned min, /**< Min position, inclusive. */
+      pos_t min, /**< Min position, inclusive. */
       max; /**< Max position, inclusive. */
   };
-
-
 
 /**
  * @brief
@@ -224,27 +226,15 @@ namespace vargas {
 
         private:
           // Change the parse type based on what kind of type we have
-          inline int _bcf_get_info_values(bcf_hdr_t *hdr,
-                                          bcf1_t *rec,
-                                          std::string tag,
-                                          int32_t **dst,
-                                          int &ndst) {
+          inline int _bcf_get_info_values(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, int32_t **dst, int &ndst) {
               return bcf_get_info_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_INT);
           }
 
-          inline int _bcf_get_info_values(bcf_hdr_t *hdr,
-                                          bcf1_t *rec,
-                                          std::string tag,
-                                          float **dst,
-                                          int &ndst) {
+          inline int _bcf_get_info_values(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, float **dst, int &ndst) {
               return bcf_get_info_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_REAL);
           }
 
-          inline int _bcf_get_info_values(bcf_hdr_t *hdr,
-                                          bcf1_t *rec,
-                                          std::string tag,
-                                          char **dst,
-                                          int &ndst) {
+          inline int _bcf_get_info_values(bcf_hdr_t *hdr, bcf1_t *rec, std::string tag, char **dst, int &ndst) {
               return bcf_get_info_values(hdr, rec, tag.c_str(), (void **) dst, &ndst, BCF_HT_STR);
           }
       };

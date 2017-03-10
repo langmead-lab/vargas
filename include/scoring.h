@@ -21,6 +21,8 @@
 
 namespace vargas {
 
+  using rg::pos_t;
+
   /**
    * @brief
    * Aligner scoring parameters
@@ -74,7 +76,8 @@ namespace vargas {
    * 1 baesd coords.
  */
   struct Results {
-      std::vector<unsigned> max_pos, sub_pos, max_count, sub_count;
+      std::vector<pos_t> max_pos, sub_pos;
+      std::vector<unsigned> max_count, sub_count;
 
       std::vector<int> max_score; /**< Best scores */
       std::vector<int> sub_score; /**< Second best scores */

@@ -20,7 +20,7 @@ void vargas::to_json(json &j, const vargas::Graph::Node &n) {
 }
 
 void vargas::from_json(const json &j, vargas::Graph::Node &n) {
-    n.set_endpos(j["pos"].get<unsigned>());
+    n.set_endpos(j["pos"].get<pos_t>());
     n.set_af(j["af"].get<float>());
     n.set_pinch(j["z"].get<bool>());
     n.set_seq(j["seq"].get<std::string>());
@@ -135,6 +135,7 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
 
     _graphs["base"] = std::make_shared<Graph>(_nodes);
     unsigned offset = 0;
+
     for (auto reg : region) {
         if (print) std::cerr << "Building \"" << reg.seq_name << "\"...\n";
         GraphFactory gf(fasta, vcf);
@@ -162,7 +163,7 @@ vargas::GraphGen::generate_subgraph(std::string label, const vargas::GraphDef &d
     return _graphs[label];
 }
 
-void vargas::GraphGen::write(const std::string &filename, vargas::json_mode mode) {
+void vargas::GraphGen::write(const std::string &filename) {
 
     // Don't modify nodes if the nodemap is in use
     bool purge = true;
@@ -194,28 +195,23 @@ void vargas::GraphGen::write(const std::string &filename, vargas::json_mode mode
     // Write
     if (filename.size() == 0) std::cout << _j;
     else {
-        std::ofstream out;
-        if (mode == json_mode::plaintext) out.open(filename);
-        else throw std::domain_error("Unimplemented");
+        std::ofstream out(filename);
         if (!out.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
         out << _j.dump(-1);
     }
 }
 
-void vargas::GraphGen::open(const std::string &filename, vargas::json_mode mode) {
+void vargas::GraphGen::open(const std::string &filename, bool build) {
     _j.clear();
 
     _nodes = std::make_shared<Graph::nodemap_t>();
-    Callback cb(*_nodes);
+    Callback cb(*_nodes, build);
     auto callback = rg::smart_bind(cb, &Callback::callback);
 
     if (filename.size() == 0) {
         _j = _j.parse(std::cin, callback);
-    }
-    else {
-        std::ifstream in;
-        if (mode == json_mode::plaintext) in.open(filename);
-        else throw std::domain_error("Unimplemented");
+    } else {
+        std::ifstream in(filename);
         if (!in.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
         _j = _j.parse(in, callback);
     }
@@ -255,6 +251,38 @@ std::pair<std::string, unsigned> vargas::GraphGen::absolute_position(unsigned po
     std::map<unsigned, std::string>::const_iterator lb = _contig_offsets.lower_bound(pos);
     if (lb != _contig_offsets.begin()) --lb; // For rare case that pos = 0
     return {lb->second, pos - lb->first};
+}
+
+bool vargas::GraphGen::Callback::callback(int depth, json::parse_event_t event, json &parsed) {
+    if (event == json::parse_event_t::key) {
+
+        if (!_build) {
+            if (parsed == "nodes" || parsed == "fwd") return false;
+        }
+
+        if (depth == 1) {
+            if (parsed == "nodes") _in_nodes = true;
+            else _in_nodes = false;
+            return true;
+        }
+
+    }
+
+
+    if (_in_nodes && depth == 2 && event == json::parse_event_t::key) {
+        _key = parsed;
+        return true;
+    }
+
+    if (_in_nodes && event == json::parse_event_t::object_end && _key.size()) {
+        Graph::Node n = parsed;
+        n.set_id(std::stoul(_key));
+        _nodes[n.id()] = parsed;
+        _key = "";
+        return false;
+    }
+
+    return true;
 }
 
 TEST_CASE("Load graph") {

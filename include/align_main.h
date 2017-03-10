@@ -31,7 +31,6 @@
 
 #include "cxxopts.hpp"
 #include "sam.h"
-#include "gdef.h"
 #include "graphgen.h"
 
 // Forward decl to prevent main.cpp recompilation for alignment.h changes
