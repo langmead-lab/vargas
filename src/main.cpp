@@ -68,7 +68,7 @@ int define_main(int argc, char *argv[]) {
         opts.add_options()
         ("f,fasta", "<str> *Reference FASTA filename.", cxxopts::value(fasta_file))
         ("v,vcf", "<str> Variant file (vcf, vcf.gz, or bcf).", cxxopts::value<std::string>(varfile))
-        ("g,region", "<CHR[:MIN-MAX], ... > CSV list of regions.", cxxopts::value(region))
+        ("g,region", "<CHR[:MIN-MAX]; ... > CSV list of regions.", cxxopts::value(region))
         ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
         ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
         ("h,help", "Display this message.");
@@ -92,7 +92,8 @@ int define_main(int argc, char *argv[]) {
     std::vector<vargas::Region> region_vec;
     if (region.size()) {
         region.erase(std::remove_if(region.begin(), region.end(), isspace), region.end());
-        auto v = rg::split(region, ',');
+        region.erase(std::remove(region.begin(), region.end(), ','), region.end());
+        auto v = rg::split(region, ';');
         std::transform(v.begin(), v.end(), std::back_inserter(region_vec), vargas::parse_region);
     }
 
@@ -116,7 +117,7 @@ int sim_main(int argc, char *argv[]) {
     cxxopts::Options opts("vargas sim", "Simulate reads from genome graphs.");
     try {
         opts.add_options()
-        ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf_file))
+        ("g,graph", "<str> *Graph definition file.", cxxopts::value(gdf_file))
         ("s,sub", "<S1,S2..> Subgraphs to simulate from. (default: all)", cxxopts::value(sim_src))
         ("l,rlen", "<N> Read length.", cxxopts::value(read_len)->default_value("50"))
         ("n,numreads", "<N> Number of reads to generate.", cxxopts::value(num_reads)->default_value("1000"))
@@ -294,7 +295,7 @@ int convert_main(int argc, char **argv) {
     try {
         opts.add_options()
         ("f,format", "<str> *Output format.", cxxopts::value<std::string>(format))
-        ("s,sam", "<str,...> *SAM files.", cxxopts::value<std::string>(sam_file))
+        ("s,sam", "<str,...> SAM files. Default stdin.", cxxopts::value<std::string>(sam_file))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
@@ -412,14 +413,14 @@ int profile(int argc, char *argv[]) {
 int query_main(int argc, char *argv[]) {
     std::string gdef, dot, stat, meta, out;
 
-    cxxopts::Options opts("vargas query", "Query a graph.");
+    cxxopts::Options opts("vargas query", "Query a graph and export.");
     try {
         opts.add_options()
-        ("g,gdef", "*<str> Graph file.", cxxopts::value(gdef))
+        ("g,graph", "*<str> Graph file to export.", cxxopts::value(gdef))
         ("d,dot", "<str> Export a subgraph as a DOT graph.", cxxopts::value(dot)->default_value("base"))
         ("t,out", "<str> DOT output file.", cxxopts::value(out)->default_value("stdout"))
         ("a,stat", "<str> Print statistics about a graph. Default all.", cxxopts::value(stat)->default_value("-"))
-        ("m,meta", "<str> Print the definition of a graph. \"-\" for graph meta information.", cxxopts::value(meta)->default_value("-"))
+        ("m,meta", "<str> Print the definition of a graph. \"-\" for graph meta information.")
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
@@ -445,22 +446,22 @@ int query_main(int argc, char *argv[]) {
     if (stat.size()) {
         if (stat == "-") {
             for (auto &l : gg.labels())
-                std::cout << l << ": " << gg.at(stat)->statistics() << "\n";
-        } else std::cout << gg.at(stat)->statistics();
+                std::cerr << l << ": " << gg.at(l)->statistics() << "\n";
+        } else std::cerr << gg.at(stat)->statistics();
     }
 
     if (meta.size()) {
         if (meta == "-") {
             auto j = gg.get_json()["meta"];
-            json patch = R"({"op":"remove", "path":"/samples"})";
+            json patch = R"([{"op":"remove", "path":"/samples"}])";
             j.patch(patch);
-            std::cout <<j.dump(4);
+            std::cerr <<j.dump(4);
         }
         else {
             auto j = gg.get_json()[meta]["def"];
-            json patch = R"({"op":"remove", "path":"/population"})";
+            json patch = R"([{"op":"remove", "path":"/population"}])";
             j.patch(patch);
-            std::cout << j.dump(4);
+            std::cerr << j.dump(4);
         }
     }
 
@@ -477,7 +478,7 @@ void main_help() {
     cerr << "sim             Simulate reads from a set of graphs.\n";
     cerr << "align           Align reads to a set of graphs.\n";
     cerr << "convert         Convert a SAM file to a CSV file.\n";
-    cerr << "query           Pull a region from a GDEF/VCF/FASTA file.\n";
+    cerr << "query           Pull a region from a Graph/VCF/FASTA file.\n";
     cerr << "test            Run unit tests.\n";
     cerr << "Compiled for architecture: ";
 

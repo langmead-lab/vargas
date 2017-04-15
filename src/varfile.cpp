@@ -65,16 +65,12 @@ std::vector<std::string> vargas::VCF::sequences() const {
 
 bool vargas::VCF::next() {
     if (!_header || !_bcf) return false;
-    if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
-    // Wrong contig
-    if (_region.seq_name.size() && strcmp(_region.seq_name.c_str(), bcf_seqname(_header, _curr_rec))) {
-        return next();
-    }
-    else if (unsigned(_curr_rec->pos) < _region.min) return next();
-    // Check if its within the filter range
-    if (_region.max > 0 && (unsigned) _curr_rec->pos > _region.max) {
-        return false;
-    }
+    do {
+        if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
+    } while ((_region.seq_name.size() && strcmp(_region.seq_name.c_str(), bcf_seqname(_header, _curr_rec))) ||
+        unsigned(_curr_rec->pos) < _region.min ||
+        (_region.max > 0 && unsigned(_curr_rec->pos) > _region.max));
+
     unpack_all();
     gen_genotypes();
     return true;

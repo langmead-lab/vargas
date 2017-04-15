@@ -112,8 +112,7 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
         _j["meta"]["vcf"] = vcf;
         vargas::VCF v(vcf);
         if (!v.good()) throw std::invalid_argument("Invalid VCF: " + vcf);
-        sample_filter.erase(std::remove_if(sample_filter.begin(), sample_filter.end(), isspace),
-                            sample_filter.end());
+        sample_filter.erase(std::remove_if(sample_filter.begin(), sample_filter.end(), isspace), sample_filter.end());
         auto vec = rg::split(sample_filter, ',');
         v.create_ingroup(vec);
         pop = VCF::Population(v.samples().size(), true);
@@ -137,7 +136,7 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
     unsigned offset = 0;
 
     for (auto reg : region) {
-        if (print) std::cerr << "Building \"" << reg.seq_name << "\"...\n";
+        if (print) std::cerr << "Building \"" << reg.seq_name << "(offset: " << offset << ")" << "\"...\n";
         GraphFactory gf(fasta, vcf);
         gf.add_sample_filter(sample_filter);
         gf.set_region(reg);
@@ -197,7 +196,7 @@ void vargas::GraphGen::write(const std::string &filename) {
     else {
         std::ofstream out(filename);
         if (!out.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
-        out << _j.dump(-1);
+        out << _j.dump(2);
     }
 }
 
@@ -268,7 +267,6 @@ bool vargas::GraphGen::Callback::callback(int depth, json::parse_event_t event, 
 
     }
 
-
     if (_in_nodes && depth == 2 && event == json::parse_event_t::key) {
         _key = parsed;
         return true;
@@ -287,47 +285,45 @@ bool vargas::GraphGen::Callback::callback(int depth, json::parse_event_t event, 
 
 TEST_CASE("Load graph") {
     const std::string jfile = "tmpjson.vargas";
-    const std::string jstr = "{\n"
-    "    \"meta\" : null,\n"
-    "    \"nodes\" : {\n"
-    "        \"0\" : {\"pos\": 5, \"af\" : 1.0, \"z\" : true, \"seq\" : \"AAAAA\"},\n"
-    "        \"1\" : {\"pos\": 8, \"af\" : 1.0, \"z\" : true, \"seq\" : \"GGG\"},\n"
-    "        \"2\" : {\"pos\": 9, \"af\" : 0.5, \"z\" : false, \"seq\" : \"C\"},\n"
-    "        \"3\" : {\"pos\": 9, \"af\" : 0.5, \"z\" : false, \"seq\" : \"T\"},\n"
-    "        \"4\" : {\"pos\": 13, \"af\" : 1.0, \"z\" : true, \"seq\" : \"GCGC\"},\n"
-    "        \"5\" : {\"pos\" : 22, \"af\" : 1.0, \"z\" : true, \"seq\" : \"ACGTACGAC\"}\n"
-    "    },\n"
-    "\n"
-    "    \"contigs\": {\n"
-    "        \"chr1\" : 0,\n"
-    "        \"chr2\" : 13\n"
-    "    },\n"
-    "    \n"
-    "    \"graphs\": {\n"
-    "        \"base\" : {\n"
-    "            \"def\" : {\n"
-    "                \"parent\" : null, \n"
-    "                \"invert\" : false, \n"
-    "                \"population\" : [1,1], \n"
-    "                \"region\" : [{\"chr\": \"chr1\", \"min\": 0, \"max\": 0}, {\"chr\": \"chr2\", \"min\": 0, \"max\": 0}], \n"
-    "                \"snp\" : false, \n"
-    "                \"min-af\" : 0, \n"
-    "                \"max-af\" : 0, \n"
-    "                \"linear\" : false\n"
-    "            },\n"
-    "            \n"
-    "            \"nodes\" : [0,1,2,3,4,5],\n"
-    "            \n"
-    "            \"fwd\" : {\n"
-    "                \"0\" : [1], \n"
-    "                \"1\" : [2,3],\n"
-    "                \"2\" : [4],\n"
-    "                \"3\" : [4],\n"
-    "                \"4\" : [5]\n"
-    "            }\n"
-    "        }\n"
-    "    }\n"
-    "}";
+    const std::string jstr = R"(
+    {
+        "meta" : null,
+        "nodes" : {
+            "0" : {"pos": 5, "af" : 1.0, "z" : true, "seq" : "AAAAA"},
+            "1" : {"pos": 8, "af" : 1.0, "z" : true, "seq" : "GGG"},
+            "2" : {"pos": 9, "af" : 0.5, "z" : false, "seq" : "C"},
+            "3" : {"pos": 9, "af" : 0.5, "z" : false, "seq" : "T"},
+            "4" : {"pos": 13, "af" : 1.0, "z" : true, "seq" : "GCGC"},
+            "5" : {"pos" : 22, "af" : 1.0, "z" : true, "seq" : "ACGTACGAC"}
+        },
+        "contigs": {
+            "chr1" : 0,
+            "chr2" : 13
+        },
+        "graphs": {
+            "base" : {
+                "def" : {
+                    "parent" : null,
+                    "invert" : false,
+                    "population" : [1,1],
+                    "region" : [{"chr": "chr1", "min": 0, "max": 0}, {"chr": "chr2", "min": 0, "max": 0}],
+                    "snp" : false,
+                    "min-af" : 0,
+                    "max-af" : 0,
+                    "linear" : false
+                },
+                "nodes" : [0,1,2,3,4,5],
+                "fwd" : {
+                    "0" : [1],
+                    "1" : [2,3],
+                    "2" : [4],
+                    "3" : [4],
+                    "4" : [5]
+                }
+            }
+        }
+    }
+    )";
 
     std::ofstream o(jfile);
     o << jstr;

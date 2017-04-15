@@ -12,6 +12,7 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <iomanip>
 #include "graph.h"
 
 
@@ -133,23 +134,20 @@ bool vargas::Graph::add_edge(const unsigned n1, const unsigned n2) {
 
 std::string vargas::Graph::to_DOT(std::string name) const {
     std::ostringstream dot;
-    dot << "// Each node has the sequence, followed by end_pos,allele_freq\n";
+    dot << "// Each node has the sequence, followed by end_pos,allele_freq,REF\n";
     dot << "digraph " << name << " {\n";
 
-    for (const auto &n : *_IDMap) {
-        auto seq = n.second.seq_str();
-        if (seq.size() > 19) {
+    for (auto n = begin(); n != end(); ++n) {
+        auto seq = n->seq_str();
+        if (seq.size() >    9) {
             seq = seq.substr(0, 4) + ".." + seq.substr(seq.size() - 5, 4);
         }
-        dot << n.second.id() << "[label=\"" << seq
-            << "\nP:" << n.second.end_pos() << ", F:" << n.second.freq() << ", R:" << n.second.is_ref()
-            << "\n[" << n.second.individuals().to_string() << "]"
+        dot << n->id() << "[label=\"" << seq
+            << "\nP:" << n->end_pos() << ", F:" << std::setprecision(3) <<   n->freq() << ", R:" << n->is_ref()
+            << "\n[" << n->individuals().to_string() << "]"
             << "\"];\n";
-    }
-    for (const auto &n : _next_map) {
-        for (const auto e : n.second) {
-            dot << n.first << " -> " << e << ";\n";
-        }
+
+        for (auto x : n.outgoing()) dot << n->id() << " -> " << x << ";\n";
     }
     dot << "}\n";
     return dot.str();
@@ -365,6 +363,7 @@ bool vargas::Graph::validate() const {
     }
     return true;
 }
+
 
 TEST_SUITE("Graphs");
 

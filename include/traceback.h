@@ -25,7 +25,7 @@
 
 namespace vargas {
 
-  constexpr unsigned max_extension_width(const unsigned read_len) {return read_len * 2;}
+  constexpr unsigned max_extension_width(const unsigned read_len) {return read_len + (read_len/10);}
 
   /**
    * @brief
@@ -131,7 +131,7 @@ namespace vargas {
       Tracer(const unsigned read_len, const ScoreProfile &prof)
       : _prof(prof), _read_len(read_len), _max_w(max_extension_width(_read_len)) {}
 
-      std::string traceback(std::string read, const Graph &graph, unsigned maxs_pos) {
+      std::string traceback(std::string read, const Graph &graph, pos_t maxs_pos) {
           auto curr_n = std::find_if(graph.rbegin(), graph.rend(),
                                      [maxs_pos](const Graph::Node &n){return n.begin_pos() < maxs_pos;});
           std::reverse(read.begin(), read.end());
