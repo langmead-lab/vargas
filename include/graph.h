@@ -194,6 +194,8 @@ namespace vargas {
            */
           const std::vector<rg::Base> &seq() const { return _seq; }
 
+          std::vector<rg::Base> &seq() { return _seq; }
+
           /**
            * @brief
            * Sequence is stored numerically. Return as a string.
@@ -563,6 +565,9 @@ namespace vargas {
        * @param n2 Node two ID
        */
       bool add_edge(const unsigned n1, const unsigned n2);
+
+      void add_edge_unchecked(const unsigned n1, const unsigned n2);
+
 
       /**
        * @brief

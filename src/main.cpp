@@ -420,7 +420,7 @@ int query_main(int argc, char *argv[]) {
         ("d,dot", "<str> Export a subgraph as a DOT graph.", cxxopts::value(dot)->default_value("base"))
         ("t,out", "<str> DOT output file.", cxxopts::value(out)->default_value("stdout"))
         ("a,stat", "<str> Print statistics about a graph. Default all.", cxxopts::value(stat)->default_value("-"))
-        ("m,meta", "<str> Print the definition of a graph. \"-\" for graph meta information.")
+      //  ("m,meta", "<str> Print the definition of a graph. \"-\" for graph meta information.")
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
@@ -451,18 +451,19 @@ int query_main(int argc, char *argv[]) {
     }
 
     if (meta.size()) {
-        if (meta == "-") {
-            auto j = gg.get_json()["meta"];
-            json patch = R"([{"op":"remove", "path":"/samples"}])";
-            j.patch(patch);
-            std::cerr <<j.dump(4);
-        }
-        else {
-            auto j = gg.get_json()[meta]["def"];
-            json patch = R"([{"op":"remove", "path":"/population"}])";
-            j.patch(patch);
-            std::cerr << j.dump(4);
-        }
+        throw std::domain_error("Not implemented.");
+//        if (meta == "-") {
+//            auto j = gg.get_json()["meta"];
+//            json patch = R"([{"op":"remove", "path":"/samples"}])";
+//            j.patch(patch);
+//            std::cerr <<j.dump(4);
+//        }
+//        else {
+//            auto j = gg.get_json()[meta]["def"];
+//            json patch = R"([{"op":"remove", "path":"/population"}])";
+//            j.patch(patch);
+//            std::cerr << j.dump(4);
+//        }
     }
 
     return 0;

@@ -10,81 +10,10 @@
  * @file
  */
 
+#include <iomanip>
+#include <iterator>
 #include "graphgen.h"
 
-void vargas::to_json(json &j, const vargas::Graph::Node &n) {
-    j = json{{"pos", n.end_pos()},
-             {"af", n.freq()},
-             {"z", n.is_pinched()},
-             {"seq", n.seq_str()}};
-}
-
-void vargas::from_json(const json &j, vargas::Graph::Node &n) {
-    n.set_endpos(j["pos"].get<pos_t>());
-    n.set_af(j["af"].get<float>());
-    n.set_pinch(j["z"].get<bool>());
-    n.set_seq(j["seq"].get<std::string>());
-}
-void vargas::to_json(json &j, const vargas::Region &reg) {
-    j = json{{"chr", reg.seq_name}, {"min", reg.min}, {"max", reg.max}};
-}
-
-void vargas::to_json(json &j, const vargas::Graph::Type &t) {
-    switch (t) {
-        case Graph::Type::MAXAF:
-            j = "maxaf";
-            break;
-        case Graph::Type::REF:
-            j = "ref";
-            break;
-    }
-}
-void vargas::from_json(const json &j, vargas::Region &reg) {
-    reg.seq_name = j["chr"];
-    reg.min = j["min"];
-    reg.max = j["max"];
-}
-
-void vargas::from_json(const json &j, vargas::Graph::Type &t) {
-    if (j == "ref") t = Graph::Type::REF;
-    else if (j == "maxaf") t = Graph::Type::MAXAF;
-    else throw std::domain_error("Invalid graph type.");
-}
-
-void vargas::to_json(json &j, const vargas::GraphDef &gd) {
-    j = json {{"invert",gd.invert},
-              {"linear",gd.linear},
-              {"population", gd.population},
-              {"region", gd.region}};
-    if (gd.parent.size() == 0) j["parent"] = nullptr;
-    else j["parent"] = gd.parent;
-    if (gd.linear) {
-        j["filter"] = gd.type;
-    }
-    else {
-        j["snp"] = gd.snp_only;
-        j["min-af"] = gd.min_af;
-        j["max-af"] = gd.max_af;
-    }
-}
-
-void vargas::from_json(const json &j, vargas::GraphDef &gd) {
-    gd.invert = j["invert"];
-    gd.linear = j["linear"];
-    if (j["parent"].is_null()) gd.parent = "";
-    else gd.parent = j["parent"];
-    gd.region = j["region"].get<std::vector<Region>>();
-    gd.population = j["population"].get<VCF::Population>();
-
-    if (gd.linear) {
-        gd.type = j["filter"];
-    }
-    else {
-        gd.snp_only = j["snp"];
-        gd.min_af = j["min-af"];
-        gd.max_af = j["max-af"];
-    }
-}
 
 std::shared_ptr<vargas::Graph>
 vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, std::vector<vargas::Region> region,
@@ -104,19 +33,19 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
     }
 
     // Meta block
-    _j["meta"]["vargas-build"] = __DATE__;
-    _j["meta"]["date"] = rg::current_date();
-    _j["meta"]["fasta"] = fasta;
+    _aux["vargas-build"] = __DATE__;
+    _aux["date"] = rg::current_date();
+    _aux["fasta"] = fasta;
     VCF::Population pop;
     if (vcf.size()) {
-        _j["meta"]["vcf"] = vcf;
+        _aux["vcf"] = vcf;
         vargas::VCF v(vcf);
         if (!v.good()) throw std::invalid_argument("Invalid VCF: " + vcf);
         sample_filter.erase(std::remove_if(sample_filter.begin(), sample_filter.end(), isspace), sample_filter.end());
         auto vec = rg::split(sample_filter, ',');
         v.create_ingroup(vec);
         pop = VCF::Population(v.samples().size(), true);
-        _j["meta"]["samples"] = v.samples();
+        _aux["samples"] = rg::vec_to_str(v.samples(), ",");
     }
 
     // Build base graph
@@ -130,7 +59,7 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
     base.max_af = 0;
     base.linear = vcf.size() == 0;
     base.type = Graph::Type::REF;
-    _j["graphs"]["base"]["def"] = base;
+    _graph_def["base"] = base;
 
     _graphs["base"] = std::make_shared<Graph>(_nodes);
     unsigned offset = 0;
@@ -163,86 +92,126 @@ vargas::GraphGen::generate_subgraph(std::string label, const vargas::GraphDef &d
 }
 
 void vargas::GraphGen::write(const std::string &filename) {
+    std::ios::sync_with_stdio(false);
+    std::ofstream of(filename);
+    if (!of.good()) throw std::invalid_argument("Error opening file: " + filename);
 
-    // Don't modify nodes if the nodemap is in use
-    bool purge = true;
-    if (_nodes.use_count() > 1) purge = false;
-
-    // Nodes
-    const std::string empty;
-    for (auto &p : *_nodes) {
-        _j["nodes"][std::to_string(p.first)] = p.second;
-        if (purge) p.second.set_seq(empty); // Free up some memory
+    // Meta
+    of << "@vgraph\n";
+    for (const auto &pair : _aux) {
+        of << pair.first << '\t' << pair.second << '\n';
     }
-    _nodes.reset(); // Release node map
 
     // Contigs
+    of << "\n@contigs\n";
     for (auto &o : _contig_offsets) {
-        _j["contigs"][o.second] = o.first;
+        of << o.first << '\t' << o.second << '\n';
     }
 
     // graphs
+    // Label    [node_id_list]  [edge-list a:b,c;d:b,c;
+    of << "\n@graphs\n";
     for (auto &g : _graphs) {
-        _j["graphs"][g.first]["nodes"] = g.second->order();
+        of << g.first << '\t' << rg::vec_to_str(g.second->order(), ",") << '\t';
         for (auto &p : g.second->next_map()) {
-            _j["graphs"][g.first]["fwd"][std::to_string(p.first)] = p.second;
+            of << p.first << ':' << rg::vec_to_str(p.second, ",") << ';';
         }
-        g.second.reset();
+        of << '\n';
     }
-    _graphs.clear();
 
-    // Write
-    if (filename.size() == 0) std::cout << _j;
-    else {
-        std::ofstream out(filename);
-        if (!out.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
-        out << _j.dump(2);
+    // Nodes
+    of << "\n@nodes\n";
+    for (auto &p : *_nodes) {
+        of << p.first << '\t' << p.second.end_pos() << '\t' << p.second.freq()
+           << '\t' << p.second.is_pinched() << '\t' << p.second.seq().size() << '\n';
+        std::for_each(p.second.seq().begin(), p.second.seq().end(), [&of](rg::Base &b){of << rg::num_to_base(b);});
+        of << '\n';
     }
+    std::ios::sync_with_stdio(true);
 }
 
 void vargas::GraphGen::open(const std::string &filename, bool build) {
-    _j.clear();
+    std::ifstream in(filename);
+    if (!in.good()) throw std::invalid_argument("Error opening file: " + filename);
 
-    _nodes = std::make_shared<Graph::nodemap_t>();
-    Callback cb(*_nodes, build);
-    auto callback = rg::smart_bind(cb, &Callback::callback);
+    std::string line;
+    while(!line.size() || line[0] == '#') std::getline(in, line);
+    if (line != "@vgraph") throw std::invalid_argument(filename + " is not a graph file.");
 
-    if (filename.size() == 0) {
-        _j = _j.parse(std::cin, callback);
-    } else {
-        std::ifstream in(filename);
-        if (!in.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
-        _j = _j.parse(in, callback);
-    }
-
-
-    // Validate fields
-    if (_j.find("contigs") == _j.end() || _j.find("graphs") == _j.end()) {
-        throw std::invalid_argument("Invalid graph file.");
-    }
-
-    // contigs
-    for (json::iterator it = _j["contigs"].begin(); it != _j["contigs"].end(); ++it) {
-        _contig_offsets[it.value().get<unsigned>()] = it.key();
-    }
-    _j["contigs"] = nullptr;
-
-    // Load graphs
+    std::vector<std::string> tokens;
+    _aux.clear();
+    _graph_def.clear();
     _graphs.clear();
-    for (json::iterator it = _j["graphs"].begin(); it != _j["graphs"].end(); ++it) {
-        _graphs[it.key()] = std::make_shared<Graph>(_nodes);
-        auto &graph = *_graphs[it.key()];
-        json &jgraph = it.value();
-        graph.set_order(jgraph["nodes"].get<std::vector<unsigned>>());
-        jgraph["nodes"] = nullptr;
-        for (json::iterator e = jgraph["fwd"].begin(); e != jgraph["fwd"].end(); ++e) {
-            unsigned from = std::stoul(e.key());
-            std::vector<unsigned> tovec = e.value();
-            for (auto to : tovec) {
-                graph.add_edge(from, to);
+    _contig_offsets.clear();
+    _nodes = std::make_shared<Graph::nodemap_t>();
+
+    while (std::getline(in, line) && line[0] != '@') {
+        if (!line.size()) continue;
+        rg::split(line, '\t', tokens);
+        if (tokens.size() != 2) throw std::domain_error("Invalid meta-line: " + line);
+        _aux[tokens[0]] = tokens[1];
+    }
+
+    assert(line == "@contigs");
+
+    while(std::getline(in, line) && line[0] != '@') {
+        if (!line.size()) continue;
+        rg::split(line, '\t', tokens);
+        if (tokens.size() != 2) throw std::domain_error("Invalid contig def: " + line);
+        _contig_offsets[std::stoul(tokens[0])] = tokens[1];
+    }
+
+    assert(line == "@graphs");
+
+    std::vector<std::string> unparsed;
+    while(std::getline(in, line) && line[0] != '@') {
+        if (!line.size()) continue;
+        rg::split(line, '\t', tokens);
+        if (tokens.size() < 2) throw std::domain_error("Invalid graph definition.");
+        _graphs[tokens[0]] = std::make_shared<Graph>(_nodes);
+        rg::split(tokens[1], ',', unparsed);
+        std::vector<unsigned> order;
+        order.reserve(unparsed.size());
+        std::transform(unparsed.begin(), unparsed.end(), std::back_inserter(order), [](const std::string &c){return std::stoul(c);});
+        _graphs[tokens[0]]->set_order(order);
+
+        if (tokens.size() > 2) {
+            unparsed = rg::split(tokens[2], ';');
+            std::vector<std::string> edge;
+            for (const auto &epair : unparsed) {
+                rg::split(epair, ':', edge);
+                assert(edge.size() == 2);
+                const unsigned from = std::stoul(edge[0]);
+                for (auto &to : rg::split(edge[1], ',')) {
+                    _graphs[tokens[0]]->add_edge_unchecked(from, std::stoul(to));
+                }
             }
         }
-        jgraph["fwd"] = nullptr;
+    }
+
+    assert(line =="@nodes");
+
+    while(std::getline(in, line)) {
+        if (!line.size()) continue;
+        // node meta
+        rg::split(line, '\t', tokens);
+        if (tokens.size() != 5) throw std::invalid_argument("Invalid node definition: " + line);
+        const unsigned id = std::stoul(tokens[0]);
+        _nodes->emplace(id, Graph::Node{});
+        auto &n = _nodes->at(id);
+        n.set_id(id);
+        n.set_endpos(std::stoul(tokens[1]));
+        n.set_af(std::stof(tokens[2]));
+        if (tokens[3] == "1") n.pinch();
+        const size_t seqsize = std::stoul(tokens[4]);
+        std::vector<rg::Base> &seq = n.seq();
+        seq.reserve(seqsize);
+        // Load sequence char by char
+        char c;
+        while(in.get(c)) {
+            if (c == '\n') break;
+            seq.push_back(rg::base_to_num(c));
+        }
     }
 }
 
@@ -252,78 +221,34 @@ std::pair<std::string, unsigned> vargas::GraphGen::absolute_position(unsigned po
     return {lb->second, pos - lb->first};
 }
 
-bool vargas::GraphGen::Callback::callback(int depth, json::parse_event_t event, json &parsed) {
-    if (event == json::parse_event_t::key) {
-
-        if (!_build) {
-            if (parsed == "nodes" || parsed == "fwd") return false;
-        }
-
-        if (depth == 1) {
-            if (parsed == "nodes") _in_nodes = true;
-            else _in_nodes = false;
-            return true;
-        }
-
-    }
-
-    if (_in_nodes && depth == 2 && event == json::parse_event_t::key) {
-        _key = parsed;
-        return true;
-    }
-
-    if (_in_nodes && event == json::parse_event_t::object_end && _key.size()) {
-        Graph::Node n = parsed;
-        n.set_id(std::stoul(_key));
-        _nodes[n.id()] = parsed;
-        _key = "";
-        return false;
-    }
-
-    return true;
-}
-
 TEST_CASE("Load graph") {
-    const std::string jfile = "tmpjson.vargas";
+    const std::string jfile = "tmp.vgraph";
     const std::string jstr = R"(
-    {
-        "meta" : null,
-        "nodes" : {
-            "0" : {"pos": 5, "af" : 1.0, "z" : true, "seq" : "AAAAA"},
-            "1" : {"pos": 8, "af" : 1.0, "z" : true, "seq" : "GGG"},
-            "2" : {"pos": 9, "af" : 0.5, "z" : false, "seq" : "C"},
-            "3" : {"pos": 9, "af" : 0.5, "z" : false, "seq" : "T"},
-            "4" : {"pos": 13, "af" : 1.0, "z" : true, "seq" : "GCGC"},
-            "5" : {"pos" : 22, "af" : 1.0, "z" : true, "seq" : "ACGTACGAC"}
-        },
-        "contigs": {
-            "chr1" : 0,
-            "chr2" : 13
-        },
-        "graphs": {
-            "base" : {
-                "def" : {
-                    "parent" : null,
-                    "invert" : false,
-                    "population" : [1,1],
-                    "region" : [{"chr": "chr1", "min": 0, "max": 0}, {"chr": "chr2", "min": 0, "max": 0}],
-                    "snp" : false,
-                    "min-af" : 0,
-                    "max-af" : 0,
-                    "linear" : false
-                },
-                "nodes" : [0,1,2,3,4,5],
-                "fwd" : {
-                    "0" : [1],
-                    "1" : [2,3],
-                    "2" : [4],
-                    "3" : [4],
-                    "4" : [5]
-                }
-            }
-        }
-    }
-    )";
+# Test file
+@vgraph
+aux	null
+
+@contigs
+0	chr1
+13	chr2
+
+@graphs
+base	0,1,2,3,4,5	0:1;1:2,3;2:4;3:4;4:5;
+
+@nodes
+0	5	1.0	1	5
+AAAAA
+1	8	1	1	3
+GGG
+2	9	0.5	0	1
+C
+3	9	0.5	0	1
+T
+4	13	1.0	1	4
+GCGC
+5	22	1	1	9
+ACGTACGAC
+)";
 
     std::ofstream o(jfile);
     o << jstr;
@@ -334,25 +259,6 @@ TEST_CASE("Load graph") {
     {
         REQUIRE(gg.count("base"));
 
-        auto def = gg.definition("base");
-        CHECK(def.parent == "");
-        CHECK(def.invert == false);
-        REQUIRE(def.population.size() == 2);
-        CHECK(def.population[0] == 1);
-        CHECK(def.population[1] == 1);
-        REQUIRE(def.region.size() == 2);
-        auto r1 = def.region[0];
-        CHECK(r1.seq_name == "chr1");
-        CHECK(r1.min == 0);
-        CHECK(r1.max == 0);
-        r1 = def.region[1];
-        CHECK(r1.seq_name == "chr2");
-        CHECK(r1.min == 0);
-        CHECK(r1.max == 0);
-        CHECK(def.snp_only == false);
-        CHECK(def.linear == false);
-        CHECK(def.min_af == 0);
-        CHECK(def.max_af == 0);
 
         auto &g = *gg["base"];
         auto it = g.begin();
@@ -407,25 +313,6 @@ TEST_CASE("Load graph") {
     {
         REQUIRE(gg.count("base"));
 
-        auto def = gg.definition("base");
-        CHECK(def.parent == "");
-        CHECK(def.invert == false);
-        REQUIRE(def.population.size() == 2);
-        CHECK(def.population[0] == 1);
-        CHECK(def.population[1] == 1);
-        REQUIRE(def.region.size() == 2);
-        auto r1 = def.region[0];
-        CHECK(r1.seq_name == "chr1");
-        CHECK(r1.min == 0);
-        CHECK(r1.max == 0);
-        r1 = def.region[1];
-        CHECK(r1.seq_name == "chr2");
-        CHECK(r1.min == 0);
-        CHECK(r1.max == 0);
-        CHECK(def.snp_only == false);
-        CHECK(def.linear == false);
-        CHECK(def.min_af == 0);
-        CHECK(def.max_af == 0);
 
         auto &g = *gg["base"];
         auto it = g.begin();
@@ -524,24 +411,24 @@ TEST_CASE("Write graph") {
         auto base = gg.create_base(tmpfa, tmpvcf, reg);
         auto giter = base->begin();
 
-        CHECK((*giter).seq_str() == "CAAATAAG");
-        CHECK((*giter).is_ref());
+        CHECK(giter->seq_str() == "CAAATAAG");
+        CHECK(giter->is_ref());
 
         ++giter;
-        CHECK((*giter).seq_str() == "G");
+        CHECK(giter->seq_str() == "G");
 
         ++giter;
-        CHECK((*giter).seq_str() == "A");
+        CHECK(giter->seq_str() == "A");
 
         ++giter;
-        CHECK((*giter).seq_str() == "C");
+        CHECK(giter->seq_str() == "C");
 
         ++giter;
-        CHECK((*giter).seq_str() == "T");
-        CHECK(!(*giter).is_ref());
+        CHECK(giter->seq_str() == "T");
+        CHECK(!giter->is_ref());
 
         ++giter;
-        CHECK((*giter).seq_str() == "C");
+        CHECK(giter->seq_str() == "C");
         CHECK(giter->is_ref());
 
         ++giter;

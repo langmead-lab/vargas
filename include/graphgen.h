@@ -13,24 +13,11 @@
 #ifndef VARGAS_GRAPHGEN_H
 #define VARGAS_GRAPHGEN_H
 
-#include "json.hpp"
 #include "graph.h"
 #include "varfile.h"
 #include "fasta.h"
 #include "dyn_bitset.h"
 
-using json = nlohmann::json;
-
-template<unsigned N>
-inline void to_json(json &j, const dyn_bitset<N> &pop) {
-    j = pop.to_vec();
-}
-template<unsigned N>
-inline void from_json(const json &j, dyn_bitset<N> &pop) {
-    if (!j.is_array() || j.is_null()) throw std::domain_error("Invalid vector type.");
-    std::vector<unsigned char> v(j.begin(), j.end());
-    pop = dyn_bitset<N>(v);
-}
 
 namespace vargas {
 
@@ -57,24 +44,6 @@ namespace vargas {
       Graph::Type type;
       float min_af, max_af;
   };
-
-  // ADL conversions from/to json objects
-  void to_json(json &j, const Graph::Node &n);
-
-  void from_json(const json &j, Graph::Node &n);
-
-  void to_json(json &j, const Region &reg);
-
-  void from_json(const json &j, Region &reg);
-
-  void to_json(json &j, const Graph::Type &t);
-
-  void from_json(const json &j, Graph::Type &t);
-
-  void to_json(json &j, const GraphDef &gd);
-
-  void from_json(const json &j, GraphDef &gd);
-
 
   class GraphGen {
     public:
@@ -111,17 +80,7 @@ namespace vargas {
 
       void open(const std::string &filename, bool build=true);
 
-      /**
-       * Clear JSON data. After loading graphs this remove all
-       * meta information.
-       */
-      void dump() {
-          _j.clear();
-      }
 
-      GraphDef definition(std::string label) {
-          return _j["graphs"][label]["def"].get<GraphDef>();
-      }
 
       /**
        * @brief
@@ -130,10 +89,6 @@ namespace vargas {
        * @return pair <contig name, position>
        */
       std::pair<std::string, unsigned> absolute_position(unsigned pos) const;
-
-      json &get_json() {
-          return _j;
-      }
 
       size_t count(std::string label) const {
           return _graphs.count(label);
@@ -145,7 +100,6 @@ namespace vargas {
       }
 
       std::shared_ptr<Graph> operator[](std::string label) {
-          if (!count(label)) _graphs[label] = std::make_shared<Graph>();
           return _graphs[label];
       }
 
@@ -155,31 +109,13 @@ namespace vargas {
           return ret;
       }
 
-    protected:
-
-      /**
-       * Basic FSM to stream nodes into the nodemap as they are parsed.
-       * Prevents holding the json repr of nodes in memory.
-       */
-      class Callback {
-        public:
-
-          Callback(Graph::nodemap_t &nodes, bool build=true) : _in_nodes(false), _build(build), _nodes(nodes) {}
-
-          bool callback(int depth, json::parse_event_t event, json &parsed);
-
-        private:
-          bool _in_nodes, _build;
-          std::string _key;
-          Graph::nodemap_t &_nodes;
-      };
-
 
     private:
       std::shared_ptr<Graph::nodemap_t> _nodes;
-      std::unordered_map<std::string, std::shared_ptr<vargas::Graph>> _graphs; // Map label to a graph
+      std::map<std::string, std::shared_ptr<vargas::Graph>> _graphs; // Map label to a graph
+      std::map<std::string, GraphDef> _graph_def; // Map label to graph def
       std::map<unsigned, std::string> _contig_offsets; // Maps an offset to contig
-      json _j; // Maintains all info except for nodes, graph edges, contigs
+      std::map<std::string, std::string> _aux;
   };
 }
 

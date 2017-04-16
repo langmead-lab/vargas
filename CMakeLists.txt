@@ -12,7 +12,7 @@ endif ()
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-include_directories(doctest/doctest include htslib cxxopts/src json/src)
+include_directories(doctest/doctest include htslib cxxopts/src)
 link_directories(${PROJECT_SOURCE_DIR}/htslib)
 
 set(MAIN_SOURCES

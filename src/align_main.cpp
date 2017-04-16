@@ -162,7 +162,6 @@ int align_main(int argc, char *argv[]) {
         std::cerr << "\nLoading \"" << gdef << "\"... ";
         auto start_time = std::chrono::steady_clock::now();
         vargas::GraphGen gm(gdef);
-        gm.dump();
         std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
         align(gm, task_list, aligners);

@@ -1,12 +1,9 @@
 [submodule "htslib"]
 	path = htslib
-	url = https://github.com/gaddra/htslib
+	url = https://github.com/RaviGaddipati/htslib
 [submodule "doctest"]
 	path = doctest
 	url = https://github.com/RaviGaddipati/doctest
 [submodule "cxxopts"]
 	path = cxxopts
 	url = https://github.com/RaviGaddipati/cxxopts
-[submodule "json"]
-	path = json
-	url = https://github.com/RaviGaddipati/json

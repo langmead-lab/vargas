@@ -200,7 +200,7 @@ namespace rg {
  * @param vec vector to store results in
  */
   inline void split(const std::string &s, char delim, std::vector<std::string> &vec) {
-      vec = std::move(split(s, std::string(1, delim)));
+      vec = split(s, std::string(1, delim));
   }
 
 /**

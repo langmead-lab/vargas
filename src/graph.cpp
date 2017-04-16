@@ -131,6 +131,17 @@ bool vargas::Graph::add_edge(const unsigned n1, const unsigned n2) {
     return true;
 }
 
+void vargas::Graph::add_edge_unchecked(const unsigned n1, const unsigned n2) {
+    if (_next_map.count(n1) == 0) {
+        _next_map[n1] = std::vector<unsigned>();
+    }
+    if (_prev_map.count(n2) == 0) {
+        _prev_map[n2] = std::vector<unsigned>();
+    }
+    _next_map[n1].push_back(n2);
+    _prev_map[n2].push_back(n1);
+}
+
 
 std::string vargas::Graph::to_DOT(std::string name) const {
     std::ostringstream dot;
@@ -363,6 +374,7 @@ bool vargas::Graph::validate() const {
     }
     return true;
 }
+
 
 
 TEST_SUITE("Graphs");
