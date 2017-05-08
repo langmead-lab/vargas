@@ -472,14 +472,21 @@ namespace vargas {
 
     private:
 
+      /**
+       * @brief
+       * Seeds the matrix when there are no previous nodes. In end to end mode, the seed is penalized.
+       * Otherwise, seeds are cleared to _bias.
+       * @param seed
+       */
       void _seed_matrix(_seed <simd_t> &seed) const {
           if (END_TO_END) {
-              for (unsigned i = 0; i < _read_len; ++i) {
-                  int v = _bias - _prof.ref_gopen - ((i + 1) * _prof.ref_gext);
-                  seed.S_col[i + 1] =
-                  v < std::numeric_limits<native_t>::min() ? std::numeric_limits<native_t>::min() : v;
+              seed.S_col[0] = _bias;
+              for (unsigned i = 1; i <= _read_len; ++i) {
+                  int v = _bias - _prof.ref_gopen - (i * _prof.ref_gext);
+                  seed.S_col[i] = v < std::numeric_limits<native_t>::min() ? std::numeric_limits<native_t>::min() : v;
               }
-          } else {
+          }
+          else {
               std::fill(seed.S_col.begin(), seed.S_col.end(), _bias);
           }
           seed.I_col = seed.S_col;
