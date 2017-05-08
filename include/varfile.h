@@ -333,7 +333,7 @@ namespace vargas {
        * 0 based position, i.e. the VCF pos - 1.
        * @return position.
        */
-      int pos() const {
+      pos_t pos() const {
           return _curr_rec->pos;
       }
 

@@ -408,12 +408,12 @@ ReadFmt read_fmt(const std::string filename) {
     std::ifstream in(filename);
     if (!in.good()) throw std::invalid_argument("Invalid read file: " + filename);
     std::string line;
-    std::getline(in, line);
-    if (line.size() && line.at(0) == '>') return ReadFmt::FASTA;
-    std::getline(in, line); // Read or some SAM line
-    std::getline(in, line); // either + or some SAM line
+    if (!std::getline(in, line)) throw std::invalid_argument("Empty Read File."); // @SAM or fasta/q name
+    if (!std::getline(in, line)) throw std::invalid_argument("Invalid Read File."); // Read or SAM header
+    if (!std::getline(in, line)) return ReadFmt::FASTA; // either + or some SAM line. If no more lines, single record FASTA
     if (line.at(0) == '+') return ReadFmt::FASTQ;
-    else return ReadFmt::SAM;
+    if (line.at(0) == '>' || line.at(0) == '@') return ReadFmt::FASTA;
+    return ReadFmt::SAM;
 }
 
 TEST_SUITE("System");

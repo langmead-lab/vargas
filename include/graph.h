@@ -959,8 +959,8 @@ namespace vargas {
        * @return ending position
        */
       __RG_STRONG_INLINE__
-      int _build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr,
-                            pos_t pos, pos_t target, pos_t pos_offset);
+      rg::pos_t _build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr,
+                                  pos_t pos, pos_t target, pos_t pos_offset);
 
 
     private:

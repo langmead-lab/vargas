@@ -48,8 +48,8 @@ namespace vargas {
   class GraphGen {
     public:
       GraphGen() = default;
-      GraphGen(const std::string &filename, bool build=true) {
-          open(filename, build);
+      GraphGen(const std::string &filename) {
+          open(filename);
       }
 
       /**
@@ -78,7 +78,7 @@ namespace vargas {
        */
       void write(const std::string &filename);
 
-      void open(const std::string &filename, bool build=true);
+      void open(const std::string &filename);
 
 
 

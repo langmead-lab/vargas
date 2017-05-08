@@ -359,6 +359,7 @@ namespace rg {
   template<typename T>
   std::string vec_to_str(const std::vector<T> &v, const std::string sep = ", ") {
       std::stringstream os;
+      if (!v.size()) return "";
       os << v[0];
       for (unsigned i = 1; i < v.size(); ++i) {
           os << sep << v[i];

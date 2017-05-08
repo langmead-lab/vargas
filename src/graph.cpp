@@ -185,27 +185,29 @@ void vargas::GraphFactory::build(vargas::Graph &g, pos_t pos_offset) {
         }
     }
 
-    int curr = vf.region().min; // The Graph has been built up to this position, exclusive
+    rg::pos_t curr = vf.region().min; // The Graph has been built up to this position, exclusive
     std::unordered_set<unsigned> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
     std::unordered_set<unsigned> curr_unconnected; // ID's of nodes added that are unconnected
 
-    g.set_popsize(vf.num_samples());
+    size_t num_samples = vf.num_samples() > 0 ? vf.num_samples() : 1;
+    g.set_popsize(num_samples);
     const Graph::Population all_pop(g.pop_size(), true);
     g.set_filter(all_pop);
 
+    rg::pos_t prevpos = curr; // Used to validate that VCF is sorted
 
     while (vf.next()) {
-        auto &af = vf.frequencies();
+        if (vf.pos() < prevpos) throw std::invalid_argument("VCF file should be sorted by position.");
+        else prevpos = vf.pos();
 
+        auto &af = vf.frequencies();
         curr = _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.pos(), pos_offset);
         assert(_fa.subseq(_vf->region().seq_name, curr, curr + vf.ref().length() - 1) == vf.ref() &&
         ("Variant and FASTA Reference does not match at position " + std::to_string(curr)) != "");
 
         curr += vf.ref().length();
 
-        // Add variant nodes
         // Positions of variant nodes are referenced to ref node
-        // ref node
         {
             Graph::Node n;
             n.set_endpos(curr - 1 + pos_offset);
@@ -255,7 +257,7 @@ void vargas::GraphFactory::_build_edges(vargas::Graph &g, std::unordered_set<uns
 }
 
 
-int vargas::GraphFactory::_build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr,
+rg::pos_t vargas::GraphFactory::_build_linear_ref(Graph &g, std::unordered_set<unsigned> &prev, std::unordered_set<unsigned> &curr,
                                             pos_t pos, pos_t target, pos_t pos_offset) {
 
     if (target == 0) target = _fa.seq_len(_vf->region().seq_name);

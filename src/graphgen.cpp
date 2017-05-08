@@ -65,7 +65,7 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
     unsigned offset = 0;
 
     for (auto reg : region) {
-        if (print) std::cerr << "Building \"" << reg.seq_name << "(offset: " << offset << ")" << "\"...\n";
+        if (print) std::cerr << "Building \"" << reg.seq_name << "\" (offset: " << offset << ")..." << std::endl;
         GraphFactory gf(fasta, vcf);
         gf.add_sample_filter(sample_filter);
         gf.set_region(reg);
@@ -130,7 +130,7 @@ void vargas::GraphGen::write(const std::string &filename) {
     std::ios::sync_with_stdio(true);
 }
 
-void vargas::GraphGen::open(const std::string &filename, bool build) {
+void vargas::GraphGen::open(const std::string &filename) {
     std::ifstream in(filename);
     if (!in.good()) throw std::invalid_argument("Error opening file: " + filename);
 

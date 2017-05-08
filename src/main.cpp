@@ -436,7 +436,7 @@ int query_main(int argc, char *argv[]) {
 
     vargas::GraphGen gg;
     if (dot.size() || stat.size()) gg.open(gdef);
-    else gg.open(gdef, false);
+    else gg.open(gdef);
 
     if (dot.size()) {
         if (out == "stdout") std::cout << gg.at(dot)->to_DOT(dot);
@@ -452,18 +452,6 @@ int query_main(int argc, char *argv[]) {
 
     if (meta.size()) {
         throw std::domain_error("Not implemented.");
-//        if (meta == "-") {
-//            auto j = gg.get_json()["meta"];
-//            json patch = R"([{"op":"remove", "path":"/samples"}])";
-//            j.patch(patch);
-//            std::cerr <<j.dump(4);
-//        }
-//        else {
-//            auto j = gg.get_json()[meta]["def"];
-//            json patch = R"([{"op":"remove", "path":"/population"}])";
-//            j.patch(patch);
-//            std::cerr << j.dump(4);
-//        }
     }
 
     return 0;
@@ -473,15 +461,13 @@ int query_main(int argc, char *argv[]) {
 void main_help() {
     using std::cerr;
     using std::endl;
-    cerr << endl
-         << "---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------\n";
+    cerr << "\n---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------\n";
     cerr << "define          Define a set of graphs for use with sim and align.\n";
     cerr << "sim             Simulate reads from a set of graphs.\n";
     cerr << "align           Align reads to a set of graphs.\n";
     cerr << "convert         Convert a SAM file to a CSV file.\n";
     cerr << "query           Pull a region from a Graph/VCF/FASTA file.\n";
-    cerr << "test            Run unit tests.\n";
-    cerr << "Compiled for architecture: ";
+    cerr << "test            Run unit tests.\n\n";
 
 }
 

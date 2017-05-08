@@ -11,9 +11,14 @@
  * ASM is same for native_t = [unsigned] char using compliant code, but not for Intel compiler.
  * Compliant access option:
  *
- * native_t buf;
- * std::memcpy(&buf, reinterpret_cast<char>(&v) + (i*sizeof(native_t)), sizeof(native_t));
- * return buf;
+ * @code{.cpp}
+ * __RG_STRONG_INLINE__
+ * native_t &operator[](const int i) {
+ *     native_t buf;
+ *     std::memcpy(&buf, reinterpret_cast<char>(&v) + (i*sizeof(native_t)), sizeof(native_t));
+ *     return buf;
+ * }
+ * @endcode
  *
  * @file
  */
@@ -156,27 +161,40 @@ namespace vargas {
       __RG_STRONG_INLINE__ SIMD<T, N> and_not(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ bool any() const;
 
-      __RG_STRONG_INLINE__ native_t &operator[](const int i) {
+      __RG_STRONG_INLINE__
+      native_t &operator[](const int i) {
           return reinterpret_cast<native_t *>(&v)[i];
       };
-      __RG_STRONG_INLINE__ SIMD<T, N> operator!() const {
+
+      __RG_STRONG_INLINE__
+      SIMD<T, N> operator!() const {
           // XOR with all ones
           return v ^ (v == v);
       };
-      __RG_STRONG_INLINE__ SIMD<T, N> &operator=(const SIMD<T, N> &o) {
+
+      __RG_STRONG_INLINE__
+      SIMD<T, N> &operator=(const SIMD<T, N> &o) {
           v = o.v;
           return *this;
       };
-      __RG_STRONG_INLINE__ SIMD<T, N> operator>=(const SIMD<T, N> &o) const {
+
+      __RG_STRONG_INLINE__
+      SIMD<T, N> operator>=(const SIMD<T, N> &o) const {
           return !(*this < o);
       };
-      __RG_STRONG_INLINE__ SIMD<T, N> operator<=(const SIMD<T, N> &o) const {
+
+      __RG_STRONG_INLINE__
+      SIMD<T, N> operator<=(const SIMD<T, N> &o) const {
           return !(*this > o);
       };
-      __RG_STRONG_INLINE__ SIMD<T, N> operator!=(const SIMD<T, N> &o) const {
+
+      __RG_STRONG_INLINE__
+      SIMD<T, N> operator!=(const SIMD<T, N> &o) const {
           return !(*this == o);
       };
-      __RG_STRONG_INLINE__ explicit operator bool() const {
+
+      __RG_STRONG_INLINE__
+      explicit operator bool() const {
           return any();
       };
 
@@ -250,10 +268,12 @@ namespace vargas {
       return _mm_andnot_si128(o.v, v);
   }
 
-  __RG_STRONG_INLINE__ int8x16 max(const int8x16 &a, const int8x16 &b) {
+  __RG_STRONG_INLINE__
+  int8x16 max(const int8x16 &a, const int8x16 &b) {
       return _mm_max_epi8(a.v, b.v);
   }
-  __RG_STRONG_INLINE__ int8x16 blend(const int8x16 &mask, const int8x16 &t, const int8x16 &f) {
+  __RG_STRONG_INLINE__
+  int8x16 blend(const int8x16 &mask, const int8x16 &t, const int8x16 &f) {
       return _mm_blendv_epi8(f.v, t.v, mask.v);
   }
 
@@ -304,10 +324,12 @@ namespace vargas {
       return _mm_andnot_si128(o.v, v);
   }
 
-  __RG_STRONG_INLINE__ int16x8 max(const int16x8 &a, const int16x8 &b) {
+  __RG_STRONG_INLINE__
+  int16x8 max(const int16x8 &a, const int16x8 &b) {
       return _mm_max_epi16(a.v, b.v);
   }
-  __RG_STRONG_INLINE__ int16x8 blend(const int16x8 &mask, const int16x8 &t, const int16x8 &f) {
+  __RG_STRONG_INLINE__
+  int16x8 blend(const int16x8 &mask, const int16x8 &t, const int16x8 &f) {
       return _mm_blendv_epi8(f.v, t.v, mask.v);
   }
 
@@ -352,10 +374,12 @@ namespace vargas {
   int8x32 int8x32::and_not(const int8x32 &o) const {
       return _mm256_andnot_si256(o.v, v);
   }
-  __RG_STRONG_INLINE__ int8x32 max(const int8x32 &a, const int8x32 &b) {
+  __RG_STRONG_INLINE__
+  int8x32 max(const int8x32 &a, const int8x32 &b) {
       return _mm256_max_epi8(a.v, b.v);
   }
-  __RG_STRONG_INLINE__ int8x32 blend(const int8x32 &mask, const int8x32 &t, const int8x32 &f) {
+  __RG_STRONG_INLINE__
+  int8x32 blend(const int8x32 &mask, const int8x32 &t, const int8x32 &f) {
       return _mm256_blendv_epi8(f.v, t.v, mask.v);
   }
 
@@ -395,10 +419,12 @@ namespace vargas {
   int16x16 int16x16::and_not(const int16x16 &o) const {
       return _mm256_andnot_si256(o.v, v);
   }
-  __RG_STRONG_INLINE__ int16x16 max(const int16x16 &a, const int16x16 &b) {
+  __RG_STRONG_INLINE__
+  int16x16 max(const int16x16 &a, const int16x16 &b) {
       return _mm256_max_epi16(a.v, b.v);
   }
-  __RG_STRONG_INLINE__ int16x16 blend(const int16x16 &mask, const int16x16 &t, const int16x16 &f) {
+  __RG_STRONG_INLINE__
+  int16x16 blend(const int16x16 &mask, const int16x16 &t, const int16x16 &f) {
       return _mm256_blendv_epi8(f.v, t.v, mask.v);
   }
 

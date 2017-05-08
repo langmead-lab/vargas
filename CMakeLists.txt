@@ -1,3 +1,7 @@
+# Available Macros:
+# BUILD_PHI If set to 'ON' build for Xeon Phi
+# CMAKE_BUILD_TYPE One of Release, Debug, RelWithDebInfo
+
 cmake_minimum_required(VERSION 2.8)
 
 project("vargas")
@@ -42,17 +46,17 @@ set(HEADERS
         include/simd.h)
 
 option(BUILD_PHI "Build for Xeon Phi, requires icpc" OFF)
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -no-inline-max-size -qoverride-limits -qopt-report=4")
-endif ()
+endif()
 
-if (BUILD_PHI)
+if(BUILD_PHI)
     message("   Building for Xeon Phi")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -xMIC-AVX512 -DVA_SIMD_USE_AVX2")
-else ()
+else()
     message("   Building for SSE4.1")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1 -DVA_SIMD_USE_SSE")
-endif ()
+endif()
 
 add_executable(vargas ${MAIN_SOURCES})
 target_link_libraries(vargas hts)

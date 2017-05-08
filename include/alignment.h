@@ -394,6 +394,8 @@ namespace vargas {
       void align_into(const std::vector<std::string> &read_group, const std::vector<pos_t> &targets,
                       Graph::const_iterator begin, Graph::const_iterator end, Results &aligns) override {
 
+
+
           assert(targets.size() == read_group.size());
 
           const unsigned num_groups = 1 + ((read_group.size() - 1) / read_capacity());
@@ -498,18 +500,18 @@ namespace vargas {
                      std::unordered_map<unsigned, _seed<simd_t>> &seed_map, _seed<simd_t> &seed) const {
           if (prev_ids.size() == 0) {
               _seed_matrix(seed);
-              return;
           }
+          else {
+              for (unsigned i = 1; i < _read_len + 1; ++i) {
+                  const auto &s = seed_map.at(prev_ids[0]);
+                  seed.S_col[i] = s.S_col[i];
+                  seed.I_col[i] = s.I_col[i];
 
-          for (unsigned i = 1; i < _read_len + 1; ++i) {
-              const auto &s = seed_map.at(prev_ids[0]);
-              seed.S_col[i] = s.S_col[i];
-              seed.I_col[i] = s.I_col[i];
-
-              for (unsigned p = 1; p < prev_ids.size(); ++p) {
-                  const auto &s = seed_map.at(prev_ids[p]);
-                  seed.S_col[i] = max(seed.S_col[i], s.S_col[i]);
-                  seed.I_col[i] = max(seed.I_col[i], s.I_col[i]);
+                  for (unsigned p = 1; p < prev_ids.size(); ++p) {
+                      const auto &s = seed_map.at(prev_ids[p]);
+                      seed.S_col[i] = max(seed.S_col[i], s.S_col[i]);
+                      seed.I_col[i] = max(seed.I_col[i], s.I_col[i]);
+                  }
               }
           }
 
@@ -540,6 +542,7 @@ namespace vargas {
           _S = s.S_col;
           _Ic = s.I_col;
           for (const rg::Base ref_base : n) {
+
               _Sd = _bias;
               for (unsigned r = 0; r < _read_len; ++r) {
                   _fill_cell(read_group[r], ref_base, r + 1, curr_pos);
