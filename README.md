@@ -159,7 +159,7 @@ Usage:
 
  Optional options:
   -t, --out arg       <str> Output file. (default: stdout)
-  -s, --sub arg       <S1,S2..> Subgraphs to simulate from. (default: all)
+  -s, --sub arg       <S1,S2..> Subgraphs to simulate from. (default: base)
   -f, --file          -s specifies a filename.
   -l, --rlen arg      <N> Read length. (default: 50)
   -n, --numreads arg  <N> Number of reads to generate. (default: 1000)
@@ -176,13 +176,25 @@ Usage:
 ```
 
 
-`sim` uses a GDEF file and generates `-n` reads of each combination of `-m`, `-i`, `-v`, and `-b`. `-m` Introduces mutation errors, substituting n bases with an alternate base. Likewise, `-i` will delete a base or insert a random base. With `-a`, `-m` and `-i` are interpreted as rates (0 to 1). `-s` controls which subgraphs are used to generate reads. By default, all graphs in the GDEF file are used, and their complements (outgroup).
+`sim` generates `-n` reads of each combination of `-m`, `-i`, `-v`, and `-b`. `-m` Introduces mutation errors, substituting _N_ bases with an alternate base. Likewise, `-i` will delete a base or insert a random base. With `-a`, `-m` and `-i` are interpreted as rates (0.0 to 1.0). `-s` controls which subgraphs are used to generate reads.
 
 For example:
 
     vargas sim -g test.gdef -t reads -n 1000 -m 0,1,2 -v 0,1,2 -j 12
 
 will generate 1000 reads for each combination of `-m`, `-v`, for each graph in `test.gdef`.
+
+Provided SAM tags:
+
+- `ro` Unmutated read
+- `nd` VCF sample simulated from
+- `se` Number of substitution errors
+- `vd` Number of variant nodes traversed
+- `vb` Number of variant bases traversed
+- `ni` Number of indel errors
+- `gd` Read Group tag. Graph simulated from.
+- `rt` Read Group tag. Rates were used.
+- `ph` Read Group tag. GDEF file.
 
 
 ## query

@@ -23,16 +23,9 @@
 #define SIM_SAM_VAR_NODES_TAG "vd" // Number of variant nodes traversed
 #define SIM_SAM_VAR_BASE_TAG "vb" // Number of variant bases traversed
 #define SIM_SAM_INDEL_ERR_TAG "ni" // Number of indel errors
-#define SIM_SAM_END_POS_TAG "ep" // Position of the last base in the seq
 #define SIM_SAM_SRC_TAG "gd" // Origin subgraph label
 #define SIM_SAM_USE_RATE_TAG "rt" // Errors were generated with rates rather than discrete numbers
-#define SIM_SAM_POPULATION "po" // Which samples were included in the subgraph
 #define SIM_SAM_GRAPH_TAG "ph" // graph file
-
-// SAM CIGAR modification types
-#define SIM_CIGAR_ALIGNED 'M'
-#define SIM_CIGAR_INSERT 'I'
-#define SIM_CIGAR_DEL 'D'
 
 // Tags defining meta information in FASTA read names
 #define READ_META_END "pos"
@@ -46,7 +39,7 @@
 #include <stdexcept>
 
 #include "sam.h"
-#include "graph.h"
+#include "graphman.h"
 
 namespace vargas {
 
@@ -192,15 +185,16 @@ namespace vargas {
        * Generate and store an updated read.
        * @return true if successful
        */
-      bool update_read();
+      bool update_read(const coordinate_resolver resolver);
 
       /**
        * @brief
        * Get size reads. If more reads are not available, a undersized
        * batch is returned.
        * @param size nominal number of reads to get.
+       * @param resolver coordinate_resolver
        */
-      const std::vector<SAM::Record> &get_batch(unsigned size);
+      const std::vector<SAM::Record> &get_batch(unsigned size, const coordinate_resolver resolver);
 
       /**
        * @brief
@@ -284,7 +278,7 @@ namespace vargas {
                                             _node_weight_dist(_rand_generator)) - _node_weights.begin()];
       }
 
-      bool _update_read();
+      bool _update_read(const coordinate_resolver resolver);
 
   };
 

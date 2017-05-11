@@ -21,7 +21,7 @@
 
 #include "main.h"
 #include "align_main.h"
-#include "graphgen.h"
+#include "graphman.h"
 #include <iostream>
 #include <thread>
 #include <algorithm>
@@ -91,7 +91,7 @@ int define_main(int argc, char *argv[]) {
         throw std::invalid_argument("FASTA file required.");
     }
 
-    vargas::GraphGen gm;
+    vargas::GraphMan gm;
     if (sample_filter.length()) {
         std::ifstream in(sample_filter);
         if (!in.good()) throw std::invalid_argument("Error opening file: \"" + sample_filter + "\"");
@@ -139,19 +139,21 @@ int sim_main(int argc, char *argv[]) {
     try {
         opts.add_options("Required")
         ("g,graph", "<str> *Graph definition file.", cxxopts::value(gdf_file));
+
         opts.add_options("Optional")
         ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
-        ("s,sub", "<S1,S2..> Subgraphs to simulate from. (default: all)", cxxopts::value(sim_src))
+        ("s,sub", "<S1,...> Subgraphs to simulate from. (default: base)", cxxopts::value(sim_src))
         ("f,file", "-s specifies a filename.", cxxopts::value(sim_src_isfile))
         ("l,rlen", "<N> Read length.", cxxopts::value(read_len)->default_value("50"))
         ("n,numreads", "<N> Number of reads to generate.", cxxopts::value(num_reads)->default_value("1000"))
         ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"));
+
         opts.add_options("Stratum")
-        ("v,vnodes", "<N1,N2...> Variant nodes. \'*\' for any.", cxxopts::value(vnodes)->default_value("*"))
-        ("b,vbases", "<N1,N2...> Variant bases. \'*\' for any.", cxxopts::value(vbases)->default_value("*"))
-        ("m,mut", "<N1,N2...> Mutations. \'*\' for any.", cxxopts::value(mut)->default_value("0"))
-        ("i,indel", "<N1,N2...> Insertions/deletions. \'*\' for any.", cxxopts::value(indel)->default_value("0"))
-        ("a,rate", "Interpret -m, -i as error rates.", cxxopts::value(use_rate));
+        ("v,vnodes", "<N1,...> Variant nodes. \'*\' for any.", cxxopts::value(vnodes)->default_value("*"))
+        ("b,vbases", "<N1,...> Variant bases. \'*\' for any.", cxxopts::value(vbases)->default_value("*"))
+        ("m,mut", "<N1,...> Mutations. \'*\' for any.", cxxopts::value(mut)->default_value("0"))
+        ("i,indel", "<N1,...> Insertions/deletions. \'*\' for any.", cxxopts::value(indel)->default_value("0"))
+        ("a,rate", "Interpret -m, -i as rates.", cxxopts::value(use_rate));
         opts.add_options()
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
@@ -170,7 +172,6 @@ int sim_main(int argc, char *argv[]) {
     #endif
 
     vargas::SAM::Header sam_hdr;
-
     {
         vargas::SAM::Header::Program pg;
         pg.command_line = cl;
@@ -181,7 +182,7 @@ int sim_main(int argc, char *argv[]) {
         sam_hdr.add(pg);
     }
 
-    vargas::GraphGen gm;
+    vargas::GraphMan gm;
 
     const std::vector<std::string>
     mut_split = rg::split(mut, ','),
@@ -204,9 +205,7 @@ int sim_main(int argc, char *argv[]) {
 
     std::vector<std::string> subdef_split;
     if (sim_src.length() == 0) {
-        // Use all subgraphs. If there are none, use the base graph
-        subdef_split = gm.labels();
-        if (subdef_split.size() == 0) subdef_split.push_back("base");
+        subdef_split.push_back("base");
     } else {
         std::replace(sim_src.begin(), sim_src.end(), '\n', ',');
         sim_src.erase(std::remove_if(sim_src.begin(), sim_src.end(), isspace), sim_src.end());
@@ -299,7 +298,7 @@ int sim_main(int argc, char *argv[]) {
         const std::string label = task_list.at(n).first;
         auto subgraph_ptr = gm.at(label);
         vargas::Sim sim(*subgraph_ptr, task_list.at(n).second.second);
-        auto results = sim.get_batch(num_reads);
+        auto results = sim.get_batch(num_reads, gm.resolver());
         for (auto &r : results) r.aux.set("RG", task_list.at(n).second.first);
         #pragma omp critical(sam_out)
         {
@@ -463,7 +462,7 @@ int query_main(int argc, char *argv[]) {
         throw std::invalid_argument("No graph specified.");
     }
 
-    vargas::GraphGen gg;
+    vargas::GraphMan gg;
     if (dot.size() || stat.size()) gg.open(gdef);
     else gg.open(gdef);
 

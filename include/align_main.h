@@ -35,7 +35,7 @@
 
 #include "cxxopts.hpp"
 #include "sam.h"
-#include "graphgen.h"
+#include "graphman.h"
 
 #include <stdexcept>
 
@@ -53,7 +53,7 @@ namespace vargas {
  */
 int align_main(int argc, char *argv[]);
 
-void align(vargas::GraphGen &gm,
+void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners);
 

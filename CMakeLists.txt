@@ -29,7 +29,7 @@ set(MAIN_SOURCES
         src/sam.cpp
         src/align_main.cpp
         src/scoring.cpp
-        src/graphgen.cpp)
+        src/graphman.cpp)
 
 set(HEADERS
         include/alignment.h

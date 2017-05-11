@@ -15,7 +15,7 @@
 
 #include "sim.h"
 
-bool vargas::Sim::_update_read() {
+bool vargas::Sim::_update_read(const coordinate_resolver resolver) {
 
     uint32_t curr_indiv = 0, curr_node;
     const bool has_pop = _graph.pop_size() != 0;
@@ -33,7 +33,7 @@ bool vargas::Sim::_update_read() {
     do {
         curr_node = _random_node_id();
     } while (has_pop && !_nodes.at(curr_node).belongs(curr_indiv));
-    unsigned curr_pos = rand() % _nodes.at(curr_node).length();
+    rg::pos_t curr_pos = rand() % _nodes.at(curr_node).length();
 
 
     int var_bases = 0;
@@ -156,16 +156,18 @@ bool vargas::Sim::_update_read() {
     _read.aux.set(SIM_SAM_SUB_ERR_TAG, sub_err);
 
     // +1 from length being 1 indexed but end() being zero indexed, +1 since POS is 1 indexed.
-    _read.pos = _nodes.at(curr_node).end_pos() - _nodes.at(curr_node).length() + 2 + curr_pos - _prof.len;
+    auto resolved = resolver.resolve(_nodes.at(curr_node).end_pos() - _nodes.at(curr_node).length() + 2 + curr_pos - _prof.len);
+    _read.pos = resolved.second;
+    if (resolved.first.size()) _read.ref_name = resolved.first;
 
     _read.aux.set(SIM_SAM_READ_ORIG_TAG, read_str);
 
     return true;
 }
-bool vargas::Sim::update_read() {
+bool vargas::Sim::update_read(const coordinate_resolver resolver) {
     // Call internal function. update_read is a wrapper to prevent stack overflow
     unsigned counter = 0;
-    while (!_update_read()) {
+    while (!_update_read(resolver)) {
         ++counter;
         if (counter == _abort_after) {
             std::cerr << "Failed to generate read after " << _abort_after
@@ -175,11 +177,11 @@ bool vargas::Sim::update_read() {
     }
     return true;
 }
-const std::vector<vargas::SAM::Record> &vargas::Sim::get_batch(unsigned size) {
+const std::vector<vargas::SAM::Record> &vargas::Sim::get_batch(unsigned size, const coordinate_resolver resolver) {
     _batch.clear();
     if (size == 0) return _batch;
     for (unsigned i = 0; i < size; ++i) {
-        if (!update_read()) break;
+        if (!update_read(resolver)) break;
         _batch.push_back(_read);
     }
     return _batch;
@@ -287,13 +289,13 @@ TEST_CASE ("Read sim") {
     prof.len = 5;
 
     sim.set_prof(prof);
-    CHECK(sim.update_read());
+    CHECK(sim.update_read(vargas::coordinate_resolver()));
     {
         auto rec = sim.get_read();
         CHECK(rec.seq.length() == 5);
     }
     {
-        auto rec = sim.get_batch(10);
+        auto rec = sim.get_batch(10, vargas::coordinate_resolver());
         CHECK(rec.size() == 10);
         for (const auto &r : rec) {
             CHECK(r.seq.length() == 5);

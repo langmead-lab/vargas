@@ -29,6 +29,27 @@
 
 namespace vargas {
 
+  /**
+   * @brief
+   * Resolve graph coords to a contig and position.
+   */
+  struct coordinate_resolver {
+      /**
+       * @brief
+       * Return the contig and position relative to the contig beginning.
+       * @param pos offset position, 1 indexed
+       * @return pair <contig name, position>
+       */
+      std::pair<std::string, unsigned> resolve(unsigned pos) const {
+          if (_contig_offsets.size() == 0) return {"", pos};
+          std::map<unsigned, std::string>::const_iterator lb = _contig_offsets.lower_bound(pos);
+          if (lb != _contig_offsets.begin()) --lb; // For rare case that pos = 0
+          return {lb->second, pos - lb->first};
+      }
+
+      std::map<unsigned, std::string> _contig_offsets; // Maps an offset to contig
+  };
+
   /*
    * @brief
    * Handle graph generation and file IO
@@ -59,10 +80,10 @@ namespace vargas {
    *
    * @endcode
    */
-  class GraphGen {
+  class GraphMan {
     public:
-      GraphGen() = default;
-      GraphGen(const std::string &filename) {
+      GraphMan() = default;
+      GraphMan(const std::string &filename) {
           open(filename);
       }
 
@@ -100,16 +121,25 @@ namespace vargas {
        * @param pos offset position, 1 indexed
        * @return pair <contig name, position>
        */
-      std::pair<std::string, unsigned> absolute_position(unsigned pos) const;
+      std::pair<std::string, unsigned> absolute_position(unsigned pos) const {
+          return _resolver.resolve(pos);
+      };
+
+      /**
+       * @return Object to resolve coordinates with.
+       */
+      coordinate_resolver resolver() const {
+          return _resolver;
+      }
 
       size_t count(std::string label) const {
           return _graphs.count(label);
       }
 
-      std::shared_ptr<Graph> at(std::string label) {
+      std::shared_ptr<Graph> at(std::string label) const {
           std::transform(label.begin(), label.end(), label.begin(), tolower);
           if (!count(label)) throw std::domain_error("No graph named \"" + label + "\"");
-          return _graphs[label];
+          return _graphs.at(label);
       }
 
       std::shared_ptr<Graph> operator[](std::string label) {
@@ -142,7 +172,7 @@ namespace vargas {
     private:
       std::shared_ptr<Graph::nodemap_t> _nodes;
       std::map<std::string, std::shared_ptr<vargas::Graph>> _graphs; // Map label to a graph
-      std::map<unsigned, std::string> _contig_offsets; // Maps an offset to contig
+      coordinate_resolver _resolver;
       std::map<std::string, std::string> _aux;
   };
 }

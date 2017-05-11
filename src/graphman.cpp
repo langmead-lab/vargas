@@ -16,11 +16,11 @@
 
 #include <iomanip>
 #include <iterator>
-#include "graphgen.h"
+#include "graphman.h"
 
 
 std::shared_ptr<vargas::Graph>
-vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, std::vector<vargas::Region> region,
+vargas::GraphMan::create_base(const std::string fasta, const std::string vcf, std::vector<vargas::Region> region,
                               std::string sample_filter, bool print) {
 
     if (_nodes == nullptr) _nodes = std::make_shared<Graph::nodemap_t>();
@@ -65,7 +65,7 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
         gf.set_region(reg);
         auto g = gf.build(offset);
         if (print) std::cerr << g.statistics().to_string() << "\n";
-        _contig_offsets[offset] = reg.seq_name;
+        _resolver._contig_offsets[offset] = reg.seq_name;
         offset = g.rbegin()->end_pos() + 1;
         _graphs["base"]->assimilate(g);
     }
@@ -80,7 +80,7 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
     return _graphs["base"];
 }
 
-void vargas::GraphGen::write(const std::string &filename) {
+void vargas::GraphMan::write(const std::string &filename) {
     std::ios::sync_with_stdio(false);
     std::ofstream of(filename);
     if (!of.good()) throw std::invalid_argument("Error opening file: " + filename);
@@ -93,7 +93,7 @@ void vargas::GraphGen::write(const std::string &filename) {
 
     // Contigs
     of << "\n@contigs\n";
-    for (auto &o : _contig_offsets) {
+    for (auto &o : _resolver._contig_offsets) {
         of << o.first << '\t' << o.second << '\n';
     }
 
@@ -119,7 +119,7 @@ void vargas::GraphGen::write(const std::string &filename) {
     std::ios::sync_with_stdio(true);
 }
 
-void vargas::GraphGen::open(const std::string &filename) {
+void vargas::GraphMan::open(const std::string &filename) {
     std::ifstream in(filename);
     if (!in.good()) throw std::invalid_argument("Error opening file: " + filename);
 
@@ -130,7 +130,7 @@ void vargas::GraphGen::open(const std::string &filename) {
     std::vector<std::string> tokens;
     _aux.clear();
     _graphs.clear();
-    _contig_offsets.clear();
+    _resolver._contig_offsets.clear();
     _nodes = std::make_shared<Graph::nodemap_t>();
 
     while (std::getline(in, line) && line[0] != '@') {
@@ -147,7 +147,7 @@ void vargas::GraphGen::open(const std::string &filename) {
         if (!line.size()) continue;
         rg::split(line, '\t', tokens);
         if (tokens.size() != 2) throw std::domain_error("Invalid contig def: " + line);
-        _contig_offsets[std::stoul(tokens[0])] = tokens[1];
+        _resolver._contig_offsets[std::stoul(tokens[0])] = tokens[1];
     }
 
     assert(line == "@graphs");
@@ -205,13 +205,7 @@ void vargas::GraphGen::open(const std::string &filename) {
     }
 }
 
-std::pair<std::string, unsigned> vargas::GraphGen::absolute_position(unsigned pos) const {
-    std::map<unsigned, std::string>::const_iterator lb = _contig_offsets.lower_bound(pos);
-    if (lb != _contig_offsets.begin()) --lb; // For rare case that pos = 0
-    return {lb->second, pos - lb->first};
-}
-
-std::string vargas::GraphGen::derive(std::string def) {
+std::string vargas::GraphMan::derive(std::string def) {
     std::transform(def.begin(), def.end(), def.begin(), tolower);
 
     std::string ancestor, label, assignment;
@@ -294,7 +288,7 @@ ACGTACGAC
     o << jstr;
     o.close();
 
-    vargas::GraphGen gg;
+    vargas::GraphMan gg;
     gg.open(jfile);
     {
         REQUIRE(gg.count("base"));
@@ -446,7 +440,7 @@ TEST_CASE("Write graph") {
     }
 
     SUBCASE("Derive") {
-        vargas::GraphGen gg;
+        vargas::GraphMan gg;
         gg.create_base(tmpfa, tmpvcf);
         auto label = gg.derive("a=1");
         auto &&g = *gg.at(label);
@@ -461,7 +455,7 @@ TEST_CASE("Write graph") {
     }
 
     SUBCASE("All regions") {
-        vargas::GraphGen gg;
+        vargas::GraphMan gg;
         const std::vector<vargas::Region> reg = {vargas::Region("x", 0, 15), vargas::Region("y", 0, 15)};
         auto base = gg.create_base(tmpfa, tmpvcf, reg);
         auto giter = base->begin();

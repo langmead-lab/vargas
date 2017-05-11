@@ -44,8 +44,8 @@ int align_main(int argc, char *argv[]) {
         opts.add_options("Optional")
         ("t,out", "<str> Output file.", cxxopts::value(out_file))
         ("p,subsample", "<N> Sample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
-        ("a,alignto", "<str> Align specific SAM read groups to specific subgraphs.\"RG:ID:<group>,<target_graph>;...\"", cxxopts::value(align_targets))
-        ("s,assess", "[ID] Use score profile from a previous alignment, and target nearby alignments.", cxxopts::value(pgid)->implicit_value("-"))
+        ("a,alignto", "<str> Target graph, or SAM Read Group -> graph mapping.\"(RG:ID:<group>,<target_graph>;)+|<graph>\"", cxxopts::value(align_targets))
+        ("s,assess", "[ID] Use score profile from a previous alignment, and target nearby alignments.", cxxopts::value(pgid)->implicit_value("."))
         ("c,tolerance", "<N> Correct if within readlen/N.", cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())));
 
         opts.add_options("Scoring")
@@ -83,6 +83,9 @@ int align_main(int argc, char *argv[]) {
                   << vargas::Aligner::read_capacity() << std::endl;
     }
 
+    if (opts.count("assess") && format != ReadFmt::SAM) {
+        throw std::invalid_argument("Assess is only available for SAM inputs.");
+    }
     if (align_targets.size() > 0 && format != ReadFmt::SAM) {
         throw std::invalid_argument("Alignment targets only available for SAM inputs.");
     }
@@ -107,7 +110,7 @@ int align_main(int argc, char *argv[]) {
     auto &reads_hdr = reads.header();
 
     vargas::ScoreProfile prof(match, mismatch, gopen, gext);
-    if (pgid == "-") {
+    if (pgid == ".") {
         bool check = false;
         for (const auto &i : reads.header().programs) {
             if (std::find(vargas::supported_pgid.begin(), vargas::supported_pgid.end(), i.first)
@@ -174,7 +177,7 @@ int align_main(int argc, char *argv[]) {
     for (const auto &gdef : files) {
         std::cerr << "\nLoading \"" << gdef << "\"... ";
         auto start_time = std::chrono::steady_clock::now();
-        vargas::GraphGen gm(gdef);
+        vargas::GraphMan gm(gdef);
         std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
         align(gm, task_list, aligners);
@@ -199,7 +202,7 @@ int align_main(int argc, char *argv[]) {
     return 0;
 }
 
-void align(vargas::GraphGen &gm, std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
+void align(vargas::GraphMan &gm, std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners) {
 
     std::cerr << "Aligning... " << std::flush;
@@ -311,6 +314,17 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
         }
     }
 
+    // Specify a single target graph
+    if (alignment_pairs.size() == 1) {
+        auto target = rg::split(alignment_pairs[0], ',');
+        if (target.size() == 1) {
+            alignment_pairs.clear();
+            for (const auto &p : read_groups) {
+                alignment_pairs.push_back("RG:ID:" + p.first + "," + target[0]);
+            }
+        }
+    }
+
     // Maps target graph to read group ID's
     std::unordered_map<std::string, std::vector<std::string>> alignment_rg_map;
 
@@ -336,7 +350,6 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
         }
 
     }
-
 
     std::cerr << rg::chrono_duration(start_time) << "s." << std::endl;
 
@@ -522,7 +535,7 @@ TEST_CASE ("Coordinate System Matches") {
     vargas::Sim sim(g, prof);
 
     vargas::Aligner aligner(5);
-    auto reads = sim.get_batch(aligner.read_capacity()*2);
+    auto reads = sim.get_batch(aligner.read_capacity()*2, vargas::coordinate_resolver());
 
     std::vector<std::string> seqs;
     std::vector<unsigned> targets;
