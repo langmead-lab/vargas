@@ -5,8 +5,13 @@
  *
  * @brief
  * FASTAFile provides an interface to a FASTA formatted file through htslib. Implementation.
+ *
  * @details
  * An index is created for the opened file if it does not exist.
+ *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
  */
 
 #include "fasta.h"

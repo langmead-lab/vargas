@@ -5,8 +5,14 @@
  *
  * @brief
  * FASTAFile provides an interface to a FASTA formatted file through htslib.
+ *
  * @details
  * An index is created for the opened file if it does not exist.
+ *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  */
 
 #ifndef VARGAS_FASTA_H
@@ -15,6 +21,8 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
+
 #include "utils.h"
 #include "htslib/faidx.h"
 

@@ -12,6 +12,10 @@
  * size determined by the optimal hardware support. The default template
  * parameters support an 8 bit score.
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
@@ -31,6 +35,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <string>
+#include <stdexcept>
 
 
 #if VA_DEBUG_SW
@@ -676,7 +681,7 @@ namespace vargas {
 
           //TODO Could be relaxed - all indels or all mismatch is unreasonable
           if (!has_warned && (gopen + (gext * (read_len - 1)) > b || read_len * mismatch > b)) {
-              std::cerr << "WARN: Possibility of score saturation with parameters in end-to-end mode:\n\t"
+              std::cerr << "[warn] Possibility of score saturation with parameters in end-to-end mode:\n\t"
                         << "Cell Width: "
                         << (int) std::numeric_limits<native_t>::max() - (int) std::numeric_limits<native_t>::min()
                         << ", Bias: " << b << "\n";

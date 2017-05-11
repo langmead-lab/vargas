@@ -1,5 +1,5 @@
 # Available Macros:
-# BUILD_PHI If set to 'ON' build for Xeon Phi
+# BUILD_PHI If set to 'ON' build for Xeon Phi. Requires Intel compiler.
 # CMAKE_BUILD_TYPE One of Release, Debug, RelWithDebInfo
 
 cmake_minimum_required(VERSION 2.8)
@@ -47,7 +47,7 @@ set(HEADERS
 
 option(BUILD_PHI "Build for Xeon Phi, requires icpc" OFF)
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -no-inline-max-size -qoverride-limits -qopt-report=4")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -no-inline-max-size -qoverride-limits")
 endif()
 
 if(BUILD_PHI)

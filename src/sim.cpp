@@ -6,6 +6,10 @@
  * @brief
  * Simulates random reads from a graph, returning reads that follow a specified Sim::Profile.
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 

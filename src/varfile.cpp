@@ -6,6 +6,10 @@
  * @brief
  * Provides tools to interact with VCF/BCF files.
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 

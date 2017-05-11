@@ -6,6 +6,10 @@
  * @brief
  * Interface for simulating and aligning reads from/to a DAG.
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
@@ -15,6 +19,8 @@
 #include "graph.h"
 #include "sim.h"
 #include "cxxopts.hpp"
+
+#include <stdexcept>
 
 /**
  * Simulate reads from given graph definitions.
@@ -55,7 +61,6 @@ int query_main(int argc, char *argv[]);
 
 // Menus
 void main_help();
-void export_help(const cxxopts::Options &opts);
 void profile_help(const cxxopts::Options &opts);
 void sim_help(const cxxopts::Options &opts);
 void define_help(const cxxopts::Options &opts);

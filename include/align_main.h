@@ -6,6 +6,10 @@
  * @brief
  * Main aligner interface
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
@@ -32,6 +36,9 @@
 #include "cxxopts.hpp"
 #include "sam.h"
 #include "graphgen.h"
+
+#include <stdexcept>
+
 
 // Forward decl to prevent main.cpp recompilation for alignment.h changes
 namespace vargas {

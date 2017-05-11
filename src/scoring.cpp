@@ -6,6 +6,10 @@
  * @brief
  * Program CL parsing and scoring structs.
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 

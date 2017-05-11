@@ -8,7 +8,9 @@
  * Both file types are handled transparently by htslib. Records
  * are loaded into Reads.
  *
- * Implementation.
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
  *
  * @file
  */
@@ -372,11 +374,6 @@ void vargas::isam::open(std::istream &is) {
         hdr << _curr_line << '\n';
     }
     if (hdr.str().length() > 0) _hdr << hdr.str();
-
-    // FASTA -> SAM
-    if (_curr_line.at(0) == '>') {
-
-    }
 
     _pprec << _curr_line;
 }

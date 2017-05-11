@@ -19,7 +19,7 @@ When cloning, use the `--recursive` option to automatically retrieve dependencie
 Vargas relies on htslib to provide core file processing. Once cloned, the htslib is built with autoconf (version 2.63+).
 
     cd htslib
-    autoconf && ./configure && make
+    autoconf && ./configure && make -j4
 
 ## Compiling {#compile}
 
@@ -30,15 +30,16 @@ vargas is built with cmake.
     cd ..
     export PATH=${PWD}/bin:$PATH
 
-To  build for Xeon Phi using an intel compiler:
+To  build for Xeon Phi using an Intel compiler:
 
     cmake -DCMAKE_CXX_COMPILER=icpc -DBUILD_PHI=ON -DCMAKE_BUILD_TYPE=Release ..
-    make
+    make -j4
 
 Note `icpc` requires up to 35GB memory.
 Sometimes (like when using Modules) you may need to specify the compiler explicitly:
  
-    cmake -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release ..
+    module load cmake intel cxx11
+    cmake -DCMAKE_CXX_COMPILER=icpc -DBUILD_PHI=ON -DCMAKE_BUILD_TYPE=Release ..
 
 # Modes of operation {#modes}
 

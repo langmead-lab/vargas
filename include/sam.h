@@ -5,6 +5,10 @@
  * @brief
  * Provides an interface to SAM files..
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
@@ -16,6 +20,7 @@
 #include <vector>
 #include <sstream>
 #include <iostream>
+#include <stdexcept>
 
 #define CIGAR_OPERATORS "MIDNSHPX" // Possible modifications in a CIGAR string
 

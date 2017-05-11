@@ -9,21 +9,27 @@
  * information. Graphs can be derived from other graphs with a filter, allowing
  * the extraction of population subsets.
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
 #ifndef VARGAS_GRAPH_H
 #define VARGAS_GRAPH_H
 
+#include "fasta.h"
+#include "varfile.h"
+#include "utils.h"
+#include "dyn_bitset.h"
+
 #include <set>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <type_traits>
-#include "fasta.h"
-#include "varfile.h"
-#include "utils.h"
-#include "dyn_bitset.h"
+#include <stdexcept>
 
 namespace vargas {
 
@@ -568,14 +574,6 @@ namespace vargas {
 
       void add_edge_unchecked(const unsigned n1, const unsigned n2);
 
-
-      /**
-       * @brief
-       * Return root node ID
-       * @return root
-       */
-      unsigned root() const { return _root; }
-
       /**
        * @brief
        * Maps a ndoe ID to a shared node object
@@ -772,7 +770,6 @@ namespace vargas {
 
 
     private:
-      unsigned _root = 0; // Root of the Graph
       // maps a node ID to a nodeptr. Any derived graphs use the same base node ID map.
       std::shared_ptr<nodemap_t> _IDMap;
       // maps a node ID to the vector of nodes it points to

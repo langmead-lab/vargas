@@ -5,6 +5,10 @@
  * @brief
  * Vargas::Graph is a DAG representation of a reference and its variants.
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
@@ -63,7 +67,7 @@ vargas::Graph::Graph(const Graph &g, Type type) {
             }
         }
     } else if (type == Type::MAXAF) {
-        unsigned curr = g.root();
+        unsigned curr = g._add_order[0];
         unsigned maxid, size;
         while (true) {
             includedNodes.insert(curr);
@@ -96,10 +100,6 @@ void vargas::Graph::_build_derived_edges(const vargas::Graph &g, const std::unor
         }
     }
 
-    // Set the new root
-    if (includedNodes.find(g.root()) == includedNodes.end()) {
-        throw std::invalid_argument("Currently the root must be common to all graphs.");
-    }
 }
 
 
@@ -107,7 +107,6 @@ unsigned vargas::Graph::add_node(const Node &n) {
     if (_IDMap->find(n.id()) != _IDMap->end()) {
         throw std::invalid_argument("Duplicate node insertion.");
     }
-    if (_IDMap->size() == 0) _root = n.id(); // first node added is default root
 
     _IDMap->emplace(n.id(), n);
     _add_order.push_back(n.id());
@@ -146,7 +145,7 @@ void vargas::Graph::add_edge_unchecked(const unsigned n1, const unsigned n2) {
 std::string vargas::Graph::to_DOT(std::string name) const {
     std::ostringstream dot;
     dot << "// Each node has the sequence, followed by end_pos,allele_freq,REF\n";
-    dot << "digraph " << name << " {\n";
+    dot << "digraph \"" << name << "\" {\n";
 
     for (auto n = begin(); n != end(); ++n) {
         auto seq = n->seq_str();
@@ -155,7 +154,6 @@ std::string vargas::Graph::to_DOT(std::string name) const {
         }
         dot << n->id() << "[label=\"" << seq
             << "\nP:" << n->end_pos() << ", F:" << std::setprecision(3) <<   n->freq() << ", R:" << n->is_ref()
-            << "\n[" << n->individuals().to_string() << "]"
             << "\"];\n";
 
         for (auto x : n.outgoing()) dot << n->id() << " -> " << x << ";\n";

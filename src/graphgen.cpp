@@ -7,6 +7,10 @@
  * Tools to construct a graph and a set of subgraphs.
  * Graphs are stored in a JSON format (binarized by default)
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
@@ -21,6 +25,7 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
 
     if (_nodes == nullptr) _nodes = std::make_shared<Graph::nodemap_t>();
     else _nodes->clear();
+
     _graphs.clear();
 
     // Default regions
@@ -37,6 +42,7 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
     _aux["date"] = rg::current_date();
     _aux["fasta"] = fasta;
     VCF::Population pop;
+    size_t nsamples = 0;
     if (vcf.size()) {
         _aux["vcf"] = vcf;
         vargas::VCF v(vcf);
@@ -44,24 +50,12 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
         sample_filter.erase(std::remove_if(sample_filter.begin(), sample_filter.end(), isspace), sample_filter.end());
         auto vec = rg::split(sample_filter, ',');
         v.create_ingroup(vec);
-        pop = VCF::Population(v.samples().size(), true);
-        _aux["samples"] = rg::vec_to_str(v.samples(), ",");
+        if (v.samples().size()) _aux["samples"] = rg::vec_to_str(v.samples(), ",");
+        nsamples = v.samples().size();
     }
 
-    // Build base graph
-    GraphDef base;
-    base.parent = "";
-    base.invert = false;
-    base.population = pop;
-    base.region = region;
-    base.snp_only = false;
-    base. min_af = 0;
-    base.max_af = 0;
-    base.linear = vcf.size() == 0;
-    base.type = Graph::Type::REF;
-    _graph_def["base"] = base;
-
     _graphs["base"] = std::make_shared<Graph>(_nodes);
+
     unsigned offset = 0;
 
     for (auto reg : region) {
@@ -75,20 +69,15 @@ vargas::GraphGen::create_base(const std::string fasta, const std::string vcf, st
         offset = g.rbegin()->end_pos() + 1;
         _graphs["base"]->assimilate(g);
     }
+
+    _graphs["base"]->set_filter(Graph::Population(nsamples*2, true));
+    _graphs["base"]->set_popsize(nsamples*2);
+
+    if (nsamples) {
+        _graphs["maxaf"] = std::make_shared<Graph>(*_graphs["base"], Graph::Type::MAXAF);
+        _graphs["ref"] = std::make_shared<Graph>(*_graphs["base"], Graph::Type::REF);
+    }
     return _graphs["base"];
-}
-
-std::shared_ptr<vargas::Graph>
-vargas::GraphGen::generate_subgraph(std::string label, const vargas::GraphDef &def) {
-    if (_graphs.count(def.parent) == 0) {
-        throw std::domain_error("Parent graph \"" + def.parent + "\" does not exist.");
-    }
-
-    if (def.linear) {
-        _graphs[label] = std::make_shared<Graph>(*_graphs[def.parent], def.type);
-    }
-
-    return _graphs[label];
 }
 
 void vargas::GraphGen::write(const std::string &filename) {
@@ -109,7 +98,7 @@ void vargas::GraphGen::write(const std::string &filename) {
     }
 
     // graphs
-    // Label    [node_id_list]  [edge-list a:b,c;d:b,c;
+    // Label    [node_id_list]  [edge-list a:b,c;d:b,c;]
     of << "\n@graphs\n";
     for (auto &g : _graphs) {
         of << g.first << '\t' << rg::vec_to_str(g.second->order(), ",") << '\t';
@@ -123,7 +112,7 @@ void vargas::GraphGen::write(const std::string &filename) {
     of << "\n@nodes\n";
     for (auto &p : *_nodes) {
         of << p.first << '\t' << p.second.end_pos() << '\t' << p.second.freq()
-           << '\t' << p.second.is_pinched() << '\t' << p.second.seq().size() << '\n';
+           << '\t' << p.second.is_pinched() << '\t' << p.second.is_ref() << '\t' << p.second.seq().size() << '\n';
         std::for_each(p.second.seq().begin(), p.second.seq().end(), [&of](rg::Base &b){of << rg::num_to_base(b);});
         of << '\n';
     }
@@ -140,7 +129,6 @@ void vargas::GraphGen::open(const std::string &filename) {
 
     std::vector<std::string> tokens;
     _aux.clear();
-    _graph_def.clear();
     _graphs.clear();
     _contig_offsets.clear();
     _nodes = std::make_shared<Graph::nodemap_t>();
@@ -148,6 +136,7 @@ void vargas::GraphGen::open(const std::string &filename) {
     while (std::getline(in, line) && line[0] != '@') {
         if (!line.size()) continue;
         rg::split(line, '\t', tokens);
+        if (tokens.size() == 1) tokens.push_back("");
         if (tokens.size() != 2) throw std::domain_error("Invalid meta-line: " + line);
         _aux[tokens[0]] = tokens[1];
     }
@@ -195,7 +184,7 @@ void vargas::GraphGen::open(const std::string &filename) {
         if (!line.size()) continue;
         // node meta
         rg::split(line, '\t', tokens);
-        if (tokens.size() != 5) throw std::invalid_argument("Invalid node definition: " + line);
+        if (tokens.size() != 6) throw std::invalid_argument("Invalid node definition: " + line);
         const unsigned id = std::stoul(tokens[0]);
         _nodes->emplace(id, Graph::Node{});
         auto &n = _nodes->at(id);
@@ -203,7 +192,8 @@ void vargas::GraphGen::open(const std::string &filename) {
         n.set_endpos(std::stoul(tokens[1]));
         n.set_af(std::stof(tokens[2]));
         if (tokens[3] == "1") n.pinch();
-        const size_t seqsize = std::stoul(tokens[4]);
+        if (tokens[4] == "1") n.set_as_ref();
+        const size_t seqsize = std::stoul(tokens[5]);
         std::vector<rg::Base> &seq = n.seq();
         seq.reserve(seqsize);
         // Load sequence char by char
@@ -221,6 +211,56 @@ std::pair<std::string, unsigned> vargas::GraphGen::absolute_position(unsigned po
     return {lb->second, pos - lb->first};
 }
 
+std::string vargas::GraphGen::derive(std::string def) {
+    std::transform(def.begin(), def.end(), def.begin(), tolower);
+
+    std::string ancestor, label, assignment;
+    {
+        auto pair = rg::split(def, '=');
+        if (pair.size() != 2) throw std::invalid_argument("Malformed graph definition: " + def);
+        label = pair[0];
+        assignment = pair[1];
+        auto d = pair[0].find_last_of(":");
+        if (d == std::string::npos) {
+            ancestor = "base";
+        } else {
+            ancestor = pair[0].substr(0, d);
+        }
+
+        if (_graphs.count(ancestor) == 0) {
+            throw std::logic_error("Encountered ancestor \"" + ancestor + "\" before it was defined.");
+        }
+
+        if(_graphs.count(label)) {
+            throw std::domain_error("Label \"" + label + "\" is already defined.");
+        }
+
+    }
+
+    auto &&parent_population = _graphs.at(ancestor)->filter();
+    size_t avail = parent_population.count(), amount;
+    if (assignment.back() == '%') {
+        assignment.pop_back();
+        amount = size_t((double(avail) / 100.) * std::stod(assignment));
+    } else {
+        amount = std::stoul(assignment);
+        if (amount > avail) throw std::invalid_argument(def + " : requests more samples than available (" + std::to_string(avail) + ").");
+    }
+
+    std::vector<size_t> idx;
+    for (size_t i = 0; i < parent_population.size(); ++i) {
+        if (parent_population.at(i)) idx.push_back(i);
+    }
+
+    std::shuffle(idx.begin(), idx.end(),
+                 std::default_random_engine(std::chrono::system_clock::now().time_since_epoch().count()));
+
+    Graph::Population newpop(parent_population.size());
+    for (size_t i = 0; i < amount; ++i) newpop.set(idx[i], true);
+    _graphs[label] = std::make_shared<Graph>(*_graphs.at(ancestor), newpop);
+    return label;
+}
+
 TEST_CASE("Load graph") {
     const std::string jfile = "tmp.vgraph";
     const std::string jstr = R"(
@@ -236,17 +276,17 @@ aux	null
 base	0,1,2,3,4,5	0:1;1:2,3;2:4;3:4;4:5;
 
 @nodes
-0	5	1.0	1	5
+0	5	1.0	1	5	1
 AAAAA
-1	8	1	1	3
+1	8	1	1	3	1
 GGG
-2	9	0.5	0	1
+2	9	0.5	0	1	1
 C
-3	9	0.5	0	1
+3	9	0.5	0	1	1
 T
-4	13	1.0	1	4
+4	13	1.0	1	4	1
 GCGC
-5	22	1	1	9
+5	22	1	1	9	1
 ACGTACGAC
 )";
 
@@ -403,6 +443,21 @@ TEST_CASE("Write graph") {
         << "y\t5\t.\tC\tT,G\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
         << "y\t34\t.\tC\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
         << "y\t39\t.\tC\tT,G\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
+    }
+
+    SUBCASE("Derive") {
+        vargas::GraphGen gg;
+        gg.create_base(tmpfa, tmpvcf);
+        auto label = gg.derive("a=1");
+        auto &&g = *gg.at(label);
+
+        CHECK(label == "a");
+        CHECK(g.pop_size() == 4);
+
+        auto base_s = gg.at("base")->statistics();
+        auto dev_s = gg.at(label)->statistics();
+        CHECK(dev_s.total_length < base_s.total_length);
+
     }
 
     SUBCASE("All regions") {

@@ -7,6 +7,10 @@
  * Tools to construct a graph and a set of subgraphs.
  * Graphs are stored in a JSON format (binarized by default)
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
@@ -18,33 +22,43 @@
 #include "fasta.h"
 #include "dyn_bitset.h"
 
+#include <stdexcept>
+#include <random>
+#include <chrono>
+
 
 namespace vargas {
 
-  /**
+  /*
    * @brief
-   * Defintion of a subgraph
-   * @param parent label of parent graph
-   * @param invert use the complement of the parents population
-   * @param snp_only Only consider SNP variants
-   * @param Use a subset of the parent
-   * @param linear Graph is linear
-   * @param type if linear, is it REF or MAXAF
-   * @param population if not linear, population subset
-   * @param min_af if not linear, minimum allele frequency
-   * @param max_af if not linear, max allele frequency
+   * Handle graph generation and file IO
+   *
+   * @details
+   * Graph definition file format (tab delimited):\n
+   *
+   * @code{.txt}
+   * @vgraph
+   * date <graph build date>
+   * fasta <reference fasta name>
+   * vargas-build <vargas build date>
+   * vcf <vcf file name>
+   * [other meta info]
+   *
+   * @contigs
+   * <offset> <contig name>
+   * ...
+   *
+   * @graphs
+   * <name> <node id list> <edges>
+   * ...
+   *
+   * @nodes
+   * <ID> <endpos> <frequency> <pinched> <ref> <seqsize>
+   * <node sequence>
+   * ...
+   *
+   * @endcode
    */
-  struct GraphDef {
-      std::string parent;
-      bool invert;
-      bool snp_only;
-      std::vector<Region> region;
-      bool linear;
-      VCF::Population population;
-      Graph::Type type;
-      float min_af, max_af;
-  };
-
   class GraphGen {
     public:
       GraphGen() = default;
@@ -54,33 +68,31 @@ namespace vargas {
 
       /**
        * @brief
-       * Create a base graph. This replaces any current graphs.
+       * Create a base graph. This replaces any current graphs. Also creates REF and MAXAF graphs.
        * @param fasta filename
        * @param vcf filename
        * @param region list of regions to include. Default all.
        * @param sample_filter Use only these samples. Default all ("")
        * @return pointer to new base graph
        */
-      std::shared_ptr<Graph> create_base(const std::string fasta, const std::string vcf="",
-                                         std::vector<Region> region={}, std::string sample_filter="",
-                                         bool print=false);
+      std::shared_ptr<Graph>
+      create_base(const std::string fasta, const std::string vcf="", std::vector<Region> region={},
+                  std::string sample_filter="", bool print=false);
 
-      std::shared_ptr<Graph> generate_subgraph(std::string label, const GraphDef &def);
 
       /**
        * @brief
        * Write graphs to a file. Graphs are consumed while written.
-       * @details
-       * Meta information is maintained in JSON object. To write
-       * nodes, edges, and contigs are converted.
        * @param filename Output file
-       * @param mode Output mode
        */
       void write(const std::string &filename);
 
+      /**
+       * @brief
+       * Open a graph definition file.
+       * @param filename
+       */
       void open(const std::string &filename);
-
-
 
       /**
        * @brief
@@ -95,25 +107,41 @@ namespace vargas {
       }
 
       std::shared_ptr<Graph> at(std::string label) {
+          std::transform(label.begin(), label.end(), label.begin(), tolower);
           if (!count(label)) throw std::domain_error("No graph named \"" + label + "\"");
           return _graphs[label];
       }
 
       std::shared_ptr<Graph> operator[](std::string label) {
+          std::transform(label.begin(), label.end(), label.begin(), tolower);
           return _graphs[label];
       }
 
+      /**
+       * @return Available graph labels.
+       */
       std::vector<std::string> labels() const {
           std::vector<std::string> ret;
           for (const auto &i : _graphs) ret.push_back(i.first);
           return ret;
       }
 
+      /**
+       * @brief
+       * Parse a subgraph definition and create the child graph. This should be called after building the base.
+       * Note that samples are only loaded from original VCF files, and are not persisted. You cannot derive
+       * a graph from a previous GDEF. Labels are not case sensitive.
+       * @details
+       * Format : [<parent>:]*<label>=[0-9]{1,2}[%]
+       * Implied root parent is the base graph, or all the samples.
+       * @return label of the graph
+       */
+      std::string derive(std::string def);
+
 
     private:
       std::shared_ptr<Graph::nodemap_t> _nodes;
       std::map<std::string, std::shared_ptr<vargas::Graph>> _graphs; // Map label to a graph
-      std::map<std::string, GraphDef> _graph_def; // Map label to graph def
       std::map<unsigned, std::string> _contig_offsets; // Maps an offset to contig
       std::map<std::string, std::string> _aux;
   };

@@ -6,6 +6,10 @@
  * @brief
  * Interface for simulating and aligning reads from/to a DAG.
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
@@ -61,24 +65,31 @@ int main(int argc, char *argv[]) {
 }
 
 int define_main(int argc, char *argv[]) {
-    std::string fasta_file, varfile, region, out_file, sample_filter;
+    std::string fasta_file, varfile, region, out_file, sample_filter, subdef;
 
     cxxopts::Options opts("vargas define", "Define subgraphs deriving from a reference and VCF file.");
     try {
-        opts.add_options()
-        ("f,fasta", "<str> *Reference FASTA filename.", cxxopts::value(fasta_file))
+        opts.add_options("Required")
+        ("f,fasta", "<str> *Reference FASTA filename.", cxxopts::value(fasta_file));
+
+        opts.add_options("Optional")
         ("v,vcf", "<str> Variant file (vcf, vcf.gz, or bcf).", cxxopts::value<std::string>(varfile))
-        ("g,region", "<CHR[:MIN-MAX]; ... > CSV list of regions.", cxxopts::value(region))
-        ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
         ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
-        ("h,help", "Display this message.");
+        ("g,region", "<CHR[:MIN-MAX];...> CSV list of regions. (default: all)", cxxopts::value(region))
+        ("s,subgraph", "<str> Subgraph definitions, see below.", cxxopts::value(subdef))
+        ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter));
+
+        opts.add_options()("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options."); }
     if (opts.count("h")) {
         define_help(opts);
         return 0;
     }
-    if (!opts.count("f")) throw std::invalid_argument("FASTA file required.");
+    if (!opts.count("f")) {
+        define_help(opts);
+        throw std::invalid_argument("FASTA file required.");
+    }
 
     vargas::GraphGen gm;
     if (sample_filter.length()) {
@@ -98,6 +109,16 @@ int define_main(int argc, char *argv[]) {
     }
 
     gm.create_base(fasta_file, varfile, region_vec, sample_filter, true);
+
+    if (subdef.size()) {
+        auto defs = rg::split(subdef, ';');
+        for (auto &def : defs) {
+            std::cerr << "Deriving subgraph \"" << def << "\"...\n";
+            gm.derive(def);
+        }
+    }
+
+    std::cerr << "Writing to \"" << out_file << "\"\n";
     gm.write(out_file);
     return 0;
 }
@@ -358,7 +379,10 @@ int profile(int argc, char *argv[]) {
         profile_help(opts);
         return 0;
     }
-    if (!opts.count("f")) throw std::invalid_argument("FASTA file required.");
+    if (!opts.count("f")) {
+        profile_help(opts);
+        throw std::invalid_argument("FASTA file required.");
+    }
 
 
     vargas::GraphFactory gb(fasta);
@@ -416,10 +440,10 @@ int query_main(int argc, char *argv[]) {
     cxxopts::Options opts("vargas query", "Query a graph and export.");
     try {
         opts.add_options()
-        ("g,graph", "*<str> Graph file to export.", cxxopts::value(gdef))
-        ("d,dot", "<str> Export a subgraph as a DOT graph.", cxxopts::value(dot)->default_value("base"))
+        ("g,graph", "*<str> Graph file to export as a DOT.", cxxopts::value(gdef))
+        ("d,dot", "<str> Subgraph to export as a DOT file.", cxxopts::value(dot)->default_value("base"))
         ("t,out", "<str> DOT output file.", cxxopts::value(out)->default_value("stdout"))
-        ("a,stat", "<str> Print statistics about a graph. Default all.", cxxopts::value(stat)->default_value("-"))
+        ("a,stat", "<str> Print statistics about a subgraph.", cxxopts::value(stat)->implicit_value("base"))
       //  ("m,meta", "<str> Print the definition of a graph. \"-\" for graph meta information.")
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
@@ -444,10 +468,7 @@ int query_main(int argc, char *argv[]) {
     }
 
     if (stat.size()) {
-        if (stat == "-") {
-            for (auto &l : gg.labels())
-                std::cerr << l << ": " << gg.at(l)->statistics() << "\n";
-        } else std::cerr << gg.at(stat)->statistics();
+        std::cerr << gg.at(stat)->statistics();
     }
 
     if (meta.size()) {
@@ -461,13 +482,13 @@ int query_main(int argc, char *argv[]) {
 void main_help() {
     using std::cerr;
     using std::endl;
-    cerr << "\n---------------------- vargas, " << __DATE__ << ". rgaddip1@jhu.edu ----------------------\n";
-    cerr << "define          Define a set of graphs for use with sim and align.\n";
-    cerr << "sim             Simulate reads from a set of graphs.\n";
-    cerr << "align           Align reads to a set of graphs.\n";
-    cerr << "convert         Convert a SAM file to a CSV file.\n";
-    cerr << "query           Pull a region from a Graph/VCF/FASTA file.\n";
-    cerr << "test            Run unit tests.\n\n";
+    cerr << "\nvargas, " << __DATE__ << ". rgaddip1@jhu.edu\n";
+    cerr << "\tdefine          Define a set of graphs for use with sim and align.\n";
+    cerr << "\tsim             Simulate reads from a set of graphs.\n";
+    cerr << "\talign           Align reads to a set of graphs.\n";
+    cerr << "\tconvert         Convert a SAM file to a CSV file.\n";
+    cerr << "\tquery           Convert a graph to DOT format.\n";
+    cerr << "\ttest            Run unit tests.\n\n";
 
 }
 
@@ -477,24 +498,16 @@ void query_help(const cxxopts::Options &opts) {
     cerr << opts.help() << "\n" << endl;
 }
 
-void export_help(const cxxopts::Options &opts) {
-    using std::cerr;
-    using std::endl;
-
-    cerr << opts.help() << "\n" << endl;
-}
-
 void define_help(const cxxopts::Options &opts) {
     using std::cerr;
     using std::endl;
 
-    cerr << opts.help() << "\n\n"
-         << "Subgraphs are defined using the format \"label=N[%t]\",\n"
-         << "where \'N\' is the number of samples / percentage of samples selected.\n"
+    cerr << opts.help({"Required", "Optional", ""}) << "\n\n"
+         << "Subgraphs are defined using the format \"label=N[%]\",\n"
+         << "where \'N\' is the number of samples or percentage of samples to select.\n"
          << "The samples are selected from the parent graph, scoped with \':\'.\n"
          << "The BASE graph is implied as the root for all labels. Example:\n"
-         << "\ta=50;a:b=10%;~a:c=5\n"
-         << "\'~\' indicates the complement graph.\n\n";
+         << "\ta=50;a:b=10%;a:c=5\n\n";
 }
 
 void profile_help(const cxxopts::Options &opts) {

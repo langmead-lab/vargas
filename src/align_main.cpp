@@ -6,15 +6,16 @@
  * @brief
  * Main aligner interface
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
 #include "align_main.h"
 #include "alignment.h"
-#include "sam.h"
-#include "doctest.h"
 #include "sim.h"
-#include "cxxopts.hpp"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -36,37 +37,49 @@ int align_main(int argc, char *argv[]) {
 
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
     try {
-        opts.add_options()
+        opts.add_options("Required")
         ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf))
-        ("r,reads", "<str> *Unpaired reads in SAM, FASTQ, or FASTA format.", cxxopts::value(read_file))
+        ("r,reads", "<str> *Unpaired reads in SAM, FASTQ, or FASTA format.", cxxopts::value(read_file));
+
+        opts.add_options("Optional")
+        ("t,out", "<str> Output file.", cxxopts::value(out_file))
         ("p,subsample", "<N> Subsample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
-        ("a,align", "<str> Alignment targets/file of form \"RG:[ID][gd],target;...\"", cxxopts::value(align_targets))
+        ("a,alignto", "<str> Align specific SAM read groups to specific subgraphs.\"RG:ID:<group>,<target_graph>;...\"", cxxopts::value(align_targets))
+        ("s,assess", "[ID] Use score profile from a previous alignment, and target nearby alignments.", cxxopts::value(pgid)->implicit_value("-"))
+        ("c,tolerance", "<N> Correct if within readlen/N.", cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())));
+
+        opts.add_options("Scoring")
         ("m,match", "<N> Match score.", cxxopts::value(match)->default_value("2"))
         ("n,mismatch", "<N> Mismatch penalty.", cxxopts::value(mismatch)->default_value("2"))
         ("o,gap_open", "<N> Gap opening penalty.", cxxopts::value(gopen)->default_value("3"))
         ("e,gap_extend", "<N> Gap extension penalty.", cxxopts::value(gext)->default_value("1"))
-        ("x,endtoend", "Perform end to end alignment", cxxopts::value(end_to_end))
-        ("c,tolerance", "<N> Correct if within readlen/N.",
-         cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
-        ("u,chunk", "<N> Partition tasks into chunks with max size N.",
-         cxxopts::value(chunk_size)->default_value("2048"))
-        ("t,out", "<str> Output file. Can safely be same as -r. (default: stdout)", cxxopts::value(out_file))
-        ("s,assess", "[ID] Get score profile from PG with ID.", cxxopts::value(pgid)->implicit_value("-"))
+        ("x,endtoend", "Perform end to end alignment", cxxopts::value(end_to_end));
+
+        opts.add_options("Threading")
         ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
-        ("h,help", "Display this message.");
+        ("u,chunk", "<N> Partition tasks into chunks with max size N.", cxxopts::value(chunk_size)->default_value("64"));
+
+        opts.add_options()("h,help", "Display this message.");
+
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
     if (opts.count("h")) {
         align_help(opts);
         return 0;
     }
-    if (!opts.count("gdef")) throw std::invalid_argument("Graph definition file required.");
-    if (!opts.count("reads")) throw std::invalid_argument("No read file provided.");
+    if (!opts.count("gdef")) {
+        align_help(opts);
+        throw std::invalid_argument("Graph definition file required.");
+    }
+    if (!opts.count("reads")) {
+        align_help(opts);
+        throw std::invalid_argument("No read file provided.");
+    }
     ReadFmt format = read_fmt(read_file);
 
     if (chunk_size < vargas::Aligner::read_capacity() ||
     chunk_size % vargas::Aligner::read_capacity() != 0) {
-        std::cerr << "WARN: Chunk size is not a multiple of SIMD vector length: "
+        std::cerr << "[warn] Chunk size is not a multiple of SIMD vector length: "
                   << vargas::Aligner::read_capacity() << std::endl;
     }
 
@@ -128,12 +141,12 @@ int align_main(int argc, char *argv[]) {
     bool padded;
     auto task_list = create_tasks(reads, align_targets, chunk_size, read_len, padded);
     if (prof.end_to_end && prof.ambig && padded) {
-        std::cerr << "WARN: ETE alignment with N penalty will impact padded read scores.\n";
+        std::cerr << "[warn] ETE alignment with N penalty will impact padded read scores.\n";
     }
 
     const size_t num_tasks = task_list.size();
     if (num_tasks < threads) {
-        std::cerr << "WARN: Number of threads is greater than number of tasks. Try decreasing --chunk.\n";
+        std::cerr << "[warn] Number of threads is greater than number of tasks. Try decreasing --chunk.\n";
     }
 
     #ifdef _OPENMP
@@ -306,10 +319,11 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
         auto pair = rg::split(p, ',');
         if (pair.size() != 2)
             throw std::invalid_argument("Malformed alignment pair \"" + p + "\".");
-        if (pair[0].at(2) != ':')
-            throw std::invalid_argument("Expected source format Read_group_tag:value in \"" + pair[0] + "\".");
         if (pair[0].substr(0, 2) != "RG")
             throw std::invalid_argument("Expected a read group tag \'RG:xx:\', got \"" + pair[0] + "\"");
+        if (pair[0].at(2) != ':')
+            throw std::invalid_argument("Expected source format Read_group_tag:value in \"" + pair[0] + "\".");
+
 
         tag = pair[0].substr(3, 2);
         target_val = pair[0].substr(6);
@@ -381,6 +395,7 @@ void load_fast(std::string &file, const bool fastq, vargas::isam &ret) {
         input = ss.str();
     }
     const auto lines = rg::split(input, '\n');
+
     try {
         for (unsigned i = 0; i < lines.size(); i += (fastq ? 4 : 2)) {
             vargas::SAM::Record rec;
@@ -400,19 +415,21 @@ void align_help(const cxxopts::Options &opts) {
     using std::cerr;
     using std::endl;
 
-    cerr << opts.help() << "\n" << endl;
+    cerr << opts.help({"Required", "Optional", "Scoring", "Threading", ""}) << "\n" << endl;
     cerr << "Elements per SIMD vector: " << vargas::Aligner::read_capacity() << endl;
 }
 
 ReadFmt read_fmt(const std::string filename) {
     std::ifstream in(filename);
     if (!in.good()) throw std::invalid_argument("Invalid read file: " + filename);
+
     std::string line;
     if (!std::getline(in, line)) throw std::invalid_argument("Empty Read File."); // @SAM or fasta/q name
-    if (!std::getline(in, line)) throw std::invalid_argument("Invalid Read File."); // Read or SAM header
-    if (!std::getline(in, line)) return ReadFmt::FASTA; // either + or some SAM line. If no more lines, single record FASTA
-    if (line.at(0) == '+') return ReadFmt::FASTQ;
-    if (line.at(0) == '>' || line.at(0) == '@') return ReadFmt::FASTA;
+    if (line.substr(0,3) == "@HD") return ReadFmt::SAM;
+    if (!std::getline(in, line)) throw std::invalid_argument("Invalid Read File."); // SAM comment/header, or read
+    if (!std::getline(in, line)) return ReadFmt::FASTA; // Single record fasta, or SAM line, or +, or name
+    if (line.size() && line[0] == '+') return ReadFmt::FASTQ;
+    if (line.size() && (line[0] == '>' || line[0] == '@')) return ReadFmt::FASTA;
     return ReadFmt::SAM;
 }
 

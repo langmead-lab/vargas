@@ -6,6 +6,10 @@
  * @brief
  * Contains common functions.
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
@@ -47,6 +51,7 @@
 #include <assert.h>
 #include <memory>
 #include <iostream>
+#include <stdexcept>
 
 namespace rg {
 

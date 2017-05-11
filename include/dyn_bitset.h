@@ -5,11 +5,17 @@
  *
  * @brief
  * Emulates a dynamic bitset by utilizing a vector of fixed size bitsets.
+ *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  */
 
 #include <vector>
 #include <bitset>
 #include <sstream>
+#include <stdexcept>
 #include "doctest.h"
 
 #ifndef VARGAS_DYN_BITSET_H

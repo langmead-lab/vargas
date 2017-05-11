@@ -10,6 +10,10 @@
  * records outside of a defined range. A subset of individuals can be
  * defined using create_ingroup.
  *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
@@ -36,7 +40,7 @@ namespace vargas {
 
   using rg::pos_t;
 
-  class Region;
+  struct Region;
 
   /**
      * @brief

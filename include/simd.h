@@ -5,8 +5,9 @@
  *
  * @brief
  * SIMD wrapper class for SSE and AVX2.
+ *
  * @details
- * Note: element access uses reinterpret_cast<native_t*> by default, and is technically undefined behavior
+ * element access uses reinterpret_cast<native_t*> by default, and is technically undefined behavior
  * for native_t != [unsigned] char. It seems for GCC the resulting
  * ASM is same for native_t = [unsigned] char using compliant code, but not for Intel compiler.
  * Compliant access option:
@@ -20,6 +21,14 @@
  * }
  * @endcode
  *
+ * @warning
+ * Template specializations are in header to enable force inlining. As a result simd.h should only be included in
+ * one file of a project to prevent multiple definion errors.
+ *
+ * @copyright
+ * Distributed under the MIT Software License.
+ * See accompanying LICENSE or https://opensource.org/licenses/MIT
+ *
  * @file
  */
 
@@ -30,13 +39,12 @@
 #include "doctest.h"
 
 #include <type_traits>
+#include <stdexcept>
 #include <x86intrin.h>
 #include <cstdint>
 #include <memory>
 #include <vector>
 #include <stdlib.h>
-
-
 
 #if !defined(VA_SIMD_USE_SSE) && !defined(VA_SIMD_USE_AVX2) && !defined(VA_SIMD_USE_AVX512)
 #error("No SIMD instruction set defined.")
