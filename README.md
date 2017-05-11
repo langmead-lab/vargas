@@ -8,8 +8,6 @@ Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned u
 
 # Building
 
----
-
 When cloning, use the `--recursive` option to automatically retrieve dependencies.
 
     git clone --recursive git@github.com:RaviGaddipati/vargas.git
@@ -23,7 +21,7 @@ Vargas relies on htslib to provide core file processing. Once cloned, the htslib
 
 ## Compiling
 
-vargas is built with cmake.
+Vargas is built with cmake, and targets SSE4.1. AVX512 is targeted on Phi platforms.
 
     mkdir build && cd build
     cmake -DCMAKE_BUILD_TYPE=Release .. && make -j4
@@ -35,14 +33,11 @@ To  build for Xeon Phi using an Intel compiler:
     cmake -DCMAKE_CXX_COMPILER=icpc -DBUILD_PHI=ON -DCMAKE_BUILD_TYPE=Release ..
     make -j4
 
-Sometimes (like when using Modules) you may need to specify the compiler explicitly:
+On systems like Stampede, required modules will need to be loaded:
  
     module load cmake intel cxx11
-    cmake -DCMAKE_CXX_COMPILER=icpc -DBUILD_PHI=ON -DCMAKE_BUILD_TYPE=Release ..
 
 # Modes of operation
-
----
 
 `vargas -h`
 
@@ -79,6 +74,76 @@ Usage:
 ```
 
 See [Define documentation](doc/define.md).
+
+## align
+
+`vargas align -h`
+
+```
+Align reads to a graph.
+Usage:
+  vargas align [OPTION...]
+
+ Required options:
+  -g, --gdef arg   <str> *Graph definition file.
+  -r, --reads arg  <str> *Unpaired reads in SAM, FASTQ, or FASTA format.
+
+ Optional options:
+  -t, --out arg            <str> Output file.
+  -p, --subsample arg      <N> Sample N random reads, 0 for all. (default: 0)
+  -a, --alignto arg        <str> Target graph, or SAM Read Group -> graph mapping.
+                           "(RG:ID:<group>,<target_graph>;)+|<graph>"
+  -s, --assess [=arg(=-)]  [ID] Use score profile from a previous alignment,
+                           and target nearby alignments.
+  -c, --tolerance arg      <N> Correct if within readlen/N. (default: 4)
+
+ Scoring options:
+  -m, --match arg       <N> Match score. (default: 2)
+  -n, --mismatch arg    <N> Mismatch penalty. (default: 2)
+  -o, --gap_open arg    <N> Gap opening penalty. (default: 3)
+  -e, --gap_extend arg  <N> Gap extension penalty. (default: 1)
+  -x, --endtoend        Perform end to end alignment
+
+ Threading options:
+  -j, --threads arg  <N> Number of threads. (default: 1)
+  -u, --chunk arg    <N> Partition tasks into chunks with max size N. (default: 64)
+
+  -h, --help  Display this message.
+```
+
+Reads are aligned to graphs specified in the GDEF file. `-x` will preform end to end alignment and is generally faster than full local alignment. The memory usage increase in marginal for high numbers of threads. As a result, as many threads as available should be used (271 on Xeon Phi KNL).
+
+For example:
+
+    vargas align  -g test.gdef -r reads.fa -t reads.sam -x
+
+See the [alignment documentation](align.md) for more information.
+
+## convert
+
+`vargas convert -h`
+
+```
+Export a SAM file as a CSV file.
+Usage:
+  vargas convert [OPTION...]
+
+  -f, --format arg  <str> *Output format.
+  -s, --sam arg     <str,...> SAM files. Default stdin.
+  -h, --help        Display this message.
+
+
+Required column names:
+        QNAME, FLAG, RNAME, POS, MAPQ, CIGAR, RNEXT, PNEXT, TLEN, SEQ, QUAL
+Prefix with "RG:" to obtain a value from the associated read group.
+```
+
+Convert a SAM file into a CSV file, outputting the specified fields. Any of the SAM required fields or any aux tags can be output. For example,
+
+```
+vargas convert -s <samfile> -f "RG:ID,mp,ms"
+```
+will report the corresponding read group ID, max score position, and max score for each alignment. If multiple SAM files are provided, field 1 will be the file name. See [vargas align](align.md) for tag information.
 
 ## sim
 
@@ -119,69 +184,6 @@ For example:
 
 will generate 1000 reads for each combination of `-m`, `-v`, for each graph in `test.gdef`.
 
-## align
-
-`vargas align -h`
-
-```
-Align reads to a graph.
-Usage:
-  vargas align [OPTION...]
-
- Required options:
-  -g, --gdef arg   <str> *Graph definition file.
-  -r, --reads arg  <str> *Unpaired reads in SAM, FASTQ, or FASTA format.
-
- Optional options:
-  -t, --out arg            <str> Output file.
-  -p, --subsample arg      <N> Sample N random reads, 0 for all. (default: 0)
-  -a, --alignto arg        <str> Align specific SAM read groups to specific
-                           subgraphs."RG:ID:<group>,<target_graph>;..."
-  -s, --assess [=arg(=-)]  [ID] Use score profile from a previous alignment,
-                           and target nearby alignments.
-  -c, --tolerance arg      <N> Correct if within readlen/N. (default: 4)
-
- Scoring options:
-  -m, --match arg       <N> Match score. (default: 2)
-  -n, --mismatch arg    <N> Mismatch penalty. (default: 2)
-  -o, --gap_open arg    <N> Gap opening penalty. (default: 3)
-  -e, --gap_extend arg  <N> Gap extension penalty. (default: 1)
-  -x, --endtoend        Perform end to end alignment
-
- Threading options:
-  -j, --threads arg  <N> Number of threads. (default: 1)
-  -u, --chunk arg    <N> Partition tasks into chunks with max size N. (default: 64)
-
-  -h, --help  Display this message.
-```
-
-Reads are aligned to graphs specified in the GDEF file. `-x` will preform end to end alignment and is generally faster than full local alignment.
-
-For example:
-
-    vargas align  -g test.gdef -r reads.fa -t reads.sam -x
-
-
-## convert
-
-`vargas convert -h`
-
-```
-Export a SAM file as a CSV file.
-Usage:
-  vargas convert [OPTION...]
-
-  -f, --format arg  <str> *Output format.
-  -s, --sam arg     <str,...> SAM files. Default stdin.
-  -h, --help        Display this message.
-
-
-Required column names:
-        QNAME, FLAG, RNAME, POS, MAPQ, CIGAR, RNEXT, PNEXT, TLEN, SEQ, QUAL
-Prefix with "RG:" to obtain a value from the associated read group.
-```
-
-Convert a SAM file into a CSV file, outputting the specified fields.
 
 ## query
 
@@ -201,18 +203,14 @@ Usage:
 
 Export a subgraph to a DOT graph, or get graph statistics.
 
-## test
+## Other
 
-`vargas test`
+`vargas test` executes unit tests.
 
-Execute unit tests.
-
-## profile
-
-`vargas profile -h`
+`vargas profile -h` Generates a summary of performance.
 
 ```
-Run profiles.
+Run profiles. 
 Usage:
   vargas profile [OPTION...]
 
@@ -224,7 +222,3 @@ Usage:
   -l, --len arg      <N> Number of reads. (default: 50)
   -h, --help         Display this message.
 ```
-
-Generates a summary of performance. For example,
-
-`vargas profile -f ../../hs37d5_22.fa -v ../../chr22.bcf -g 22:22,000,000-32,000,000`
