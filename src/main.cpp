@@ -137,22 +137,22 @@ int sim_main(int argc, char *argv[]) {
 
     cxxopts::Options opts("vargas sim", "Simulate reads from genome graphs.");
     try {
-        opts.add_options()
-        ("g,graph", "<str> *Graph definition file.", cxxopts::value(gdf_file))
+        opts.add_options("Required")
+        ("g,graph", "<str> *Graph definition file.", cxxopts::value(gdf_file));
+        opts.add_options("Optional")
+        ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
         ("s,sub", "<S1,S2..> Subgraphs to simulate from. (default: all)", cxxopts::value(sim_src))
+        ("f,file", "-s specifies a filename.", cxxopts::value(sim_src_isfile))
         ("l,rlen", "<N> Read length.", cxxopts::value(read_len)->default_value("50"))
         ("n,numreads", "<N> Number of reads to generate.", cxxopts::value(num_reads)->default_value("1000"))
-        ("f,file", "-s specifies a filename.", cxxopts::value(sim_src_isfile))
-        ("d,vnodes", "<N1,N2...> Number of variant nodes. \'*\' for any.",
-         cxxopts::value(vnodes)->default_value("*"))
-        ("b,vbases", "<N1,N2...> Number of variant bases. \'*\' for any.",
-         cxxopts::value(vbases)->default_value("*"))
-        ("m,mut", "<N1,N2...> Number of mutations. \'*\' for any.", cxxopts::value(mut)->default_value("0"))
-        ("i,indel", "<N1,N2...> Number of insertions/deletions. \'*\' for any.",
-         cxxopts::value(indel)->default_value("0"))
-        ("a,rate", "<N1,N2...> Interpret -m, -i as error rates.", cxxopts::value(use_rate))
-        ("t,out", "<str> Output file. (default: stdout)", cxxopts::value(out_file))
-        ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
+        ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"));
+        opts.add_options("Stratum")
+        ("v,vnodes", "<N1,N2...> Variant nodes. \'*\' for any.", cxxopts::value(vnodes)->default_value("*"))
+        ("b,vbases", "<N1,N2...> Variant bases. \'*\' for any.", cxxopts::value(vbases)->default_value("*"))
+        ("m,mut", "<N1,N2...> Mutations. \'*\' for any.", cxxopts::value(mut)->default_value("0"))
+        ("i,indel", "<N1,N2...> Insertions/deletions. \'*\' for any.", cxxopts::value(indel)->default_value("0"))
+        ("a,rate", "Interpret -m, -i as error rates.", cxxopts::value(use_rate));
+        opts.add_options()
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options."); }
@@ -160,7 +160,10 @@ int sim_main(int argc, char *argv[]) {
         sim_help(opts);
         return 0;
     }
-    if (!opts.count("g")) throw std::invalid_argument("Graph definition file required.");
+    if (!opts.count("g")) {
+        sim_help(opts);
+        throw std::invalid_argument("Graph definition file required.");
+    }
 
     #ifdef _OPENMP
     if (threads > 0) omp_set_num_threads(threads);
@@ -324,7 +327,10 @@ int convert_main(int argc, char **argv) {
         convert_help(opts);
         return 0;
     }
-    if (!opts.count("f")) throw std::invalid_argument("Format specifier required.");
+    if (!opts.count("f")) {
+        convert_help(opts);
+        throw std::invalid_argument("Format specifier required.");
+    }
 
     auto start_time = std::chrono::steady_clock::now();
 
@@ -363,7 +369,7 @@ int profile(int argc, char *argv[]) {
     std::string bcf, fasta, region;
     size_t nreads, read_len, ingroup;
 
-    cxxopts::Options opts("vargas convert", "Export a SAM file as a CSV file.");
+    cxxopts::Options opts("vargas profile", "Run profiles.");
     try {
         opts.add_options()
         ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta))
@@ -437,14 +443,13 @@ int profile(int argc, char *argv[]) {
 int query_main(int argc, char *argv[]) {
     std::string gdef, dot, stat, meta, out;
 
-    cxxopts::Options opts("vargas query", "Query a graph and export.");
+    cxxopts::Options opts("vargas query", "Query a graph and export a DOT graph.");
     try {
         opts.add_options()
-        ("g,graph", "*<str> Graph file to export as a DOT.", cxxopts::value(gdef))
-        ("d,dot", "<str> Subgraph to export as a DOT file.", cxxopts::value(dot)->default_value("base"))
+        ("g,graph", "*<str> Graph file to query.", cxxopts::value(gdef))
+        ("d,dot", "<str> Subgraph to export as a DOT graph.", cxxopts::value(dot))
         ("t,out", "<str> DOT output file.", cxxopts::value(out)->default_value("stdout"))
         ("a,stat", "<str> Print statistics about a subgraph.", cxxopts::value(stat)->implicit_value("base"))
-      //  ("m,meta", "<str> Print the definition of a graph. \"-\" for graph meta information.")
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
@@ -495,7 +500,7 @@ void main_help() {
 void query_help(const cxxopts::Options &opts) {
     using std::cerr;
     using std::endl;
-    cerr << opts.help() << "\n" << endl;
+    cerr << opts.help() << endl;
 }
 
 void define_help(const cxxopts::Options &opts) {
@@ -520,7 +525,7 @@ void sim_help(const cxxopts::Options &opts) {
     using std::cerr;
     using std::endl;
 
-    cerr << opts.help() << "\n\n";
+    cerr << opts.help({"Required", "Optional","Stratum", ""}) << "\n\n";
     cerr << "-n reads are produced for each -m, -i, -v, -b combination.\nIf set to \'*\', any value is accepted.\n"
          << endl;
 }

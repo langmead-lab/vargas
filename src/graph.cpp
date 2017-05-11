@@ -67,20 +67,28 @@ vargas::Graph::Graph(const Graph &g, Type type) {
             }
         }
     } else if (type == Type::MAXAF) {
-        unsigned curr = g._add_order[0];
-        unsigned maxid, size;
-        while (true) {
-            includedNodes.insert(curr);
-            _add_order.push_back(curr);
-            if (g._next_map.count(curr) == 0) break; // end of graph
-            maxid = g._next_map.at(curr).at(0);
-            size = g._next_map.at(curr).size();
-            for (unsigned i = 1; i < size; ++i) {
-                const unsigned &id = g._next_map.at(curr).at(i);
-                if (g._IDMap->at(id).freq() > g._IDMap->at(maxid).freq())
-                    maxid = id;
+
+        std::vector<unsigned> graphstarts;
+        for (auto id : g._add_order) {
+            if (g._prev_map.count(id) == 0) graphstarts.push_back(id);
+        }
+
+        for (auto start : graphstarts) {
+            unsigned curr = start;
+            unsigned maxid, size;
+            while (true) {
+                includedNodes.insert(curr);
+                _add_order.push_back(curr);
+                if (g._next_map.count(curr) == 0) break; // end of graph
+                maxid = g._next_map.at(curr).at(0);
+                size = g._next_map.at(curr).size();
+                for (unsigned i = 1; i < size; ++i) {
+                    const unsigned &id = g._next_map.at(curr).at(i);
+                    if (g._IDMap->at(id).freq() > g._IDMap->at(maxid).freq())
+                        maxid = id;
+                }
+                curr = maxid;
             }
-            curr = maxid;
         }
     }
 

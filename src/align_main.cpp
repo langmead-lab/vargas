@@ -43,7 +43,7 @@ int align_main(int argc, char *argv[]) {
 
         opts.add_options("Optional")
         ("t,out", "<str> Output file.", cxxopts::value(out_file))
-        ("p,subsample", "<N> Subsample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
+        ("p,subsample", "<N> Sample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
         ("a,alignto", "<str> Align specific SAM read groups to specific subgraphs.\"RG:ID:<group>,<target_graph>;...\"", cxxopts::value(align_targets))
         ("s,assess", "[ID] Use score profile from a previous alignment, and target nearby alignments.", cxxopts::value(pgid)->implicit_value("-"))
         ("c,tolerance", "<N> Correct if within readlen/N.", cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())));
