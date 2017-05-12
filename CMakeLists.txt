@@ -47,7 +47,7 @@ set(HEADERS
 
 option(BUILD_PHI "Build for Xeon Phi, requires icpc" OFF)
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -no-inline-max-size -qoverride-limits")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -no-inline-max-size -wd597 -qoverride-limits")
 endif()
 
 if(BUILD_PHI)

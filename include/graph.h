@@ -891,6 +891,15 @@ namespace vargas {
       }
 
       /**
+       * Only include upto n varaint records. The first n are processed.
+       * @param n
+       */
+      void limit_variants(size_t n) {
+          if (!_vf) throw std::invalid_argument("No variant file opened.");
+          _vf->limit_num_variants(n);
+      }
+
+      /**
        * Open the given file
        * @param file_name
        * @return Number of samples

@@ -62,23 +62,27 @@ int align_main(int argc, char *argv[]) {
         opts.add_options()("h,help", "Display this message.");
 
         opts.parse(argc, argv);
-    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
+    } catch (std::exception &e) {
+        throw std::invalid_argument("Error parsing options: " + std::string(e.what()));
+    }
+
     if (opts.count("h")) {
         align_help(opts);
         return 0;
     }
+
     if (!opts.count("gdef")) {
         align_help(opts);
         throw std::invalid_argument("Graph definition file required.");
     }
+
     if (!opts.count("reads")) {
         align_help(opts);
         throw std::invalid_argument("No read file provided.");
     }
     ReadFmt format = read_fmt(read_file);
 
-    if (chunk_size < vargas::Aligner::read_capacity() ||
-    chunk_size % vargas::Aligner::read_capacity() != 0) {
+    if (chunk_size < vargas::Aligner::read_capacity() || chunk_size % vargas::Aligner::read_capacity() != 0) {
         std::cerr << "[warn] Chunk size is not a multiple of SIMD vector length: "
                   << vargas::Aligner::read_capacity() << std::endl;
     }
@@ -126,7 +130,9 @@ int align_main(int argc, char *argv[]) {
     } else if (pgid.length()) {
         try {
             prof = vargas::program_profile(reads_hdr.programs.at(pgid).command_line);
-        } catch (std::exception &e) { throw std::invalid_argument("Unrecognized PG ID: " + pgid); }
+        } catch (std::exception &e) {
+            throw std::invalid_argument("Unrecognized PG ID: " + pgid);
+        }
     } else {
         prof.end_to_end = end_to_end;
         prof.ambig = 0;

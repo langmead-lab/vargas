@@ -59,7 +59,7 @@ def to_vcf_record(ksnps, ids, pos, num_samples, chrom):
             line += ','
             af_str += ','
             gt_str += '\t'
-    for i in range(len(ksnps[pos][1]), num_samples, 1):
+    for i in range(len(ksnps[pos][1]), num_haplotypes, 1):
         gt_str += '\t0|0'
 
     line += '\t' + '100' + '\t' + 'PASS' + '\t' + "AF=" + af_str + '\tGT\t' + gt_str

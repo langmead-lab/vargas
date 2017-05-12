@@ -21,7 +21,7 @@
 
 std::shared_ptr<vargas::Graph>
 vargas::GraphMan::create_base(const std::string fasta, const std::string vcf, std::vector<vargas::Region> region,
-                              std::string sample_filter, bool print) {
+                              std::string sample_filter, size_t limvar) {
 
     if (_nodes == nullptr) _nodes = std::make_shared<Graph::nodemap_t>();
     else _nodes->clear();
@@ -41,17 +41,17 @@ vargas::GraphMan::create_base(const std::string fasta, const std::string vcf, st
     _aux["vargas-build"] = __DATE__;
     _aux["date"] = rg::current_date();
     _aux["fasta"] = fasta;
-    VCF::Population pop;
-    size_t nsamples = 0;
+
+    size_t nhaplo = 0;
     if (vcf.size()) {
         _aux["vcf"] = vcf;
         vargas::VCF v(vcf);
         if (!v.good()) throw std::invalid_argument("Invalid VCF: " + vcf);
         sample_filter.erase(std::remove_if(sample_filter.begin(), sample_filter.end(), isspace), sample_filter.end());
         auto vec = rg::split(sample_filter, ',');
-        v.create_ingroup(vec);
+        if (vec.size()) v.create_ingroup(vec);
         if (v.samples().size()) _aux["samples"] = rg::vec_to_str(v.samples(), ",");
-        nsamples = v.samples().size();
+        nhaplo = v.num_haplotypes();
     }
 
     _graphs["base"] = std::make_shared<Graph>(_nodes);
@@ -59,21 +59,22 @@ vargas::GraphMan::create_base(const std::string fasta, const std::string vcf, st
     unsigned offset = 0;
 
     for (auto reg : region) {
-        if (print) std::cerr << "Building \"" << reg.seq_name << "\" (offset: " << offset << ")..." << std::endl;
+        std::cerr << "Building \"" << reg.seq_name << "\" (offset: " << offset << ")..." << std::endl;
         GraphFactory gf(fasta, vcf);
         gf.add_sample_filter(sample_filter);
+        gf.limit_variants(limvar);
         gf.set_region(reg);
         auto g = gf.build(offset);
-        if (print) std::cerr << g.statistics().to_string() << "\n";
+        std::cerr << g.statistics().to_string() << "\n";
         _resolver._contig_offsets[offset] = reg.seq_name;
         offset = g.rbegin()->end_pos() + 1;
         _graphs["base"]->assimilate(g);
     }
 
-    _graphs["base"]->set_filter(Graph::Population(nsamples*2, true));
-    _graphs["base"]->set_popsize(nsamples*2);
+    _graphs["base"]->set_filter(Graph::Population(nhaplo, true));
+    _graphs["base"]->set_popsize(nhaplo);
 
-    if (nsamples) {
+    if (nhaplo) {
         _graphs["maxaf"] = std::make_shared<Graph>(*_graphs["base"], Graph::Type::MAXAF);
         _graphs["ref"] = std::make_shared<Graph>(*_graphs["base"], Graph::Type::REF);
     }
@@ -100,6 +101,7 @@ void vargas::GraphMan::write(const std::string &filename) {
     // graphs
     // Label    [node_id_list]  [edge-list a:b,c;d:b,c;]
     of << "\n@graphs\n";
+    std::cerr << "Flushing " << _graphs.size() << " graphs...\n";
     for (auto &g : _graphs) {
         of << g.first << '\t' << rg::vec_to_str(g.second->order(), ",") << '\t';
         for (auto &p : g.second->next_map()) {
@@ -110,6 +112,7 @@ void vargas::GraphMan::write(const std::string &filename) {
 
     // Nodes
     of << "\n@nodes\n";
+    std::cerr << "Flushing " << _nodes->size() << " nodes...\n";
     for (auto &p : *_nodes) {
         of << p.first << '\t' << p.second.end_pos() << '\t' << p.second.freq()
            << '\t' << p.second.is_pinched() << '\t' << p.second.is_ref() << '\t' << p.second.seq().size() << '\n';
@@ -151,7 +154,7 @@ void vargas::GraphMan::open(const std::string &filename) {
     }
 
     assert(line == "@graphs");
-
+    std::cerr << "Loading graphs...\n";
     std::vector<std::string> unparsed;
     while(std::getline(in, line) && line[0] != '@') {
         if (!line.size()) continue;
@@ -179,7 +182,7 @@ void vargas::GraphMan::open(const std::string &filename) {
     }
 
     assert(line =="@nodes");
-
+    std::cerr << "Loading nodes...\n";
     while(std::getline(in, line)) {
         if (!line.size()) continue;
         // node meta
@@ -232,6 +235,7 @@ std::string vargas::GraphMan::derive(std::string def) {
     }
 
     auto &&parent_population = _graphs.at(ancestor)->filter();
+    if (parent_population.size() < 2) throw std::domain_error("Cannot derive from \"" + ancestor + "\". Less than 2 samples available.");
     size_t avail = parent_population.count(), amount;
     if (assignment.back() == '%') {
         assignment.pop_back();
@@ -251,6 +255,7 @@ std::string vargas::GraphMan::derive(std::string def) {
 
     Graph::Population newpop(parent_population.size());
     for (size_t i = 0; i < amount; ++i) newpop.set(idx[i], true);
+
     _graphs[label] = std::make_shared<Graph>(*_graphs.at(ancestor), newpop);
     return label;
 }

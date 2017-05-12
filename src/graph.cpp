@@ -195,7 +195,7 @@ void vargas::GraphFactory::build(vargas::Graph &g, pos_t pos_offset) {
     std::unordered_set<unsigned> prev_unconnected; // ID's of nodes at the end of the Graph left unconnected
     std::unordered_set<unsigned> curr_unconnected; // ID's of nodes added that are unconnected
 
-    size_t num_samples = vf.num_samples() > 0 ? vf.num_samples() : 1;
+    size_t num_samples = vf.num_haplotypes() > 0 ? vf.num_haplotypes() : 1;
     g.set_popsize(num_samples);
     const Graph::Population all_pop(g.pop_size(), true);
     g.set_filter(all_pop);
@@ -208,8 +208,7 @@ void vargas::GraphFactory::build(vargas::Graph &g, pos_t pos_offset) {
 
         auto &af = vf.frequencies();
         curr = _build_linear_ref(g, prev_unconnected, curr_unconnected, curr, vf.pos(), pos_offset);
-        assert(_fa.subseq(_vf->region().seq_name, curr, curr + vf.ref().length() - 1) == vf.ref() &&
-        ("Variant and FASTA Reference does not match at position " + std::to_string(curr)) != "");
+        assert(_fa.subseq(_vf->region().seq_name, curr, curr + vf.ref().length() - 1) == vf.ref());
 
         curr += vf.ref().length();
 
@@ -228,7 +227,7 @@ void vargas::GraphFactory::build(vargas::Graph &g, pos_t pos_offset) {
         for (unsigned i = 1; i < vf.alleles().size(); ++i) {
             const std::string &allele = vf.alleles()[i];
             if (allele == vf.ref()) continue; // Remove duplicate nodes, REF is substituted in for unknown tags
-            Graph::Population pop(vf.allele_pop(allele));
+            Graph::Population pop = vf.allele_pop(allele);
             if (g.pop_size() == 1 || (pop && all_pop)) { // Only add if someone has the allele. == 1 for KSNP
                 Graph::Node n;
                 n.set_endpos(curr - 1 + pos_offset);
@@ -283,7 +282,7 @@ rg::pos_t vargas::GraphFactory::_build_linear_ref(Graph &g, std::unordered_set<u
 
 unsigned vargas::GraphFactory::add_sample_filter(std::string filter, bool invert) {
     if (!_vf) throw std::invalid_argument("No VCF file opened, cannot add filter.");
-    if (filter.length() == 0 || filter == "-") return _vf->num_samples();
+    if (filter.length() == 0 || filter == "-") return _vf->num_haplotypes();
     std::vector<std::string> filt;
     filter.erase(std::remove_if(filter.begin(), filter.end(), isspace), filter.end());
     if (invert) {
@@ -296,7 +295,7 @@ unsigned vargas::GraphFactory::add_sample_filter(std::string filter, bool invert
         rg::split(filter, ',', filt);
     }
     _vf->create_ingroup(filt);
-    return _vf->num_samples();
+    return _vf->num_haplotypes();
 }
 
 unsigned vargas::GraphFactory::open_vcf(std::string const &file_name) {
@@ -304,7 +303,7 @@ unsigned vargas::GraphFactory::open_vcf(std::string const &file_name) {
     _vf = std::unique_ptr<VCF>(new VCF(file_name));
     if (file_name.length() == 0 || file_name == "-") return 0;
     if (!_vf->good()) throw std::invalid_argument("Invalid VCF/BCF file: \"" + file_name + "\"");
-    return _vf->num_samples();
+    return _vf->num_haplotypes();
 }
 
 

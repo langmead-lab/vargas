@@ -94,11 +94,12 @@ namespace vargas {
        * @param vcf filename
        * @param region list of regions to include. Default all.
        * @param sample_filter Use only these samples. Default all ("")
+       * @param limvar Limit to N variant records per contig
        * @return pointer to new base graph
        */
       std::shared_ptr<Graph>
       create_base(const std::string fasta, const std::string vcf="", std::vector<Region> region={},
-                  std::string sample_filter="", bool print=false);
+                  std::string sample_filter="", size_t limvar=0);
 
 
       /**

@@ -207,7 +207,7 @@ class dyn_bitset {
      */
     bool operator&&(const dyn_bitset &db) const {
         if (size() != db.size())
-            throw std::invalid_argument("Incompatible dimension");
+            throw std::invalid_argument("Incompatible dimension :" + std::to_string(size()) + "," + std::to_string(db.size()));
         for (size_t i = 0; i < _bitset.size(); ++i) {
             std::bitset<core_size> t = _bitset[i] & db._bitset[i];
             if (t.any()) {
@@ -227,7 +227,7 @@ class dyn_bitset {
         //TODO done slowly
         //TODO add tests
         if (size() != other.size())
-            throw std::range_error("Incompatible dimension");
+            throw std::range_error("Incompatible dimension :" + std::to_string(size()) + "," + std::to_string(other.size()));
         dyn_bitset<core_size> ret(size());
         for (size_t i = 0; i < size(); ++i) {
             if (at(i) && other.at(i)) {
@@ -247,7 +247,7 @@ class dyn_bitset {
         //TODO done slowly
         //TODO add tests
         if (size() != other.size())
-            throw std::range_error("Incompatible dimension");
+            throw std::range_error("Incompatible dimension :" + std::to_string(size()) + "," + std::to_string(other.size()));
         dyn_bitset<core_size> ret(size());
         for (size_t i = 0; i < size(); ++i) {
             if (at(i) || other.at(i)) {

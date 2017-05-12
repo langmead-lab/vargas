@@ -279,10 +279,10 @@ namespace vargas {
 
       /**
        * @brief
-       * num_samples() counts each haplotype as distinct. num_samples() = samples().size() * 2
+       * counts each haplotype as distinct. num_haplotypes() = samples().size() * 2
        * @return Number of samples the VCF has. Each sample represents two genotypes.
        */
-      size_t num_samples() const;
+      size_t num_haplotypes() const;
 
       /**
        * @brief
@@ -446,6 +446,14 @@ namespace vargas {
       void set_region(const Region &region);
       const Region &region() const { return _region; }
 
+      /**
+       * Limit the number of variants to first num records.
+       * @param num
+       */
+      void limit_num_variants(size_t num) {
+          _limit = num;
+      }
+
     protected:
 
       /**
@@ -483,6 +491,8 @@ namespace vargas {
       std::vector<std::string> _samples;
       std::vector<std::string> _ingroup; // subset of _samples
       char *_ingroup_cstr = nullptr;
+
+      size_t _limit, _counter;
 
   };
 

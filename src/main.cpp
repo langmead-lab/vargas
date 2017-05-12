@@ -66,6 +66,7 @@ int main(int argc, char *argv[]) {
 
 int define_main(int argc, char *argv[]) {
     std::string fasta_file, varfile, region, out_file, sample_filter, subdef;
+    size_t varlim = 0;
 
     cxxopts::Options opts("vargas define", "Define subgraphs deriving from a reference and VCF file.");
     try {
@@ -77,11 +78,14 @@ int define_main(int argc, char *argv[]) {
         ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
         ("g,region", "<CHR[:MIN-MAX];...> CSV list of regions. (default: all)", cxxopts::value(region))
         ("s,subgraph", "<str> Subgraph definitions, see below.", cxxopts::value(subdef))
-        ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter));
+        ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
+        ("n,limvar", "<N> Limit to the first N variant records", cxxopts::value(varlim));
 
         opts.add_options()("h,help", "Display this message.");
         opts.parse(argc, argv);
-    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options."); }
+    } catch (std::exception &e) {
+        std::cerr << e.what() << '\n';
+        throw std::invalid_argument("Error parsing options."); }
     if (opts.count("h")) {
         define_help(opts);
         return 0;
@@ -108,17 +112,17 @@ int define_main(int argc, char *argv[]) {
         std::transform(v.begin(), v.end(), std::back_inserter(region_vec), vargas::parse_region);
     }
 
-    gm.create_base(fasta_file, varfile, region_vec, sample_filter, true);
+    gm.create_base(fasta_file, varfile, region_vec, sample_filter, varlim);
 
     if (subdef.size()) {
         auto defs = rg::split(subdef, ';');
         for (auto &def : defs) {
             std::cerr << "Deriving subgraph \"" << def << "\"...\n";
-            gm.derive(def);
+            std::cerr << gm.at(gm.derive(def))->statistics() << '\n';
         }
     }
 
-    std::cerr << "Writing to \"" << out_file << "\"\n";
+    std::cerr << "Writing to \"" << out_file << "\"...\n";
     gm.write(out_file);
     return 0;
 }
@@ -157,7 +161,9 @@ int sim_main(int argc, char *argv[]) {
         opts.add_options()
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
-    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options."); }
+    } catch (std::exception &e) {
+        std::cerr << e.what() << '\n';
+        throw std::invalid_argument("Error parsing options."); }
     if (opts.count("h")) {
         sim_help(opts);
         return 0;
@@ -321,7 +327,9 @@ int convert_main(int argc, char **argv) {
         ("s,sam", "<str,...> SAM files. Default stdin.", cxxopts::value<std::string>(sam_file))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
-    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
+    } catch (std::exception &e) {
+        std::cerr << e.what() << '\n';
+        throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
     if (opts.count("h")) {
         convert_help(opts);
         return 0;
@@ -379,7 +387,9 @@ int profile(int argc, char *argv[]) {
         ("l,len", "<N> Number of reads.", cxxopts::value(read_len)->default_value("50"))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
-    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
+    } catch (std::exception &e) {
+        std::cerr << e.what() << '\n';
+        throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
     if (opts.count("h")) {
         profile_help(opts);
         return 0;
@@ -448,10 +458,12 @@ int query_main(int argc, char *argv[]) {
         ("g,graph", "*<str> Graph file to query.", cxxopts::value(gdef))
         ("d,dot", "<str> Subgraph to export as a DOT graph.", cxxopts::value(dot))
         ("t,out", "<str> DOT output file.", cxxopts::value(out)->default_value("stdout"))
-        ("a,stat", "<str> Print statistics about a subgraph.", cxxopts::value(stat)->implicit_value("base"))
+        ("a,stat", "<str> Print statistics about a subgraph \'-\' for all.", cxxopts::value(stat)->implicit_value("-"))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
-    } catch (std::exception &e) { throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
+    } catch (std::exception &e) {
+        std::cerr << e.what() << '\n';
+        throw std::invalid_argument("Error parsing options: " + std::string(e.what())); }
     if (opts.count("h")) {
         query_help(opts);
         return 0;
@@ -472,7 +484,10 @@ int query_main(int argc, char *argv[]) {
     }
 
     if (stat.size()) {
-        std::cerr << gg.at(stat)->statistics();
+        if (stat == "-") {
+            for (auto lab : gg.labels()) std::cerr << lab << " : " << gg.at(lab)->statistics() << '\n';
+        }
+        else std::cerr << gg.at(stat)->statistics() << '\n';
     }
 
     if (meta.size()) {

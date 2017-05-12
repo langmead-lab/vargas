@@ -68,6 +68,7 @@ std::vector<std::string> vargas::VCF::sequences() const {
 
 
 bool vargas::VCF::next() {
+    if (_limit > 0 && _counter >= _limit) return false;
     if (!_header || !_bcf) return false;
     do {
         if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
@@ -77,6 +78,7 @@ bool vargas::VCF::next() {
 
     unpack_all();
     gen_genotypes();
+    ++_counter;
     return true;
 }
 
@@ -135,6 +137,8 @@ void vargas::VCF::create_ingroup(int percent) {
 
 
 int vargas::VCF::_init() {
+    _counter = 0;
+    _limit = 0;
     if (_file_name.length() && _file_name != "-") {
         _bcf = bcf_open(_file_name.c_str(), "r");
         if (!_bcf) return -1;
@@ -145,7 +149,7 @@ int vargas::VCF::_init() {
         }
 
         // Load samples
-        for (size_t i = 0; i < num_samples() / 2; ++i) {
+        for (size_t i = 0; i < num_haplotypes() / 2; ++i) {
             _samples.push_back(_header->samples[i]);
         }
         create_ingroup(100);
@@ -206,7 +210,7 @@ void vargas::VCF::_apply_ingroup_filter() {
     bcf_hdr_set_samples(_header, _ingroup_cstr, 0);
 }
 
-size_t vargas::VCF::num_samples() const {
+size_t vargas::VCF::num_haplotypes() const {
     if (_header == nullptr) {
         return 0;
     }
@@ -264,7 +268,7 @@ TEST_CASE ("VCF File handler") {
         SUBCASE("Unfiltered") {
             vargas::VCF vcf(tmpvcf);
             vcf.next();
-            CHECK(vcf.num_samples() == 4);
+            CHECK(vcf.num_haplotypes() == 4);
             CHECK(vcf.sequences().size() == 2);
             CHECK(vcf.sequences()[0] == "x");
             CHECK(vcf.sequences()[1] == "y");
