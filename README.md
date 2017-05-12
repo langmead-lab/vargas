@@ -12,16 +12,13 @@ When cloning, use the `--recursive` option to automatically retrieve dependencie
 
     git clone --recursive git@github.com:RaviGaddipati/vargas.git
 
-## Dependencies
 
 Vargas relies on htslib to provide core file processing. Once cloned, the htslib is built with autoconf (version 2.63+).
 
     cd htslib
     autoconf && ./configure && make -j4
 
-## Compiling
-
-Vargas is built with cmake, and targets SSE4.1. AVX512 is targeted on Phi platforms.
+Vargas is built with cmake, and targets SSE4.1 for SIMD support. AVX512 is targeted on Phi platforms.
 
     mkdir build && cd build
     cmake -DCMAKE_BUILD_TYPE=Release .. && make -j4
@@ -117,7 +114,7 @@ For example:
 
     vargas align  -g test.gdef -r reads.fa -t reads.sam -x
 
-See the [alignment documentation](align.md) for more information.
+See the [Alignment documentation](doc/align.md) for more information.
 
 ## convert
 
@@ -143,7 +140,7 @@ Convert a SAM file into a CSV file, outputting the specified fields. Any of the 
 ```
 vargas convert -s <samfile> -f "RG:ID,mp,ms"
 ```
-will report the corresponding read group ID, max score position, and max score for each alignment. If multiple SAM files are provided, field 1 will be the file name. See [vargas align](align.md) for tag information.
+will report the corresponding read group ID, max score position, and max score for each alignment. If multiple SAM files are provided, field 1 will be the file name. See [vargas align](doc/align.md) for tag information.
 
 ## sim
 
@@ -219,7 +216,7 @@ Export a subgraph to a DOT graph, or get graph statistics.
 
 `vargas test` executes unit tests.
 
-`vargas profile -h` Generates a summary of performance.
+`vargas profile` Generates a summary of performance.
 
 ```
 Run profiles. 

@@ -1,5 +1,3 @@
-@brief Define a graph from a FASTA and VCF file
-
 # Defining a Graph
 _Updated: May 11, 2017_
 
@@ -33,13 +31,13 @@ Adding a VCF file will include variants into the graph. Variants can be restrict
 
 # Subgraphs
 
-A Hierarchy of graphs can be defined, and later alignments targeted at specific subgraphs. The whole graph, including all variants in the VCF, is the `base` graph. `ref` refers to the linear graph only consisting of reference nodes, and `maxaf` picks the nodes with the highest allele frequency.
+A Hierarchy of graphs can be defined and alignments targeted at specific subgraphs. The graph with all of the variants is the `base` graph. `ref` refers to the linear graph only consisting of reference nodes, and `maxaf` picks the nodes with the highest allele frequency.
 
-Subgraphs are defined using the format "label=N[%]", where 'N' is the number of samples or percentage of samples to select. The samples are selected from the parent graph, scoped with ':'. For example : `a=50;a:b=10%;a:c=5`.
+Subgraphs are defined using the format `label=N[%]`, where _N_ is the number of samples or percentage of samples to select. The samples are selected from the parent graph, scoped with ':'. For example : `a=50;a:b=20%;a:c=5`. The 5 samples in _a:c_ will all be in _a_. Likewise, The 10 samples in _a:b_ will also be in _a_.
 
 ## Example
 
-multigraph.vcf :
+*multigraph.vcf* :
 
 ```
 ##fileformat=VCFv4.0
@@ -49,12 +47,12 @@ multigraph.vcf :
 #CHROM  POS ID  REF ALT QUAL    FILTER  INFO    FORMAT  SA  SB
 chrA    40  rs775809821 A   T,C .   .   AF=0.5  GT  1|0 2|0
 chrA    41  rs768019142 A   TA,G    .   .   AF=0.2,0.3  GT  2|1 0|0
-chrA    60  rs62651026  C   T,A .   .   AF=0.1,0.2  GT  0|2 1|0
+chrA    60  rs62651026  A   T,A .   .   AF=0.1,0.2  GT  0|2 1|0
 chrB    40  rs376007522 C   T,G .   .   AF=0.8,0.1  GT  0|2 0|1
 chrB    80  rs796688738 C   AC,<CN0>    .   .   AF=0.05,0.1 GT  2|1 1|1 
 ```
 
-multigraph.fa :
+*multigraph.fa* :
 
 ```
 >chrA
@@ -77,10 +75,10 @@ Defining with the defintion `"a=3;a:b=2;a:b:c=1"` will generate the `base`, `max
 vargas define -f ref.fa -v ref.vcf -t ref.gdef -s "a=3;a:b=2;a:b:c=1"
 ```
 
-Convering to DOT format, we can see the resulting graphs.
+Converting to DOT format:
 
 ```
-vargas query -d multigraph.gdef -d <graphname> -t <graphname>.DOT
+vargas query -d multigraph.gdef -d <graphname> -t <graphname>.dot
 ```
 
 ### Base graph
@@ -94,3 +92,27 @@ vargas query -d multigraph.gdef -d <graphname> -t <graphname>.DOT
 ### Max allele frequency graph
 
 ![maxaf](maxaf.png)
+
+# File format
+
+```
+ @vgraph
+ date <graph build date>
+ fasta <reference fasta name>
+ vargas-build <vargas build date>
+ vcf <vcf file name>
+ [other meta info]
+
+ @contigs
+ <offset> <contig name>
+ ...
+
+ @graphs
+ <name> <node id list> <edges>
+ ...
+
+ @nodes
+ <ID> <endpos> <frequency> <pinched> <ref> <seqsize>
+ <node sequence>
+ ...
+```

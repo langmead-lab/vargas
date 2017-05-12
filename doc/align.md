@@ -1,8 +1,6 @@
 # Aligning
 _Updated: May 11, 2017_
 
-## Basic alignment
-
 Before any alignment, a graph needs to be generated with [vargas define](define.md). To use default parameters and produce a SAM file,
 
 ```
@@ -55,3 +53,18 @@ Alignments are written as SAM files. Alignments are not written as primary align
 - `gd` Subgraph aligned to.
 
 `vargas convert` can be used to extract these fields into a CSV file.
+
+## Coordinates
+
+When a graph diverges, parallel nodes can have different lengths. To project the position onto the reference, nodes are anchored at the ends of nodes. For example:
+
+```
+    012 1234 5678
+        ||||
+        ACAC
+       /    \
+    AAC--GT--AAAA
+         ||
+    012  34  5678
+```
+Note how `C` and `T`, the ends of the nodes, have the same position.
