@@ -900,6 +900,15 @@ namespace vargas {
       }
 
       /**
+       * @brief
+       * Assume VCF records for a given contig occur sequentially
+       */
+      void assume_contig_chr() {
+          if (!_vf) throw std::invalid_argument("No variant file opened.");
+          _vf->assume_contig_chr();
+      }
+
+      /**
        * Open the given file
        * @param file_name
        * @return Number of samples
@@ -941,6 +950,8 @@ namespace vargas {
           build(g, pos_offset);
           return g;
       }
+
+
 
     protected:
       /**

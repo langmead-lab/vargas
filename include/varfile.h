@@ -454,6 +454,14 @@ namespace vargas {
           _limit = num;
       }
 
+      /**
+       * @brief
+       * Assume that all variants for a given contig will appear consecutively in the file.
+       */
+      void assume_contig_chr() {
+          _assume_contig = true;
+      }
+
     protected:
 
       /**
@@ -493,6 +501,8 @@ namespace vargas {
       char *_ingroup_cstr = nullptr;
 
       size_t _limit, _counter;
+
+      bool _assume_contig, _entered_contig;
 
   };
 

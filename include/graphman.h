@@ -157,6 +157,15 @@ namespace vargas {
           return ret;
       }
 
+
+      /**
+       * @brief
+       * Assume VCF records for a given contig occur sequentially
+       */
+      void assume_contig_chr() {
+          _assume_contig = true;
+      }
+
       /**
        * @brief
        * Parse a subgraph definition and create the child graph. This should be called after building the base.
@@ -175,6 +184,7 @@ namespace vargas {
       std::map<std::string, std::shared_ptr<vargas::Graph>> _graphs; // Map label to a graph
       coordinate_resolver _resolver;
       std::map<std::string, std::string> _aux;
+      bool _assume_contig = false;
   };
 }
 

@@ -93,14 +93,6 @@ int align_main(int argc, char *argv[]) {
     if (align_targets.size() > 0 && format != ReadFmt::SAM) {
         throw std::invalid_argument("Alignment targets only available for SAM inputs.");
     }
-    // If targets doesn't have a comma, assume its a filename
-    if (align_targets.size() > 0 && std::find(align_targets.begin(), align_targets.end(), ',') == align_targets.end()) {
-        std::ifstream in(align_targets);
-        if (!in.good()) throw std::invalid_argument("Invalid alignment targets file \"" + align_targets + "\".");
-        std::stringstream ss;
-        ss << in.rdbuf();
-        align_targets = ss.str();
-    }
 
     vargas::isam reads;
     if (format == ReadFmt::FASTQ) {
@@ -181,7 +173,7 @@ int align_main(int argc, char *argv[]) {
 
     auto files = rg::split(gdf, ',');
     for (const auto &gdef : files) {
-        std::cerr << "\nLoading \"" << gdef << "\"... ";
+        std::cerr << "\nLoading \"" << gdef << "\"...\n";
         auto start_time = std::chrono::steady_clock::now();
         vargas::GraphMan gm(gdef);
         std::cerr << rg::chrono_duration(start_time) << "s.\n";
@@ -374,8 +366,9 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
             for (size_t i = 0; i < n_chunks; ++i) {
                 const auto safe_beg = beg + (i * chunk_size);
                 const auto safe_end = (i + 1) * chunk_size > nrecords ? end : safe_beg + chunk_size;
-                if (safe_beg != safe_end)
+                if (safe_beg != safe_end) {
                     task_list.emplace_back(sub_rg_pair.first, std::vector<vargas::SAM::Record>(safe_beg, safe_end));
+                }
             }
         }
     }

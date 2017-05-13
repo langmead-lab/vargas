@@ -70,15 +70,17 @@ std::vector<std::string> vargas::VCF::sequences() const {
 bool vargas::VCF::next() {
     if (_limit > 0 && _counter >= _limit) return false;
     if (!_header || !_bcf) return false;
+    bool seqmatch;
     do {
         if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
-    } while ((_region.seq_name.size() && strcmp(_region.seq_name.c_str(), bcf_seqname(_header, _curr_rec))) ||
-        unsigned(_curr_rec->pos) < _region.min ||
-        (_region.max > 0 && unsigned(_curr_rec->pos) > _region.max));
+        seqmatch = _region.seq_name.size() == 0 || strcmp(_region.seq_name.c_str(), bcf_seqname(_header, _curr_rec)) == 0;
+        if (_assume_contig && _entered_contig && !seqmatch) return false;
+    } while (!seqmatch || unsigned(_curr_rec->pos) < _region.min || (_region.max > 0 && unsigned(_curr_rec->pos) > _region.max));
 
     unpack_all();
     gen_genotypes();
     ++_counter;
+    _entered_contig = true;
     return true;
 }
 
@@ -137,6 +139,8 @@ void vargas::VCF::create_ingroup(int percent) {
 
 
 int vargas::VCF::_init() {
+    _assume_contig = false;
+    _entered_contig = false;
     _counter = 0;
     _limit = 0;
     if (_file_name.length() && _file_name != "-") {

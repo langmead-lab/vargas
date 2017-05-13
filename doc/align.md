@@ -56,7 +56,7 @@ Alignments are written as SAM files. Alignments are not written as primary align
 
 ## Coordinates
 
-When a graph diverges, parallel nodes can have different lengths. To project the position onto the reference, nodes are anchored at the ends of nodes. For example:
+When a graph diverges, parallel nodes can have different lengths. To project the position onto the reference, nodes are anchored to the end of the node. For example:
 
 ```
     012 1234 5678

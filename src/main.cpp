@@ -66,6 +66,7 @@ int main(int argc, char *argv[]) {
 
 int define_main(int argc, char *argv[]) {
     std::string fasta_file, varfile, region, out_file, sample_filter, subdef;
+    bool not_contig = false;
     size_t varlim = 0;
 
     cxxopts::Options opts("vargas define", "Define subgraphs deriving from a reference and VCF file.");
@@ -79,7 +80,8 @@ int define_main(int argc, char *argv[]) {
         ("g,region", "<CHR[:MIN-MAX];...> CSV list of regions. (default: all)", cxxopts::value(region))
         ("s,subgraph", "<str> Subgraph definitions, see below.", cxxopts::value(subdef))
         ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
-        ("n,limvar", "<N> Limit to the first N variant records", cxxopts::value(varlim));
+        ("n,limvar", "<N> Limit to the first N variant records", cxxopts::value(varlim))
+        ("c,notcontig", "VCF records for a given contig are not contiguous.", cxxopts::value(not_contig)->implicit_value("true"));
 
         opts.add_options()("h,help", "Display this message.");
         opts.parse(argc, argv);
@@ -112,6 +114,7 @@ int define_main(int argc, char *argv[]) {
         std::transform(v.begin(), v.end(), std::back_inserter(region_vec), vargas::parse_region);
     }
 
+    if (!not_contig) gm.assume_contig_chr();
     gm.create_base(fasta_file, varfile, region_vec, sample_filter, varlim);
 
     if (subdef.size()) {
@@ -274,9 +277,9 @@ int sim_main(int argc, char *argv[]) {
         }
     }
     std::cerr << rg::chrono_duration(start_time)
-              << " seconds. "
-              << sam_hdr.read_groups.size() << " read groups over "
-              << subdef_split.size() << " subgraphs. " << std::endl;
+              << " seconds.\n"
+              << sam_hdr.read_groups.size() << " read group(s) over "
+              << subdef_split.size() << " subgraph(s). " << std::endl;
 
     vargas::osam out(out_file, sam_hdr);
     if (!out.good()) throw std::invalid_argument("Error opening output file \"" + out_file + "\"");

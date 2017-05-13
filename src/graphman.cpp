@@ -64,6 +64,7 @@ vargas::GraphMan::create_base(const std::string fasta, const std::string vcf, st
         gf.add_sample_filter(sample_filter);
         gf.limit_variants(limvar);
         gf.set_region(reg);
+        if (_assume_contig) gf.assume_contig_chr();
         auto g = gf.build(offset);
         std::cerr << g.statistics().to_string() << "\n";
         _resolver._contig_offsets[offset] = reg.seq_name;

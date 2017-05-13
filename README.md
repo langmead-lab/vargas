@@ -3,7 +3,7 @@ _Updated: May 11, 2017_
 
 [![Build Status](https://travis-ci.org/RaviGaddipati/vargas.svg?branch=master)](https://travis-ci.org/RaviGaddipati/vargas)
 
-Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned using a SIMD vectorized version of Smith-Waterman, aligning multiple reads at once. The the aligner reports the best positions of reads without traceback to keep memory usage manageable. Additionally, vargas can be used to simulate reads from a DAG, and reads can be stratified by various parameters.
+Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned using a SIMD vectorized version of Smith-Waterman, aligning multiple reads at once. The the aligner reports the maximal scoring positions. Vargas can also be used to simulate reads from a DAG.
 
 
 # Building
@@ -34,7 +34,7 @@ On systems like Stampede, required modules will need to be loaded:
  
     module load cmake intel cxx11
 
-# Modes of operation
+# Modes of Operation
 
 `vargas -h`
 
@@ -193,6 +193,7 @@ Provided SAM tags:
 - `rt` Read Group tag. Rates were used.
 - `ph` Read Group tag. GDEF file.
 
+Reads are randomly sampled by weighting graph nodes by their length. As a result this isn't feasible for large graphs or specific conditions that are rare.
 
 ## query
 
