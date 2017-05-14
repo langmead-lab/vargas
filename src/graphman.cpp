@@ -59,14 +59,14 @@ vargas::GraphMan::create_base(const std::string fasta, const std::string vcf, st
     unsigned offset = 0;
 
     for (auto reg : region) {
-        std::cerr << "Building \"" << reg.seq_name << "\" (offset: " << offset << ")..." << std::endl;
+        if (_print) std::cerr << "Building \"" << reg.seq_name << "\" (offset: " << offset << ")..." << std::endl;
         GraphFactory gf(fasta, vcf);
         gf.add_sample_filter(sample_filter);
         gf.limit_variants(limvar);
         gf.set_region(reg);
         if (_assume_contig) gf.assume_contig_chr();
         auto g = gf.build(offset);
-        std::cerr << g.statistics().to_string() << "\n";
+        if (_print) std::cerr << g.statistics().to_string() << "\n";
         _resolver._contig_offsets[offset] = reg.seq_name;
         offset = g.rbegin()->end_pos() + 1;
         _graphs["base"]->assimilate(g);
@@ -102,7 +102,7 @@ void vargas::GraphMan::write(const std::string &filename) {
     // graphs
     // Label    [node_id_list]  [edge-list a:b,c;d:b,c;]
     of << "\n@graphs\n";
-    std::cerr << "Flushing " << _graphs.size() << " graphs...\n";
+    if (_print) std::cerr << "Flushing " << _graphs.size() << " graphs...\n";
     for (auto &g : _graphs) {
         of << g.first << '\t' << rg::vec_to_str(g.second->order(), ",") << '\t';
         for (auto &p : g.second->next_map()) {
@@ -113,7 +113,7 @@ void vargas::GraphMan::write(const std::string &filename) {
 
     // Nodes
     of << "\n@nodes\n";
-    std::cerr << "Flushing " << _nodes->size() << " nodes...\n";
+    if (_print) std::cerr << "Flushing " << _nodes->size() << " nodes...\n";
     for (auto &p : *_nodes) {
         of << p.first << '\t' << p.second.end_pos() << '\t' << p.second.freq()
            << '\t' << p.second.is_pinched() << '\t' << p.second.is_ref() << '\t' << p.second.seq().size() << '\n';
@@ -155,7 +155,7 @@ void vargas::GraphMan::open(const std::string &filename) {
     }
 
     assert(line == "@graphs");
-    std::cerr << "Loading graphs...\n";
+    if (_print) std::cerr << "Loading graphs...\n";
     std::vector<std::string> unparsed;
     while(std::getline(in, line) && line[0] != '@') {
         if (!line.size()) continue;
@@ -183,7 +183,7 @@ void vargas::GraphMan::open(const std::string &filename) {
     }
 
     assert(line =="@nodes");
-    std::cerr << "Loading nodes...\n";
+    if (_print) std::cerr << "Loading nodes...\n";
     while(std::getline(in, line)) {
         if (!line.size()) continue;
         // node meta

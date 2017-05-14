@@ -77,7 +77,7 @@ int define_main(int argc, char *argv[]) {
         opts.add_options("Optional")
         ("v,vcf", "<str> Variant file (vcf, vcf.gz, or bcf).", cxxopts::value<std::string>(varfile))
         ("t,out", "<str> Output filename. (default: stdout)", cxxopts::value(out_file))
-        ("g,region", "<CHR[:MIN-MAX];...> CSV list of regions. (default: all)", cxxopts::value(region))
+        ("g,region", "<CHR[:MIN-MAX];...> list of regions. (default: all)", cxxopts::value(region))
         ("s,subgraph", "<str> Subgraph definitions, see below.", cxxopts::value(subdef))
         ("p,filter", "<str> Filter by sample names in file.", cxxopts::value(sample_filter))
         ("n,limvar", "<N> Limit to the first N variant records", cxxopts::value(varlim))
@@ -98,6 +98,7 @@ int define_main(int argc, char *argv[]) {
     }
 
     vargas::GraphMan gm;
+    gm.print_progress();
     if (sample_filter.length()) {
         std::ifstream in(sample_filter);
         if (!in.good()) throw std::invalid_argument("Error opening file: \"" + sample_filter + "\"");

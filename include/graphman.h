@@ -167,6 +167,14 @@ namespace vargas {
       }
 
       /**
+       * Print construction/writing progress.
+       * @return
+       */
+      void print_progress() {
+          _print = true;
+      }
+
+      /**
        * @brief
        * Parse a subgraph definition and create the child graph. This should be called after building the base.
        * Note that samples are only loaded from original VCF files, and are not persisted. You cannot derive
@@ -185,6 +193,7 @@ namespace vargas {
       coordinate_resolver _resolver;
       std::map<std::string, std::string> _aux;
       bool _assume_contig = false;
+      bool _print = false;
   };
 }
 

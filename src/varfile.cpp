@@ -74,13 +74,13 @@ bool vargas::VCF::next() {
     do {
         if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
         seqmatch = _region.seq_name.size() == 0 || strcmp(_region.seq_name.c_str(), bcf_seqname(_header, _curr_rec)) == 0;
-        if (_assume_contig && _entered_contig && !seqmatch) return false;
+        if (seqmatch) _entered_contig = true;
+        else if (_assume_contig && _entered_contig) return false;
     } while (!seqmatch || unsigned(_curr_rec->pos) < _region.min || (_region.max > 0 && unsigned(_curr_rec->pos) > _region.max));
 
     unpack_all();
     gen_genotypes();
     ++_counter;
-    _entered_contig = true;
     return true;
 }
 
