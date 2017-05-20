@@ -58,17 +58,23 @@ void vargas::Results::resize(size_t size) {
     sub_score.resize(size);
     correct.resize(size);
     target_score.resize(size);
+    max_strand.resize(size);
+    sub_strand.resize(size);
 }
 
-void vargas::Results::finalize(const std::vector<unsigned> &targets) {
+void vargas::Results::finalize(const std::vector<target_t> &targets) {
     assert(targets.size() == correct.size());
     std::fill(correct.begin(), correct.end(), 0);
     for (unsigned i = 0; i < targets.size(); ++i) {
-        if (targets.at(i) == 0) continue;
-        else if (targets.at(i) >= max_pos[i] - profile.tol && targets.at(i) <= max_pos[i] + profile.tol) {
+        if (targets.at(i).second == 0) continue;
+        else if (targets.at(i).second >= max_pos[i] - profile.tol &&
+                 targets.at(i).second <= max_pos[i] + profile.tol &&
+                 targets.at(i).first == max_strand[i]) {
             correct[i] = 1;
         }
-        else if (targets.at(i) >= sub_pos[i] - profile.tol && targets.at(i) <= sub_pos[i] + profile.tol) {
+        else if (targets.at(i).second >= sub_pos[i] - profile.tol &&
+                 targets.at(i).second <= sub_pos[i] + profile.tol &&
+                 targets.at(i).first == sub_strand[i]) {
             correct[i] = 2;
         }
     }
@@ -84,7 +90,7 @@ vargas::ScoreProfile vargas::bwt2(const std::string &cl) {
     auto sp = tokenize_cl(cl);
 
     if (std::find(sp.begin(), sp.end(), "-U") == sp.end()) {
-        throw std::invalid_argument("Bowtie2: Unpaired read alignment expected.");
+        throw std::invalid_argument("Bowtie2/HISAT: Unpaired read alignment expected.");
     }
 
     ScoreProfile ret;
@@ -165,6 +171,7 @@ vargas::ScoreProfile vargas::bwa_mem(const std::string &cl) {
 
 vargas::ScoreProfile vargas::program_profile(const std::string &cl) {
     if (cl.find("bowtie2") != std::string::npos) return bwt2(cl);
+    else if (cl.find("hisat2") != std::string::npos) return bwt2(cl);
     else if (cl.find("bwa mem") != std::string::npos) return bwa_mem(cl);
     else throw std::invalid_argument("Unsupported program ID: " + cl);
 }

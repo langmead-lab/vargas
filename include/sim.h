@@ -27,14 +27,6 @@
 #define SIM_SAM_USE_RATE_TAG "rt" // Errors were generated with rates rather than discrete numbers
 #define SIM_SAM_GRAPH_TAG "ph" // graph file
 
-// Tags defining meta information in FASTA read names
-#define READ_META_END "pos"
-#define READ_META_MUT "sub"
-#define READ_META_INDEL "ind"
-#define READ_META_VARNODE "vnd"
-#define READ_META_VARBASE "vbs"
-#define READ_META_FASTA_DELIM ';'
-
 #include <random>
 #include <stdexcept>
 
@@ -85,60 +77,6 @@ namespace vargas {
   class Sim {
 
     public:
-
-      /**
-       * @brief
-       * Sim generated read sequence and associated parameters.
-       * @details
-       * When a Profile indicates any possible value (-1), the Read
-       * will reflect the actual number.
-       */
-      struct Read {
-          Read() :
-          read_orig(""), read(""), end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1),
-          indel_err(-1) {}
-
-          /**
-           * @brief
-           * Construct a read given a sequence.
-           * @param r read sequence.
-           */
-          Read(std::string r) :
-          read_orig(""), read(r), end_pos(-1), indiv(-1), sub_err(-1), var_nodes(-1), var_bases(-1),
-          indel_err(-1) {}
-
-          std::string read_orig; /**< unmutated read sequence */
-          std::string read; /**< base sequence. */
-          int32_t end_pos; /**< position of last base in seq. */
-          int32_t indiv; /**< Individual the read was taken from. */
-          int32_t sub_err; /**< Number of substitution errors introduced. */
-          int32_t var_nodes; /**< Number of variant nodes the read traverses. */
-          int32_t var_bases; /**< Number of bases that are in variant nodes. */
-          int32_t indel_err; /**< Number of insertions and deletions introduced. */
-
-
-          /**
-           * @brief
-           * Output two lines in FASTA format.
-           * @details
-           * Output two lines given the form: \n
-           * > Meta information \n
-           * read_sequence \n
-           * @return two-line string
-           */
-          std::string to_fasta() const;
-
-          /**
-           * @brief
-           * Convert the read to a single line CSV.
-           * @details
-           * Output form: \n
-           * src,read_seq,end_pos,sub_err,indel_err,var_nodes,var_bases \n
-           * @return single line string
-           */
-          std::string to_csv() const;
-
-      };
 
       /**
        * @brief

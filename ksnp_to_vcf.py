@@ -7,7 +7,7 @@ Consumes a KSNP file (HISAT format) and outputs a VCF file.
 Usage:
 python3.5 ksnp_to_vcf.py <snps.ksnp> <output> <minpos> <maxpos> <chr>
 
-snps.ksp : HISAT formatted SNP file
+snps.ksnp : HISAT formatted SNP file
 output : output file
 minpos,maxpos : Only include SNPs within this range. All if both are 0
 chr : chromosome
@@ -59,7 +59,7 @@ def to_vcf_record(ksnps, ids, pos, num_samples, chrom):
             line += ','
             af_str += ','
             gt_str += '\t'
-    for i in range(len(ksnps[pos][1]), num_haplotypes, 1):
+    for i in range(len(ksnps[pos][1]), num_samples, 1):
         gt_str += '\t0|0'
 
     line += '\t' + '100' + '\t' + 'PASS' + '\t' + "AF=" + af_str + '\tGT\t' + gt_str
@@ -72,8 +72,8 @@ def main():
     '''
 
     if (len(sys.argv) != 6):
-        print("\npython ksnp_to_vcf.py <snps.ksnp> <output> <minpos> <maxpos> <chr:chrlen>\n\n"
-              "snps.ksp : HISAT formatted SNP file\n"
+        print("\npython ksnp_to_vcf.py <snps.ksnp> <output> <minpos> <maxpos> <chr>\n\n"
+              "snps.ksnp : HISAT formatted SNP file\n"
               "output : output file\n"
               "minpos,maxpos : Only include SNPs within this range. All if both are 0\n"
               "chr : Chromosome\n")

@@ -46,7 +46,6 @@
 
 namespace vargas {
 
-
   /**
    * @brief
    * Common base class to all template versions of Aligners
@@ -94,8 +93,8 @@ namespace vargas {
        * @param end iterator to end of graph
        * @param aligns Results packet to populate
        */
-      virtual void align_into(const std::vector<std::string> &, const std::vector<unsigned> &,
-                              Graph::const_iterator, Graph::const_iterator, Results &) = 0;
+      virtual void align_into(const std::vector<std::string> &, const std::vector<target_t> &,
+                              Graph::const_iterator, Graph::const_iterator, Results &, bool) = 0;
 
       /**
        * @brief
@@ -107,10 +106,21 @@ namespace vargas {
        * @param end iterator to end of graph
        * @return Results packet
        */
-      virtual Results align(const std::vector<std::string> &read_group, const std::vector<unsigned> &targets,
-                            Graph::const_iterator begin, Graph::const_iterator end) {
+      virtual Results align(const std::vector<std::string> &read_group, const std::vector<target_t> &targets,
+                            Graph::const_iterator begin, Graph::const_iterator end, bool fwdonly=true) {
           Results aligns;
-          align_into(read_group, targets, begin, end, aligns);
+          align_into(read_group, targets, begin, end, aligns, fwdonly);
+          return aligns;
+      }
+
+      // Assumes forward strand
+      virtual Results align(const std::vector<std::string> &read_group, const std::vector<pos_t> &targets,
+                            Graph::const_iterator begin, Graph::const_iterator end, bool fwdonly=true) {
+          Results aligns;
+          std::vector<target_t> t;
+          t.reserve(targets.size());
+          for (auto p : targets) t.emplace_back(Strand::FWD, p);
+          align_into(read_group, t, begin, end, aligns, fwdonly);
           return aligns;
       }
 
@@ -124,11 +134,13 @@ namespace vargas {
        * @return Results packet
        */
       virtual Results align(const std::vector<std::string> &read_group,
-                            Graph::const_iterator begin, Graph::const_iterator end) {
-          std::vector<unsigned> targets(read_group.size());
-          std::fill(targets.begin(), targets.end(), 0);
-          return align(read_group, targets, begin, end);
+                            Graph::const_iterator begin, Graph::const_iterator end, bool fwdonly=true) {
+          std::vector<target_t> targets(read_group.size());
+          std::fill(targets.begin(), targets.end(), target_t{Strand::FWD, 0});
+          return align(read_group, targets, begin, end, fwdonly);
       }
+
+
 
       static constexpr unsigned default_tolerance() { return DEFAULT_TOL_FACTOR; }
 
@@ -147,11 +159,11 @@ namespace vargas {
           SIMDVector<simd_t> I_col;
       };
 
-      template<typename simd_t>
+      template<size_t N>
       struct _target {
-          unsigned char idx[simd_t::length + 1];
-          int score[simd_t::length + 1];
-          unsigned pos[simd_t::length + 1];
+          unsigned char idx[N];
+          int score[N];
+          pos_t pos[N];
       };
 
   };
@@ -396,10 +408,8 @@ namespace vargas {
        */
       static constexpr unsigned read_capacity() { return simd_t::length; }
 
-      void align_into(const std::vector<std::string> &read_group, const std::vector<pos_t> &targets,
-                      Graph::const_iterator begin, Graph::const_iterator end, Results &aligns) override {
-
-
+      void align_into(const std::vector<std::string> &read_group, const std::vector<target_t> &targets,
+                      Graph::const_iterator begin, Graph::const_iterator end, Results &aligns, bool fwdonly=true) override {
 
           assert(targets.size() == read_group.size());
 
@@ -412,6 +422,15 @@ namespace vargas {
           _seed <simd_t> seed(_read_len);
           const std::vector<unsigned> zvec = {0};
 
+          std::vector<std::string> revreads;
+          if (!fwdonly) {
+              revreads.reserve(read_group.size());
+              std::transform(read_group.begin(), read_group.end(), std::back_inserter(revreads), rg::reverse_complement);
+          } else {
+              std::fill(aligns.max_strand.begin(), aligns.max_strand.end(), Strand::FWD);
+              std::fill(aligns.sub_strand.begin(), aligns.sub_strand.end(), Strand::FWD);
+          }
+
           for (unsigned group = 0; group < num_groups; ++group) {
               seed_map.clear();
 
@@ -421,7 +440,6 @@ namespace vargas {
               const unsigned len = end_offset - beg_offset;
               assert(len <= read_capacity());
 
-              _alignment_group.load_reads(read_group, beg_offset, end_offset);
               _max_score = std::numeric_limits<native_t>::min();
               _max_pos = aligns.max_pos.data() + beg_offset;
 
@@ -430,33 +448,35 @@ namespace vargas {
               _max_count = aligns.max_count.data() + beg_offset;
               _sub_count = aligns.sub_count.data() + beg_offset;
 
-              // Create subrange of targets, and sort by position.
-              for (unsigned j = 0; j < len; ++j) {
-                  _target_subrange.idx[j] = j;
-                  _target_subrange.pos[j] = targets[beg_offset + j];
-                  _target_subrange.score[j] = std::numeric_limits<int>::min();
-              }
-              // pad with extra
-              for (unsigned j = len; j < read_capacity() + 1; ++j) {
-                  _target_subrange.pos[j] = std::numeric_limits<int>::max();
-              }
-
-              // Sort ascending position
-              for (unsigned c = 0; c < len - 1; ++c) {
-                  for (unsigned d = 0; d < len - c - 1; ++d) {
-                      if (_target_subrange.pos[d] > _target_subrange.pos[d + 1]) {
-                          std::swap(_target_subrange.pos[d], _target_subrange.pos[d + 1]);
-                          std::swap(_target_subrange.idx[d], _target_subrange.idx[d + 1]);
-                      }
-                  }
-              }
-
+              // Forward
+              _init_targets(targets, beg_offset, len, Strand::FWD);
+              _alignment_group.load_reads(read_group, beg_offset, end_offset);
               for (auto gi = begin; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, seed);
                   if (gi->is_pinched()) seed_map.clear();
                   _fill_node(*gi, _alignment_group, seed, seed_map.emplace(gi->id(), _read_len).first->second);
               }
 
+              // Reverse
+              if (!fwdonly) {
+                  seed_map.clear();
+                  _init_targets(targets, beg_offset, len, Strand::REV);
+                  _alignment_group.load_reads(revreads, beg_offset, end_offset);
+                  simd_t fwdmax = _max_score;
+                  simd_t fwdsub = _sub_score;
+
+                  for (auto gi = begin; gi != end; ++gi) {
+                      _get_seed(gi.incoming(), seed_map, seed);
+                      if (gi->is_pinched()) seed_map.clear();
+                      _fill_node(*gi, _alignment_group, seed, seed_map.emplace(gi->id(), _read_len).first->second);
+                  }
+
+                  // Assign strands
+                  for(size_t i = 0; i < len; ++i) {
+                      aligns.max_strand[beg_offset + i] = _max_score[i] > fwdmax[i] ? Strand::REV : Strand::FWD;
+                      aligns.sub_strand[beg_offset + i] = _sub_score[i] > fwdsub[i] ? Strand::REV : Strand::FWD;
+                  }
+              }
 
 
               // Copy scores
@@ -501,7 +521,7 @@ namespace vargas {
        * @brief
        * Returns the best seed from all previous nodes.
        * Graph should be validated before alignment to ensure proper seed fetch
-       * @param prev_ids All nodes preceding _curr_posent node
+       * @param prev_ids All nodes preceding _curr_pos node
        * @param seed_map ID->seed map for all previous nodes
        * @param seed best seed to populate
        * @throws std::domain_error if a node listed as a previous node but it has not been encountered yet.
@@ -579,8 +599,8 @@ namespace vargas {
       /**
        * @param read_base ReadBatch vector
        * @param ref reference sequence base
-       * @param row _curr_posent row in matrix
-       * @param col _curr_posent column in matrix
+       * @param row _curr_pos row in matrix
+       * @param col _curr_pos column in matrix
        */
       __RG_STRONG_INLINE__
       void _fill_cell(const simd_t &read, const rg::Base &ref, const unsigned &row, const pos_t &curr_pos) {
@@ -602,10 +622,10 @@ namespace vargas {
 
       /**
        * @brief
-       * Takes the max of D,I, and M vectors and stores the _curr_posent best score/position
+       * Takes the max of D,I, and M vectors and stores the _curr_pos best score/position
        * Currently does not support non-default template args
-       * @param row _curr_posent row
-       * @param col _curr_posent column
+       * @param row _curr_pos row
+       * @param col _curr_pos column
        * @param node_origin Current position, used to get absolute alignment position
        */
       __RG_STRONG_INLINE__ __RG_UNROLL__
@@ -690,12 +710,39 @@ namespace vargas {
           return b;
       }
 
+      void _init_targets(const std::vector<target_t> &targets, unsigned beg, unsigned len, Strand strand) {
+          // Create subrange of targets, and sort by position.
+          for (unsigned j = 0; j < len; ++j) {
+              if (targets[beg + j].first == strand) {
+                  _target_subrange.idx[j] = j;
+                  _target_subrange.pos[j] = targets[beg + j].second;
+                  _target_subrange.score[j] = std::numeric_limits<int>::min();
+              } else {
+                  _target_subrange.pos[j] = std::numeric_limits<int>::max();
+              }
+          }
+          // pad with extra
+          for (unsigned j = len; j < read_capacity() + 1; ++j) {
+              _target_subrange.pos[j] = std::numeric_limits<int>::max();
+          }
+
+          // Sort ascending position
+          for (unsigned c = 0; c < len - 1; ++c) {
+              for (unsigned d = 0; d < len - c - 1; ++d) {
+                  if (_target_subrange.pos[d] > _target_subrange.pos[d + 1]) {
+                      std::swap(_target_subrange.pos[d], _target_subrange.pos[d + 1]);
+                      std::swap(_target_subrange.idx[d], _target_subrange.idx[d + 1]);
+                  }
+              }
+          }
+      }
+
 
       /*********************************** Variables ***********************************/
 
       AlignmentGroup _alignment_group;
       SIMDVector<simd_t> _S, _Dc, _Ic;
-      _target<simd_t> _target_subrange; // Pad with one max so serve as buffer
+      _target<simd_t::length + 1> _target_subrange; // Pad with one pos::max to serve as buffer
 
       simd_t
       _match_vec, _mismatch_vec, _ambig_vec,
@@ -720,7 +767,7 @@ namespace vargas {
 
 TEST_SUITE("Aligners");
 
-TEST_CASE ("Alignment") {
+TEST_CASE("Alignment") {
 
     vargas::Graph::Node::_newID = 0;
     vargas::Graph g;
@@ -1057,7 +1104,38 @@ TEST_CASE ("Alignment") {
     }
 }
 
-TEST_CASE ("Indels") {
+TEST_CASE("Reverse strand") {
+    vargas::Graph g;
+    {
+        vargas::Graph::Node n;
+        n.set_as_ref();
+        n.set_seq("ACGCGATCGACGATCGAACGATCGATGCCAGTGC");
+        n.set_endpos(33);
+        g.add_node(n);
+    }
+    std::vector<std::string> reads = {
+    "GCCAGTGC", // mp: 34, fwd
+    "GCACTGGC" // mp: 34, rev
+    };
+    vargas::AlignerETE a(8);
+    SUBCASE("Alignment") {
+        auto res = a.align(reads, g.begin(), g.end(), false);
+        REQUIRE(res.size() == 2);
+        CHECK(res.max_pos[0] == 34);
+        CHECK(res.max_pos[1] == 34);
+        CHECK(res.max_strand[0] == vargas::Strand::FWD);
+        CHECK(res.max_strand[1] == vargas::Strand::REV);
+    }
+
+    SUBCASE("Targets") {
+        std::vector<vargas::pos_t> org{34, 34};
+        auto res = a.align(reads, org, g.begin(), g.end());
+        CHECK(res.target_score[0] == 16);
+        CHECK(res.target_score[1] != 16);
+    }
+}
+
+TEST_CASE("Indels") {
     vargas::Graph::Node::_newID = 0;
     vargas::Graph g;
 
@@ -1154,7 +1232,7 @@ TEST_CASE ("Indels") {
 
 }
 
-TEST_CASE ("End to End alignment") {
+TEST_CASE("End to End alignment") {
     // Example from bowtie 2 manual
     vargas::Graph g;
 
@@ -1216,7 +1294,7 @@ TEST_CASE ("End to End alignment") {
     }
 }
 
-TEST_CASE ("Target score") {
+TEST_CASE("Target score") {
     vargas::Graph g;
     vargas::Graph::Node n;
     n.set_seq("AAAACCCCCCCCCCCCAAA"); // Length 19

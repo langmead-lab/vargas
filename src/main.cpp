@@ -22,10 +22,10 @@
 #include "main.h"
 #include "align_main.h"
 #include "graphman.h"
+
 #include <iostream>
 #include <thread>
 #include <algorithm>
-
 
 int main(int argc, char *argv[]) {
 
@@ -323,13 +323,14 @@ int sim_main(int argc, char *argv[]) {
 
 int convert_main(int argc, char **argv) {
     std::string sam_file, format;
-
+    std::vector<std::string> files;
     cxxopts::Options opts("vargas convert", "Export a SAM file as a CSV file.");
     try {
         opts.add_options()
-        ("f,format", "<str> *Output format.", cxxopts::value<std::string>(format))
-        ("s,sam", "<str,...> SAM files. Default stdin.", cxxopts::value<std::string>(sam_file))
+        ("f,format", "<str> Output format.", cxxopts::value<std::string>(format))
+        ("files", "SAM files, default stdin.", cxxopts::value<std::vector<std::string>>(files))
         ("h,help", "Display this message.");
+        opts.parse_positional(std::vector<std::string>{"format", "files"});
         opts.parse(argc, argv);
     } catch (std::exception &e) {
         std::cerr << e.what() << '\n';
@@ -338,7 +339,7 @@ int convert_main(int argc, char **argv) {
         convert_help(opts);
         return 0;
     }
-    if (!opts.count("f")) {
+    if (!format.size()) {
         convert_help(opts);
         throw std::invalid_argument("Format specifier required.");
     }
@@ -349,7 +350,6 @@ int convert_main(int argc, char **argv) {
     std::vector<std::string> fmt_split = rg::split(format, ',');
     std::unordered_set<std::string> warned;
 
-    auto files = rg::split(sam_file, ',');
     if (files.size() == 0) files.resize(1);
 
     for (const auto &f : files) {
@@ -378,7 +378,7 @@ int convert_main(int argc, char **argv) {
 
 int profile(int argc, char *argv[]) {
     std::string bcf, fasta, region;
-    size_t nreads, read_len, ingroup;
+    size_t  ingroup;
 
     cxxopts::Options opts("vargas profile", "Run profiles.");
     try {
@@ -387,8 +387,6 @@ int profile(int argc, char *argv[]) {
         ("v,vcf", "<str> *Variant file (vcf, vcf.gz, or bcf)", cxxopts::value(bcf))
         ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
         ("i,ingroup", "<N> Ingroup percentage.", cxxopts::value(ingroup)->default_value("100"))
-        ("n,nreads", "<N> Number of reads.", cxxopts::value(nreads)->default_value("32"))
-        ("l,len", "<N> Number of reads.", cxxopts::value(read_len)->default_value("50"))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
     } catch (std::exception &e) {
@@ -450,6 +448,7 @@ int profile(int argc, char *argv[]) {
         vargas::Graph g2(g, vargas::Graph::Type::MAXAF);
         std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s" << std::endl;
     }
+
     return 0;
 }
 
@@ -554,6 +553,7 @@ void convert_help(const cxxopts::Options &opts) {
 
     cerr << opts.help() << "\n\n";
     cerr << "Required column names:\n\tQNAME, FLAG, RNAME, POS, MAPQ, CIGAR, RNEXT, PNEXT, TLEN, SEQ, QUAL\n";
-    cerr << "Prefix with \"RG:\" to obtain a value from the associated read group.\n" << endl;
+    cerr << "Prefix with \"RG:\" to obtain a value from the associated read group.\n";
+    cerr << "Ex. vargas convert -f \"RG:ID,ms\" a.sam b.sam" << endl;
 
 }

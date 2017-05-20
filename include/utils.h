@@ -61,6 +61,7 @@ namespace rg {
  * @enum Base
  * @brief
  * Maps Base characters to integers.
+ * @warning Numeric assignments should not be changed
  */
   enum Base: unsigned char { N = 0, A = 1, C = 2, G = 3, T = 4 };
 
@@ -140,6 +141,38 @@ namespace rg {
           builder << num_to_base(n);
       }
       return builder.str();
+  }
+
+  __RG_STRONG_INLINE__
+  char complement(const char b) {
+      switch (b) {
+          case 'A':
+          case 'a':
+              return 'T';
+          case 'C':
+          case 'c':
+              return 'G';
+          case 'G':
+          case 'g':
+              return 'C';
+          case 'T':
+          case 't':
+              return 'A';
+          default:
+              return 'N';
+      }
+  }
+
+  __RG_STRONG_INLINE__
+  void reverse_complement_inplace(std::string &seq){
+      std::transform(seq.begin(), seq.end(), seq.begin(), complement);
+      std::reverse(seq.begin(), seq.end());
+  }
+
+  __RG_STRONG_INLINE__
+  std::string reverse_complement(std::string seq) {
+      reverse_complement_inplace(seq);
+      return seq;
   }
 
 

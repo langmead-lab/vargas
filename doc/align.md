@@ -27,17 +27,16 @@ vargas align -g <graph_def> -r <reads> -t <out.sam> -a "RG:<tag>:<val>,<subgraph
 
 where `<tag>` can be `ID` or some auxiliary tag in the SAM Read Group line. RG's with `<val>` in the `<tag>` field will be aligned to `<subgraph>`. Reads that are not associated with a read group are assigned to `VAUGRP`.
 
+Using a SAM input where an alignment is already defined will enable the reporting of the `cf` and `ts` flags.
+
 ## Assess
 
-If a SAM read file is provided, `-s` can attempt to match a previous scoring function. Currently Bowtie2 and BWA MEM are supported. This also enables a few ancillary behaviors:
+If a SAM read file is provided, `-s` can attempt to match a previous scoring function. Currently Bowtie2, HISAT2, and BWA MEM are supported. If multiple positions are tied, the one closest to the previous alignment in a SAM file will be reported.
 
-- If multiple positions are tied, the one closest to the previous alignment will be reported.
-- `cf` and `ts` will report, as described below.
-- `-c` controls the tolerance for deciding what is "correct"
 
 ## Output
 
-Alignments are written as SAM files. Alignments are not written as primary alignments, but as aux tags. Note CIGAR alignments are not provided, just positions.
+Alignments are written as SAM files. Alignments are not written as primary alignments, but as aux tags. Note CIGAR alignments are not provided.
 
 - `mp` Maximum scoring position.
 - `sp` Second best scoring position.
@@ -45,8 +44,8 @@ Alignments are written as SAM files. Alignments are not written as primary align
 - `ss` Second best score.
 - `mc` Number of max score occurrences
 - `sc` Number of second-best score occurrences
-- `cf` Only in assess mode: 1 if alignment matches the best score, 2 for the second best, else 0.
-- `ts` Only in assess mode: Score at the given alignment position.
+- `cf` Only with SAM inputs: 1 if alignment matches the best score, 2 for the second best, else 0.
+- `ts` Only with SAM inputs: Score at the given alignment position offset by the CIGAR length if availble, otherwise the read length.
 - `pr` Scoring profile used.
 - `mu` Sequence name of the best score.
 - `su` Sequence name of the second best score.

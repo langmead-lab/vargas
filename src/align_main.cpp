@@ -33,7 +33,9 @@ int align_main(int argc, char *argv[]) {
     // Load parameters
     unsigned match, mismatch, gopen, gext, threads, tolerance, chunk_size, subsample;
     std::string read_file, gdf, align_targets, out_file, pgid;
-    bool end_to_end = false;
+    bool end_to_end = false, fwdonly = false;
+    // For now do primary all the time since -t can just be different from -r
+    const bool primary = true;
 
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
     try {
@@ -46,7 +48,8 @@ int align_main(int argc, char *argv[]) {
         ("p,subsample", "<N> Sample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
         ("a,alignto", "<str> Target graph, or SAM Read Group -> graph mapping.\"(RG:ID:<group>,<target_graph>;)+|<graph>\"", cxxopts::value(align_targets))
         ("s,assess", "[ID] Use score profile from a previous alignment, and target nearby alignments.", cxxopts::value(pgid)->implicit_value("."))
-        ("c,tolerance", "<N> Correct if within readlen/N.", cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())));
+        ("c,tolerance", "<N> Correct if within readlen/N.", cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
+        ("f,forward", "Only align to forward strand.", cxxopts::value(fwdonly));
 
         opts.add_options("Scoring")
         ("m,match", "<N> Match score.", cxxopts::value(match)->default_value("2"))
@@ -178,7 +181,7 @@ int align_main(int argc, char *argv[]) {
         vargas::GraphMan gm(gdef);
         std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
-        align(gm, task_list, aligners);
+        align(gm, task_list, aligners, fwdonly, primary);
 
         std::string fname = out_file;
         if (fname.length() > 0 && files.size() > 1) {
@@ -201,7 +204,7 @@ int align_main(int argc, char *argv[]) {
 }
 
 void align(vargas::GraphMan &gm, std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
-           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners) {
+           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool fwdonly, bool primary) {
 
     std::cerr << "Aligning... " << std::flush;
     auto start_time = std::chrono::steady_clock::now();
@@ -217,31 +220,52 @@ void align(vargas::GraphMan &gm, std::vector<std::pair<std::string, std::vector<
         #endif
         const size_t num_reads = task_list.at(l).second.size();
         std::vector<std::string> read_seqs(num_reads);
-        std::vector<unsigned> targets(num_reads);
+        std::vector<vargas::target_t> targets(num_reads);
         for (size_t i = 0; i < num_reads; ++i) {
             const auto &r = task_list.at(l).second.at(i);
             read_seqs[i] = r.seq;
-            targets[i] = r.pos;
             if (r.pos > 0) {
-                targets[i] = r.pos - 1;
+                targets[i].second = r.pos - 1;
                 if (r.cigar.size()) {
                     for (const auto &p : r.cigar) {
                         if (p.second == 'M' || p.second == 'D' || p.second == '=' || p.second == 'X')
-                            targets[i] += p.first;
+                            targets[i].second += p.first;
                     }
                     // If no cigar is present, use whole read length offset
-                } else targets[i] = r.pos + r.seq.length() - 1;
-            } else targets[i] = 0;
+                } else {
+                    targets[i].second += r.seq.length();
+                }
+                targets[i].first = r.flag.rev_complement ? vargas::Strand::REV : vargas::Strand::FWD;
+            }
+            // No targets
+            else {
+                targets[i].second = 0;
+            }
         }
         auto subgraph = gm.at(task_list.at(l).first);
 
-        const auto aligns = aligners[tid]->align(read_seqs, targets, subgraph->begin(), subgraph->end());
+        auto aligns = aligners[tid]->align(read_seqs, targets, subgraph->begin(), subgraph->end(), fwdonly);
+
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             vargas::SAM::Record &rec = task_list.at(l).second.at(j);
             auto abs = gm.absolute_position(aligns.max_pos[j]);
-            rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
-            rec.aux.set(ALIGN_SAM_MAX_SEQ, abs.first);
+            if (primary) {
+                rec.pos = abs.second - rec.seq.size() + 1;
+                rec.ref_name = abs.first;
 
+                rec.aux.set("AS", aligns.max_score[j]);
+                rec.flag.rev_complement = aligns.max_strand[j] == vargas::Strand::REV;
+                if (rec.flag.rev_complement) rg::reverse_complement(rec.seq);
+            }
+            else {
+                rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
+                rec.aux.set(ALIGN_SAM_MAX_SEQ, abs.first);
+
+                rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
+                rec.aux.set(ALIGN_SAM_MAX_STRAND_TAG, aligns.max_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
+            }
+
+            // Aux flags for both primary and secondary
             abs = gm.absolute_position(aligns.sub_pos[j]);
             rec.aux.set(ALIGN_SAM_SUB_SEQ, abs.first);
             rec.aux.set(ALIGN_SAM_SUB_POS_TAG, abs.second);
@@ -249,10 +273,12 @@ void align(vargas::GraphMan &gm, std::vector<std::pair<std::string, std::vector<
             rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
             rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
 
-            rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
             rec.aux.set(ALIGN_SAM_SCORE_PROFILE, aligns.profile.to_string());
             rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
-            if (targets.at(j) != 0) {
+
+            rec.aux.set(ALIGN_SAM_SUB_STRAND_TAG, aligns.sub_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
+
+            if (targets.at(j).second != 0) {
                 rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
                 rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
             }

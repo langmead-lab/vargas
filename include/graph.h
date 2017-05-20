@@ -759,7 +759,7 @@ namespace vargas {
           for (auto i : *this) {
               ++ret.num_nodes;
               ret.total_length += i.length();
-              ret.num_snps += (i.length() == 1);
+              ret.num_snps += (i.length() == 1 && !i.is_ref());
               ret.num_dels += (i.length() == 0);
               if (_next_map.count(i.id())) {
                   ret.num_edges += _next_map.at(i.id()).size();

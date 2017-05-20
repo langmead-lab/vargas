@@ -199,29 +199,6 @@ void vargas::Sim::_init() {
     _node_weight_dist = std::uniform_int_distribution<uint64_t>(0, total);
 }
 
-std::string vargas::Sim::Read::to_fasta() const {
-    std::ostringstream ss;
-    ss << ">"
-       << READ_META_END << ":" << end_pos << READ_META_FASTA_DELIM
-       << READ_META_MUT << ":" << sub_err << READ_META_FASTA_DELIM
-       << READ_META_INDEL << ":" << indel_err << READ_META_FASTA_DELIM
-       << READ_META_VARNODE << ":" << var_nodes << READ_META_FASTA_DELIM
-       << READ_META_VARBASE << ":" << var_bases
-       << std::endl
-       << read;
-    return ss.str();
-}
-
-std::string vargas::Sim::Read::to_csv() const {
-    std::ostringstream ss;
-    ss << read << ','
-       << end_pos << ','
-       << sub_err << ','
-       << indel_err << ','
-       << var_nodes << ','
-       << var_bases;
-    return ss.str();
-}
 
 std::string vargas::Sim::Profile::to_string() const {
     std::ostringstream os;

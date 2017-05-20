@@ -26,7 +26,14 @@
 
 namespace vargas {
 
+  /*
+   * @brief
+   * Marks a forward strand or a reverse complement strand
+   */
+  enum class Strand {FWD, REV};
+
   using rg::pos_t;
+  using target_t = std::pair<Strand, pos_t>;
 
   /**
    * @brief
@@ -76,10 +83,10 @@ namespace vargas {
   };
 
   /**
- * @brief
- * Aligner results
+   * @brief
+   * Aligner results
    * 1 baesd coords.
- */
+   */
   struct Results {
       std::vector<pos_t> max_pos, sub_pos;
       std::vector<unsigned> max_count, sub_count;
@@ -87,6 +94,9 @@ namespace vargas {
       std::vector<int> max_score; /**< Best scores */
       std::vector<int> sub_score; /**< Second best scores */
       std::vector<int> target_score; /**< Score at the target position */
+
+      std::vector<Strand> max_strand;
+      std::vector<Strand> sub_strand;
 
       std::vector<unsigned char> correct; /**< 1 for target matching best score, 2 for matching sub score, else 0 */
 
@@ -107,10 +117,11 @@ namespace vargas {
        * populate correct with 1 if max_pos within tol of target, 2 more sub_pos, else 0.
        * @param targets Read origins
        */
-      void finalize(const std::vector<unsigned> &targets);
+      void finalize(const std::vector<target_t> &targets);
   };
 
-  const std::vector<std::string> supported_pgid = {"bowtie2", "bwa"};
+
+  const std::vector<std::string> supported_pgid = {"bowtie2", "bwa", "hisat2"};
 
   std::vector<std::string> tokenize_cl(std::string cl);
 

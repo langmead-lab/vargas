@@ -26,6 +26,8 @@
 #define ALIGN_SAM_SUB_SCORE_TAG "ss"
 #define ALIGN_SAM_MAX_COUNT_TAG "mc"
 #define ALIGN_SAM_SUB_COUNT_TAG "sc"
+#define ALIGN_SAM_MAX_STRAND_TAG "mt"
+#define ALIGN_SAM_SUB_STRAND_TAG "st"
 #define ALIGN_SAM_COR_FLAG_TAG "cf"
 #define ALIGN_SAM_TARGET_SCORE "ts"
 #define ALIGN_SAM_SCORE_PROFILE "pr"
@@ -55,7 +57,7 @@ int align_main(int argc, char *argv[]);
 
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
-           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners);
+           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool fwdonly, bool primary);
 
 /**
  * @brief
