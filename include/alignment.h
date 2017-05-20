@@ -448,13 +448,18 @@ namespace vargas {
               _max_count = aligns.max_count.data() + beg_offset;
               _sub_count = aligns.sub_count.data() + beg_offset;
 
+              std::vector<qp_t> qprof;
+              qprof.resize(_read_len);
+
+
               // Forward
               _init_targets(targets, beg_offset, len, Strand::FWD);
               _alignment_group.load_reads(read_group, beg_offset, end_offset);
+              for (size_t r = 0; r < _read_len; ++r) qprof[r] = _query_profile(_alignment_group[r]);
               for (auto gi = begin; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, seed);
                   if (gi->is_pinched()) seed_map.clear();
-                  _fill_node(*gi, _alignment_group, seed, seed_map.emplace(gi->id(), _read_len).first->second);
+                  _fill_node(*gi, qprof, seed, seed_map.emplace(gi->id(), _read_len).first->second);
               }
 
               // Reverse
@@ -462,13 +467,14 @@ namespace vargas {
                   seed_map.clear();
                   _init_targets(targets, beg_offset, len, Strand::REV);
                   _alignment_group.load_reads(revreads, beg_offset, end_offset);
+                  for (size_t r = 0; r < _read_len; ++r) qprof[r] = _query_profile(_alignment_group[r]);
                   simd_t fwdmax = _max_score;
                   simd_t fwdsub = _sub_score;
 
                   for (auto gi = begin; gi != end; ++gi) {
                       _get_seed(gi.incoming(), seed_map, seed);
                       if (gi->is_pinched()) seed_map.clear();
-                      _fill_node(*gi, _alignment_group, seed, seed_map.emplace(gi->id(), _read_len).first->second);
+                      _fill_node(*gi, qprof, seed, seed_map.emplace(gi->id(), _read_len).first->second);
                   }
 
                   // Assign strands
@@ -496,6 +502,8 @@ namespace vargas {
 
 
     private:
+
+      using qp_t = std::array<simd_t, 5>;
 
       /**
        * @brief
@@ -528,8 +536,8 @@ namespace vargas {
        * i.e. not topographically sorted.
        */
       __RG_STRONG_INLINE__
-      void _get_seed(const std::vector<unsigned> &prev_ids,
-                     std::unordered_map<unsigned, _seed<simd_t>> &seed_map, _seed<simd_t> &seed) const {
+      void _get_seed(const std::vector<unsigned> &prev_ids, std::unordered_map<unsigned, _seed<simd_t>> &seed_map,
+                     _seed<simd_t> &seed) const {
           if (prev_ids.size() == 0) {
               _seed_matrix(seed);
           }
@@ -558,7 +566,7 @@ namespace vargas {
        * @param nxt seed for next nodes
        */
       __RG_STRONG_INLINE__
-      void _fill_node(const Graph::Node &n, const AlignmentGroup &read_group,
+      void _fill_node(const Graph::Node &n, const std::vector<qp_t> &read_group,
                       const _seed <simd_t> &s, _seed <simd_t> &nxt) {
           // Empty nodes represents deletions
           if (n.seq().size() == 0) {
@@ -574,8 +582,8 @@ namespace vargas {
           _S = s.S_col;
           _Ic = s.I_col;
           for (const rg::Base ref_base : n) {
-
               _Sd = _bias;
+
               for (unsigned r = 0; r < _read_len; ++r) {
                   _fill_cell(read_group[r], ref_base, r + 1, curr_pos);
               }
@@ -583,8 +591,7 @@ namespace vargas {
 
               while (_target_subrange.pos[csp] == curr_pos) {
                   for (unsigned q = END_TO_END ? _read_len : 1; q < _read_len + 1; ++q) {
-                      _target_subrange.score[csp] = std::max<int>(_target_subrange.score[csp],
-                                                                  _S[q][_target_subrange.idx[csp]]);
+                      _target_subrange.score[csp] = std::max<int>(_target_subrange.score[csp], _S[q][_target_subrange.idx[csp]]);
                   }
                   ++csp;
               }
@@ -593,7 +600,6 @@ namespace vargas {
 
           nxt.S_col = _S;
           nxt.I_col = _Ic;
-
       }
 
       /**
@@ -603,17 +609,10 @@ namespace vargas {
        * @param col _curr_pos column in matrix
        */
       __RG_STRONG_INLINE__
-      void _fill_cell(const simd_t &read, const rg::Base &ref, const unsigned &row, const pos_t &curr_pos) {
+      void _fill_cell(const qp_t &read, const rg::Base &ref, const unsigned &row, const pos_t &curr_pos) {
           _Dc[row] = max(_Dc[row - 1] - _gap_extend_vec_ref, _S[row - 1] - _gap_open_extend_vec_ref);
           _Ic[row] = max(_Ic[row] - _gap_extend_vec_rd, _S[row] - _gap_open_extend_vec_rd);
-          simd_t sr;
-          if (ref != rg::Base::N) {
-              sr = blend(read == ref, _match_vec, _mismatch_vec);
-              sr = _Sd + blend(read == rg::Base::N, _ambig_vec, sr);
-          } else {
-              sr = _Sd + _ambig_vec;
-          }
-
+          simd_t sr = _Sd + read[ref];
           _Sd = _S[row]; // S(i-1, j-1) for the next cell to be filled in
           _S[row] = max(_Ic[row], max(_Dc[row], sr));
 
@@ -737,6 +736,31 @@ namespace vargas {
           }
       }
 
+      /**
+       * @brief
+       * construct a query profile for each possible reference base
+       * @param read
+       * @return query profile
+       */
+      qp_t _query_profile(const simd_t &read) {
+          qp_t ret;
+          simd_t sr;
+          sr = blend(read == rg::Base::A, _match_vec, _mismatch_vec);
+          ret[rg::Base::A] = blend(read == rg::Base::N, _ambig_vec, sr);
+
+          sr = blend(read == rg::Base::C, _match_vec, _mismatch_vec);
+          ret[rg::Base::C] = blend(read == rg::Base::N, _ambig_vec, sr);
+
+          sr = blend(read == rg::Base::G, _match_vec, _mismatch_vec);
+          ret[rg::Base::G] = blend(read == rg::Base::N, _ambig_vec, sr);
+
+          sr = blend(read == rg::Base::T, _match_vec, _mismatch_vec);
+          ret[rg::Base::T] = blend(read == rg::Base::N, _ambig_vec, sr);
+
+          ret[rg::Base::N] = _ambig_vec;
+
+          return ret;
+      };
 
       /*********************************** Variables ***********************************/
 
