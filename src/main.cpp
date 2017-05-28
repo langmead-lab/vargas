@@ -524,7 +524,7 @@ void define_help(const cxxopts::Options &opts) {
     using std::cerr;
     using std::endl;
 
-    cerr << opts.help({"Required", "Optional", ""}) << "\n\n"
+    cerr << opts.help(opts.groups()) << "\n\n"
          << "Subgraphs are defined using the format \"label=N[%]\",\n"
          << "where \'N\' is the number of samples or percentage of samples to select.\n"
          << "The samples are selected from the parent graph, scoped with \':\'.\n"
@@ -542,7 +542,7 @@ void sim_help(const cxxopts::Options &opts) {
     using std::cerr;
     using std::endl;
 
-    cerr << opts.help({"Required", "Optional","Stratum", ""}) << "\n\n";
+    cerr << opts.help(opts.groups()) << "\n\n";
     cerr << "-n reads are produced for each -m, -i, -v, -b combination.\nIf set to \'*\', any value is accepted.\n"
          << endl;
 }

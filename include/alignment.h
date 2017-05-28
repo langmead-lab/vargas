@@ -200,10 +200,11 @@ namespace vargas {
    * // ATTA, score:8 pos:18
    * // CCNT, score:8 pos:80
    * @endcode
-   * @tparam native_t Native data type of score matrix element. One of uint8_t, uint16_t, uint32_t
+   * @tparam native_t Native data type of score matrix element. One of uint8_t, uint16_t
    * @tparam END_TO_END If true, perform end to end alignment
+   * @tparam MSONLY Only collect max score- no positions or subscores
    */
-  template<typename simd_t, bool END_TO_END>
+  template<typename simd_t, bool END_TO_END, bool MSONLY=false>
   class AlignerT: public AlignerBase {
     public:
 
@@ -437,7 +438,7 @@ namespace vargas {
                       Graph::const_iterator begin, Graph::const_iterator end,
                       Results &aligns, bool fwdonly=true) override {
 
-          assert(targets.size() == read_group.size());
+          assert(MSONLY || targets.size() == read_group.size());
 
           const unsigned num_groups = 1 + ((read_group.size() - 1) / read_capacity());
           // Possible oversize if there is a partial group
@@ -454,7 +455,7 @@ namespace vargas {
               std::transform(read_group.begin(), read_group.end(), std::back_inserter(revreads), rg::reverse_complement);
           } else {
               std::fill(aligns.max_strand.begin(), aligns.max_strand.end(), Strand::FWD);
-              std::fill(aligns.sub_strand.begin(), aligns.sub_strand.end(), Strand::FWD);
+              if (!MSONLY) std::fill(aligns.sub_strand.begin(), aligns.sub_strand.end(), Strand::FWD);
           }
 
           for (unsigned group = 0; group < num_groups; ++group) {
@@ -467,12 +468,14 @@ namespace vargas {
               assert(len <= read_capacity());
 
               _max_score = std::numeric_limits<native_t>::min();
-              _max_pos = aligns.max_pos.data() + beg_offset;
 
-              _sub_score = std::numeric_limits<native_t>::min();
-              _sub_pos = aligns.sub_pos.data() + beg_offset;
-              _max_count = aligns.max_count.data() + beg_offset;
-              _sub_count = aligns.sub_count.data() + beg_offset;
+              if (!MSONLY) {
+                  _max_pos = aligns.max_pos.data() + beg_offset;
+                  _sub_score = std::numeric_limits<native_t>::min();
+                  _sub_pos = aligns.sub_pos.data() + beg_offset;
+                  _max_count = aligns.max_count.data() + beg_offset;
+                  _sub_count = aligns.sub_count.data() + beg_offset;
+              }
 
               // Forward
               _init_targets(targets, beg_offset, len, Strand::FWD);
@@ -500,7 +503,7 @@ namespace vargas {
                   // Assign strands
                   for(size_t i = 0; i < len; ++i) {
                       aligns.max_strand[beg_offset + i] = _max_score[i] > fwdmax[i] ? Strand::REV : Strand::FWD;
-                      aligns.sub_strand[beg_offset + i] = _sub_score[i] > fwdsub[i] ? Strand::REV : Strand::FWD;
+                     if(!MSONLY) aligns.sub_strand[beg_offset + i] = _sub_score[i] > fwdsub[i] ? Strand::REV : Strand::FWD;
                   }
               }
 
@@ -508,15 +511,17 @@ namespace vargas {
               // Copy scores
               for (unsigned char i = 0; i < len; ++i) {
                   aligns.max_score[beg_offset + i] = _max_score[i] - _bias;
-                  aligns.sub_score[beg_offset + i] = _sub_score[i] - _bias;
-                  aligns.target_score[beg_offset + _target_subrange.idx[i]] = _target_subrange.score[i] - _bias;
+                  if (!MSONLY) {
+                      aligns.sub_score[beg_offset + i] = _sub_score[i] - _bias;
+                      aligns.target_score[beg_offset + _target_subrange.idx[i]] = _target_subrange.score[i] - _bias;
+                  }
               }
 
           }
           // Crop off potential buffer
           aligns.resize(read_group.size());
           aligns.profile = _prof;
-          aligns.finalize(targets);
+          if (!MSONLY) aligns.finalize(targets);
 
       }
 
@@ -594,7 +599,7 @@ namespace vargas {
           unsigned curr_pos = n.end_pos() - n.seq().size() + 2;
 
           int csp = 0;
-          while (_target_subrange.pos[csp] < curr_pos) ++csp;
+          while (!MSONLY && _target_subrange.pos[csp] < curr_pos) ++csp;
 
           _S = s.S_col;
           _Ic = s.I_col;
@@ -606,7 +611,7 @@ namespace vargas {
               }
               if (END_TO_END) _fill_cell_finish(_read_len, curr_pos);
 
-              while (_target_subrange.pos[csp] == curr_pos) {
+              while (!MSONLY && _target_subrange.pos[csp] == curr_pos) {
                   for (unsigned q = END_TO_END ? _read_len : 1; q < _read_len + 1; ++q) {
                       _target_subrange.score[csp] = std::max<int>(_target_subrange.score[csp], _S[q][_target_subrange.idx[csp]]);
                   }
@@ -647,61 +652,65 @@ namespace vargas {
        */
       __RG_STRONG_INLINE__ __RG_UNROLL__
       void _fill_cell_finish(const unsigned &row, const pos_t &curr_pos) {
-          simd_t _tmp0;
-          _tmp0 = _S[row] == _max_score;
-          if (_tmp0) {
-              // Check for equal max score.
-              for (unsigned i = 0; i < read_capacity(); ++i) {
-                  if (_tmp0[i]) {
-                      if (curr_pos > _max_pos[i] + _read_len) ++(_max_count[i]);
-                      _max_pos[i] = curr_pos;
-                  }
-              }
-          }
-
-          _tmp0 = _S[row] > _max_score;
-          if (_tmp0) {
-              // Check for new or equal high scores
+          if (MSONLY) {
               _max_score = max(_S[row], _max_score);
-              for (unsigned i = 0; i < read_capacity(); ++i) {
-                  if (_tmp0[i]) {
-                      // Demote old max to submax
-                      if (curr_pos > _max_pos[i] + _read_len) {
-                          _sub_score[i] = _max_score[i];
-                          _sub_pos[i] = _max_pos[i];
-                          _sub_count[i] = _max_count[i];
+          }
+          else {
+              simd_t _tmp0;
+              _tmp0 = _S[row] == _max_score;
+              if (_tmp0) {
+                  // Check for equal max score.
+                  for (unsigned i = 0; i < read_capacity(); ++i) {
+                      if (_tmp0[i]) {
+                          if (curr_pos > _max_pos[i] + _read_len) ++(_max_count[i]);
+                          _max_pos[i] = curr_pos;
                       }
-                      _max_count[i] = 1;
-                      _max_pos[i] = curr_pos;
+                  }
+              }
+
+              _tmp0 = _S[row] > _max_score;
+              if (_tmp0) {
+                  // Check for new or equal high scores
+                  _max_score = max(_S[row], _max_score);
+                  for (unsigned i = 0; i < read_capacity(); ++i) {
+                      if (_tmp0[i]) {
+                          // Demote old max to submax
+                          if (curr_pos > _max_pos[i] + _read_len) {
+                              _sub_score[i] = _max_score[i];
+                              _sub_pos[i] = _max_pos[i];
+                              _sub_count[i] = _max_count[i];
+                          }
+                          _max_count[i] = 1;
+                          _max_pos[i] = curr_pos;
+                      }
+                  }
+              }
+
+
+              _tmp0 = _S[row] == _sub_score;
+              if (_tmp0) {
+                  // Repeat sub score
+                  for (unsigned i = 0; i < read_capacity(); ++i) {
+                      if (_tmp0[i] && curr_pos > _max_pos[i] + _read_len) {
+                          _sub_count[i] += curr_pos > (_sub_pos[i] + _read_len);
+                          _sub_pos[i] = curr_pos;
+                      }
+                  }
+              }
+
+              // Greater than old sub max and less than max score (prevent repeats of max triggering)
+              _tmp0 = (_S[row] > _sub_score) & (_S[row] < _max_score);
+              if (_tmp0) {
+                  // new second best score
+                  for (unsigned i = 0; i < read_capacity(); ++i) {
+                      if (_tmp0[i] && curr_pos > _max_pos[i] + _read_len) {
+                          _sub_score[i] = _S[row][i];
+                          _sub_count[i] = 1;
+                          _sub_pos[i] = curr_pos;
+                      }
                   }
               }
           }
-
-
-          _tmp0 = _S[row] == _sub_score;
-          if (_tmp0) {
-              // Repeat sub score
-              for (unsigned i = 0; i < read_capacity(); ++i) {
-                  if (_tmp0[i] && curr_pos > _max_pos[i] + _read_len) {
-                      _sub_count[i] += curr_pos > (_sub_pos[i] + _read_len);
-                      _sub_pos[i] = curr_pos;
-                  }
-              }
-          }
-
-          // Greater than old sub max and less than max score (prevent repeats of max triggering)
-          _tmp0 = (_S[row] > _sub_score) & (_S[row] < _max_score);
-          if (_tmp0) {
-              // new second best score
-              for (unsigned i = 0; i < read_capacity(); ++i) {
-                  if (_tmp0[i] && curr_pos > _max_pos[i] + _read_len) {
-                      _sub_score[i] = _S[row][i];
-                      _sub_count[i] = 1;
-                      _sub_pos[i] = curr_pos;
-                  }
-              }
-          }
-
 
       }
 
@@ -728,6 +737,7 @@ namespace vargas {
       }
 
       void _init_targets(const std::vector<target_t> &targets, unsigned beg, unsigned len, Strand strand) {
+          if (MSONLY) return;
           // Create subrange of targets, and sort by position.
           for (unsigned j = 0; j < len; ++j) {
               if (targets[beg + j].first == strand) {
@@ -771,10 +781,15 @@ namespace vargas {
 
   };
 
-  using Aligner = AlignerT<int8_fast, false>;
-  using WordAligner = AlignerT<int16_fast, false>;
-  using AlignerETE = AlignerT<int8_fast, true>;
-  using WordAlignerETE = AlignerT<int16_fast, true>;
+  using Aligner = AlignerT<int8_fast, false, false>;
+  using WordAligner = AlignerT<int16_fast, false, false>;
+  using AlignerETE = AlignerT<int8_fast, true, false>;
+  using WordAlignerETE = AlignerT<int16_fast, true, false>;
+
+  using MSAligner = AlignerT<int8_fast, false, true>;
+  using MSWordAligner = AlignerT<int16_fast, false, true>;
+  using MSAlignerETE = AlignerT<int8_fast, true, true>;
+  using MSWordAlignerETE = AlignerT<int16_fast, true, true>;
 
 
 }

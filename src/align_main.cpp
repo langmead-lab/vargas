@@ -33,7 +33,7 @@ int align_main(int argc, char *argv[]) {
     // Load parameters
     unsigned match, npenalty, threads, tolerance, chunk_size, subsample;
     std::string read_file, gdf, align_targets, out_file, pgid, mismatch, rdg, rfg;
-    bool end_to_end = false, fwdonly = false, p64=false;
+    bool end_to_end = false, fwdonly = false, p64=false, msonly=false;
     // For now do primary all the time since -t can just be different from -r
     const bool primary = true;
 
@@ -41,11 +41,12 @@ int align_main(int argc, char *argv[]) {
     try {
         opts.add_options("Input")
         ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf))
-        ("r,reads", "<str> *Unpaired reads in SAM, FASTQ, or FASTA format.", cxxopts::value(read_file));
+        ("U,reads", "<str> *Unpaired reads in SAM, FASTQ, or FASTA format.", cxxopts::value(read_file));
 
-        opts.add_options("Alignment")
-        ("t,out", "<str> Output file.", cxxopts::value(out_file))
-        ("phred64", "FASTQ qualities are Phred+64.", cxxopts::value(p64)->implicit_value("1"))
+        opts.add_options("Optional")
+        ("S,sam", "<str> Output file.", cxxopts::value(out_file))
+        ("msonly", "Only report max score.", cxxopts::value(msonly)->implicit_value("1"))
+        ("phred64", "Qualities are Phred+64, not Phred+33.", cxxopts::value(p64)->implicit_value("1"))
         ("p,subsample", "<N> Sample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
         ("a,alignto", "<str> Target graph, or SAM Read Group -> graph mapping.\"(RG:ID:<group>,<target_graph>;)+|<graph>\"", cxxopts::value(align_targets))
         ("s,assess", "[ID] Use score profile from a previous alignment.", cxxopts::value(pgid)->implicit_value("."))
@@ -168,7 +169,6 @@ int align_main(int argc, char *argv[]) {
         }
     } else {
         prof.end_to_end = end_to_end;
-        prof.ambig = 0;
     }
 
     vargas::SAM::Header::Program pg;
@@ -183,7 +183,7 @@ int align_main(int argc, char *argv[]) {
     bool padded;
     auto task_list = create_tasks(reads, align_targets, chunk_size, read_len, padded);
     if (prof.end_to_end && prof.ambig && padded) {
-        std::cerr << "[warn] ETE alignment with N penalty will impact padded read scores.\n";
+        std::cerr << "[warn] ETE alignment with N penalty will padded reads.\n";
     }
 
     const size_t num_tasks = task_list.size();
@@ -209,7 +209,7 @@ int align_main(int argc, char *argv[]) {
 
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
-        aligners[k] = make_aligner(prof, read_len, use_wide);
+        aligners[k] = make_aligner(prof, read_len, use_wide, msonly);
     }
 
     auto files = rg::split(gdf, ',');
@@ -219,7 +219,7 @@ int align_main(int argc, char *argv[]) {
         vargas::GraphMan gm(gdef);
         std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
-        align(gm, task_list, aligners, fwdonly, primary);
+        align(gm, task_list, aligners, fwdonly, primary, msonly);
 
         std::string fname = out_file;
         if (fname.length() > 0 && files.size() > 1) {
@@ -244,7 +244,7 @@ int align_main(int argc, char *argv[]) {
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
-           bool fwdonly, bool primary) {
+           bool fwdonly, bool primary, bool msonly) {
 
     std::cerr << "Aligning... " << std::flush;
     auto start_time = std::chrono::steady_clock::now();
@@ -261,12 +261,16 @@ void align(vargas::GraphMan &gm,
         const size_t num_reads = task_list.at(l).second.size();
         std::vector<std::string> read_seqs(num_reads);
         std::vector<std::vector<char>> quals(num_reads);
-        std::vector<vargas::target_t> targets(num_reads);
+        std::vector<vargas::target_t> targets;
+
+        if (!msonly) {
+            targets.resize(num_reads);
+        }
         for (size_t i = 0; i < num_reads; ++i) {
             const auto &r = task_list.at(l).second.at(i);
             read_seqs[i] = r.seq;
             std::transform(r.qual.begin(), r.qual.end(), std::back_inserter(quals[i]), [](char c){return c-33;});
-            if (r.pos > 0) {
+            if (!msonly && r.pos > 0) {
                 targets[i].second = r.pos - 1;
                 if (r.cigar.size()) {
                     for (const auto &p : r.cigar) {
@@ -279,10 +283,6 @@ void align(vargas::GraphMan &gm,
                 }
                 targets[i].first = r.flag.rev_complement ? vargas::Strand::REV : vargas::Strand::FWD;
             }
-            // No targets
-            else {
-                targets[i].second = 0;
-            }
         }
         auto subgraph = gm.at(task_list.at(l).first);
         vargas::Results aligns;
@@ -292,35 +292,40 @@ void align(vargas::GraphMan &gm,
             vargas::SAM::Record &rec = task_list.at(l).second.at(j);
             auto abs = gm.absolute_position(aligns.max_pos[j]);
             if (primary) {
-                rec.pos = abs.second - rec.seq.size() + 1;
-                rec.ref_name = abs.first;
-
+                if (!msonly) {
+                    rec.pos = abs.second - rec.seq.size() + 1;
+                    rec.ref_name = abs.first;
+                    rec.flag.rev_complement = aligns.max_strand[j] == vargas::Strand::REV;
+                    if (rec.flag.rev_complement) rg::reverse_complement_inplace(rec.seq);
+                }
                 rec.aux.set("AS", aligns.max_score[j]);
-                rec.flag.rev_complement = aligns.max_strand[j] == vargas::Strand::REV;
-                if (rec.flag.rev_complement) rg::reverse_complement_inplace(rec.seq);
+
             }
             else {
-                rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
-                rec.aux.set(ALIGN_SAM_MAX_SEQ, abs.first);
-
                 rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
-                rec.aux.set(ALIGN_SAM_MAX_STRAND_TAG, aligns.max_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
+                if (!msonly) {
+                    rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
+                    rec.aux.set(ALIGN_SAM_MAX_SEQ, abs.first);
+                    rec.aux.set(ALIGN_SAM_MAX_STRAND_TAG, aligns.max_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
+                }
             }
 
-            // Aux flags for both primary and secondary
-            abs = gm.absolute_position(aligns.sub_pos[j]);
-            rec.aux.set(ALIGN_SAM_SUB_SEQ, abs.first);
-            rec.aux.set(ALIGN_SAM_SUB_POS_TAG, abs.second);
+            if (!msonly) {
+                // Aux flags for both primary and secondary
+                abs = gm.absolute_position(aligns.sub_pos[j]);
+                rec.aux.set(ALIGN_SAM_SUB_SEQ, abs.first);
+                rec.aux.set(ALIGN_SAM_SUB_POS_TAG, abs.second);
 
-            rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
-            rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
-            rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
+                rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
+                rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
+                rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
 
-            rec.aux.set(ALIGN_SAM_SUB_STRAND_TAG, aligns.sub_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
+                rec.aux.set(ALIGN_SAM_SUB_STRAND_TAG, aligns.sub_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
 
-            if (targets.at(j).second != 0) {
-                rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
-                rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
+                if (targets.at(j).second != 0) {
+                    rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
+                    rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
+                }
             }
         }
     }
@@ -449,13 +454,24 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
 }
 
 std::unique_ptr<vargas::AlignerBase>
-make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide) {
-    if (prof.end_to_end) {
-        if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(read_len, prof);
-        else return rg::make_unique<vargas::AlignerETE>(read_len, prof);
-    } else {
-        if (use_wide) return rg::make_unique<vargas::WordAligner>(read_len, prof);
-        else return rg::make_unique<vargas::Aligner>(read_len, prof);
+make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide, bool msonly) {
+    if (msonly) {
+        if (prof.end_to_end) {
+            if (use_wide) return rg::make_unique<vargas::MSWordAlignerETE>(read_len, prof);
+            else return rg::make_unique<vargas::MSAlignerETE>(read_len, prof);
+        } else {
+            if (use_wide) return rg::make_unique<vargas::MSWordAligner>(read_len, prof);
+            else return rg::make_unique<vargas::MSAligner>(read_len, prof);
+        }
+    }
+    else {
+        if (prof.end_to_end) {
+            if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(read_len, prof);
+            else return rg::make_unique<vargas::AlignerETE>(read_len, prof);
+        } else {
+            if (use_wide) return rg::make_unique<vargas::WordAligner>(read_len, prof);
+            else return rg::make_unique<vargas::Aligner>(read_len, prof);
+        }
     }
 }
 
@@ -495,7 +511,7 @@ void align_help(const cxxopts::Options &opts) {
     using std::cerr;
     using std::endl;
 
-    cerr << opts.help({"Required", "Optional", "Scoring", "Threading", ""}) << "\n" << endl;
+    cerr << opts.help(opts.groups()) << "\n" << endl;
     cerr << "Elements per SIMD vector: " << vargas::Aligner::read_capacity() << endl;
 }
 
