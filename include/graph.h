@@ -504,6 +504,18 @@ namespace vargas {
       }
 
       /**
+       * Seek a sequence position.
+       * @param pos 1 based
+       * @return pair of iterator and sequence offset
+       */
+      std::pair<const_iterator, pos_t> seek(pos_t pos) const {
+          auto it = begin();
+          --pos; // graph pos are stored as 0 indexed
+          while (it->end_pos() < pos) ++it;
+          return {it, pos - it->begin_pos()};
+      };
+
+      /**
        * @brief
        * Default constructor inits a new Graph, including a new node map.
        */

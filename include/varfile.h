@@ -127,7 +127,7 @@ namespace vargas {
        * @param min Min position, 0 indexed
        * @param max Max position, 0 indexed, inclusive
        */
-      VCF(std::string file, std::string chr, int min, int max) : _file_name(file), _region(chr, min, max) {
+      VCF(std::string file, std::string chr, pos_t min, pos_t max) : _file_name(file), _region(chr, min, max) {
           _init();
       }
 
@@ -275,7 +275,7 @@ namespace vargas {
        * Get a list of sequences in the VCF file.
        * @return vector of sequence names
        */
-      std::vector<std::string> sequences() const;
+      std::vector<std::string> seq_names() const;
 
       /**
        * @brief
@@ -347,8 +347,7 @@ namespace vargas {
        * @details
        * Consecutive alleles represent phasing, e.g. all odd indexes are one phase,
        * all even indexes are the other. Call will unpack the full record.
-       * Explicit copy number variations are replaced, other ambigous types are replaced
-       * ambiguous.
+       * Explicit copy number variations are replaced, other ambiguous types are replaced.
        * A map is also built, mapping each allele to the subpopulation that has it.
        * @return Vector of alleles, ordered by sample.
        */
@@ -382,7 +381,7 @@ namespace vargas {
       * @return vector of values.
       */
       template<typename T>
-      std::vector<T> fmt_tag(std::string tag) {
+      std::vector<T> format_tag(std::string tag) {
           return FormatField<T>(_header, _curr_rec, tag).values;
       }
 
@@ -391,13 +390,13 @@ namespace vargas {
        * Return the population set that has the allele.
        * @details
        * The returned vector has the same size as number of genotypes (samples * 2).
-       * When true, that individual/phase possed that allele.
+       * When true, that individual/phase has that allele.
        * @param allele allele to get the population of
-       * @return Population of indviduals that have the allele
+       * @return Population of individuals that have the allele
        */
       const Population allele_pop(const std::string allele) const {
           if (_genotype_indivs.count(allele)) return _genotype_indivs.at(allele);
-          else return Population(1, true);
+          else return Population(0);
       }
 
       /**

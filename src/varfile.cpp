@@ -50,7 +50,7 @@ void vargas::VCF::set_region(const Region &region) {
 }
 
 
-std::vector<std::string> vargas::VCF::sequences() const {
+std::vector<std::string> vargas::VCF::seq_names() const {
     if (!_header) return std::vector<std::string>(0);
     std::vector<std::string> ret;
     int num;
@@ -273,9 +273,9 @@ TEST_CASE ("VCF File handler") {
             vargas::VCF vcf(tmpvcf);
             vcf.next();
             CHECK(vcf.num_haplotypes() == 4);
-            CHECK(vcf.sequences().size() == 2);
-            CHECK(vcf.sequences()[0] == "x");
-            CHECK(vcf.sequences()[1] == "y");
+            CHECK(vcf.seq_names().size() == 2);
+            CHECK(vcf.seq_names()[0] == "x");
+            CHECK(vcf.seq_names()[1] == "y");
             REQUIRE(vcf.samples().size() == 2);
             CHECK(vcf.samples()[0] == "s1");
             CHECK(vcf.samples()[1] == "s2");

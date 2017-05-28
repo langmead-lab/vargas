@@ -15,37 +15,14 @@
 
 #include "scoring.h"
 
-void vargas::ScoreProfile::from_string(std::string s) {
-    s.erase(std::remove_if(s.begin(), s.end(), isspace), s.end());
-    auto sp = rg::split(s, ",");
-    for (const auto &tk : sp) {
-        auto pr = rg::split(tk, "=");
-        if (pr.size() != 2) throw std::invalid_argument("Invalid token: " + tk);
-        const auto &k = pr[0];
-        const auto &v = pr[1];
-        if (k == "M") match = std::stoi(v);
-        else if (k == "MM") mismatch = std::stoi(v);
-        else if (k == "GOD") read_gopen = std::stoi(v);
-        else if (k == "GED") read_gext = std::stoi(v);
-        else if (k == "GOF") ref_gopen = std::stoi(v);
-        else if (k == "GEF") ref_gext = std::stoi(v);
-        else if (k == "ETE") end_to_end = v == "1";
-        else if (k == "TOL") tol = std::stoi(v);
-        else if (k == "AMB") ambig = std::stoi(v);
-    }
-}
-
 std::string vargas::ScoreProfile::to_string() const {
     std::ostringstream ss;
-    ss << "M=" << (int) match
-       << ",MM=" << (int) mismatch
-       << ",GOD=" << (int) read_gopen
-       << ",GED=" << (int) read_gext
-       << ",GOF=" << (int) ref_gopen
-       << ",GEF=" << (int) ref_gext
-       << ",AMB=" << (int) ambig
-       << ",ETE=" << end_to_end
-       << ",TOL=" << tol;
+    ss << "ma=" << (int) match
+       << ";mp=" << (int) mismatch_max << ',' << (int) mismatch_min
+       << ";rdg=" << (int) read_gopen << ',' << (int) read_gext
+       << ";rfg=" << (int) ref_gopen << ',' << (int) ref_gext
+       << ";np=" << (int) ambig
+       << ";ete=" << end_to_end;
     return ss.str();
 }
 
@@ -111,8 +88,15 @@ vargas::ScoreProfile vargas::bwt2(const std::string &cl) {
     }
 
     f = std::find(sp.begin(), sp.end(), "-mp");
-    if (f != sp.end()) ret.mismatch = std::stoi(*++f);
-    else ret.mismatch = 6;
+    if (f != sp.end()) {
+        auto sp = rg::split(*++f, ",");
+        if (sp.size() == 1) ret.mismatch_max = ret.mismatch_min = std::stoi(sp[0]);
+        else {
+            ret.mismatch_max = std::stoi(sp[0]);
+            ret.mismatch_min = std::stoi(sp[1]);
+        }
+    }
+    else ret.mismatch_min = ret.mismatch_max = 6;
 
     f = std::find(sp.begin(), sp.end(), "-rfg");
     if (f != sp.end()) {
@@ -151,8 +135,8 @@ vargas::ScoreProfile vargas::bwa_mem(const std::string &cl) {
     else ret.match = 1;
 
     f = std::find(sp.begin(), sp.end(), "-B");
-    if (f != sp.end()) ret.mismatch = std::stoi(*++f);
-    else ret.mismatch = 4;
+    if (f != sp.end()) ret.mismatch_max = ret.mismatch_min = std::stoi(*++f);
+    else ret.mismatch_max = ret.mismatch_min = 4;
 
     f = std::find(sp.begin(), sp.end(), "-O");
     if (f != sp.end()) ret.read_gopen = std::stoi(*++f);

@@ -49,7 +49,8 @@ namespace vargas {
        * @param gext Read and ref gap extension penalty
        */
       ScoreProfile(uint8_t match, uint8_t mismatch, uint8_t gopen, uint8_t gext) :
-      match(match), mismatch(mismatch), read_gopen(gopen), read_gext(gext), ref_gopen(gopen), ref_gext(gext) {}
+      match(match), mismatch_min(mismatch), mismatch_max(mismatch),
+      read_gopen(gopen), read_gext(gext), ref_gopen(gopen), ref_gext(gext) {}
 
       /**
        * @param match Match bonus
@@ -62,12 +63,23 @@ namespace vargas {
       ScoreProfile(unsigned match, unsigned mismatch,
                    unsigned rd_gopen, unsigned rd_gext,
                    unsigned ref_gopen, unsigned ref_gext) :
-      match(match), mismatch(mismatch),
+      match(match), mismatch_min(mismatch), mismatch_max(mismatch),
       read_gopen(rd_gopen), read_gext(rd_gext), ref_gopen(ref_gopen), ref_gext(ref_gext) {}
+
+      /**
+       * @brief
+       * Get a mismatch penalty from a quality value
+       * @param c ASCII encoded Phred value
+       * @return penalty
+       */
+      unsigned penalty(char c) const {
+        return mismatch_min + (unsigned) std::floor( (mismatch_max-mismatch_min) * (std::min<float>(c, 40)/40));
+      }
 
       unsigned
       match = 2, /**< Match bonus */
-      mismatch = 2, /**< Mismatch penalty */
+      mismatch_min = 2,
+      mismatch_max = 2, /**< Mismatch penalty */
       read_gopen = 3, /**< Read gap open penalty */
       read_gext = 1, /**< Read gap extension penalty */
       ref_gopen = 3, /**< Ref gap open penalty */
@@ -79,13 +91,12 @@ namespace vargas {
 
       std::string to_string() const;
 
-      void from_string(std::string s);
   };
 
   /**
    * @brief
    * Aligner results
-   * 1 baesd coords.
+   * 1 based coords.
    */
   struct Results {
       std::vector<pos_t> max_pos, sub_pos;

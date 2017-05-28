@@ -37,11 +37,6 @@
 #include <string>
 #include <stdexcept>
 
-
-#if VA_DEBUG_SW
-#include <iomanip>
-#endif
-
 #define DEFAULT_TOL_FACTOR 4 // If the pos is +- read_len/tol, count as correct alignment
 
 namespace vargas {
@@ -88,12 +83,15 @@ namespace vargas {
        * Align a batch of reads to a graph range, return a vector of alignments
        * corresponding to the reads.
        * @param read_group vector of reads to align to
+       * @param quals Quality values
        * @param target high-score cell, determines correctness_flag, 1 based
        * @param begin iterator to beginning of graph
        * @param end iterator to end of graph
        * @param aligns Results packet to populate
        */
-      virtual void align_into(const std::vector<std::string> &, const std::vector<target_t> &,
+      virtual void align_into(const std::vector<std::string> &,
+                              const std::vector<std::vector<char>> &,
+                              const std::vector<target_t> &,
                               Graph::const_iterator, Graph::const_iterator, Results &, bool) = 0;
 
       /**
@@ -109,7 +107,7 @@ namespace vargas {
       virtual Results align(const std::vector<std::string> &read_group, const std::vector<target_t> &targets,
                             Graph::const_iterator begin, Graph::const_iterator end, bool fwdonly=true) {
           Results aligns;
-          align_into(read_group, targets, begin, end, aligns, fwdonly);
+          align_into(read_group, {}, targets, begin, end, aligns, fwdonly);
           return aligns;
       }
 
@@ -120,7 +118,7 @@ namespace vargas {
           std::vector<target_t> t;
           t.reserve(targets.size());
           for (auto p : targets) t.emplace_back(Strand::FWD, p);
-          align_into(read_group, t, begin, end, aligns, fwdonly);
+          align_into(read_group, {}, t, begin, end, aligns, fwdonly);
           return aligns;
       }
 
@@ -210,13 +208,23 @@ namespace vargas {
     public:
 
       using native_t = typename simd_t::native_t;
+      /**
+       * @brief
+       * Query profile type
+       * @details
+       * Index levels: \n
+       * 0 : indicates base of read
+       * 1 : Reference base, one of A,C,G,T,N
+       * 2 : mismatch penalties for each read
+       */
+      using qp_t = std::vector<std::array<simd_t, 5>, aligned_allocator<std::array<simd_t, 5>, simd_t::size>>;
 
       AlignerT(unsigned read_len, const ScoreProfile &prof) :
       _alignment_group(read_len),
       _S(read_len + 1), _Dc(read_len + 1), _Ic(read_len + 1),
       _read_len(read_len) {
           set_scores(prof); // May throw
-          set_correctness_tolerance(read_len / DEFAULT_TOL_FACTOR);
+          set_correctness_tolerance(read_len / default_tolerance());
       }
 
       /**
@@ -255,28 +263,34 @@ namespace vargas {
       class AlignmentGroup {
         public:
 
-          AlignmentGroup(unsigned read_len) : _packaged_reads(read_len), _read_len(read_len) {}
+          AlignmentGroup(unsigned read_len) : _packaged_reads(read_len), _query_prof(read_len), _read_len(read_len) {}
+          AlignmentGroup() = delete;
 
-          __RG_STRONG_INLINE__
-          void load_reads(const std::vector<std::string> &reads, const unsigned begin, const unsigned end) {
-              load_reads(std::vector<std::string>(reads.begin() + begin, reads.begin() + end));
+          void load_reads(const std::vector<std::string> &reads,
+                          const std::vector<std::vector<char>> &quals,
+                          const ScoreProfile &prof,
+                          const unsigned begin, const unsigned end) {
+              load_reads(std::vector<std::string>(reads.begin() + begin, reads.begin() + end), quals, prof);
           }
 
           /**
            * @param batch load the given vector of reads.
            */
-          __RG_STRONG_INLINE__
-          void load_reads(const std::vector<std::string> &batch) {
+          void load_reads(const std::vector<std::string> &batch,
+                          const std::vector<std::vector<char>> &quals,
+                          const ScoreProfile &prof) {
               std::vector<std::vector<rg::Base>> _reads;
               for (auto &b : batch) _reads.push_back(rg::seq_to_num(b));
-              load_reads(_reads);
+              load_reads(_reads, quals, prof);
           }
 
           /**
            * @param batch load the given vector of reads.
            */
-          void load_reads(const std::vector<std::vector<rg::Base>> &batch) {
-              _package_reads(batch);
+          void load_reads(const std::vector<std::vector<rg::Base>> &batch,
+                          const std::vector<std::vector<char>> &quals,
+                          const ScoreProfile &prof) {
+              _package_reads(batch, quals, prof);
           }
 
           /**
@@ -331,6 +345,10 @@ namespace vargas {
               return _packaged_reads.cend();
           }
 
+          const qp_t &query_profile() const {
+              return _query_prof;
+          }
+
         private:
 
 
@@ -341,32 +359,44 @@ namespace vargas {
            * of reads.
            */
           SIMDVector<simd_t> _packaged_reads;
+          qp_t _query_prof;
           const unsigned _read_len;
 
           /**
            * Interleaves reads so all same-index base positions are in one
            * vector. Empty spaces are padded with Base::N.
-           * @param _reads vector of reads to package
+           * @param reads vector of reads to package
+           * @param quals Quality values for reads, Phred
+           * @param prof ScoreProfile
            */
-          __RG_STRONG_INLINE__
-          void _package_reads(const std::vector<std::vector<rg::Base>> &_reads) {
-              assert(_reads.size() <= group_size());
+          void _package_reads(const std::vector<std::vector<rg::Base>> &reads,
+                              const std::vector<std::vector<char>> &quals,
+                              const ScoreProfile &prof) {
+              assert(reads.size() <= group_size());
+              static constexpr std::array<rg::Base, 4> bases = {rg::Base::A, rg::Base::C, rg::Base::G, rg::Base::T};
               // Interleave reads
               // For each read (read[i] is in _packaged_reads[0..n][i]
-              for (unsigned r = 0; r < _reads.size(); ++r) {
-                  assert(_reads[r].size() == _read_len);
+              for (unsigned r = 0; r < reads.size(); ++r) {
+                  assert(reads[r].size() == _read_len);
                   // Put each base in the appropriate vector element
                   for (unsigned p = 0; p < _read_len; ++p) {
-                      _packaged_reads[p][r] = _reads[r][p];
+                      _packaged_reads[p][r] = reads[r][p];
+                      _query_prof[p][rg::Base::N][r] = -prof.ambig;
+                      for (auto b : bases) {
+                          if (reads[r][p] == rg::Base::N) _query_prof[p][b][r] = -prof.ambig;
+                          else if (reads[r][p] == b) _query_prof[p][b][r] = prof.match;
+                          else if (quals.size() == 0) _query_prof[p][b][r] = -prof.mismatch_max;
+                          else _query_prof[p][b][r] = -prof.penalty(quals[r][p]);
+                      }
                   }
               }
 
               // Pad underful batches
-              for (unsigned r = _reads.size(); r < group_size(); ++r) {
-                  for (unsigned p = 0; p < _read_len; ++p) {
-                      _packaged_reads[p][r] = rg::Base::N;
-                  }
-              }
+//              for (unsigned r = reads.size(); r < group_size(); ++r) {
+//                  for (unsigned p = 0; p < _read_len; ++p) {
+//                      _packaged_reads[p][r] = rg::Base::N;
+//                  }
+//              }
           }
 
       };
@@ -377,21 +407,14 @@ namespace vargas {
       }
 
       void set_scores(const ScoreProfile &prof) override {
-          if (!END_TO_END && (prof.match < 0 || prof.read_gopen < 0 ||
-          prof.read_gext < 0 || prof.ref_gopen < 0 || prof.ref_gext < 0)) {
-              throw std::invalid_argument("Expected match bonus and penalties > 0 in local alignment mode.");
-          }
           _prof = prof;
           _prof.end_to_end = END_TO_END;
-          _match_vec = prof.match;
-          _mismatch_vec = -prof.mismatch;
-          _gap_open_extend_vec_rd = prof.read_gopen + prof.read_gext;
-          _gap_extend_vec_rd = prof.read_gext;
-          _gap_open_extend_vec_ref = prof.ref_gopen + prof.ref_gext;
-          _gap_extend_vec_ref = prof.ref_gext;
-          _ambig_vec = -prof.ambig;
-          _bias = _get_bias(_read_len, prof.match, prof.mismatch, prof.read_gopen, prof.read_gext);
+          _bias = _get_bias(_read_len, prof.match, prof.mismatch_max, prof.read_gopen, prof.read_gext);
           _Dc[0] = _bias;
+          _gap_extend_vec_rd = prof.read_gext;
+          _gap_extend_vec_ref = prof.ref_gext;
+          _gap_open_extend_vec_rd = prof.read_gopen + prof.read_gext;
+          _gap_open_extend_vec_ref = prof.ref_gopen + prof.ref_gext;
           set_correctness_tolerance(prof.tol);
       }
 
@@ -408,8 +431,11 @@ namespace vargas {
        */
       static constexpr unsigned read_capacity() { return simd_t::length; }
 
-      void align_into(const std::vector<std::string> &read_group, const std::vector<target_t> &targets,
-                      Graph::const_iterator begin, Graph::const_iterator end, Results &aligns, bool fwdonly=true) override {
+      void align_into(const std::vector<std::string> &read_group,
+                      const std::vector<std::vector<char>> &quals,
+                      const std::vector<target_t> &targets,
+                      Graph::const_iterator begin, Graph::const_iterator end,
+                      Results &aligns, bool fwdonly=true) override {
 
           assert(targets.size() == read_group.size());
 
@@ -448,33 +474,27 @@ namespace vargas {
               _max_count = aligns.max_count.data() + beg_offset;
               _sub_count = aligns.sub_count.data() + beg_offset;
 
-              std::vector<qp_t> qprof;
-              qprof.resize(_read_len);
-
-
               // Forward
               _init_targets(targets, beg_offset, len, Strand::FWD);
-              _alignment_group.load_reads(read_group, beg_offset, end_offset);
-              for (size_t r = 0; r < _read_len; ++r) qprof[r] = _query_profile(_alignment_group[r]);
+              _alignment_group.load_reads(read_group, quals, _prof, beg_offset, end_offset);
               for (auto gi = begin; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, seed);
                   if (gi->is_pinched()) seed_map.clear();
-                  _fill_node(*gi, qprof, seed, seed_map.emplace(gi->id(), _read_len).first->second);
+                  _fill_node(*gi, _alignment_group.query_profile(), seed, seed_map.emplace(gi->id(), _read_len).first->second);
               }
 
               // Reverse
               if (!fwdonly) {
                   seed_map.clear();
                   _init_targets(targets, beg_offset, len, Strand::REV);
-                  _alignment_group.load_reads(revreads, beg_offset, end_offset);
-                  for (size_t r = 0; r < _read_len; ++r) qprof[r] = _query_profile(_alignment_group[r]);
+                  _alignment_group.load_reads(revreads, quals, _prof, beg_offset, end_offset);
                   simd_t fwdmax = _max_score;
                   simd_t fwdsub = _sub_score;
 
                   for (auto gi = begin; gi != end; ++gi) {
                       _get_seed(gi.incoming(), seed_map, seed);
                       if (gi->is_pinched()) seed_map.clear();
-                      _fill_node(*gi, qprof, seed, seed_map.emplace(gi->id(), _read_len).first->second);
+                      _fill_node(*gi, _alignment_group.query_profile(), seed, seed_map.emplace(gi->id(), _read_len).first->second);
                   }
 
                   // Assign strands
@@ -500,10 +520,7 @@ namespace vargas {
 
       }
 
-
     private:
-
-      using qp_t = std::array<simd_t, 5>;
 
       /**
        * @brief
@@ -566,7 +583,7 @@ namespace vargas {
        * @param nxt seed for next nodes
        */
       __RG_STRONG_INLINE__
-      void _fill_node(const Graph::Node &n, const std::vector<qp_t> &read_group,
+      void _fill_node(const Graph::Node &n, const qp_t &read_group,
                       const _seed <simd_t> &s, _seed <simd_t> &nxt) {
           // Empty nodes represents deletions
           if (n.seq().size() == 0) {
@@ -609,10 +626,11 @@ namespace vargas {
        * @param col _curr_pos column in matrix
        */
       __RG_STRONG_INLINE__
-      void _fill_cell(const qp_t &read, const rg::Base &ref, const unsigned &row, const pos_t &curr_pos) {
+      void _fill_cell(const typename qp_t::value_type &prof, const rg::Base &ref,
+                      const unsigned &row, const pos_t &curr_pos) {
           _Dc[row] = max(_Dc[row - 1] - _gap_extend_vec_ref, _S[row - 1] - _gap_open_extend_vec_ref);
           _Ic[row] = max(_Ic[row] - _gap_extend_vec_rd, _S[row] - _gap_open_extend_vec_rd);
-          simd_t sr = _Sd + read[ref];
+          simd_t sr = _Sd + prof[ref];
           _Sd = _S[row]; // S(i-1, j-1) for the next cell to be filled in
           _S[row] = max(_Ic[row], max(_Dc[row], sr));
 
@@ -700,10 +718,10 @@ namespace vargas {
 
           //TODO Could be relaxed - all indels or all mismatch is unreasonable
           if (!has_warned && (gopen + (gext * (read_len - 1)) > b || read_len * mismatch > b)) {
-              std::cerr << "[warn] Possibility of score saturation with parameters in end-to-end mode:\n\t"
+              std::cerr << "[warn] Possibility of score saturation with parameters in end-to-end mode:\n"
                         << "Cell Width: "
                         << (int) std::numeric_limits<native_t>::max() - (int) std::numeric_limits<native_t>::min()
-                        << ", Bias: " << b << "\n";
+                        << ", Bias: " << b << ", Limits: gapwidth=" << (b - gopen)/gext << "OR mismatches=" << b/mismatch << "\n";
               has_warned = true;
           }
           return b;
@@ -736,43 +754,14 @@ namespace vargas {
           }
       }
 
-      /**
-       * @brief
-       * construct a query profile for each possible reference base
-       * @param read
-       * @return query profile
-       */
-      qp_t _query_profile(const simd_t &read) {
-          qp_t ret;
-          simd_t sr;
-          sr = blend(read == rg::Base::A, _match_vec, _mismatch_vec);
-          ret[rg::Base::A] = blend(read == rg::Base::N, _ambig_vec, sr);
-
-          sr = blend(read == rg::Base::C, _match_vec, _mismatch_vec);
-          ret[rg::Base::C] = blend(read == rg::Base::N, _ambig_vec, sr);
-
-          sr = blend(read == rg::Base::G, _match_vec, _mismatch_vec);
-          ret[rg::Base::G] = blend(read == rg::Base::N, _ambig_vec, sr);
-
-          sr = blend(read == rg::Base::T, _match_vec, _mismatch_vec);
-          ret[rg::Base::T] = blend(read == rg::Base::N, _ambig_vec, sr);
-
-          ret[rg::Base::N] = _ambig_vec;
-
-          return ret;
-      };
-
       /*********************************** Variables ***********************************/
 
       AlignmentGroup _alignment_group;
       SIMDVector<simd_t> _S, _Dc, _Ic;
       _target<simd_t::length + 1> _target_subrange; // Pad with one pos::max to serve as buffer
 
-      simd_t
-      _match_vec, _mismatch_vec, _ambig_vec,
-      _gap_open_extend_vec_rd, _gap_extend_vec_rd,
-      _gap_open_extend_vec_ref, _gap_extend_vec_ref,
-      _Sd, _max_score, _sub_score;
+      simd_t _Sd, _max_score, _sub_score,
+      _gap_extend_vec_ref, _gap_open_extend_vec_ref, _gap_extend_vec_rd, _gap_open_extend_vec_rd;
 
       pos_t *_max_pos, *_sub_pos;
       unsigned  *_max_count, *_sub_count;
@@ -786,6 +775,7 @@ namespace vargas {
   using WordAligner = AlignerT<int16_fast, false>;
   using AlignerETE = AlignerT<int8_fast, true>;
   using WordAlignerETE = AlignerT<int16_fast, true>;
+
 
 }
 
@@ -979,6 +969,29 @@ TEST_CASE("Alignment") {
         CHECK(aligns.max_pos[9] == 10);
         CHECK((int) aligns.correct[9] == 1);
         CHECK(aligns.max_score[9] == aligns.target_score[9]);
+    }
+
+    SUBCASE("Quality") {
+        std::vector<std::string> reads = {"GGTCTA", "GGTCTA", "GGTCTA"};
+        std::vector<std::vector<char>> quals = {{40,40,40,0,40,40},
+                                                {40,40,40,10,40,40},
+                                                {40,40,40,20,40,40}};
+        vargas::ScoreProfile prof(2, 2, 10, 10);
+        prof.mismatch_min = 2;
+        prof.mismatch_max = 6;
+        vargas::Results aligns;
+        vargas::Aligner a(6, prof);
+        std::vector<vargas::target_t> targets(3);
+        a.align_into(reads, quals, targets, g.begin(), g.end(), aligns, true);
+        REQUIRE(aligns.size() == 3);
+        CHECK(prof.penalty(0) == 2);
+        CHECK(prof.penalty(10) == 3);
+        CHECK(prof.penalty(20) == 4);
+        CHECK(prof.penalty(30) == 5);
+        CHECK(prof.penalty(40) == 6);
+        CHECK(aligns.max_score[0] == 8);
+        CHECK(aligns.max_score[1] == 7);
+        CHECK(aligns.max_score[2] == 6);
     }
 
     SUBCASE("Scoring Scheme- N penalty") {

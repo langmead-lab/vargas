@@ -84,7 +84,7 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
 std::unique_ptr<vargas::AlignerBase>
 make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide = false);
 
-void load_fast(std::string &file, const bool fastq, vargas::isam &ret);
+void load_fast(std::string &file, const bool fastq, vargas::isam &ret, bool p64=false);
 
 /**
  * Read file format type.
