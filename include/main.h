@@ -16,6 +16,9 @@
 #ifndef VARGAS_MAIN_H
 #define VARGAS_MAIN_H
 
+// Version
+#define VARGAS_VERSION "dev-" __DATE__
+
 #include "graph.h"
 #include "sim.h"
 #include "cxxopts.hpp"

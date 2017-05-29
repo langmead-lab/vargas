@@ -730,7 +730,7 @@ namespace vargas {
               std::cerr << "[warn] Possibility of score saturation with parameters in end-to-end mode:\n"
                         << "Cell Width: "
                         << (int) std::numeric_limits<native_t>::max() - (int) std::numeric_limits<native_t>::min()
-                        << ", Bias: " << b << ", Limits: gapwidth=" << (b - gopen)/gext << "OR mismatches=" << b/mismatch << "\n";
+                        << ", Bias: " << b << ", Limits: gapwidth=" << (b - gopen)/gext << " OR mismatches=" << b/mismatch << "\n";
               has_warned = true;
           }
           return b;

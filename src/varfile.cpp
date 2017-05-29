@@ -173,7 +173,7 @@ void vargas::VCF::_load_shared() {
             if (allele.substr(1, 2) == "CN" && allele.at(3) != 'V') {
                 int copy = std::stoi(allele.substr(3, allele.length() - 4));
                 allele = "";
-                for (int i = 0; i < copy; ++i) allele += ref;
+                for (int o = 0; o < copy; ++o) allele += ref;
             } else {
                 // Other types are just subbed with the ref.
                 allele = ref;

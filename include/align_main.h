@@ -30,7 +30,6 @@
 #define ALIGN_SAM_SUB_STRAND_TAG "st"
 #define ALIGN_SAM_COR_FLAG_TAG "cf"
 #define ALIGN_SAM_TARGET_SCORE "ts"
-#define ALIGN_SAM_SCORE_PROFILE "pr"
 #define ALIGN_SAM_MAX_SEQ "mu"
 #define ALIGN_SAM_SUB_SEQ "su"
 #define ALIGN_SAM_PG_GDF "gd"
@@ -55,6 +54,16 @@ namespace vargas {
  */
 int align_main(int argc, char *argv[]);
 
+/**
+ * @brief
+ * Align tasks to their graphs.
+ * @param gm GraphMan hosting target graphs
+ * @param task_list Parallel execution tasks
+ * @param aligners
+ * @param fwdonly
+ * @param primary
+ * @param msonly
+ */
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool fwdonly, bool primary, bool msonly);
@@ -84,6 +93,14 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
 std::unique_ptr<vargas::AlignerBase>
 make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide, bool msonly);
 
+/**
+ * @brief
+ * Load a FASTA or FASTQ file into a SAM structure
+ * @param file FAST file name
+ * @param fastq
+ * @param ret
+ * @param p64 Phred+64 encoding
+ */
 void load_fast(std::string &file, const bool fastq, vargas::isam &ret, bool p64=false);
 
 /**

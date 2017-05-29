@@ -19,6 +19,7 @@
 #include "utils.h"
 #include <vector>
 #include <cstdint>
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <sstream>

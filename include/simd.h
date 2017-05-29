@@ -4,7 +4,7 @@
  * rgaddip1@jhu.edu
  *
  * @brief
- * SIMD wrapper class for SSE and AVX2.
+ * SIMD wrapper class for SSE4.1 and AVX2.
  *
  * @details
  * element access uses reinterpret_cast<native_t*> by default, and is technically undefined behavior

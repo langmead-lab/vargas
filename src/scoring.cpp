@@ -89,21 +89,21 @@ vargas::ScoreProfile vargas::bwt2(const std::string &cl) {
 
     f = std::find(sp.begin(), sp.end(), "-mp");
     if (f != sp.end()) {
-        auto sp = rg::split(*++f, ",");
-        if (sp.size() == 1) ret.mismatch_max = ret.mismatch_min = std::stoi(sp[0]);
+        auto a = rg::split(*++f, ",");
+        if (sp.size() == 1) ret.mismatch_max = ret.mismatch_min = std::stoi(a[0]);
         else {
-            ret.mismatch_max = std::stoi(sp[0]);
-            ret.mismatch_min = std::stoi(sp[1]);
+            ret.mismatch_max = std::stoi(a[0]);
+            ret.mismatch_min = std::stoi(a[1]);
         }
     }
     else ret.mismatch_min = ret.mismatch_max = 6;
 
     f = std::find(sp.begin(), sp.end(), "-rfg");
     if (f != sp.end()) {
-        auto sp = rg::split(*++f, ",");
-        assert(sp.size() == 2);
-        ret.ref_gopen = std::stoi(sp[0]);
-        ret.ref_gext = std::stoi(sp[1]);
+        auto a = rg::split(*++f, ",");
+        if (a.size() != 2) throw std::invalid_argument("Expected gap argument format <open,extend>");
+        ret.ref_gopen = std::stoi(a[0]);
+        ret.ref_gext = std::stoi(a[1]);
     } else {
         ret.ref_gopen = 5;
         ret.ref_gext = 3;
@@ -111,10 +111,10 @@ vargas::ScoreProfile vargas::bwt2(const std::string &cl) {
 
     f = std::find(sp.begin(), sp.end(), "-rdg");
     if (f != sp.end()) {
-        auto sp = rg::split(*++f, ",");
-        assert(sp.size() == 2);
-        ret.read_gopen = std::stoi(sp[0]);
-        ret.read_gext = std::stoi(sp[1]);
+        auto a = rg::split(*++f, ",");
+        if (a.size() != 2) throw std::invalid_argument("Expected gap argument format <open,extend>");
+        ret.read_gopen = std::stoi(a[0]);
+        ret.read_gext = std::stoi(a[1]);
     } else {
         ret.read_gopen = 5;
         ret.read_gext = 3;

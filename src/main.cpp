@@ -36,6 +36,8 @@ int main(int argc, char *argv[]) {
             if (!strcmp(argv[1], "test")) {
                 doctest::Context doc(argc, argv);
                 doc.setOption("abort-after", 10);
+                doc.setOption("no-version", true);
+                doc.setOption("no-colors", true);
                 return doc.run();
             } else if (!strcmp(argv[1], "profile")) {
                 return profile(argc, argv);
@@ -504,7 +506,7 @@ int query_main(int argc, char *argv[]) {
 void main_help() {
     using std::cerr;
     using std::endl;
-    cerr << "\nvargas, " << __DATE__ << ". rgaddip1@jhu.edu\n";
+    cerr << "\nvargas " << VARGAS_VERSION << ". rgaddip1@jhu.edu\n";
     cerr << "\tdefine          Define a set of graphs for use with sim and align.\n";
     cerr << "\tsim             Simulate reads from a set of graphs.\n";
     cerr << "\talign           Align reads to a set of graphs.\n";

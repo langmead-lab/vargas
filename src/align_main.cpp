@@ -54,7 +54,7 @@ int align_main(int argc, char *argv[]) {
         ("f,forward", "Only align to forward strand.", cxxopts::value(fwdonly));
 
         opts.add_options("Scoring")
-        ("x,endtoend", "End to end alignment,", cxxopts::value(end_to_end))
+        ("ete", "End to end alignment.", cxxopts::value(end_to_end))
         ("ma", "<N> Match bonus.", cxxopts::value(match)->default_value("2"))
         ("mp", "<MX,MN> Mismatch penalty. Lower qual=lower penalty.", cxxopts::value(mismatch)->default_value("6,2"))
         ("np", "<N> Penalty for non-A/C/G/T.", cxxopts::value(npenalty)->default_value("1"))
@@ -188,7 +188,7 @@ int align_main(int argc, char *argv[]) {
 
     const size_t num_tasks = task_list.size();
     if (num_tasks < threads) {
-        std::cerr << "[warn] Number of threads is greater than number of tasks. Try decreasing --chunk.\n";
+        std::cerr << "[warn] Number of threads is greater than number of tasks. Try decreasing -u.\n";
     }
 
     #ifdef _OPENMP
