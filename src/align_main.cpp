@@ -212,37 +212,23 @@ int align_main(int argc, char *argv[]) {
         aligners[k] = make_aligner(prof, read_len, use_wide, msonly);
     }
 
-    auto files = rg::split(gdf, ',');
-    for (const auto &gdef : files) {
-        std::cerr << "\nLoading \"" << gdef << "\"...\n";
-        auto start_time = std::chrono::steady_clock::now();
-        vargas::GraphMan gm(gdef);
-        std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
-        align(gm, task_list, aligners, fwdonly, primary, msonly);
+    std::cerr << "\nLoading \"" << gdf << "\"...\n";
+    auto start_time = std::chrono::steady_clock::now();
+    vargas::GraphMan gm(gdf);
+    std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
-        std::string fname = out_file;
-        if (fname.length() > 0 && files.size() > 1) {
-            auto ld = out_file.find_last_of('.');
-            fname = fname.substr(0, ld) + "_" + gdef.substr(0, gdef.find_last_of('.'));
-            if (ld != std::string::npos) fname += out_file.substr(ld);
-        }
-        if (fname.length()) std::cerr << "Writing to \"" << (fname == "" ? "stdout" : fname) << "\".\n";
-        reads_hdr.programs[assigned_pgid].aux.set(ALIGN_SAM_PG_GDF, gdef);
-
-        vargas::osam aligns_out(fname, reads_hdr);
-        for (size_t l = 0; l < num_tasks; ++l) {
-            for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
-                aligns_out.add_record(task_list.at(l).second.at(j));
-            }
-        }
-    }
+    if (out_file.length()) std::cerr << "Writing to \"" << (out_file == "" ? "stdout" : out_file) << "\".\n";
+    reads_hdr.programs[assigned_pgid].aux.set(ALIGN_SAM_PG_GDF, gdf);
+    vargas::osam aligns_out(out_file, reads_hdr);
+    align(gm, task_list, aligns_out, aligners, fwdonly, primary, msonly);
 
     return 0;
 }
 
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
+           vargas::osam &out,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
            bool fwdonly, bool primary, bool msonly) {
 
@@ -326,6 +312,13 @@ void align(vargas::GraphMan &gm,
                     rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
                     rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
                 }
+            }
+        }
+
+        #pragma omp critical
+        {
+            for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
+                out.add_record(task_list.at(l).second.at(j));
             }
         }
     }

@@ -59,6 +59,7 @@ int align_main(int argc, char *argv[]);
  * Align tasks to their graphs.
  * @param gm GraphMan hosting target graphs
  * @param task_list Parallel execution tasks
+ * @param output SAM
  * @param aligners
  * @param fwdonly
  * @param primary
@@ -66,6 +67,7 @@ int align_main(int argc, char *argv[]);
  */
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
+           vargas::osam &out,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool fwdonly, bool primary, bool msonly);
 
 /**
