@@ -50,15 +50,6 @@ namespace vargas {
       virtual ~AlignerBase() = 0;
 
       /**
-       * Set the scoring scheme used for the alignments.
-       * @param match match score
-       * @param mismatch mismatch score
-       * @param open gap open penalty
-       * @param extend gap extend penalty
-       */
-      virtual void set_scores(unsigned, unsigned, unsigned, unsigned) = 0;
-
-      /**
        * @brief
        * Set the score profile from a ScoreProfile - gap penalties between ref/read may vary.
        * @param prof
@@ -74,11 +65,6 @@ namespace vargas {
       virtual void set_correctness_tolerance(const unsigned) = 0;
 
       /**
-       * @return Current correctness tolerance
-       */
-      virtual unsigned tolerance() const = 0;
-
-      /**
        * @brief
        * Align a batch of reads to a graph range, return a vector of alignments
        * corresponding to the reads.
@@ -88,6 +74,7 @@ namespace vargas {
        * @param begin iterator to beginning of graph
        * @param end iterator to end of graph
        * @param aligns Results packet to populate
+       * @param fwdonly Only align to forward strand
        */
       virtual void align_into(const std::vector<std::string> &,
                               const std::vector<std::vector<char>> &,
@@ -138,8 +125,6 @@ namespace vargas {
           return align(read_group, targets, begin, end, fwdonly);
       }
 
-
-
       static constexpr unsigned default_tolerance() { return DEFAULT_TOL_FACTOR; }
 
     protected:
@@ -149,12 +134,12 @@ namespace vargas {
        * @brief
        * Ending vectors from a previous node
        */
-      template<typename simd_t>
+      template<typename st>
       struct _seed {
           _seed() = delete;
           _seed(const unsigned _read_len) : S_col(_read_len + 1), I_col(_read_len + 1) {}
-          SIMDVector<simd_t> S_col; /**< Last column of score matrix.*/
-          SIMDVector<simd_t> I_col;
+          SIMDVector<st> S_col; /**< Last column of score matrix.*/
+          SIMDVector<st> I_col;
       };
 
       template<size_t N>
@@ -200,7 +185,7 @@ namespace vargas {
    * // ATTA, score:8 pos:18
    * // CCNT, score:8 pos:80
    * @endcode
-   * @tparam native_t Native data type of score matrix element. One of uint8_t, uint16_t
+   * @tparam simd_t data type of score matrix element. One of SIMD<uint8_t>, SIMD<uint16_t>
    * @tparam END_TO_END If true, perform end to end alignment
    * @tparam MSONLY Only collect max score- no positions or subscores
    */
@@ -237,21 +222,14 @@ namespace vargas {
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
-      AlignerT(unsigned read_len, unsigned match = 2, unsigned mismatch = 2, unsigned open = 3, unsigned extend = 1) :
+      AlignerT(unsigned read_len,unsigned match = 2, unsigned mismatch = 2, unsigned open = 3, unsigned extend = 1) :
       AlignerT(read_len, ScoreProfile(match, mismatch, open, extend)) {}
 
 
-      template<typename S, bool E>
-      AlignerT(const AlignerT<S, E> &a) = delete;
-
-      template<typename S, bool E>
-      AlignerT(AlignerT<S, E> &&a) = delete;
-
-      template<typename S, bool E>
-      AlignerT &operator=(const AlignerT<S, E> &) = delete;
-
-      template<typename S, bool E>
-      AlignerT &operator=(AlignerT<S, E> &&) = delete;
+      template<typename S, bool E, bool M> AlignerT(const AlignerT<S, E, M> &a) = delete;
+      template<typename S, bool E, bool M> AlignerT(AlignerT<S, E, M> &&a) = delete;
+      template<typename S, bool E, bool M> AlignerT &operator=(const AlignerT<S, E, M> &) = delete;
+      template<typename S, bool E, bool M> AlignerT &operator=(AlignerT<S, E, M> &&) = delete;
 
       /**
        * @brief
@@ -270,8 +248,8 @@ namespace vargas {
           void load_reads(const std::vector<std::string> &reads,
                           const std::vector<std::vector<char>> &quals,
                           const ScoreProfile &prof,
-                          const unsigned begin, const unsigned end) {
-              load_reads(std::vector<std::string>(reads.begin() + begin, reads.begin() + end), quals, prof);
+                          const unsigned begin, const unsigned end, bool revcomp = false) {
+              load_reads(std::vector<std::string>(reads.begin() + begin, reads.begin() + end), quals, prof, revcomp);
           }
 
           /**
@@ -279,10 +257,11 @@ namespace vargas {
            */
           void load_reads(const std::vector<std::string> &batch,
                           const std::vector<std::vector<char>> &quals,
-                          const ScoreProfile &prof) {
+                          const ScoreProfile &prof,
+                          bool revcomp) {
               std::vector<std::vector<rg::Base>> _reads;
               for (auto &b : batch) _reads.push_back(rg::seq_to_num(b));
-              load_reads(_reads, quals, prof);
+              load_reads(_reads, quals, prof, revcomp);
           }
 
           /**
@@ -290,8 +269,9 @@ namespace vargas {
            */
           void load_reads(const std::vector<std::vector<rg::Base>> &batch,
                           const std::vector<std::vector<char>> &quals,
-                          const ScoreProfile &prof) {
-              _package_reads(batch, quals, prof);
+                          const ScoreProfile &prof,
+                          bool revcomp) {
+              _package_reads(batch, quals, prof, revcomp);
           }
 
           /**
@@ -301,15 +281,6 @@ namespace vargas {
            */
           const simd_t &at(const unsigned i) const {
               return _packaged_reads.at(i);
-          }
-
-          /**
-           * @brief
-           * Pointer to raw packaged read data.
-           * @return VEC_TYPE pointer
-           */
-          const simd_t *data() const {
-              return _packaged_reads.data();
           }
 
           /**
@@ -369,43 +340,42 @@ namespace vargas {
            * @param reads vector of reads to package
            * @param quals Quality values for reads, Phred
            * @param prof ScoreProfile
+           * @param revcomp Use reverse complement
            */
           void _package_reads(const std::vector<std::vector<rg::Base>> &reads,
                               const std::vector<std::vector<char>> &quals,
-                              const ScoreProfile &prof) {
+                              const ScoreProfile &prof,
+                              bool revcomp) {
               assert(reads.size() <= group_size());
               static constexpr std::array<rg::Base, 4> bases = {rg::Base::A, rg::Base::C, rg::Base::G, rg::Base::T};
               // Interleave reads
               // For each read (read[i] is in _packaged_reads[0..n][i]
+              const int start = revcomp ? _read_len - 1 : 0;
+              const int inc = revcomp ? -1 : 1;
+              const int end = revcomp ? -1 : _read_len;
               for (unsigned r = 0; r < reads.size(); ++r) {
                   assert(reads[r].size() == _read_len);
                   // Put each base in the appropriate vector element
-                  for (unsigned p = 0; p < _read_len; ++p) {
-                      _packaged_reads[p][r] = reads[r][p];
-                      _query_prof[p][rg::Base::N][r] = -prof.ambig;
+                  int pos = 0;
+                  // Store in index pos, run through bases from idx start --> end based on revcomp
+                  for (int p = start; p != end; p += inc) {
+                      const auto rdb = revcomp ? rg::complement_b(reads[r][p]) : reads[r][p];
+                      _packaged_reads[pos][r] = rdb;
+                      _query_prof[pos][rg::Base::N][r] = -prof.ambig;
                       for (auto b : bases) {
-                          if (reads[r][p] == rg::Base::N) _query_prof[p][b][r] = -prof.ambig;
-                          else if (reads[r][p] == b) _query_prof[p][b][r] = prof.match;
-                          else if (quals.size() == 0) _query_prof[p][b][r] = -prof.mismatch_max;
-                          else _query_prof[p][b][r] = -prof.penalty(quals[r][p]);
+                          if (rdb == rg::Base::N) _query_prof[pos][b][r] = -prof.ambig;
+                          else if (rdb == b) _query_prof[pos][b][r] = prof.match;
+                          else if (quals.size() == 0) _query_prof[pos][b][r] = -prof.mismatch_max;
+                          else _query_prof[pos][b][r] = -prof.penalty(quals[r][p]);
                       }
+                      ++pos;
                   }
               }
 
-              // Pad underful batches
-//              for (unsigned r = reads.size(); r < group_size(); ++r) {
-//                  for (unsigned p = 0; p < _read_len; ++p) {
-//                      _packaged_reads[p][r] = rg::Base::N;
-//                  }
-//              }
           }
 
       };
 
-      void set_scores(unsigned match, unsigned mismatch, unsigned open, unsigned extend) override {
-          _prof = ScoreProfile(match, mismatch, open, extend);
-          set_scores(_prof);
-      }
 
       void set_scores(const ScoreProfile &prof) override {
           _prof = prof;
@@ -421,10 +391,6 @@ namespace vargas {
 
       void set_correctness_tolerance(const unsigned tol) override {
           _prof.tol = tol;
-      }
-
-      unsigned tolerance() const override {
-          return _prof.tol;
       }
 
       /**
@@ -447,15 +413,10 @@ namespace vargas {
           // Keep the scores at the positions, overwrites position. [0] is current position, 1-:ead_capacity + 1 is pos
           std::unordered_map<unsigned, _seed<simd_t>> seed_map; // Maps node ID to the ending matrix cols of the node
           _seed <simd_t> seed(_read_len);
-          const std::vector<unsigned> zvec = {0};
 
-          std::vector<std::string> revreads;
-          if (!fwdonly) {
-              revreads.reserve(read_group.size());
-              std::transform(read_group.begin(), read_group.end(), std::back_inserter(revreads), rg::reverse_complement);
-          } else {
+          if (fwdonly) {
               std::fill(aligns.max_strand.begin(), aligns.max_strand.end(), Strand::FWD);
-              if (!MSONLY) std::fill(aligns.sub_strand.begin(), aligns.sub_strand.end(), Strand::FWD);
+              std::fill(aligns.sub_strand.begin(), aligns.sub_strand.end(), Strand::FWD);
           }
 
           for (unsigned group = 0; group < num_groups; ++group) {
@@ -479,7 +440,7 @@ namespace vargas {
 
               // Forward
               _init_targets(targets, beg_offset, len, Strand::FWD);
-              _alignment_group.load_reads(read_group, quals, _prof, beg_offset, end_offset);
+              _alignment_group.load_reads(read_group, quals, _prof, beg_offset, end_offset, false);
               for (auto gi = begin; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, seed);
                   if (gi->is_pinched()) seed_map.clear();
@@ -490,7 +451,7 @@ namespace vargas {
               if (!fwdonly) {
                   seed_map.clear();
                   _init_targets(targets, beg_offset, len, Strand::REV);
-                  _alignment_group.load_reads(revreads, quals, _prof, beg_offset, end_offset);
+                  _alignment_group.load_reads(read_group, quals, _prof, beg_offset, end_offset, true);
                   simd_t fwdmax = _max_score;
                   simd_t fwdsub = _sub_score;
 
@@ -502,8 +463,8 @@ namespace vargas {
 
                   // Assign strands
                   for(size_t i = 0; i < len; ++i) {
-                      aligns.max_strand[beg_offset + i] = _max_score[i] > fwdmax[i] ? Strand::REV : Strand::FWD;
-                     if(!MSONLY) aligns.sub_strand[beg_offset + i] = _sub_score[i] > fwdsub[i] ? Strand::REV : Strand::FWD;
+                     aligns.max_strand[beg_offset + i] = _max_score[i] > fwdmax[i] ? Strand::REV : Strand::FWD;
+                     aligns.sub_strand[beg_offset + i] = _sub_score[i] > fwdsub[i] ? Strand::REV : Strand::FWD;
                   }
               }
 

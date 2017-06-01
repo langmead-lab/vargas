@@ -70,11 +70,11 @@ namespace vargas {
       /**
        * @brief
        * Get a mismatch penalty from a quality value
-       * @param c ASCII encoded Phred value
+       * @param c phred value
        * @return penalty
        */
       unsigned penalty(char c) const {
-        return mismatch_min + (unsigned) std::floor( (mismatch_max-mismatch_min) * (std::min<float>(c, 40)/40));
+          return mismatch_min + (unsigned) std::floor( (mismatch_max-mismatch_min) * (std::min<float>(c, 40)/40));
       }
 
       unsigned

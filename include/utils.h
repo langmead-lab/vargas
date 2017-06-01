@@ -164,6 +164,22 @@ namespace rg {
   }
 
   __RG_STRONG_INLINE__
+  Base complement_b(const Base b) {
+      switch (b) {
+          case Base::A:
+              return Base::T;
+          case Base::C:
+              return Base::G;
+          case Base::G:
+              return Base::C;
+          case Base::T:
+              return Base::A;
+          default:
+              return Base::N;
+      }
+  }
+
+  __RG_STRONG_INLINE__
   void reverse_complement_inplace(std::string &seq){
       std::transform(seq.begin(), seq.end(), seq.begin(), complement);
       std::reverse(seq.begin(), seq.end());
