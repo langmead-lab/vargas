@@ -33,28 +33,8 @@ void vargas::Results::resize(size_t size) {
     sub_count.resize(size);
     max_score.resize(size);
     sub_score.resize(size);
-    correct.resize(size);
-    target_score.resize(size);
     max_strand.resize(size);
     sub_strand.resize(size);
-}
-
-void vargas::Results::finalize(const std::vector<target_t> &targets) {
-    assert(targets.size() == correct.size());
-    std::fill(correct.begin(), correct.end(), 0);
-    for (unsigned i = 0; i < targets.size(); ++i) {
-        if (targets.at(i).second == 0) continue;
-        else if (targets.at(i).second >= max_pos[i] - profile.tol &&
-                 targets.at(i).second <= max_pos[i] + profile.tol &&
-                 targets.at(i).first == max_strand[i]) {
-            correct[i] = 1;
-        }
-        else if (targets.at(i).second >= sub_pos[i] - profile.tol &&
-                 targets.at(i).second <= sub_pos[i] + profile.tol &&
-                 targets.at(i).first == sub_strand[i]) {
-            correct[i] = 2;
-        }
-    }
 }
 
 std::vector<std::string> vargas::tokenize_cl(std::string cl) {

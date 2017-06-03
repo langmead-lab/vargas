@@ -57,17 +57,26 @@ Define subgraphs deriving from a reference and VCF file.
 Usage:
   vargas define [OPTION...]
 
- Required options:
+  -h, --help  Display this message.
+
+ Input options:
   -f, --fasta arg  <str> *Reference FASTA filename.
 
  Optional options:
   -v, --vcf arg       <str> Variant file (vcf, vcf.gz, or bcf).
   -t, --out arg       <str> Output filename. (default: stdout)
-  -g, --region arg    <CHR[:MIN-MAX];...> CSV list of regions. (default: all)
+  -g, --region arg    <CHR[:MIN-MAX];...> list of regions. (default: all)
   -s, --subgraph arg  <str> Subgraph definitions, see below.
   -p, --filter arg    <str> Filter by sample names in file.
+  -n, --limvar arg    <N> Limit to the first N variant records
+  -c, --notcontig     VCF records for a given contig are not contiguous.
 
-  -h, --help  Display this message.
+
+Subgraphs are defined using the format "label=N[%]",
+where 'N' is the number of samples or percentage of samples to select.
+The samples are selected from the parent graph, scoped with ':'.
+The BASE graph is implied as the root for all labels. Example:
+        a=50;a:b=10%;a:c=5
 ```
 
 See [Define documentation](doc/define.md).
@@ -81,31 +90,35 @@ Align reads to a graph.
 Usage:
   vargas align [OPTION...]
 
- Required options:
+  -h, --help  Display this message.
+
+ Input options:
   -g, --gdef arg   <str> *Graph definition file.
-  -r, --reads arg  <str> *Unpaired reads in SAM, FASTQ, or FASTA format.
+  -U, --reads arg  <str> *Unpaired reads in SAM, FASTQ, or FASTA format.
 
  Optional options:
-  -t, --out arg            <str> Output file.
+  -S, --sam arg            <str> Output file.
+      --msonly             Only report max score.
+      --phred64            Qualities are Phred+64, not Phred+33.
   -p, --subsample arg      <N> Sample N random reads, 0 for all. (default: 0)
-  -a, --alignto arg        <str> Target graph, or SAM Read Group -> graph mapping.
-                           "(RG:ID:<group>,<target_graph>;)+|<graph>"
-  -s, --assess [=arg(=-)]  [ID] Use score profile from a previous alignment,
-                           and target nearby alignments.
+  -a, --alignto arg        <str> Target graph, or SAM Read Group -> graph
+                           mapping."(RG:ID:<group>,<target_graph>;)+|<graph>"
+  -s, --assess [=arg(=.)]  [ID] Use score profile from a previous alignment.
   -c, --tolerance arg      <N> Correct if within readlen/N. (default: 4)
+  -f, --forward            Only align to forward strand.
 
  Scoring options:
-  -m, --match arg       <N> Match score. (default: 2)
-  -n, --mismatch arg    <N> Mismatch penalty. (default: 2)
-  -o, --gap_open arg    <N> Gap opening penalty. (default: 3)
-  -e, --gap_extend arg  <N> Gap extension penalty. (default: 1)
-  -x, --endtoend        Perform end to end alignment
+      --ete      End to end alignment.
+      --ma arg   <N> Match bonus. (default: 2)
+      --mp arg   <MX,MN> Mismatch penalty. Lower qual=lower penalty.
+                 (default: 6,2)
+      --np arg   <N> Penalty for non-A/C/G/T. (default: 1)
+      --rdg arg  <N1,N2> Read gap open/extension penalty. (default: 1,3)
+      --rfg arg  <N1,N2> Ref gap open/extension penalty. (default: 1,3)
 
  Threading options:
   -j, --threads arg  <N> Number of threads. (default: 1)
-  -u, --chunk arg    <N> Partition tasks into chunks with max size N. (default: 64)
-
-  -h, --help  Display this message.
+  -u, --chunk arg    <N> Partition into tasks of max size N. (default: 64)
 ```
 
 Reads are aligned to graphs specified in the GDEF file. `-x` will preform end to end alignment and is generally faster than full local alignment. The memory usage increase in marginal for high numbers of threads. As a result, as many threads as available should be used (271 on Xeon Phi KNL).

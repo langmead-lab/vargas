@@ -73,7 +73,7 @@ int define_main(int argc, char *argv[]) {
 
     cxxopts::Options opts("vargas define", "Define subgraphs deriving from a reference and VCF file.");
     try {
-        opts.add_options("Required")
+        opts.add_options("Input")
         ("f,fasta", "<str> *Reference FASTA filename.", cxxopts::value(fasta_file));
 
         opts.add_options("Optional")
@@ -147,7 +147,7 @@ int sim_main(int argc, char *argv[]) {
 
     cxxopts::Options opts("vargas sim", "Simulate reads from genome graphs.");
     try {
-        opts.add_options("Required")
+        opts.add_options("Input")
         ("g,graph", "<str> *Graph definition file.", cxxopts::value(gdf_file));
 
         opts.add_options("Optional")

@@ -58,19 +58,10 @@ namespace vargas {
 
       /**
        * @brief
-       * If the best score is +/- this tolerence of the target, count it as correct.
-       * Impacts the corflag.
-       * @param tol
-       */
-      virtual void set_correctness_tolerance(const unsigned) = 0;
-
-      /**
-       * @brief
        * Align a batch of reads to a graph range, return a vector of alignments
        * corresponding to the reads.
        * @param read_group vector of reads to align to
        * @param quals Quality values
-       * @param target high-score cell, determines correctness_flag, 1 based
        * @param begin iterator to beginning of graph
        * @param end iterator to end of graph
        * @param aligns Results packet to populate
@@ -78,36 +69,7 @@ namespace vargas {
        */
       virtual void align_into(const std::vector<std::string> &,
                               const std::vector<std::vector<char>> &,
-                              const std::vector<target_t> &,
                               Graph::const_iterator, Graph::const_iterator, Results &, bool) = 0;
-
-      /**
-       * @brief
-       * Align a batch of reads to a graph range, return a vector of alignments
-       * corresponding to the reads.
-       * @param read_group vector of reads to align to
-       * @param targets Keep cell scores for the given positions
-       * @param begin iterator to beginning of graph
-       * @param end iterator to end of graph
-       * @return Results packet
-       */
-      virtual Results align(const std::vector<std::string> &read_group, const std::vector<target_t> &targets,
-                            Graph::const_iterator begin, Graph::const_iterator end, bool fwdonly=true) {
-          Results aligns;
-          align_into(read_group, {}, targets, begin, end, aligns, fwdonly);
-          return aligns;
-      }
-
-      // Assumes forward strand
-      virtual Results align(const std::vector<std::string> &read_group, const std::vector<pos_t> &targets,
-                            Graph::const_iterator begin, Graph::const_iterator end, bool fwdonly=true) {
-          Results aligns;
-          std::vector<target_t> t;
-          t.reserve(targets.size());
-          for (auto p : targets) t.emplace_back(Strand::FWD, p);
-          align_into(read_group, {}, t, begin, end, aligns, fwdonly);
-          return aligns;
-      }
 
       /**
        * @brief
@@ -120,12 +82,10 @@ namespace vargas {
        */
       virtual Results align(const std::vector<std::string> &read_group,
                             Graph::const_iterator begin, Graph::const_iterator end, bool fwdonly=true) {
-          std::vector<target_t> targets(read_group.size());
-          std::fill(targets.begin(), targets.end(), target_t{Strand::FWD, 0});
-          return align(read_group, targets, begin, end, fwdonly);
+          Results aligns;
+          align_into(read_group, {}, begin, end, aligns, fwdonly);
+          return aligns;
       }
-
-      static constexpr unsigned default_tolerance() { return DEFAULT_TOL_FACTOR; }
 
     protected:
       ScoreProfile _prof;
@@ -140,13 +100,6 @@ namespace vargas {
           _seed(const unsigned _read_len) : S_col(_read_len + 1), I_col(_read_len + 1) {}
           SIMDVector<st> S_col; /**< Last column of score matrix.*/
           SIMDVector<st> I_col;
-      };
-
-      template<size_t N>
-      struct _target {
-          unsigned char idx[N];
-          int score[N];
-          pos_t pos[N];
       };
 
   };
@@ -210,7 +163,6 @@ namespace vargas {
       _S(read_len + 1), _Dc(read_len + 1), _Ic(read_len + 1),
       _read_len(read_len) {
           set_scores(prof); // May throw
-          set_correctness_tolerance(read_len / default_tolerance());
       }
 
       /**
@@ -386,11 +338,6 @@ namespace vargas {
           _gap_extend_vec_ref = prof.ref_gext;
           _gap_open_extend_vec_rd = prof.read_gopen + prof.read_gext;
           _gap_open_extend_vec_ref = prof.ref_gopen + prof.ref_gext;
-          set_correctness_tolerance(prof.tol);
-      }
-
-      void set_correctness_tolerance(const unsigned tol) override {
-          _prof.tol = tol;
       }
 
       /**
@@ -400,11 +347,8 @@ namespace vargas {
 
       void align_into(const std::vector<std::string> &read_group,
                       const std::vector<std::vector<char>> &quals,
-                      const std::vector<target_t> &targets,
                       Graph::const_iterator begin, Graph::const_iterator end,
                       Results &aligns, bool fwdonly=true) override {
-
-          assert(MSONLY || targets.size() == read_group.size());
 
           const unsigned num_groups = 1 + ((read_group.size() - 1) / read_capacity());
           // Possible oversize if there is a partial group
@@ -439,7 +383,6 @@ namespace vargas {
               }
 
               // Forward
-              _init_targets(targets, beg_offset, len, Strand::FWD);
               _alignment_group.load_reads(read_group, quals, _prof, beg_offset, end_offset, false);
               for (auto gi = begin; gi != end; ++gi) {
                   _get_seed(gi.incoming(), seed_map, seed);
@@ -450,7 +393,6 @@ namespace vargas {
               // Reverse
               if (!fwdonly) {
                   seed_map.clear();
-                  _init_targets(targets, beg_offset, len, Strand::REV);
                   _alignment_group.load_reads(read_group, quals, _prof, beg_offset, end_offset, true);
                   simd_t fwdmax = _max_score;
                   simd_t fwdsub = _sub_score;
@@ -474,7 +416,6 @@ namespace vargas {
                   aligns.max_score[beg_offset + i] = _max_score[i] - _bias;
                   if (!MSONLY) {
                       aligns.sub_score[beg_offset + i] = _sub_score[i] - _bias;
-                      aligns.target_score[beg_offset + _target_subrange.idx[i]] = _target_subrange.score[i] - _bias;
                   }
               }
 
@@ -482,7 +423,6 @@ namespace vargas {
           // Crop off potential buffer
           aligns.resize(read_group.size());
           aligns.profile = _prof;
-          if (!MSONLY) aligns.finalize(targets);
 
       }
 
@@ -559,9 +499,6 @@ namespace vargas {
 
           unsigned curr_pos = n.end_pos() - n.seq().size() + 2;
 
-          int csp = 0;
-          while (!MSONLY && _target_subrange.pos[csp] < curr_pos) ++csp;
-
           _S = s.S_col;
           _Ic = s.I_col;
           for (const rg::Base ref_base : n) {
@@ -571,13 +508,6 @@ namespace vargas {
                   _fill_cell(read_group[r], ref_base, r + 1, curr_pos);
               }
               if (END_TO_END) _fill_cell_finish(_read_len, curr_pos);
-
-              while (!MSONLY && _target_subrange.pos[csp] == curr_pos) {
-                  for (unsigned q = END_TO_END ? _read_len : 1; q < _read_len + 1; ++q) {
-                      _target_subrange.score[csp] = std::max<int>(_target_subrange.score[csp], _S[q][_target_subrange.idx[csp]]);
-                  }
-                  ++csp;
-              }
               ++curr_pos;
           }
 
@@ -689,47 +619,18 @@ namespace vargas {
           //TODO Could be relaxed - all indels or all mismatch is unreasonable
           if (!has_warned && (gopen + (gext * (read_len - 1)) > b || read_len * mismatch > b)) {
               std::cerr << "[warn] Possibility of score saturation with parameters in end-to-end mode:\n"
-                        << "Cell Width: "
+                        << "\tCell Width: "
                         << (int) std::numeric_limits<native_t>::max() - (int) std::numeric_limits<native_t>::min()
-                        << ", Bias: " << b << ", Limits: gapwidth=" << (b - gopen)/gext << " OR mismatches=" << b/mismatch << "\n";
+                        << ", Bias: " << b << ", Limits: gaplen=" << (b - gopen)/gext << " OR mismatches=" << b/mismatch << "\n";
               has_warned = true;
           }
           return b;
-      }
-
-      void _init_targets(const std::vector<target_t> &targets, unsigned beg, unsigned len, Strand strand) {
-          if (MSONLY) return;
-          // Create subrange of targets, and sort by position.
-          for (unsigned j = 0; j < len; ++j) {
-              if (targets[beg + j].first == strand) {
-                  _target_subrange.idx[j] = j;
-                  _target_subrange.pos[j] = targets[beg + j].second;
-                  _target_subrange.score[j] = std::numeric_limits<int>::min();
-              } else {
-                  _target_subrange.pos[j] = std::numeric_limits<int>::max();
-              }
-          }
-          // pad with extra
-          for (unsigned j = len; j < read_capacity() + 1; ++j) {
-              _target_subrange.pos[j] = std::numeric_limits<int>::max();
-          }
-
-          // Sort ascending position
-          for (unsigned c = 0; c < len - 1; ++c) {
-              for (unsigned d = 0; d < len - c - 1; ++d) {
-                  if (_target_subrange.pos[d] > _target_subrange.pos[d + 1]) {
-                      std::swap(_target_subrange.pos[d], _target_subrange.pos[d + 1]);
-                      std::swap(_target_subrange.idx[d], _target_subrange.idx[d + 1]);
-                  }
-              }
-          }
       }
 
       /*********************************** Variables ***********************************/
 
       AlignmentGroup _alignment_group;
       SIMDVector<simd_t> _S, _Dc, _Ic;
-      _target<simd_t::length + 1> _target_subrange; // Pad with one pos::max to serve as buffer
 
       simd_t _Sd, _max_score, _sub_score,
       _gap_extend_vec_ref, _gap_open_extend_vec_ref, _gap_extend_vec_rd, _gap_open_extend_vec_rd;
@@ -829,52 +730,35 @@ TEST_CASE("Alignment") {
         reads.push_back("NNNNNGG");
         reads.push_back("AAATTTA");
         reads.push_back("AAAGCCC");
-        const std::vector<unsigned> origins = {8, 8, 5, 5, 7, 6, 10, 6};
 
         vargas::Results aligns;
         {
             vargas::Aligner a(7);
-            aligns = a.align(reads, origins, g.begin(), g.end());
+            aligns = a.align(reads, g.begin(), g.end());
         }
         CHECK(aligns.max_score[0] == 8);
         CHECK(aligns.max_pos[0] == 8);
-        CHECK((int) aligns.correct[0] == 1);
-        CHECK(aligns.max_score[0] == aligns.target_score[0]); // since cf = 1
 
         CHECK(aligns.max_score[1] == 8);
         CHECK(aligns.max_pos[1] == 8);
-        CHECK((int) aligns.correct[1] == 1);
-        CHECK(aligns.max_score[1] == aligns.target_score[1]); // since cf = 1
 
         CHECK(aligns.max_score[2] == 8);
         CHECK(aligns.max_pos[2] == 5);
-        CHECK((int) aligns.correct[2] == 1);
-        CHECK(aligns.max_score[2] == aligns.target_score[2]); // since cf = 1
 
         CHECK(aligns.max_score[3] == 8);
         CHECK(aligns.max_pos[3] == 5);
-        CHECK((int) aligns.correct[3] == 1);
-        CHECK(aligns.max_score[3] == aligns.target_score[3]); // since cf = 1
 
         CHECK(aligns.max_score[4] == 10);
         CHECK(aligns.max_pos[4] == 7);
-        CHECK((int) aligns.correct[4] == 1);
-        CHECK(aligns.max_score[4] == aligns.target_score[4]); // since cf = 1
 
         CHECK(aligns.max_score[5] == 4);
         CHECK(aligns.max_pos[5] == 6);
-        CHECK((int) aligns.correct[5] == 1);
-        CHECK(aligns.max_score[5] == aligns.target_score[5]); // since cf = 1
 
         CHECK(aligns.max_score[6] == 8);
         CHECK(aligns.max_pos[6] == 10);
-        CHECK((int) aligns.correct[6] == 1);
-        CHECK(aligns.max_score[6] == aligns.target_score[6]); // since cf = 1
 
         CHECK(aligns.max_score[7] == 8);
         CHECK(aligns.max_pos[7] == 4);
-        CHECK((int) aligns.correct[7] == 0); // lower cost to end after AAAG
-        CHECK(aligns.max_score[7] == aligns.target_score[7]); // since cf = 1
     }
 
     SUBCASE("Scoring Scheme") {
@@ -890,61 +774,40 @@ TEST_CASE("Alignment") {
         reads.push_back("NNNAAAGCCC");
         reads.push_back("AAAGAGTTTA");
         reads.push_back("AAAGAATTTA");
-        const std::vector<unsigned> origins = {8, 8, 5, 5, 7, 6, 10, 4, 10, 10};
 
         // hisat like params
         vargas::Aligner a(10, 2, 6, 5, 3);
-        vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
+        vargas::Results aligns = a.align(reads, g.begin(), g.end());
 
         CHECK(aligns.max_score[0] == 8);
         CHECK(aligns.max_pos[0] == 8);
-        CHECK((int) aligns.correct[0] == 1);
-        CHECK(aligns.max_score[0] == aligns.target_score[0]);
 
         CHECK(aligns.max_score[1] == 8);
         CHECK(aligns.max_pos[1] == 8);
-        CHECK((int) aligns.correct[1] == 1);
-        CHECK(aligns.max_score[1] == aligns.target_score[1]);
 
         CHECK(aligns.max_score[2] == 8);
         CHECK(aligns.max_pos[2] == 5);
-        CHECK((int) aligns.correct[2] == 1);
-        CHECK(aligns.max_score[2] == aligns.target_score[2]);
 
         CHECK(aligns.max_score[3] == 8);
         CHECK(aligns.max_pos[3] == 5);
-        CHECK((int) aligns.correct[3] == 1);
-        CHECK(aligns.max_score[3] == aligns.target_score[3]);
 
         CHECK(aligns.max_score[4] == 10);
         CHECK(aligns.max_pos[4] == 7);
-        CHECK((int) aligns.correct[4] == 1);
-        CHECK(aligns.max_score[4] == aligns.target_score[4]);
 
         CHECK(aligns.max_score[5] == 4);
         CHECK(aligns.max_pos[5] == 6);
-        CHECK((int) aligns.correct[5] == 1);
-        CHECK(aligns.max_score[5] == aligns.target_score[5]);
 
         CHECK(aligns.max_score[6] == 8);
         CHECK(aligns.max_pos[6] == 10);
-        CHECK((int) aligns.correct[6] == 1);
-        CHECK(aligns.max_score[6] == aligns.target_score[6]);
 
         CHECK(aligns.max_score[7] == 8);
         CHECK(aligns.max_pos[7] == 4);
-        CHECK((int) aligns.correct[7] == 1);
-        CHECK(aligns.max_score[7] == aligns.target_score[7]);
 
         CHECK(aligns.max_score[8] == 12);
         CHECK(aligns.max_pos[8] == 10);
-        CHECK((int) aligns.correct[8] == 1);
-        CHECK(aligns.max_score[8] == aligns.target_score[8]);
 
         CHECK(aligns.max_score[9] == 8);
         CHECK(aligns.max_pos[9] == 10);
-        CHECK((int) aligns.correct[9] == 1);
-        CHECK(aligns.max_score[9] == aligns.target_score[9]);
     }
 
     SUBCASE("Quality") {
@@ -957,8 +820,7 @@ TEST_CASE("Alignment") {
         prof.mismatch_max = 6;
         vargas::Results aligns;
         vargas::Aligner a(6, prof);
-        std::vector<vargas::target_t> targets(3);
-        a.align_into(reads, quals, targets, g.begin(), g.end(), aligns, true);
+        a.align_into(reads, quals, g.begin(), g.end(), aligns, true);
         REQUIRE(aligns.size() == 3);
         CHECK(prof.penalty(0) == 2);
         CHECK(prof.penalty(10) == 3);
@@ -1001,49 +863,32 @@ TEST_CASE("Alignment") {
         reads.push_back("NNNNNGG");
         reads.push_back("AAATTTA");
         reads.push_back("AAAGCCC");
-        const std::vector<unsigned> origins = {8, 8, 5, 5, 7, 6, 10, 6};
 
         vargas::WordAligner a(7);
-        vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
+        vargas::Results aligns = a.align(reads, g.begin(), g.end());
         CHECK(aligns.max_score[0] == 8);
         CHECK(aligns.max_pos[0] == 8);
-        CHECK((int) aligns.correct[0] == 1);
-        CHECK(aligns.max_score[0] == aligns.target_score[0]);
 
         CHECK(aligns.max_score[1] == 8);
         CHECK(aligns.max_pos[1] == 8);
-        CHECK((int) aligns.correct[1] == 1);
-        CHECK(aligns.max_score[1] == aligns.target_score[1]);
 
         CHECK(aligns.max_score[2] == 8);
         CHECK(aligns.max_pos[2] == 5);
-        CHECK((int) aligns.correct[2] == 1);
-        CHECK(aligns.max_score[2] == aligns.target_score[2]);
 
         CHECK(aligns.max_score[3] == 8);
         CHECK(aligns.max_pos[3] == 5);
-        CHECK((int) aligns.correct[3] == 1);
-        CHECK(aligns.max_score[3] == aligns.target_score[3]);
 
         CHECK(aligns.max_score[4] == 10);
         CHECK(aligns.max_pos[4] == 7);
-        CHECK((int) aligns.correct[4] == 1);
-        CHECK(aligns.max_score[4] == aligns.target_score[4]);
 
         CHECK(aligns.max_score[5] == 4);
         CHECK(aligns.max_pos[5] == 6);
-        CHECK((int) aligns.correct[5] == 1);
-        CHECK(aligns.max_score[5] == aligns.target_score[5]);
 
         CHECK(aligns.max_score[6] == 8);
         CHECK(aligns.max_pos[6] == 10);
-        CHECK((int) aligns.correct[6] == 1);
-        CHECK(aligns.max_score[6] == aligns.target_score[6]);
 
         CHECK(aligns.max_score[7] == 8);
         CHECK(aligns.max_pos[7] == 4);
-        CHECK((int) aligns.correct[7] == 0);
-        CHECK(aligns.max_score[7] == aligns.target_score[7]);
     }
 
     SUBCASE("Scoring Scheme- Word") {
@@ -1059,61 +904,40 @@ TEST_CASE("Alignment") {
         reads.push_back("NNNAAAGCCC");
         reads.push_back("AAAGAGTTTA");
         reads.push_back("AAAGAATTTA");
-        const std::vector<unsigned> origins = {8, 8, 5, 5, 7, 6, 10, 4, 10, 10};
 
         // hisat like params
         vargas::WordAligner a(10, 2, 6, 5, 3);
-        vargas::Results aligns = a.align(reads, origins, g.begin(), g.end());
+        vargas::Results aligns = a.align(reads, g.begin(), g.end());
 
         CHECK(aligns.max_score[0] == 8);
         CHECK(aligns.max_pos[0] == 8);
-        CHECK((int) aligns.correct[0] == 1);
-        CHECK(aligns.max_score[0] == aligns.target_score[0]);
 
         CHECK(aligns.max_score[1] == 8);
         CHECK(aligns.max_pos[1] == 8);
-        CHECK((int) aligns.correct[1] == 1);
-        CHECK(aligns.max_score[1] == aligns.target_score[1]);
 
         CHECK(aligns.max_score[2] == 8);
         CHECK(aligns.max_pos[2] == 5);
-        CHECK((int) aligns.correct[2] == 1);
-        CHECK(aligns.max_score[2] == aligns.target_score[2]);
 
         CHECK(aligns.max_score[3] == 8);
         CHECK(aligns.max_pos[3] == 5);
-        CHECK((int) aligns.correct[3] == 1);
-        CHECK(aligns.max_score[3] == aligns.target_score[3]);
 
         CHECK(aligns.max_score[4] == 10);
         CHECK(aligns.max_pos[4] == 7);
-        CHECK((int) aligns.correct[4] == 1);
-        CHECK(aligns.max_score[4] == aligns.target_score[4]);
 
         CHECK(aligns.max_score[5] == 4);
         CHECK(aligns.max_pos[5] == 6);
-        CHECK((int) aligns.correct[5] == 1);
-        CHECK(aligns.max_score[5] == aligns.target_score[5]);
 
         CHECK(aligns.max_score[6] == 8);
         CHECK(aligns.max_pos[6] == 10);
-        CHECK((int) aligns.correct[6] == 1);
-        CHECK(aligns.max_score[6] == aligns.target_score[6]);
 
         CHECK(aligns.max_score[7] == 8);
         CHECK(aligns.max_pos[7] == 4);
-        CHECK((int) aligns.correct[7] == 1);
-        CHECK(aligns.max_score[7] == aligns.target_score[7]);
 
         CHECK(aligns.max_score[8] == 12);
         CHECK(aligns.max_pos[8] == 10);
-        CHECK((int) aligns.correct[8] == 1);
-        CHECK(aligns.max_score[8] == aligns.target_score[8]);
 
         CHECK(aligns.max_score[9] == 8);
         CHECK(aligns.max_pos[9] == 10);
-        CHECK((int) aligns.correct[9] == 1);
-        CHECK(aligns.max_score[9] == aligns.target_score[9]);
     }
 }
 
@@ -1138,13 +962,6 @@ TEST_CASE("Reverse strand") {
         CHECK(res.max_pos[1] == 34);
         CHECK(res.max_strand[0] == vargas::Strand::FWD);
         CHECK(res.max_strand[1] == vargas::Strand::REV);
-    }
-
-    SUBCASE("Targets") {
-        std::vector<vargas::pos_t> org{34, 34};
-        auto res = a.align(reads, org, g.begin(), g.end());
-        CHECK(res.target_score[0] == 16);
-        CHECK(res.target_score[1] != 16);
     }
 }
 
@@ -1315,16 +1132,13 @@ TEST_CASE("Target score") {
     g.add_node(n);
 
     const std::vector<std::string> reads = {"AAAA"};
-    const std::vector<unsigned> targets = {19};
     vargas::Aligner aligner(4);
-    auto res = aligner.align(reads, targets, g.begin(), g.end());
+    auto res = aligner.align(reads, g.begin(), g.end());
     REQUIRE(res.size() == 1);
     CHECK(res.max_score[0] == 8);
     CHECK(res.sub_score[0] == 6);
     CHECK(res.max_pos[0] == 4);
     CHECK(res.sub_pos[0] == 19);
-    CHECK(res.correct[0] == 2);
-    CHECK(res.target_score[0] == 6);
 }
 
 TEST_SUITE_END();

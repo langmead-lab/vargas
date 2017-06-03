@@ -31,11 +31,9 @@ int align_main(int argc, char *argv[]) {
     }
 
     // Load parameters
-    unsigned match, npenalty, threads, tolerance, chunk_size, subsample;
+    unsigned match, npenalty, threads, chunk_size, subsample;
     std::string read_file, gdf, align_targets, out_file, pgid, mismatch, rdg, rfg;
     bool end_to_end = false, fwdonly = false, p64=false, msonly=false;
-    // For now do primary all the time since -t can just be different from -r
-    const bool primary = true;
 
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
     try {
@@ -50,7 +48,6 @@ int align_main(int argc, char *argv[]) {
         ("p,subsample", "<N> Sample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
         ("a,alignto", "<str> Target graph, or SAM Read Group -> graph mapping.\"(RG:ID:<group>,<target_graph>;)+|<graph>\"", cxxopts::value(align_targets))
         ("s,assess", "[ID] Use score profile from a previous alignment.", cxxopts::value(pgid)->implicit_value("."))
-        ("c,tolerance", "<N> Correct if within readlen/N.", cxxopts::value(tolerance)->default_value(std::to_string(vargas::Aligner::default_tolerance())))
         ("f,forward", "Only align to forward strand.", cxxopts::value(fwdonly));
 
         opts.add_options("Scoring")
@@ -204,7 +201,6 @@ int align_main(int argc, char *argv[]) {
                   << vargas::WordAligner::read_capacity() << " reads/vector).\n";
     }
 
-    prof.tol = read_len / tolerance;
     std::cerr << "Scoring profile: " << prof.to_string() << "\n";
 
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
@@ -221,7 +217,7 @@ int align_main(int argc, char *argv[]) {
     if (out_file.length()) std::cerr << "Writing to \"" << (out_file == "" ? "stdout" : out_file) << "\".\n";
     reads_hdr.programs[assigned_pgid].aux.set(ALIGN_SAM_PG_GDF, gdf);
     vargas::osam aligns_out(out_file, reads_hdr);
-    align(gm, task_list, aligns_out, aligners, fwdonly, primary, msonly);
+    align(gm, task_list, aligns_out, aligners, fwdonly, msonly);
 
     return 0;
 }
@@ -230,7 +226,7 @@ void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            vargas::osam &out,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
-           bool fwdonly, bool primary, bool msonly) {
+           bool fwdonly, bool msonly) {
 
     std::cerr << "Aligning... " << std::flush;
     auto start_time = std::chrono::steady_clock::now();
@@ -247,56 +243,30 @@ void align(vargas::GraphMan &gm,
         const size_t num_reads = task_list.at(l).second.size();
         std::vector<std::string> read_seqs(num_reads);
         std::vector<std::vector<char>> quals(num_reads);
-        std::vector<vargas::target_t> targets;
 
-        if (!msonly) {
-            targets.resize(num_reads);
-        }
         for (size_t i = 0; i < num_reads; ++i) {
             const auto &r = task_list.at(l).second.at(i);
             read_seqs[i] = r.seq;
             std::transform(r.qual.begin(), r.qual.end(), std::back_inserter(quals[i]), [](char c){return c-33;});
-            if (!msonly && r.pos > 0) {
-                targets[i].second = r.pos - 1;
-                if (r.cigar.size()) {
-                    for (const auto &p : r.cigar) {
-                        if (p.second == 'M' || p.second == 'D' || p.second == '=' || p.second == 'X')
-                            targets[i].second += p.first;
-                    }
-                    // If no cigar is present, use whole read length offset
-                } else {
-                    targets[i].second += r.seq.length();
-                }
-                targets[i].first = r.flag.rev_complement ? vargas::Strand::REV : vargas::Strand::FWD;
-            }
         }
         auto subgraph = gm.at(task_list.at(l).first);
         vargas::Results aligns;
-        aligners[tid]->align_into(read_seqs, quals, targets, subgraph->begin(), subgraph->end(), aligns, fwdonly);
+        aligners[tid]->align_into(read_seqs, quals, subgraph->begin(), subgraph->end(), aligns, fwdonly);
 
         for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
             vargas::SAM::Record &rec = task_list.at(l).second.at(j);
             auto abs = gm.absolute_position(aligns.max_pos[j]);
-            if (primary) {
-                if (!msonly) {
-                    rec.pos = abs.second - rec.seq.size() + 1;
-                    rec.ref_name = abs.first;
-                    rec.flag.rev_complement = aligns.max_strand[j] == vargas::Strand::REV;
-                    if (rec.flag.rev_complement) rg::reverse_complement_inplace(rec.seq);
-                }
-                rec.aux.set("AS", aligns.max_score[j]);
+            rec.aux.set("AS", aligns.max_score[j]);
 
-            }
-            else {
-                rec.aux.set(ALIGN_SAM_MAX_SCORE_TAG, aligns.max_score[j]);
                 if (!msonly) {
-                    rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
-                    rec.aux.set(ALIGN_SAM_MAX_SEQ, abs.first);
-                    rec.aux.set(ALIGN_SAM_MAX_STRAND_TAG, aligns.max_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
-                }
-            }
+                // Can only guess start position for end to end
+                if (aligns.profile.end_to_end) rec.pos = abs.second - rec.seq.size() + 1;
+                rec.ref_name = abs.first;
+                rec.flag.rev_complement = aligns.max_strand[j] == vargas::Strand::REV;
+                if (rec.flag.rev_complement) rg::reverse_complement_inplace(rec.seq);
 
-            if (!msonly) {
+                rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
+
                 // Aux flags for both primary and secondary
                 abs = gm.absolute_position(aligns.sub_pos[j]);
                 rec.aux.set(ALIGN_SAM_SUB_SEQ, abs.first);
@@ -307,11 +277,6 @@ void align(vargas::GraphMan &gm,
                 rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
 
                 rec.aux.set(ALIGN_SAM_SUB_STRAND_TAG, aligns.sub_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
-
-                if (targets.at(j).second != 0) {
-                    rec.aux.set(ALIGN_SAM_COR_FLAG_TAG, aligns.correct[j]);
-                    rec.aux.set(ALIGN_SAM_TARGET_SCORE, aligns.target_score[j]);
-                }
             }
         }
 
@@ -558,77 +523,3 @@ TEST_CASE ("Load FASTA") {
     CHECK_FALSE(ss.next());
     remove(tmpfq.c_str());
 }
-TEST_CASE ("Coordinate System Matches") {
-    srand(12345);
-    vargas::Graph::Node::_newID = 0;
-    using std::endl;
-    std::string tmpfa = "tmp_tc.fa";
-    {
-        std::ofstream fao(tmpfa);
-        fao
-        << ">x" << endl
-        << "CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTGGTTCCTGGTGCTATGTGTAACTAGTAATGG" << endl
-        << "TAATGGATATGTTGGGCTTTTTTCTTTGATTTATTTGAAGTGACGTTTGACAATCTATCACTAGGGGTAATGTGGGGAAA" << endl
-        << "TGGAAAGAATACAAGATTTGGAGCCAGACAAATCTGGGTTCAAATCCTCACTTTGCCACATATTAGCCATGTGACTTTGA" << endl
-        << "ACAAGTTAGTTAATCTCTCTGAACTTCAGTTTAATTATCTCTAATATGGAGATGATACTACTGACAGCAGAGGTTTGCTG" << endl
-        << "TGAAGATTAAATTAGGTGATGCTTGTAAAGCTCAGGGAATAGTGCCTGGCATAGAGGAAAGCCTCTGACAACTGGTAGTT" << endl
-        << "ACTGTTATTTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTCCTCCTTGAGGCTCT" << endl
-        << "TCTGGCTTTTCATTGTCAACACAGTCAACGCTCAATACAAGGGACATTAGGATTGGCAGTAGCTCAGAGATCTCTCTGCT" << endl
-        << ">y" << endl
-        << "GGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTCAAATCCTGGAGCCAGACAAATCTGGGTTC" << endl;
-    }
-    std::string tmpvcf = "tmp_tc.vcf";
-
-    {
-        std::ofstream vcfo(tmpvcf);
-        vcfo
-        << "##fileformat=VCFv4.1" << endl
-        << "##phasing=true" << endl
-        << "##contig=<ID=x>" << endl
-        << "##contig=<ID=y>" << endl
-        << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl
-        << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Allele Freq\">" << endl
-        << "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Alternate Allele count\">" << endl
-        << "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Num samples at site\">" << endl
-        << "##INFO=<ID=NA,Number=1,Type=Integer,Description=\"Num alt alleles\">" << endl
-        << "##INFO=<ID=LEN,Number=A,Type=Integer,Description=\"Length of each alt\">" << endl
-        << "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"type of variant\">" << endl
-        << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2" << endl
-        << "x\t9\t.\tG\tA,CC,T\t99\t.\tAF=0.01,0.6,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t0|1\t2|3" << endl
-        << "x\t10\t.\tC\t<CN7>,<CN0>\t99\t.\tAF=0.01,0.01;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-        << "x\t14\t.\tG\t<DUP>,<BLAH>\t99\t.\tAF=0.01,0.1;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t1|1" << endl
-        << "y\t34\t.\tTATA\t<CN2>,<CN0>\t99\t.\tAF=0.01,0.1;AC=2;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|1\t2|1" << endl
-        << "y\t39\t.\tT\t<CN0>\t99\t.\tAF=0.01;AC=1;LEN=1;NA=1;NS=1;TYPE=snp\tGT\t1|0\t0|1" << endl;
-    }
-
-    vargas::GraphFactory gb(tmpfa);
-    gb.open_vcf(tmpvcf);
-    gb.set_region("x:0-50");
-    vargas::Graph g = gb.build();
-
-    vargas::Sim::Profile prof;
-    prof.len = 5;
-    vargas::Sim sim(g, prof);
-
-    vargas::Aligner aligner(5);
-    auto reads = sim.get_batch(aligner.read_capacity()*2, vargas::coordinate_resolver());
-
-    std::vector<std::string> seqs;
-    std::vector<unsigned> targets;
-    for (auto &r : reads) {
-        seqs.push_back(r.seq);
-        targets.push_back(r.pos + r.seq.length() - 1);
-    }
-
-    auto results = aligner.align(seqs, targets, g.begin(), g.end());
-
-    int sum = 0;
-    for (auto i : results.correct) if (i == 1) ++sum;
-    // Sometimes an ambig read is made, so we just want most to be right
-    CHECK(sum > 0.8*reads.size());
-
-    remove(tmpfa.c_str());
-    remove(tmpvcf.c_str());
-    remove((tmpfa + ".fai").c_str());
-}
-TEST_SUITE_END();

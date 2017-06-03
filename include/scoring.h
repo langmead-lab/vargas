@@ -85,8 +85,7 @@ namespace vargas {
       read_gext = 1, /**< Read gap extension penalty */
       ref_gopen = 3, /**< Ref gap open penalty */
       ref_gext = 1, /**< Ref gap extension penalty */
-      ambig = 0, /**< Ambigious base penalty */
-      tol = 5; /**< Classify as correct if pos == target +- tol */
+      ambig = 0; /**< Ambigious base penalty */
 
       bool end_to_end = false; /**< End to end alignment */
 
@@ -105,12 +104,9 @@ namespace vargas {
 
       std::vector<int> max_score; /**< Best scores */
       std::vector<int> sub_score; /**< Second best scores */
-      std::vector<int> target_score; /**< Score at the target position */
 
       std::vector<Strand> max_strand;
       std::vector<Strand> sub_strand;
-
-      std::vector<unsigned char> correct; /**< 1 for target matching best score, 2 for matching sub score, else 0 */
 
       ScoreProfile profile;
 
@@ -124,12 +120,6 @@ namespace vargas {
        */
       void resize(size_t size);
 
-      /**
-       * @brief
-       * populate correct with 1 if max_pos within tol of target, 2 more sub_pos, else 0.
-       * @param targets Read origins
-       */
-      void finalize(const std::vector<target_t> &targets);
   };
 
 
