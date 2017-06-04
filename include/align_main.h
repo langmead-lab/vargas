@@ -72,12 +72,12 @@ void align(vargas::GraphMan &gm,
  * Create a list of alignment jobs.
  * @param reads input read SAM stream
  * @param align_targets List of targets : RG:Subgraph
- * @param read_len If 0, use length of first read
+ * @param read_len Max readlen encountered
  * @param chunk_size Limit task size to N alignments
  * @return List of jobs of the form <subgraph label, [reads]>
  */
 std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>>
-create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_size, size_t &read_len, bool &resized);
+create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_size, size_t &read_len);
 
 /**
  * @brief

@@ -23,7 +23,7 @@
 
 
 int align_main(int argc, char *argv[]) {
-    std::string cl;
+    std::string cl = "vargas ";
     {
         std::ostringstream ss;
         for (int i = 0; i < argc; ++i) ss << std::string(argv[i]) << " ";
@@ -177,11 +177,7 @@ int align_main(int argc, char *argv[]) {
     const auto assigned_pgid = reads_hdr.add(pg);
 
     size_t read_len;
-    bool padded;
-    auto task_list = create_tasks(reads, align_targets, chunk_size, read_len, padded);
-    if (prof.end_to_end && prof.ambig && padded) {
-        std::cerr << "[warn] ETE alignment with N penalty will padded reads.\n";
-    }
+    auto task_list = create_tasks(reads, align_targets, chunk_size, read_len);
 
     const size_t num_tasks = task_list.size();
     if (num_tasks < threads) {
@@ -247,7 +243,12 @@ void align(vargas::GraphMan &gm,
         for (size_t i = 0; i < num_reads; ++i) {
             const auto &r = task_list.at(l).second.at(i);
             read_seqs[i] = r.seq;
-            std::transform(r.qual.begin(), r.qual.end(), std::back_inserter(quals[i]), [](char c){return c-33;});
+            if (r.qual.size() == r.seq.size()) {
+                std::transform(r.qual.begin(),
+                               r.qual.end(),
+                               std::back_inserter(quals[i]),
+                               [](char c) { return c - 33; });
+            }
         }
         auto subgraph = gm.at(task_list.at(l).first);
         vargas::Results aligns;
@@ -293,7 +294,7 @@ void align(vargas::GraphMan &gm,
 }
 
 std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>>
-create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_size, size_t &read_len, bool &resized) {
+create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_size, size_t &read_len) {
     std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> task_list;
     std::unordered_map<std::string, std::vector<vargas::SAM::Record>> read_groups;
 
@@ -323,17 +324,6 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
         }
         read_groups[read_group].push_back(rec);
     } while (reads.next());
-
-    // Pad short reads
-    resized = false;
-    for (auto &rg : read_groups) {
-        for (auto &rd : rg.second) {
-            if (rd.seq.size() != read_len) {
-                rd.seq.resize(read_len, 'N');
-                resized = true;
-            }
-        }
-    }
 
     if (alignment_pairs.size() == 0) {
         for (const auto &p : read_groups) {

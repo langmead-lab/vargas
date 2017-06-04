@@ -37,7 +37,12 @@
 #include <string>
 #include <stdexcept>
 
-#define DEFAULT_TOL_FACTOR 4 // If the pos is +- read_len/tol, count as correct alignment
+/**
+ * Any debug level prints SW grid for VARGAS_ALIGN_DEBUG_N element of SIMD vector.
+ * > 1 prints query profile.
+ */
+#define VARGAS_ALIGN_DEBUG 0
+#define VARGAS_ALIGN_DEBUG_N 0 // Which SIMD element
 
 namespace vargas {
 
@@ -194,7 +199,7 @@ namespace vargas {
       class AlignmentGroup {
         public:
 
-          AlignmentGroup(unsigned read_len) : _packaged_reads(read_len), _query_prof(read_len), _read_len(read_len) {}
+          AlignmentGroup(unsigned read_len) : _query_prof(read_len), _rd_ln(read_len) {}
           AlignmentGroup() = delete;
 
           void load_reads(const std::vector<std::string> &reads,
@@ -226,26 +231,16 @@ namespace vargas {
               _package_reads(batch, quals, prof, revcomp);
           }
 
-          /**
-           * @brief
-           * Return the i'th base of every read in a simd vector.
-           * @param i base index.
-           */
-          const simd_t &at(const unsigned i) const {
-              return _packaged_reads.at(i);
+          typename qp_t::value_type &at(const unsigned i) const {
+              return _query_prof.at(i);
           }
 
-          /**
-           * @brief
-           * Non const version of at(i).
-           * @param i base index
-           */
-          simd_t &operator[](const int i) {
-              return _packaged_reads[i];
+          typename qp_t::value_type &operator[](const int i) {
+              return _query_prof[i];
           }
 
-          const simd_t &operator[](const int i) const {
-              return _packaged_reads[i];
+          const typename qp_t::value_type &operator[](const int i) const {
+              return _query_prof[i];
           }
 
           /**
@@ -258,15 +253,15 @@ namespace vargas {
           /**
            * @return iterator to the beginning of the packaged reads.
            */
-          typename SIMDVector<simd_t>::const_iterator begin() const {
-              return _packaged_reads.cbegin();
+          typename qp_t::const_iterator begin() const {
+              return _query_prof.cbegin();
           }
 
           /**
            * @return iterator to the end of the packaged reads.
            */
-          typename SIMDVector<simd_t>::const_iterator end() const {
-              return _packaged_reads.cend();
+          typename qp_t::const_iterator end() const {
+              return _query_prof.cend();
           }
 
           const qp_t &query_profile() const {
@@ -274,17 +269,8 @@ namespace vargas {
           }
 
         private:
-
-
-          /**
-           * _packaged_reads[i] contains all i'th bases.
-           * The length of _packaged_reads is the length of the read,
-           * where as the length of _packaged_reads[i] is the number
-           * of reads.
-           */
-          SIMDVector<simd_t> _packaged_reads;
           qp_t _query_prof;
-          const unsigned _read_len;
+          const unsigned _rd_ln;
 
           /**
            * Interleaves reads so all same-index base positions are in one
@@ -302,28 +288,65 @@ namespace vargas {
               static constexpr std::array<rg::Base, 4> bases = {rg::Base::A, rg::Base::C, rg::Base::G, rg::Base::T};
               // Interleave reads
               // For each read (read[i] is in _packaged_reads[0..n][i]
-              const int start = revcomp ? _read_len - 1 : 0;
+
               const int inc = revcomp ? -1 : 1;
-              const int end = revcomp ? -1 : _read_len;
+
               for (unsigned r = 0; r < reads.size(); ++r) {
-                  assert(reads[r].size() == _read_len);
-                  // Put each base in the appropriate vector element
-                  int pos = 0;
+
+                  // Prepend short reads with 0
+                  int pos = _rd_ln - reads[r].size();
+                  for (int i = 0; i < pos; ++i) {
+                      for (auto b : bases) _query_prof[i][b][r] = 0;
+                  }
+
+                  const int start = revcomp ? reads[r].size() - 1 : 0;
+                  const int end = revcomp ? -1 : reads[r].size();
+
                   // Store in index pos, run through bases from idx start --> end based on revcomp
                   for (int p = start; p != end; p += inc) {
                       const auto rdb = revcomp ? rg::complement_b(reads[r][p]) : reads[r][p];
-                      _packaged_reads[pos][r] = rdb;
                       _query_prof[pos][rg::Base::N][r] = -prof.ambig;
                       for (auto b : bases) {
                           if (rdb == rg::Base::N) _query_prof[pos][b][r] = -prof.ambig;
                           else if (rdb == b) _query_prof[pos][b][r] = prof.match;
-                          else if (quals.size() == 0) _query_prof[pos][b][r] = -prof.mismatch_max;
+                          else if (!quals.size() || !quals[r].size()) _query_prof[pos][b][r] = -prof.mismatch_max;
                           else _query_prof[pos][b][r] = -prof.penalty(quals[r][p]);
                       }
                       ++pos;
                   }
               }
 
+              #if VARGAS_ALIGN_DEBUG > 1
+              // Print query profile
+              std::cerr << "Query Profile (" << VARGAS_ALIGN_DEBUG_N << ")" << std::endl;
+              for (unsigned i = 0; i < _rd_ln - reads[VARGAS_ALIGN_DEBUG_N].size(); ++i) std::cerr << "\t-";
+              for (auto b : reads[VARGAS_ALIGN_DEBUG_N]) std::cerr << "\t" << rg::num_to_base(b);
+              std::cerr << std::endl << "A\t";
+              for (unsigned i = 0; i < _rd_ln; ++i) {
+                  std::cerr << (int)_query_prof[i][rg::Base::A][VARGAS_ALIGN_DEBUG_N] << '\t';
+              }
+              std::cerr << std::endl << "C\t";
+
+              for (unsigned i = 0; i < _rd_ln; ++i) {
+                  std::cerr << (int)_query_prof[i][rg::Base::C][VARGAS_ALIGN_DEBUG_N] << '\t';
+              }
+              std::cerr << std::endl << "G\t";
+
+              for (unsigned i = 0; i < _rd_ln; ++i) {
+                  std::cerr << (int)_query_prof[i][rg::Base::G][VARGAS_ALIGN_DEBUG_N] << '\t';
+              }
+              std::cerr << std::endl << "T\t";
+
+              for (unsigned i = 0; i < _rd_ln; ++i) {
+                  std::cerr << (int)_query_prof[i][rg::Base::T][VARGAS_ALIGN_DEBUG_N] << '\t';
+              }
+              std::cerr << std::endl << "N\t";
+
+              for (unsigned i = 0; i < _rd_ln; ++i) {
+                  std::cerr << (int)_query_prof[i][rg::Base::N][VARGAS_ALIGN_DEBUG_N] << '\t';
+              }
+              std::cerr << std::endl << std::endl;
+              #endif
           }
 
       };
@@ -333,7 +356,7 @@ namespace vargas {
           _prof = prof;
           _prof.end_to_end = END_TO_END;
           _bias = _get_bias(_read_len, prof.match, prof.mismatch_max, prof.read_gopen, prof.read_gext);
-          _Dc[0] = _bias;
+          _Dc[0] = _S[0] = _bias;
           _gap_extend_vec_rd = prof.read_gext;
           _gap_extend_vec_ref = prof.ref_gext;
           _gap_open_extend_vec_rd = prof.read_gopen + prof.read_gext;
@@ -497,6 +520,13 @@ namespace vargas {
               return;
           }
 
+          #if VARGAS_ALIGN_DEBUG
+          std::vector<std::vector<char>> grid;
+          grid.resize(_read_len);
+          for (auto &&r : grid) r.resize(n.seq().size());
+          unsigned deb_col = 0;
+          #endif
+
           unsigned curr_pos = n.end_pos() - n.seq().size() + 2;
 
           _S = s.S_col;
@@ -506,10 +536,32 @@ namespace vargas {
 
               for (unsigned r = 0; r < _read_len; ++r) {
                   _fill_cell(read_group[r], ref_base, r + 1, curr_pos);
+                  #if VARGAS_ALIGN_DEBUG
+                  grid[r][deb_col] = _S[r+1][VARGAS_ALIGN_DEBUG_N];
+                  #endif
               }
               if (END_TO_END) _fill_cell_finish(_read_len, curr_pos);
               ++curr_pos;
+
+              #if VARGAS_ALIGN_DEBUG
+              ++deb_col;
+              #endif
           }
+
+          #if VARGAS_ALIGN_DEBUG
+          std::cerr << std::endl << "S";
+          for (auto b : n) std::cerr << '\t' << rg::num_to_base(b);
+          std::cerr << std::endl;
+          for (unsigned i = 0; i < grid.size(); ++i) {
+              const auto &row = grid[i];
+              auto tmp = s; // s is const, make copy
+              std::cerr << (int) tmp.S_col.at(i)[VARGAS_ALIGN_DEBUG_N];
+              for (auto &&b : row) {
+                  std::cerr << '\t' << (int) b;
+              }
+              std::cerr << '\n';
+          }
+          #endif
 
           nxt.S_col = _S;
           nxt.I_col = _Ic;
@@ -529,7 +581,6 @@ namespace vargas {
           simd_t sr = _Sd + prof[ref];
           _Sd = _S[row]; // S(i-1, j-1) for the next cell to be filled in
           _S[row] = max(_Ic[row], max(_Dc[row], sr));
-
           if (!END_TO_END) _fill_cell_finish(row, curr_pos);
       }
 
@@ -722,12 +773,12 @@ TEST_CASE("Alignment") {
 
     SUBCASE("Graph Alignment") {
         std::vector<std::string> reads;
-        reads.push_back("NNNCCTT");
-        reads.push_back("NNNGGTT");
-        reads.push_back("NNNAAGG");
-        reads.push_back("NNNAACC");
-        reads.push_back("NNAGGGT");
-        reads.push_back("NNNNNGG");
+        reads.push_back("CCTT");
+        reads.push_back("GGTT");
+        reads.push_back("AAGG");
+        reads.push_back("AACC");
+        reads.push_back("AGGGT");
+        reads.push_back("GG");
         reads.push_back("AAATTTA");
         reads.push_back("AAAGCCC");
 
@@ -893,15 +944,23 @@ TEST_CASE("Alignment") {
 
     SUBCASE("Scoring Scheme- Word") {
 
+        /**
+*     GGG
+*    /   \
+* AAA     TTTA
+*    \   /
+*     CCC(ref)
+*/
+
         std::vector<std::string> reads;
-        reads.push_back("NNNNNNCCTT");
-        reads.push_back("NNNNNNGGTT");
-        reads.push_back("NNNNNNAAGG");
-        reads.push_back("NNNNNNAACC");
-        reads.push_back("NNNNNAGGGT");
-        reads.push_back("NNNNNNNNGG");
-        reads.push_back("NNNAAATTTA");
-        reads.push_back("NNNAAAGCCC");
+        reads.push_back("CCTT");
+        reads.push_back("GGTT");
+        reads.push_back("AAGG");
+        reads.push_back("AACC");
+        reads.push_back("AGGGT");
+        reads.push_back("GG");
+        reads.push_back("AAATTTA");
+        reads.push_back("AAAGCCC");
         reads.push_back("AAAGAGTTTA");
         reads.push_back("AAAGAATTTA");
 
