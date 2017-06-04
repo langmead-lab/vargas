@@ -35,22 +35,22 @@ int main(int argc, char *argv[]) {
         if (argc > 1) {
             if (!strcmp(argv[1], "test")) {
                 doctest::Context doc(argc, argv);
-                doc.setOption("abort-after", 10);
+                doc.setOption("abort-after", 5);
                 doc.setOption("no-version", true);
-                doc.setOption("no-colors", true);
+                std::cerr << "Running tests...\n\n";
                 return doc.run();
             } else if (!strcmp(argv[1], "profile")) {
-                return profile(argc, argv);
+                return profile(argc - 1, argv + 1);
             } else if (!strcmp(argv[1], "define")) {
-                return define_main(argc, argv);
+                return define_main(argc - 1, argv + 1);
             } else if (!strcmp(argv[1], "sim")) {
-                return sim_main(argc, argv);
+                return sim_main(argc - 1, argv + 1);
             } else if (!strcmp(argv[1], "align")) {
-                return align_main(argc, argv);
+                return align_main(argc - 1, argv + 1);
             } else if (!strcmp(argv[1], "convert")) {
-                return convert_main(argc, argv);
+                return convert_main(argc - 1, argv + 1);
             } else if (!strcmp(argv[1], "query")) {
-                return query_main(argc, argv);
+                return query_main(argc - 1, argv + 1);
             }
         }
     } catch (std::exception &e) {
@@ -332,7 +332,7 @@ int convert_main(int argc, char **argv) {
         ("f,format", "<str> Output format.", cxxopts::value<std::string>(format))
         ("files", "SAM files, default stdin.", cxxopts::value<std::vector<std::string>>(files))
         ("h,help", "Display this message.");
-        opts.parse_positional(std::vector<std::string>{"format", "files"});
+        opts.parse_positional(std::vector<std::string>{"files"});
         opts.parse(argc, argv);
     } catch (std::exception &e) {
         std::cerr << e.what() << '\n';
@@ -341,7 +341,7 @@ int convert_main(int argc, char **argv) {
         convert_help(opts);
         return 0;
     }
-    if (!format.size()) {
+    if (format.size() == 0) {
         convert_help(opts);
         throw std::invalid_argument("Format specifier required.");
     }
@@ -558,4 +558,95 @@ void convert_help(const cxxopts::Options &opts) {
     cerr << "Prefix with \"RG:\" to obtain a value from the associated read group.\n";
     cerr << "Ex. vargas convert -f \"RG:ID,ms\" a.sam b.sam" << endl;
 
+}
+
+TEST_CASE("Vargas CLI") {
+    const std::string fa = R"(>chrA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+>chrB
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+)";
+    const std::string vcf = R"(##fileformat=VCFv4.0
+##contig=<ID=chrA>
+##contig=<ID=chrB>
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+chrA	40	rs775809821	A	T,C	.	.	.	.
+chrA	41	rs768019142	A	TA,G	.	.	.	.
+chrA	60	rs62651026	A	T,A	.	.	.	.
+chrB	40	rs376007522	C	T,G	.	.	.	.
+chrB	80	rs796688738	C	AC,<CN0>	.	.	.	.)";
+    {
+        std::ofstream o("tmpfa.vatmp");
+        o << fa;
+    }
+    {
+        std::ofstream o("tmpvcf.vatmp");
+        o << vcf;
+    }
+
+    {
+        // vargas define -f tmpfa.vatmp -v tmpvcf.vatmp -t tmpgdef.vatmp
+        const int argc = 8;
+        const char *argv[] = {"vargas", "define", "-f", "tmpfa.vatmp", "-v", "tmpvcf.vatmp", "-t", "tmpgdef.vatmp"};
+        define_main(argc, (char **) argv);
+        vargas::GraphMan gm("tmpgdef.vatmp");
+        REQUIRE(gm.labels().size() == 1);
+        CHECK(gm.labels().at(0) == "base");
+
+        auto stat = gm.at("base")->statistics();
+        CHECK(stat.total_length == 320);
+        CHECK(stat.num_nodes == 20);
+        CHECK(stat.num_edges == 31);
+        CHECK(stat.num_snps == 6);
+        CHECK(stat.num_dels == 1);
+    }
+
+    {
+        // vargas sim -g tmpgdef.vatmp -t tmpreads.vatmp -n 1 -l 10 -v 0,1 -m 0,1 -i 0,1
+        const int argc = 16;
+        const char *argv[] = {"vargas", "sim", "-g", "tmpgdef.vatmp", "-t", "tmpreads.vatmp", "-n", "1", "-l", "10", "-v", "0,1", "-m", "0,1", "-i", "0,1"};
+        sim_main(argc, (char **) argv);
+        vargas::isam in("tmpreads.vatmp");
+        REQUIRE(in.header().read_groups.size() == 8);
+        size_t cnt = 0;
+        do { ++cnt; } while (in.next());
+        CHECK(cnt == 8);
+    }
+
+    {
+        // vargas align -g tmpgdef.vatmp -U tmpreads.vatmp -S tmpreads.vatmp -f
+        const int argc = 9;
+        const char *argv[] = {"vargas", "align", "-g", "tmpgdef.vatmp", "-U", "tmpreads.vatmp", "-S", "tmpreads.vatmp", "-f"};
+        align_main(argc, (char **) argv);
+        vargas::isam in("tmpreads.vatmp");
+        REQUIRE(in.header().read_groups.size() == 8);
+        const auto &hd = in.header();
+        do {
+            const auto &rec = in.record();
+            unsigned ni, se, score;
+            REQUIRE(rec.get(hd, "ni", ni) == true);
+            REQUIRE(rec.get(hd, "se", se) == true);
+            if (ni == 0 && se == 0) {
+                REQUIRE(rec.get(hd, "AS", score) == true);
+                CHECK(score == 20);
+            }
+
+        } while (in.next());
+    }
+
+
+    remove("tmpfa.vatmp");
+    remove("tmpfa.vatmp.fai");
+    remove("tmpvcf.vatmp");
+    remove("tmpgdef.vatmp");
+    remove("tmpreads.vatmp");
 }

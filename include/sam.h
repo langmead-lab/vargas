@@ -751,15 +751,6 @@ namespace vargas {
 
       /**
        * @brief
-       * Load all reads into memory and close file handles.
-       */
-      void buffer() {
-          do { _buff.push_back(_pprec); } while (next());
-          in.close();
-      }
-
-      /**
-       * @brief
        * Push a record onto the SAM buffer.
        * @param rec Record
        */

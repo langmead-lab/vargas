@@ -51,7 +51,7 @@ namespace vargas {
        */
       ScoreProfile(uint8_t match, uint8_t mismatch, uint8_t gopen, uint8_t gext) :
       match(match), mismatch_min(mismatch), mismatch_max(mismatch),
-      read_gopen(gopen), read_gext(gext), ref_gopen(gopen), ref_gext(gext) {}
+      read_gopen(gopen), read_gext(gext), ref_gopen(gopen), ref_gext(gext), ambig(0) {}
 
       /**
        * @param match Match bonus
@@ -65,7 +65,7 @@ namespace vargas {
                    unsigned rd_gopen, unsigned rd_gext,
                    unsigned ref_gopen, unsigned ref_gext) :
       match(match), mismatch_min(mismatch), mismatch_max(mismatch),
-      read_gopen(rd_gopen), read_gext(rd_gext), ref_gopen(ref_gopen), ref_gext(ref_gext) {}
+      read_gopen(rd_gopen), read_gext(rd_gext), ref_gopen(ref_gopen), ref_gext(ref_gext), ambig(0) {}
 
       /**
        * @brief

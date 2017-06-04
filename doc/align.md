@@ -45,6 +45,7 @@ Alignments are written as SAM files. Note CIGAR alignments are not provided. Fie
 - `AS` Maximum score.
 - `mp` Position of the maximum scoring cell.
 - `ss` Second best score.
+- `st` Strand of second best score.
 - `sp` Position of the second highest scoring cell.
 - `su` Sequence name of the second best score.
 - `mc` Number of max-score occurrences.
