@@ -38,7 +38,7 @@
 #include <stdexcept>
 
 #define VARGAS_ALIGN_DEBUG_SW 0 // Print SW Grids for each node
-#define VARGAS_ALIGN_DEBUG_QP 0 // Print Query profile
+#define VARGAS_ALIGN_DEBUG_QP 0  // Print Query profile
 #define VARGAS_ALIGN_DEBUG_N 0 // Which SIMD element for debug printing
 
 namespace vargas {
@@ -527,6 +527,7 @@ namespace vargas {
           }
 
           #if VARGAS_ALIGN_DEBUG_SW
+          if (n.seq().size() > 1000) throw std::runtime_error("Attempting debug run with seq > 1000bp.");
           std::vector<std::vector<char>> grid;
           grid.resize(_read_len);
           for (auto &&r : grid) r.resize(n.seq().size());
