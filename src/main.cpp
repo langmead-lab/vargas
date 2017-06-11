@@ -26,9 +26,9 @@
 #include <iostream>
 #include <thread>
 #include <algorithm>
+#include <scoring.h>
 
 int main(int argc, char *argv[]) {
-
     srand(time(0)); // Rand used in profiles and sim
 
     try {

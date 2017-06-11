@@ -37,12 +37,9 @@
 #include <string>
 #include <stdexcept>
 
-/**
- * Any debug level prints SW grid for VARGAS_ALIGN_DEBUG_N element of SIMD vector.
- * > 1 prints query profile.
- */
-#define VARGAS_ALIGN_DEBUG 0
-#define VARGAS_ALIGN_DEBUG_N 0 // Which SIMD element
+#define VARGAS_ALIGN_DEBUG_SW 0 // Print SW Grids for each node
+#define VARGAS_ALIGN_DEBUG_QP 0 // Print Query profile
+#define VARGAS_ALIGN_DEBUG_N 0 // Which SIMD element for debug printing
 
 namespace vargas {
 
@@ -202,23 +199,17 @@ namespace vargas {
           AlignmentGroup(unsigned read_len) : _query_prof(read_len), _rd_ln(read_len) {}
           AlignmentGroup() = delete;
 
-          void load_reads(const std::vector<std::string> &reads,
-                          const std::vector<std::vector<char>> &quals,
-                          const ScoreProfile &prof,
-                          const unsigned begin, const unsigned end, bool revcomp = false) {
-              load_reads(std::vector<std::string>(reads.begin() + begin, reads.begin() + end), quals, prof, revcomp);
-          }
-
           /**
            * @param batch load the given vector of reads.
            */
           void load_reads(const std::vector<std::string> &batch,
                           const std::vector<std::vector<char>> &quals,
                           const ScoreProfile &prof,
+                          size_t begin, size_t end,
                           bool revcomp) {
               std::vector<std::vector<rg::Base>> _reads;
               for (auto &b : batch) _reads.push_back(rg::seq_to_num(b));
-              load_reads(_reads, quals, prof, revcomp);
+              _package_reads(_reads, quals, prof, revcomp, begin, end);
           }
 
           /**
@@ -228,7 +219,7 @@ namespace vargas {
                           const std::vector<std::vector<char>> &quals,
                           const ScoreProfile &prof,
                           bool revcomp) {
-              _package_reads(batch, quals, prof, revcomp);
+              _package_reads(batch, quals, prof, revcomp, 0, batch.size());
           }
 
           typename qp_t::value_type &at(const unsigned i) const {
@@ -283,15 +274,16 @@ namespace vargas {
           void _package_reads(const std::vector<std::vector<rg::Base>> &reads,
                               const std::vector<std::vector<char>> &quals,
                               const ScoreProfile &prof,
-                              bool revcomp) {
-              assert(reads.size() <= group_size());
+                              bool revcomp, const size_t vstart, const size_t vend) {
+              assert(vend - vstart <= group_size());
               static constexpr std::array<rg::Base, 4> bases = {rg::Base::A, rg::Base::C, rg::Base::G, rg::Base::T};
               // Interleave reads
               // For each read (read[i] is in _packaged_reads[0..n][i]
 
               const int inc = revcomp ? -1 : 1;
 
-              for (unsigned r = 0; r < reads.size(); ++r) {
+              for (size_t r = vstart; r < vend; ++r) {
+                  const unsigned qidx = r - vstart;
 
                   // Prepend short reads with 0
                   int pos = _rd_ln - reads[r].size();
@@ -305,22 +297,35 @@ namespace vargas {
                   // Store in index pos, run through bases from idx start --> end based on revcomp
                   for (int p = start; p != end; p += inc) {
                       const auto rdb = revcomp ? rg::complement_b(reads[r][p]) : reads[r][p];
-                      _query_prof[pos][rg::Base::N][r] = -prof.ambig;
+                      _query_prof[pos][rg::Base::N][qidx] = -prof.ambig;
                       for (auto b : bases) {
-                          if (rdb == rg::Base::N) _query_prof[pos][b][r] = -prof.ambig;
-                          else if (rdb == b) _query_prof[pos][b][r] = prof.match;
-                          else if (!quals.size() || !quals[r].size()) _query_prof[pos][b][r] = -prof.mismatch_max;
-                          else _query_prof[pos][b][r] = -prof.penalty(quals[r][p]);
+                          if (rdb == rg::Base::N) _query_prof[pos][b][qidx] = -prof.ambig;
+                          else if (rdb == b) _query_prof[pos][b][qidx] = prof.match;
+                          else if (!quals.size() || !quals[r].size()) _query_prof[pos][b][qidx] = -prof.mismatch_max;
+                          else _query_prof[pos][b][qidx] = -prof.penalty(quals[r][p]);
                       }
                       ++pos;
                   }
               }
 
-              #if VARGAS_ALIGN_DEBUG > 1
+              #if VARGAS_ALIGN_DEBUG_QP
               // Print query profile
-              std::cerr << "Query Profile (" << VARGAS_ALIGN_DEBUG_N << ")" << std::endl;
-              for (unsigned i = 0; i < _rd_ln - reads[VARGAS_ALIGN_DEBUG_N].size(); ++i) std::cerr << "\t-";
-              for (auto b : reads[VARGAS_ALIGN_DEBUG_N]) std::cerr << "\t" << rg::num_to_base(b);
+              std::cerr << "\nQuery Profile (" << VARGAS_ALIGN_DEBUG_N << "), Reverse: " << revcomp
+                        << ". MP=Mismatch, P=Phred." << std::endl;
+              for (unsigned i = 0; i < _rd_ln - reads[vstart + VARGAS_ALIGN_DEBUG_N].size(); ++i) std::cerr << "\t-";
+              for (auto b : reads[vstart + VARGAS_ALIGN_DEBUG_N]) std::cerr << "\t" << rg::num_to_base(b);
+
+              if (quals.size()) {
+                  std::cerr << std::endl << "P";
+                  for (unsigned i = 0; i < _rd_ln - reads[vstart + VARGAS_ALIGN_DEBUG_N].size(); ++i)
+                      std::cerr << "\t-";
+                  for (auto b : quals[vstart + VARGAS_ALIGN_DEBUG_N]) std::cerr << "\t" << (int) b;
+                  std::cerr << std::endl << "MP";
+                  for (unsigned i = 0; i < _rd_ln - reads[vstart + VARGAS_ALIGN_DEBUG_N].size(); ++i)
+                      std::cerr << "\t-";
+                  for (auto b : quals[vstart + VARGAS_ALIGN_DEBUG_N]) std::cerr << "\t" << int(prof.penalty(b));
+              }
+
               std::cerr << std::endl << "A\t";
               for (unsigned i = 0; i < _rd_ln; ++i) {
                   std::cerr << (int)_query_prof[i][rg::Base::A][VARGAS_ALIGN_DEBUG_N] << '\t';
@@ -381,7 +386,7 @@ namespace vargas {
           std::unordered_map<unsigned, _seed<simd_t>> seed_map; // Maps node ID to the ending matrix cols of the node
           _seed <simd_t> seed(_read_len);
 
-          if (fwdonly) {
+          if (fwdonly){
               std::fill(aligns.max_strand.begin(), aligns.max_strand.end(), Strand::FWD);
               std::fill(aligns.sub_strand.begin(), aligns.sub_strand.end(), Strand::FWD);
           }
@@ -482,7 +487,8 @@ namespace vargas {
        * i.e. not topographically sorted.
        */
       __RG_STRONG_INLINE__
-      void _get_seed(const std::vector<unsigned> &prev_ids, std::unordered_map<unsigned, _seed<simd_t>> &seed_map,
+      void _get_seed(const std::vector<unsigned> &prev_ids,
+                     std::unordered_map<unsigned, _seed<simd_t>> &seed_map,
                      _seed<simd_t> &seed) const {
           if (prev_ids.size() == 0) {
               _seed_matrix(seed);
@@ -520,7 +526,7 @@ namespace vargas {
               return;
           }
 
-          #if VARGAS_ALIGN_DEBUG
+          #if VARGAS_ALIGN_DEBUG_SW
           std::vector<std::vector<char>> grid;
           grid.resize(_read_len);
           for (auto &&r : grid) r.resize(n.seq().size());
@@ -536,19 +542,19 @@ namespace vargas {
 
               for (unsigned r = 0; r < _read_len; ++r) {
                   _fill_cell(read_group[r], ref_base, r + 1, curr_pos);
-                  #if VARGAS_ALIGN_DEBUG
+                  #if VARGAS_ALIGN_DEBUG_SW
                   grid[r][deb_col] = _S[r+1][VARGAS_ALIGN_DEBUG_N];
                   #endif
               }
               if (END_TO_END) _fill_cell_finish(_read_len, curr_pos);
               ++curr_pos;
 
-              #if VARGAS_ALIGN_DEBUG
+              #if VARGAS_ALIGN_DEBUG_SW
               ++deb_col;
               #endif
           }
 
-          #if VARGAS_ALIGN_DEBUG
+          #if VARGAS_ALIGN_DEBUG_SW
           std::cerr << std::endl << "S";
           for (auto b : n) std::cerr << '\t' << rg::num_to_base(b);
           std::cerr << std::endl;
@@ -667,7 +673,6 @@ namespace vargas {
           // End to end alignment
           unsigned int b = std::numeric_limits<native_t>::max() - (read_len * match);
 
-          //TODO Could be relaxed - all indels or all mismatch is unreasonable
           if (!has_warned && (gopen + (gext * (read_len - 1)) > b || read_len * mismatch > b)) {
               std::cerr << "[warn] Possibility of score saturation with parameters in end-to-end mode:\n"
                         << "\tCell Width: "

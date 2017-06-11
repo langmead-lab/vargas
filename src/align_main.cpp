@@ -43,7 +43,7 @@ int align_main(int argc, char *argv[]) {
 
         opts.add_options("Optional")
         ("S,sam", "<str> Output file.", cxxopts::value(out_file))
-        ("msonly", "Only report max score.", cxxopts::value(msonly)->implicit_value("1"))
+        ("msonly", "Only report max score. Improves speed for hard reads.", cxxopts::value(msonly)->implicit_value("1"))
         ("phred64", "Qualities are Phred+64, not Phred+33.", cxxopts::value(p64)->implicit_value("1"))
         ("p,subsample", "<N> Sample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
         ("a,alignto", "<str> Target graph, or SAM Read Group -> graph mapping.\"(RG:ID:<group>,<target_graph>;)+|<graph>\"", cxxopts::value(align_targets))
@@ -247,7 +247,7 @@ void align(vargas::GraphMan &gm,
                 std::transform(r.qual.begin(),
                                r.qual.end(),
                                std::back_inserter(quals[i]),
-                               [](char c) { return c - 33; });
+                               [](char c){ return c - 33; });
             }
         }
         auto subgraph = gm.at(task_list.at(l).first);
@@ -264,7 +264,10 @@ void align(vargas::GraphMan &gm,
                 if (aligns.profile.end_to_end) rec.pos = abs.second - rec.seq.size() + 1;
                 rec.ref_name = abs.first;
                 rec.flag.rev_complement = aligns.max_strand[j] == vargas::Strand::REV;
-                if (rec.flag.rev_complement) rg::reverse_complement_inplace(rec.seq);
+                if (rec.flag.rev_complement) {
+                    rg::reverse_complement_inplace(rec.seq);
+                    std::reverse(rec.qual.begin(), rec.qual.end());
+                }
 
                 rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
 
