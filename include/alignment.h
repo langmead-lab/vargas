@@ -29,7 +29,6 @@
 #include "doctest.h"
 #include "simd.h"
 
-#include <array>
 #include <vector>
 #include <algorithm>
 #include <iostream>

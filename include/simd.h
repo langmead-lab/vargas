@@ -50,6 +50,14 @@
 #error("No SIMD instruction set defined.")
 #endif
 
+#ifndef VA_MAYBE_UNUSED
+#  if __has_cpp_attribute(maybe_unused)
+#    define VA_MAYBE_UNUSED [[maybe_unused]]
+#  else
+#    define VA_MAYBE_UNUSED
+#  endif
+#endif
+
 #ifdef VA_SIMD_USE_AVX512
 #ifndef VA_SIMD_USE_AVX2
 #define VA_SIMD_USE_AVX2
@@ -120,14 +128,16 @@ namespace vargas {
           if (n > max_size()) throw std::length_error("aligned_allocator<T,A>::allocate() - Integer overflow.");
 
           void *p;
-          int err = posix_memalign(&p, al, n * sizeof(T)); // HHPC, MARCC likes this better than aligned_alloc
-          if (p == nullptr || err != 0) throw std::bad_alloc();
+          int err = posix_memalign(&p, al, n * sizeof(T)); // aligned_alloc isn't implemented in most compilers even though it's part of C11/C++17
+          if (err) throw std::bad_alloc();
 
           return static_cast<T *>(p);
       }
 
-      void deallocate(T *p, std::size_t n) const {
+      void deallocate(T *p, VA_MAYBE_UNUSED std::size_t n) const {
+#if !__has_cpp_attribute(maybe_unused)
           (void) n; // get rid of compiler warning
+#endif
           free(p);
       }
   };
