@@ -1,7 +1,5 @@
 # Vargas
-_Updated: May 11, 2017_
-
-[![Build Status](https://travis-ci.org/RaviGaddipati/vargas.svg?branch=master)](https://travis-ci.org/RaviGaddipati/vargas)
+_Updated: March 13, 2019_
 
 Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned using a SIMD vectorized version of Smith-Waterman, aligning multiple reads at once. The the aligner reports the maximal scoring positions. Vargas can also be used to simulate reads from a DAG.
 
@@ -10,29 +8,29 @@ Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned u
 
 When cloning, use the `--recursive` option to automatically retrieve dependencies.
 
-    git clone --recursive git@github.com:RaviGaddipati/vargas.git
-
+    git clone --recursive git@github.com:langmead-lab/vargas.git
 
 Vargas relies on htslib to provide core file processing. Once cloned, the htslib is built with autoconf (version 2.63+).
 
     cd htslib
-    autoconf && ./configure && make -j4
+    autoconf && autoheader && ./configure && make -j4
 
-Vargas is built with cmake, and targets SSE4.1 for SIMD support. AVX512 is targeted on Phi platforms.
+Vargas is built with cmake. With GCC compiler, SSE 4.1 (default) or AVX2 can be targeted for SIMD support.
 
     mkdir build && cd build
-    cmake -DCMAKE_BUILD_TYPE=Release .. && make -j4
+    cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_AVX2=ON .. && make -j4
     cd ..
     export PATH=${PWD}/bin:$PATH
 
-To  build for Xeon Phi using an Intel compiler:
+To build for KNL Xeon Phi targeting AVX512 with Intel compiler:
 
-    cmake -DCMAKE_CXX_COMPILER=icpc -DBUILD_PHI=ON -DCMAKE_BUILD_TYPE=Release ..
+    cmake -DCMAKE_CXX_COMPILER=icpc -DBUILD_KNL=ON -DCMAKE_BUILD_TYPE=Release ..
     make -j4
 
-On systems like Stampede, required modules will need to be loaded:
- 
-    module load cmake intel cxx11
+To build for SKX Xeon Platinum targeting AVX512 with Intel compiler:
+
+    cmake -DCMAKE_CXX_COMPILER=icpc -DBUILD_SKX=ON -DCMAKE_BUILD_TYPE=Release ..
+    make -j4
 
 # Modes of Operation
 
@@ -121,11 +119,11 @@ Usage:
   -u, --chunk arg    <N> Partition into tasks of max size N. (default: 64)
 ```
 
-Reads are aligned to graphs specified in the GDEF file. `-x` will preform end to end alignment and is generally faster than full local alignment. The memory usage increase in marginal for high numbers of threads. As a result, as many threads as available should be used (271 on Xeon Phi KNL).
+Reads are aligned to graphs specified in the GDEF file. `--ete` will preform end to end alignment and is generally faster than full local alignment. The memory usage increase is marginal for high numbers of threads. As a result, as many threads as available should be used (271 on Xeon Phi KNL).
 
 For example:
 
-    vargas align  -g test.gdef -r reads.fa -t reads.sam -x
+    vargas align  -g test.gdef -r reads.fa -t reads.sam --ete
 
 See the [Alignment documentation](doc/align.md) for more information.
 

@@ -282,6 +282,7 @@ namespace vargas {
        * counts each haplotype as distinct. num_haplotypes() = samples().size() * 2
        * @return Number of samples the VCF has. Each sample represents two genotypes.
        */
+       //TODO assumes diploid
       size_t num_haplotypes() const;
 
       /**

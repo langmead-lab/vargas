@@ -310,7 +310,7 @@ namespace vargas {
           /**
            * @brief
            * If true, then previous alignment seeds can be cleared as no nodes after the current
-           * one depends on nodes before current one,in a topographical ordering.
+           * one depends on nodes before current one in a topological-sort ordering.
            * @return true if pinched
            */
           bool is_pinched() const { return _pinch; }
