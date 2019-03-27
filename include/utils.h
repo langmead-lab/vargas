@@ -77,15 +77,19 @@ namespace rg {
   Base base_to_num(char c) {
 /* Generated with:
 lut = ["Base::N"] * 128;
-lut[ord('A')] = lut[ord('a')] = "Base::T"
-lut[ord('C')] = lut[ord('c')] = "Base::G"
-lut[ord('G')] = lut[ord('g')] = "Base::C"
-lut[ord('T')] = lut[ord('t')] = "Base::A"
+lut[ord('A')] = lut[ord('a')] = "Base::A"
+lut[ord('C')] = lut[ord('c')] = "Base::C"
+lut[ord('G')] = lut[ord('g')] = "Base::G"
+lut[ord('T')] = lut[ord('t')] = "Base::T"
 print("        " + ", ".join(lut))
 */
     static constexpr std::array<Base, 128> lut {
-        Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::T, Base::N, Base::G, Base::N, Base::N, Base::N, Base::C, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::A, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::T, Base::N, Base::G, Base::N, Base::N, Base::N, Base::C, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::A, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N
+        Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::A, Base::N, Base::C, Base::N, Base::N, Base::N, Base::G, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::T, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::A, Base::N, Base::C, Base::N, Base::N, Base::N, Base::G, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::T, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N
     };
+    static_assert(lut['A'] == Base::A, "ZOMG");
+    static_assert(lut['C'] == Base::C, "ZOMG");
+    static_assert(lut['G'] == Base::G, "ZOMG");
+    static_assert(lut['T'] == Base::T, "ZOMG");
     return lut[static_cast<uint8_t>(c)];
   }
 
@@ -177,9 +181,6 @@ print(", ".join(map(str, map(ord, lut))))
 
   __RG_STRONG_INLINE__
   void reverse_complement_inplace(std::string &seq){
-      static constexpr std::array<char, 128> lut {
-          78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 84, 78, 71, 78, 78, 78, 67, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 65, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 84, 78, 71, 78, 78, 78, 67, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 65, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78
-      };
       size_t i;
       for(i = 0; i < seq.size() << 1; ++i) {
           char tmp = seq[seq.size() - i - 1];
