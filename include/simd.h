@@ -99,6 +99,17 @@ AVX512F for AVX-512, KNCNI
 
 namespace vargas {
 
+  #if VA_SIMD_USE_AVX512
+  struct MaskType {
+      uint64_t v;
+      MaskType(uint64_t _v): v(_v) {}
+      MaskType() {}
+      operator uint64_t &() {return v;}
+      operator const uint64_t &() const {return v;}
+      bool operator[](size_t i) const {return (size_t(1) << i) & v;}
+  };
+  #endif
+
   /**
    * @brief
    * Allocate memory aligned to a boundary
@@ -169,12 +180,17 @@ namespace vargas {
 
       using native_t = T;
 
-      #ifdef VA_SIMD_USE_SSE
-      using simd_t = __m128i;
+      #ifdef VA_SIMD_USE_AVX512
+      using simd_t = __m512i;
+      using cmp_t  = MaskType;
       #elif VA_SIMD_USE_AVX2
       using simd_t = __m256i;
+      using cmp_t  = SIMD<T, N>;
+      #elif VA_SIMD_USE_SSE
+      using simd_t = __m128i;
+      using cmp_t  = SIMD<T, N>;
       #else
-      using simd_t = __m512i;
+      #error("Some SSE required")
       #endif
 
       static constexpr unsigned length = N;
@@ -189,12 +205,13 @@ namespace vargas {
       }
 
 
-      __RG_STRONG_INLINE__ SIMD<T, N> operator==(const SIMD<T, N> &o) const;
+      __RG_STRONG_INLINE__ cmp_t operator==(const SIMD<T, N> &o) const;
+      __RG_STRONG_INLINE__ cmp_t operator>(const SIMD<T, N> &o) const;
+      __RG_STRONG_INLINE__ cmp_t operator<(const SIMD<T, N> &o) const;
+
       __RG_STRONG_INLINE__ SIMD<T, N> &operator=(const SIMD<T, N>::native_t o);
       __RG_STRONG_INLINE__ SIMD<T, N> operator+(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ SIMD<T, N> operator-(const SIMD<T, N> &o) const;
-      __RG_STRONG_INLINE__ SIMD<T, N> operator>(const SIMD<T, N> &o) const;
-      __RG_STRONG_INLINE__ SIMD<T, N> operator<(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ SIMD<T, N> operator^(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ SIMD<T, N> operator&(const SIMD<T, N> &o) const;
       __RG_STRONG_INLINE__ SIMD<T, N> operator|(const SIMD<T, N> &o) const;
@@ -268,12 +285,9 @@ namespace vargas {
 
   /************************************ 128b ************************************/
 
+#define  COMPARISON_OPERATORS 1
   #ifdef VA_SIMD_USE_SSE
 
-  template<>
-  int8x16 int8x16::operator==(const int8x16 &o) const {
-      return _mm_cmpeq_epi8(v, o.v);
-  }
   template<>
   int8x16 int8x16::operator^(const int8x16 &o) const {
       // XOR with all ones
@@ -293,14 +307,6 @@ namespace vargas {
       return _mm_subs_epi8(v, o.v);
   }
   template<>
-  int8x16 int8x16::operator>(const int8x16 &o) const {
-      return _mm_cmpgt_epi8(v, o.v);
-  }
-  template<>
-  int8x16 int8x16::operator<(const int8x16 &o) const {
-      return _mm_cmplt_epi8(v, o.v);
-  }
-  template<>
   int8x16 int8x16::operator&(const int8x16 &o) const {
       return _mm_and_si128(v, o.v);
   }
@@ -308,6 +314,20 @@ namespace vargas {
   int8x16 int8x16::operator|(const int8x16 &o) const {
       return _mm_or_si128(v, o.v);
   }
+#if COMPARISON_OPERATORS
+  template<>
+  typename int8x16::cmp_t int8x16::operator==(const int8x16 &o) const {
+      return _mm_cmpeq_epi8(v, o.v);
+  }
+  template<>
+  typename int8x16::cmp_t int8x16::operator>(const int8x16 &o) const {
+      return _mm_cmpgt_epi8(v, o.v);
+  }
+  template<>
+  typename int8x16::cmp_t int8x16::operator<(const int8x16 &o) const {
+      return _mm_cmplt_epi8(v, o.v);
+  }
+#endif
   template<>
   bool int8x16::any() const {
       return _mm_movemask_epi8(v);
@@ -327,10 +347,23 @@ namespace vargas {
   }
 
 
+#if COMPARISON_OPERATORS
   template<>
-  int16x8 int16x8::operator==(const int16x8 &o) const {
+  typename int16x8::cmp_t
+  int16x8::operator==(const int16x8 &o) const {
       return _mm_cmpeq_epi16(v, o.v);
   }
+  template<>
+  typename int16x8::cmp_t
+  int16x8::operator>(const int16x8 &o) const {
+      return _mm_cmpgt_epi16(v, o.v);
+  }
+  template<>
+  typename int16x8::cmp_t
+  int16x8::operator<(const int16x8 &o) const {
+      return _mm_cmplt_epi16(v, o.v);
+  }
+#endif
   template<>
   int16x8 int16x8::operator^(const int16x8 &o) const {
       return _mm_xor_si128(v, o.v);
@@ -347,14 +380,6 @@ namespace vargas {
   template<>
   int16x8 int16x8::operator-(const int16x8 &o) const {
       return _mm_subs_epi16(v, o.v);
-  }
-  template<>
-  int16x8 int16x8::operator>(const int16x8 &o) const {
-      return _mm_cmpgt_epi16(v, o.v);
-  }
-  template<>
-  int16x8 int16x8::operator<(const int16x8 &o) const {
-      return _mm_cmplt_epi16(v, o.v);
   }
   template<>
   int16x8 int16x8::operator&(const int16x8 &o) const {
@@ -388,9 +413,6 @@ namespace vargas {
 
   #ifdef VA_SIMD_USE_AVX2
 
-  template<> int8x32 int8x32::operator==(const int8x32 &o) const {
-      return _mm256_cmpeq_epi8(v, o.v);
-  }
   template<> int8x32 int8x32::operator^(const int8x32 &o) const {
       return _mm256_xor_si256(v, o.v);
   }
@@ -404,12 +426,17 @@ namespace vargas {
   template<> int8x32 int8x32::operator-(const int8x32 &o) const {
       return _mm256_subs_epi8(v, o.v);
   }
-  template<> int8x32 int8x32::operator>(const int8x32 &o) const {
+#if COMPARISON_OPERATORS
+  template<> typename int8x32::cmp_t int8x32::operator==(const int8x32 &o) const {
+      return _mm256_cmpeq_epi8(v, o.v);
+  }
+  template<> typename int8x32::cmp_t int8x32::operator>(const int8x32 &o) const {
       return _mm256_cmpgt_epi8(v, o.v);
   }
-  template<> int8x32 int8x32::operator<(const int8x32 &o) const {
+  template<> typename int8x32::cmp_t int8x32::operator<(const int8x32 &o) const {
       return _mm256_cmpgt_epi8(o.v, v);
   }
+#endif
   template<> int8x32 int8x32::operator&(const int8x32 &o) const {
       return _mm256_and_si256(v, o.v);
   }
@@ -433,9 +460,17 @@ namespace vargas {
   }
 
 
-  template<> int16x16 int16x16::operator==(const int16x16 &o) const {
+#if COMPARISON_OPERATORS
+  template<> typename int16x16::cmp_t int16x16::operator==(const int16x16 &o) const {
       return _mm256_cmpeq_epi16(v, o.v);
   }
+  template<> typename int16x16::cmp_t int16x16::operator>(const int16x16 &o) const {
+      return _mm256_cmpgt_epi16(v, o.v);
+  }
+  template<> typename int16x16::cmp_t int16x16::operator<(const int16x16 &o) const {
+      return _mm256_cmpgt_epi16(o.v, v);
+  }
+#endif
   template<> int16x16 int16x16::operator^(const int16x16 &o) const {
       return _mm256_xor_si256(v, o.v);
   }
@@ -448,12 +483,6 @@ namespace vargas {
   }
   template<> int16x16 int16x16::operator-(const int16x16 &o) const {
       return _mm256_subs_epi16(v, o.v);
-  }
-  template<> int16x16 int16x16::operator>(const int16x16 &o) const {
-      return _mm256_cmpgt_epi16(v, o.v);
-  }
-  template<> int16x16 int16x16::operator<(const int16x16 &o) const {
-      return _mm256_cmpgt_epi16(o.v, v);
   }
   template<> int16x16 int16x16::operator&(const int16x16 &o) const {
       return _mm256_and_si256(v, o.v);
@@ -482,8 +511,14 @@ namespace vargas {
   #ifdef VA_SIMD_USE_AVX512
 
   #error("AVX512 deides to return cmp* functions as masks (one value per bit). This needs refactoring before it works.")
-  template<> int8x64 int8x64::operator==(const int8x64 &o) const {
+  template<> typename int8x64::cmp_t int8x64::operator==(const int8x64 &o) const {
       return _mm512_cmpeq_epi8(v, o.v);
+  }
+  template<> typename int8x64::cmp_t int8x64::operator>(const int8x64 &o) const {
+      return _mm512_cmpgt_epi8(v, o.v);
+  }
+  template<> typename int8x64::cmp_t int8x64::operator<(const int8x64 &o) const {
+      return _mm512_cmpgt_epi8(o.v, v);
   }
   template<> int8x64 int8x64::operator^(const int8x64 &o) const {
       return _mm512_xor_si512(v, o.v);
@@ -497,12 +532,6 @@ namespace vargas {
   }
   template<> int8x64 int8x64::operator-(const int8x64 &o) const {
       return _mm512_subs_epi8(v, o.v);
-  }
-  template<> int8x64 int8x64::operator>(const int8x64 &o) const {
-      return _mm512_cmpgt_epi8(v, o.v);
-  }
-  template<> int8x64 int8x64::operator<(const int8x64 &o) const {
-      return _mm512_cmpgt_epi8(o.v, v);
   }
   template<> int8x64 int8x64::operator&(const int8x64 &o) const {
       return _mm512_and_si512(v, o.v);
@@ -527,8 +556,14 @@ namespace vargas {
   }
 
 
-  template<> int16x32 int16x32::operator==(const int16x32 &o) const {
+  template<> typename int16x32::cmp_t int16x32::operator==(const int16x32 &o) const {
       return _mm512_cmpeq_epi16(v, o.v);
+  }
+  template<> typename int16x32::cmp_t int16x32::operator>(const int16x32 &o) const {
+      return _mm512_cmpgt_epi16(v, o.v);
+  }
+  template<> typename int16x32::cmp_t int16x32::operator<(const int16x32 &o) const {
+      return _mm512_cmpgt_epi16(o.v, v);
   }
   template<> int16x32 int16x32::operator^(const int16x32 &o) const {
       return _mm512_xor_si512(v, o.v);
@@ -542,12 +577,6 @@ namespace vargas {
   }
   template<> int16x32 int16x32::operator-(const int16x32 &o) const {
       return _mm512_subs_epi16(v, o.v);
-  }
-  template<> int16x32 int16x32::operator>(const int16x32 &o) const {
-      return _mm512_cmpgt_epi16(v, o.v);
-  }
-  template<> int16x32 int16x32::operator<(const int16x32 &o) const {
-      return _mm512_cmpgt_epi16(o.v, v);
   }
   template<> int16x32 int16x32::operator&(const int16x32 &o) const {
       return _mm512_and_si512(v, o.v);
