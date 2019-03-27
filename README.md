@@ -134,10 +134,9 @@ See the [Alignment documentation](doc/align.md) for more information.
 ```
 Export a SAM file as a CSV file.
 Usage:
-  vargas convert [OPTION...]
+  vargas convert [OPTION...] positional parameters
 
-  -f, --format arg  <str> *Output format.
-  -s, --sam arg     <str,...> SAM files. Default stdin.
+  -f, --format arg  <str> Output format.
   -h, --help        Display this message.
 
 
@@ -149,7 +148,7 @@ Prefix with "RG:" to obtain a value from the associated read group.
 Convert a SAM file into a CSV file, outputting the specified fields. Any of the SAM required fields or any aux tags can be output. For example,
 
 ```
-vargas convert -s <samfile> -f "RG:ID,mp,ms"
+Ex. vargas convert -f "RG:ID,mp,ms" a.sam b.sam
 ```
 will report the corresponding read group ID, max score position, and max score for each alignment. If multiple SAM files are provided, field 1 will be the file name. See [vargas align](doc/align.md) for tag information.
 

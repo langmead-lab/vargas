@@ -361,7 +361,8 @@ namespace vargas {
           _prof = prof;
           _prof.end_to_end = END_TO_END;
           _bias = _get_bias(_read_len, prof.match, prof.mismatch_max, prof.read_gopen, prof.read_gext);
-          _Dc[0] = _S[0] = _bias;
+          _Dc[0] = std::numeric_limits<native_t>::min();
+          _S[0] = _bias;
           _gap_extend_vec_rd = prof.read_gext;
           _gap_extend_vec_ref = prof.ref_gext;
           _gap_open_extend_vec_rd = prof.read_gopen + prof.read_gext;
@@ -884,6 +885,21 @@ TEST_CASE("Alignment") {
         CHECK(prof.penalty(20) == 4);
         CHECK(prof.penalty(30) == 5);
         CHECK(prof.penalty(40) == 6);
+
+        CHECK(aligns.max_score[0] == 8);
+        CHECK(aligns.max_score[1] == 7);
+        CHECK(aligns.max_score[2] == 6);
+
+        reads = {"TAATGG", "TAATGG", "TAATGG"};
+        a.align_into(reads, quals, g.begin(), g.end(), aligns, false);
+
+        CHECK(aligns.max_strand[0] == vargas::Strand::REV);
+        CHECK(aligns.max_strand[1] == vargas::Strand::REV);
+        CHECK(aligns.max_strand[2] == vargas::Strand::REV);
+        CHECK(aligns.max_pos[0] == 10);
+        CHECK(aligns.max_pos[1] == 10);
+        CHECK(aligns.max_pos[2] == 10);
+
         CHECK(aligns.max_score[0] == 8);
         CHECK(aligns.max_score[1] == 7);
         CHECK(aligns.max_score[2] == 6);

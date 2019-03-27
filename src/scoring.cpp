@@ -76,7 +76,10 @@ vargas::ScoreProfile vargas::bwt2(const std::string &cl) {
             ret.mismatch_min = std::stoi(a[1]);
         }
     }
-    else ret.mismatch_min = ret.mismatch_max = 6;
+    else {
+        ret.mismatch_min = 2;
+        ret.mismatch_max = 6;
+    }
 
     f = std::find(sp.begin(), sp.end(), "-rfg");
     if (f != sp.end()) {
@@ -108,7 +111,7 @@ vargas::ScoreProfile vargas::bwa_mem(const std::string &cl) {
 
     ScoreProfile ret;
     ret.end_to_end = false;
-    ret.ambig = 0;
+    ret.ambig = 1;
 
     auto f = std::find(sp.begin(), sp.end(), "-A");
     if (f != sp.end()) ret.match = std::stoi(*++f);
