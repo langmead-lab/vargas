@@ -262,7 +262,7 @@ namespace vargas {
       simd_t v;
   };
 
-  // SSE2
+  // SSE4.1
   using int8x16 = SIMD<char, 16>;
   using int16x8 = SIMD<int16_t, 8>;
 
