@@ -15,18 +15,17 @@
 
 #define DOCTEST_CONFIG_IMPLEMENT // User controlled test execution
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 #include "main.h"
 #include "align_main.h"
 #include "graphman.h"
+#include "threadpool.h"
 
 #include <iostream>
 #include <thread>
 #include <algorithm>
 #include <scoring.h>
+#include <mutex>
 
 int main(int argc, char *argv[]) {
     srand(time(0)); // Rand used in profiles and sim
@@ -133,6 +132,31 @@ int define_main(int argc, char *argv[]) {
     return 0;
 }
 
+struct main_helper {
+    std::vector<std::pair<std::string, // Graph label
+                          std::pair<std::string, // RG ID
+                                    vargas::Sim::Profile>>> // sim prof
+     &task_list;
+    vargas::GraphMan &gm;
+    int num_reads;
+    std::mutex &m;
+    vargas::osam &out;
+};
+void main_helper_func(void *data, long index, int tid) {
+    main_helper &help = *(main_helper *)data;
+    auto &task_list = help.task_list;
+    auto &gm = help.gm;
+    const std::string &label = task_list.at(index).first;
+    auto subgraph_ptr = gm.at(label);
+    vargas::Sim sim(*subgraph_ptr, task_list[index].second.second);
+    auto results = sim.get_batch(help.num_reads, gm.resolver());
+    for(auto &r: results) r.aux.set("RB", task_list[index].second.first);
+    {
+        std::lock_guard<std::mutex> lock(help.m);
+        for(const auto &r: results) help.out.add_record(r);
+    }
+}
+
 int sim_main(int argc, char *argv[]) {
     std::string cl;
     {
@@ -178,10 +202,6 @@ int sim_main(int argc, char *argv[]) {
         sim_help(opts);
         throw std::invalid_argument("Graph definition file required.");
     }
-
-    #ifdef _OPENMP
-    if (threads > 0) omp_set_num_threads(threads);
-    #endif
 
     vargas::SAM::Header sam_hdr;
     {
@@ -305,18 +325,10 @@ int sim_main(int argc, char *argv[]) {
     }
 
     const size_t num_tasks = task_list.size();
-    #pragma omp parallel for
-    for (size_t n = 0; n < num_tasks; ++n) {
-        const std::string label = task_list.at(n).first;
-        auto subgraph_ptr = gm.at(label);
-        vargas::Sim sim(*subgraph_ptr, task_list.at(n).second.second);
-        auto results = sim.get_batch(num_reads, gm.resolver());
-        for (auto &r : results) r.aux.set("RG", task_list.at(n).second.first);
-        #pragma omp critical(sam_out)
-        {
-            for (const auto &r : results) out.add_record(r);
-        }
-    }
+    rg::ForPool fp(threads);
+    std::mutex mutex;
+    main_helper data{task_list, gm, num_reads, mutex, out};
+    fp.forpool(&main_helper_func, (void *)&data, num_tasks);
 
     std::cerr << rg::chrono_duration(start_time) << " seconds." << std::endl;
 

@@ -49,7 +49,7 @@ option(BUILD_PHI "Build for Xeon Phi, requires icpc" OFF)
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -no-inline-max-size -wd597 -qoverride-limits")
 endif()
-option(BUILD_AVX512 "Build for AVX512BW, requires icpc" OFF)
+option(BUILD_AVX512 "Build for AVX512BW" OFF)
 
 if(BUILD_PHI)
     message("   Building for Xeon Phi")
