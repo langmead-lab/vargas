@@ -59,18 +59,10 @@
 #  endif
 #endif
 
-#ifdef VA_SIMD_USE_AVX512
-#  ifndef VA_SIMD_USE_AVX2
-#    define VA_SIMD_USE_AVX2
-#  endif
-#endif
-
-
 /*
-
-
 AVX512F for AVX-512, KNCNI
 */
+
 #ifdef VA_SIMD_USE_AVX512
 #  if !defined(__KNCNI__) && !defined(__AVX512F__)
 #    error("KNCNI or AVX512F are required for avx512 support (andnot)")

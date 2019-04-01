@@ -22,15 +22,21 @@ Vargas is built with cmake. With GCC compiler, SSE 4.1 (default) or AVX2 can be 
     cd ..
     export PATH=${PWD}/bin:$PATH
 
-To build for KNL Xeon Phi targeting AVX512 with Intel compiler:
+To build for KNL Xeon Phi targeting AVX2 with Intel compiler:
 
-    cmake -DCMAKE_CXX_COMPILER=icpc -DBUILD_KNL=ON -DCMAKE_BUILD_TYPE=Release ..
+    cmake -DCMAKE_CXX_COMPILER=icpc -DCMAKE_C_COMPILER=icc -DBUILD_KNL=ON -DCMAKE_BUILD_TYPE=Release ..
     make -j4
 
-To build for SKX Xeon Platinum targeting AVX512 with Intel compiler:
+To build for SKX Xeon Platinum targeting AVX2 with Intel compiler:
 
-    cmake -DCMAKE_CXX_COMPILER=icpc -DBUILD_SKX=ON -DCMAKE_BUILD_TYPE=Release ..
+    cmake -DCMAKE_CXX_COMPILER=icpc -DCMAKE_C_COMPILER=icc -DBUILD_SKX=ON -DCMAKE_BUILD_TYPE=Release ..
     make -j4
+
+To build for SKX Xeon Platinum targeting AVX512-BW with Intel compiler:
+
+    cmake -DCMAKE_CXX_COMPILER=icpc -DCMAKE_C_COMPILER=icc -DBUILD_SKX=ON -DCMAKE_BUILD_TYPE=Release ..
+    make -j4
+
 
 # Modes of Operation
 
