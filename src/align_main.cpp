@@ -16,7 +16,7 @@
 #include "align_main.h"
 #include "alignment.h"
 #include "sim.h"
-#include "include/threadpool.h"
+#include "threadpool.h"
 #include <mutex>
 
 

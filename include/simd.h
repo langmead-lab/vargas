@@ -501,10 +501,11 @@ namespace vargas {
   int16x16 max(const int16x16 &a, const int16x16 &b) {
       return _mm256_max_epi16(a.v, b.v);
   }
-  __RG_STRONG_INLINE__
-  int16x16 blend(const int16x16 &mask, const int16x16 &t, const int16x16 &f) {
-      return _mm256_blendv_epi16(f.v, t.v, mask.v);
-  }
+// This function is never used
+//  __RG_STRONG_INLINE__
+//  int16x16 blend(const int16x16 &mask, const int16x16 &t, const int16x16 &f) {
+//      return _mm256_blendv_epi16(f.v, t.v, mask.v);
+//  }
 
   #endif // VA_SIMD_USE_AVX2
 

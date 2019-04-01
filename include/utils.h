@@ -86,10 +86,6 @@ print("        " + ", ".join(lut))
     static constexpr std::array<Base, 128> lut {
         Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::A, Base::N, Base::C, Base::N, Base::N, Base::N, Base::G, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::T, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::A, Base::N, Base::C, Base::N, Base::N, Base::N, Base::G, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::T, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N
     };
-    static_assert(lut['A'] == Base::A, "ZOMG");
-    static_assert(lut['C'] == Base::C, "ZOMG");
-    static_assert(lut['G'] == Base::G, "ZOMG");
-    static_assert(lut['T'] == Base::T, "ZOMG");
     return lut[static_cast<uint8_t>(c)];
   }
 
