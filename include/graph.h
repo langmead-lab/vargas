@@ -117,6 +117,7 @@ namespace vargas {
  * @endcode
  */
   class Graph {
+    using uint = uint32_t;
 
     public:
 

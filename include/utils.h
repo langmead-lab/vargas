@@ -32,7 +32,7 @@
 #endif
 
 #ifndef RG_DISABLE_INLINE
-#if defined __GNUC__
+#if defined(__GNUC__)
 #define __RG_STRONG_INLINE__ __attribute__((always_inline)) inline
 #else
 #define __RG_STRONG_INLINE__ inline
@@ -42,11 +42,13 @@
 #define __RG_STRONG_INLINE__ inline
 #endif
 
+#include <array>
 #include <vector>
 #include <fstream>
 #include <algorithm>
 #include <sstream>
 #include <chrono>
+#include <random>
 #include <type_traits>
 #include <assert.h>
 #include <memory>
@@ -73,22 +75,22 @@ namespace rg {
  */
   __RG_STRONG_INLINE__
   Base base_to_num(char c) {
-      switch (c) {
-          case 'A':
-          case 'a':
-              return Base::A;
-          case 'C':
-          case 'c':
-              return Base::C;
-          case 'G':
-          case 'g':
-              return Base::G;
-          case 'T':
-          case 't':
-              return Base::T;
-          default:
-              return Base::N;
-      }
+/* Generated with:
+lut = ["Base::N"] * 128;
+lut[ord('A')] = lut[ord('a')] = "Base::A"
+lut[ord('C')] = lut[ord('c')] = "Base::C"
+lut[ord('G')] = lut[ord('g')] = "Base::G"
+lut[ord('T')] = lut[ord('t')] = "Base::T"
+print("        " + ", ".join(lut))
+*/
+    static constexpr std::array<Base, 128> lut {
+        Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::A, Base::N, Base::C, Base::N, Base::N, Base::N, Base::G, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::T, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::A, Base::N, Base::C, Base::N, Base::N, Base::N, Base::G, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::T, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N, Base::N
+    };
+    static_assert(lut['A'] == Base::A, "ZOMG");
+    static_assert(lut['C'] == Base::C, "ZOMG");
+    static_assert(lut['G'] == Base::G, "ZOMG");
+    static_assert(lut['T'] == Base::T, "ZOMG");
+    return lut[static_cast<uint8_t>(c)];
   }
 
 /**
@@ -100,6 +102,7 @@ namespace rg {
  */
   __RG_STRONG_INLINE__
   char num_to_base(Base num) {
+      // Leaving alone, considering this encoding might change.
       switch (num) {
           case Base::A:
               return 'A';
@@ -136,31 +139,28 @@ namespace rg {
  */
   __RG_STRONG_INLINE__
   std::string num_to_seq(const std::vector<Base> &num) {
-      std::ostringstream builder;
-      for (auto &n : num) {
-          builder << num_to_base(n);
-      }
-      return builder.str();
+      std::string ret; ret.reserve(num.size());
+      for(const auto c: num) ret += num_to_base(c);
+      return ret;
   }
 
+  // TODO: replace with LUT
+
+static constexpr std::array<char, 128> nuc_complement_lut {
+    78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 84, 78, 71, 78, 78, 78, 67, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 65, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 84, 78, 71, 78, 78, 78, 67, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 65, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78, 78
+};
   __RG_STRONG_INLINE__
   char complement(const char b) {
-      switch (b) {
-          case 'A':
-          case 'a':
-              return 'T';
-          case 'C':
-          case 'c':
-              return 'G';
-          case 'G':
-          case 'g':
-              return 'C';
-          case 'T':
-          case 't':
-              return 'A';
-          default:
-              return 'N';
-      }
+// Auto-generated from the following Python code:
+/*
+lut = ['N'] * 128
+lut[ord('A')] = lut[ord('a')] = 'T'
+lut[ord('C')] = lut[ord('c')] = 'G'
+lut[ord('G')] = lut[ord('g')] = 'C'
+lut[ord('T')] = lut[ord('t')] = 'A'
+print(", ".join(map(str, map(ord, lut))))
+*/
+    return nuc_complement_lut[b];
   }
 
   __RG_STRONG_INLINE__
@@ -181,14 +181,21 @@ namespace rg {
 
   __RG_STRONG_INLINE__
   void reverse_complement_inplace(std::string &seq){
-      std::transform(seq.begin(), seq.end(), seq.begin(), complement);
-      std::reverse(seq.begin(), seq.end());
+      size_t i;
+      for(i = 0; i < seq.size() << 1; ++i) {
+          char tmp = seq[seq.size() - i - 1];
+          seq[seq.size() - i - 1] = nuc_complement_lut[seq[i]];
+          seq[i] = nuc_complement_lut[tmp];
+      }
+      if(i & 1) seq[i] = nuc_complement_lut[seq[i]];
+      // Avoids two passes
   }
 
   __RG_STRONG_INLINE__
-  std::string reverse_complement(std::string seq) {
-      reverse_complement_inplace(seq);
-      return seq;
+  std::string reverse_complement(const std::string &seq) {
+      std::string ret = seq;
+      reverse_complement_inplace(ret);
+      return ret;
   }
 
 
@@ -283,18 +290,18 @@ namespace rg {
  */
   __RG_STRONG_INLINE__
   char rand_base() {
-      switch (rand() % 5) {
-          case 0:
-              return 'A';
-          case 1:
-              return 'T';
-          case 2:
-              return 'C';
-          case 3:
-              return 'G';
-          default:
-              return 'N';
+      // Avoid use of std::rand
+      static std::minstd_rand rng(1337);
+      static uint32_t cval = rng();
+      static int nleft = 10;
+      if(nleft == 0) {
+          cval = rng();
+          nleft = sizeof(typename std::minstd_rand::result_type) / 3;
       }
+      const auto sval = cval % 5;
+      cval >>= 3;
+      --nleft;
+      return "ACGTN"[sval];
   }
 
 

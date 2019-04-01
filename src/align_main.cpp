@@ -16,10 +16,9 @@
 #include "align_main.h"
 #include "alignment.h"
 #include "sim.h"
+#include "include/threadpool.h"
+#include <mutex>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 
 int align_main(int argc, char *argv[]) {
@@ -184,12 +183,8 @@ int align_main(int argc, char *argv[]) {
         std::cerr << "[warn] Number of threads is greater than number of tasks. Try decreasing -u.\n";
     }
 
-    #ifdef _OPENMP
-    if (threads) threads = threads > task_list.size() ? task_list.size() : threads;
-    omp_set_num_threads(threads);
-    #else
-    threads = 1;
-    #endif
+    threads = threads ? threads > task_list.size() ? task_list.size() : threads
+                      : 1;
 
     const bool use_wide = read_len * match > 255;
     if (use_wide) {
@@ -218,79 +213,98 @@ int align_main(int argc, char *argv[]) {
     return 0;
 }
 
+struct align_helper {
+    vargas::GraphMan &gm;
+    std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list;
+    vargas::osam &out;
+    const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners;
+    bool fwdonly, msonly;
+    std::mutex &mut;
+};
+
+void align_helper_func(void *data, long index, int tid) {
+    align_helper &help(*(align_helper *)data);
+    auto &aligners = help.aligners;
+    auto &out = help.out;
+    auto &task_list = help.task_list;
+    auto &gm = help.gm;
+    auto fwdonly = help.fwdonly;
+    auto msonly = help.msonly;
+
+    const size_t num_reads = task_list.at(index).second.size();
+    std::vector<std::string> read_seqs(num_reads);
+    std::vector<std::vector<char>> quals(num_reads);
+
+    for (size_t i = 0; i < num_reads; ++i) {
+        const auto &r = task_list.at(index).second.at(i);
+        read_seqs[i] = r.seq;
+        if (r.qual.size() == r.seq.size()) {
+            std::transform(r.qual.begin(),
+                           r.qual.end(),
+                           std::back_inserter(quals[i]),
+                           [](char c){ return c - 33; });
+        }
+    }
+    auto subgraph = gm.at(task_list.at(index).first);
+    vargas::Results aligns;
+    aligners[tid]->align_into(read_seqs, quals, subgraph->begin(), subgraph->end(), aligns, fwdonly);
+
+    for (size_t j = 0; j < task_list.at(index).second.size(); ++j) {
+        vargas::SAM::Record &rec = task_list.at(index).second.at(j);
+        auto abs = gm.absolute_position(aligns.max_pos[j]);
+        rec.aux.set("AS", aligns.max_score[j]);
+
+            if (!msonly) {
+            // Can only guess start position for end to end
+            if (aligns.profile.end_to_end) rec.pos = abs.second - rec.seq.size() + 1;
+            rec.ref_name = abs.first;
+            rec.flag.rev_complement = aligns.max_strand[j] == vargas::Strand::REV;
+            if (rec.flag.rev_complement) {
+                rg::reverse_complement_inplace(rec.seq);
+                std::reverse(rec.qual.begin(), rec.qual.end());
+            }
+
+            rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
+
+            // Aux flags for both primary and secondary
+            abs = gm.absolute_position(aligns.sub_pos[j]);
+            rec.aux.set(ALIGN_SAM_SUB_SEQ, abs.first);
+            rec.aux.set(ALIGN_SAM_SUB_POS_TAG, abs.second);
+
+            rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
+            rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
+            rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
+
+            rec.aux.set(ALIGN_SAM_SUB_STRAND_TAG, aligns.sub_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(help.mut);
+        for (size_t j = 0; j < task_list.at(index).second.size(); ++j) {
+            out.add_record(task_list.at(index).second.at(j));
+        }
+    }
+}
+
+#if !NDEBUG
+#else
+#define at operator[]
+#endif
+
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            vargas::osam &out,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
            bool fwdonly, bool msonly) {
-
     std::cerr << "Aligning... " << std::flush;
+    rg::ForPool fp(aligners.size());
     auto start_time = std::chrono::steady_clock::now();
 
     const auto num_tasks = task_list.size();
-
-    #pragma omp parallel for
-    for (size_t l = 0; l < num_tasks; ++l) {
-        #ifdef _OPENMP
-        const int tid = omp_get_thread_num();
-        #else
-        const int tid = 0;
-        #endif
-        const size_t num_reads = task_list.at(l).second.size();
-        std::vector<std::string> read_seqs(num_reads);
-        std::vector<std::vector<char>> quals(num_reads);
-
-        for (size_t i = 0; i < num_reads; ++i) {
-            const auto &r = task_list.at(l).second.at(i);
-            read_seqs[i] = r.seq;
-            if (r.qual.size() == r.seq.size()) {
-                std::transform(r.qual.begin(),
-                               r.qual.end(),
-                               std::back_inserter(quals[i]),
-                               [](char c){ return c - 33; });
-            }
-        }
-        auto subgraph = gm.at(task_list.at(l).first);
-        vargas::Results aligns;
-        aligners[tid]->align_into(read_seqs, quals, subgraph->begin(), subgraph->end(), aligns, fwdonly);
-
-        for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
-            vargas::SAM::Record &rec = task_list.at(l).second.at(j);
-            auto abs = gm.absolute_position(aligns.max_pos[j]);
-            rec.aux.set("AS", aligns.max_score[j]);
-
-                if (!msonly) {
-                // Can only guess start position for end to end
-                if (aligns.profile.end_to_end) rec.pos = abs.second - rec.seq.size() + 1;
-                rec.ref_name = abs.first;
-                rec.flag.rev_complement = aligns.max_strand[j] == vargas::Strand::REV;
-                if (rec.flag.rev_complement) {
-                    rg::reverse_complement_inplace(rec.seq);
-                    std::reverse(rec.qual.begin(), rec.qual.end());
-                }
-
-                rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
-
-                // Aux flags for both primary and secondary
-                abs = gm.absolute_position(aligns.sub_pos[j]);
-                rec.aux.set(ALIGN_SAM_SUB_SEQ, abs.first);
-                rec.aux.set(ALIGN_SAM_SUB_POS_TAG, abs.second);
-
-                rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
-                rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
-                rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
-
-                rec.aux.set(ALIGN_SAM_SUB_STRAND_TAG, aligns.sub_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
-            }
-        }
-
-        #pragma omp critical
-        {
-            for (size_t j = 0; j < task_list.at(l).second.size(); ++j) {
-                out.add_record(task_list.at(l).second.at(j));
-            }
-        }
-    }
+    std::mutex mut;
+    align_helper help{gm, task_list, out, aligners, fwdonly, msonly, mut};
+    fp.forpool(&align_helper_func, (void *)&help, num_tasks);
 
     std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
