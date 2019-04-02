@@ -150,7 +150,7 @@ void main_helper_func(void *data, long index, int tid) {
     auto subgraph_ptr = gm.at(label);
     vargas::Sim sim(*subgraph_ptr, task_list[index].second.second);
     auto results = sim.get_batch(help.num_reads, gm.resolver());
-    for(auto &r: results) r.aux.set("RB", task_list[index].second.first);
+    for(auto &r: results) r.aux.set("RG", task_list[index].second.first);
     {
         std::lock_guard<std::mutex> lock(help.m);
         for(const auto &r: results) help.out.add_record(r);
@@ -637,10 +637,10 @@ chrB	80	rs796688738	C	AC,<CN0>	.	.	.	.)";
     {
         // vargas align -g tmpgdef.vatmp -U tmpreads.vatmp -S tmpreads.vatmp -f
         const int argc = 9;
-        const char *argv[] = {"vargas", "align", "-g", "tmpgdef.vatmp", "-U", "tmpreads.vatmp", "-S", "tmpreads.vatmp", "-f"};
+        const char *argv[] = {"vargas", "align", "-g", "tmpgdef.vatmp", "-U", "tmpreads.vatmp", "-S", "tmpsam.vatmp", "-f"};
         align_main(argc, (char **) argv);
-        vargas::isam in("tmpreads.vatmp");
-        //REQUIRE(in.header().read_groups.size() == 8); //TODO: why is this failing?
+        vargas::isam in("tmpsam.vatmp");
+        REQUIRE(in.header().read_groups.size() == 8);
         const auto &hd = in.header();
         do {
             const auto &rec = in.record();
@@ -661,4 +661,5 @@ chrB	80	rs796688738	C	AC,<CN0>	.	.	.	.)";
     remove("tmpvcf.vatmp");
     remove("tmpgdef.vatmp");
     remove("tmpreads.vatmp");
+    remove("tmpsam.vatmp");
 }

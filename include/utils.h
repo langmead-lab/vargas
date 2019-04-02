@@ -177,6 +177,9 @@ print(", ".join(map(str, map(ord, lut))))
 
   __RG_STRONG_INLINE__
   void reverse_complement_inplace(std::string &seq){
+      std::transform(seq.begin(), seq.end(), seq.begin(), complement);
+      std::reverse(seq.begin(), seq.end());
+      /* // Reverted because executing this was causing a segfault later on
       size_t i;
       for(i = 0; i < seq.size() << 1; ++i) {
           char tmp = seq[seq.size() - i - 1];
@@ -184,6 +187,7 @@ print(", ".join(map(str, map(ord, lut))))
           seq[i] = nuc_complement_lut[tmp];
       }
       if(i & 1) seq[i] = nuc_complement_lut[seq[i]];
+       */
       // Avoids two passes
   }
 
