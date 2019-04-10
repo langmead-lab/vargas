@@ -432,6 +432,7 @@ namespace vargas {
                   }
 
                   // Assign strands
+                  // if both strands have an occurrence of max or submax score, position will be wrt a fwd occurrence
                   for(size_t i = 0; i < len; ++i) {
                      aligns.max_strand[beg_offset + i] = _max_score[i] > fwdmax[i] ? Strand::REV : Strand::FWD;
                      aligns.sub_strand[beg_offset + i] = _sub_score[i] > fwdsub[i] ? Strand::REV : Strand::FWD;
@@ -484,7 +485,7 @@ namespace vargas {
        * @param seed_map ID->seed map for all previous nodes
        * @param seed best seed to populate
        * @throws std::domain_error if a node listed as a previous node but it has not been encountered yet.
-       * i.e. not topographically sorted.
+       * i.e. not topologically sorted.
        */
       __RG_STRONG_INLINE__
       void _get_seed(const std::vector<unsigned> &prev_ids,
@@ -510,6 +511,7 @@ namespace vargas {
       }
 
       /**
+       * @brief
        * @brief
        * Computes local alignment to the node.
        * @param n Node to align to
@@ -608,42 +610,34 @@ namespace vargas {
               simd_t _tmp0;
               _tmp0 = _S[row] == _max_score;
               if (_tmp0) {
-                  // Check for equal max score.
+                  // Check for equal max score. Do not update reported position.
                   for (unsigned i = 0; i < read_capacity(); ++i) {
-                      if (_tmp0[i]) {
-                          if (curr_pos > _max_pos[i] + _read_len) ++(_max_count[i]);
-                          _max_pos[i] = curr_pos;
-                      }
+                      if (_tmp0[i]) ++(_max_count[i]);
                   }
               }
 
               _tmp0 = _S[row] > _max_score;
               if (_tmp0) {
-                  // Check for new or equal high scores
-                  _max_score = max(_S[row], _max_score);
+                  // Check for new max score
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i]) {
                           // Demote old max to submax
-                          if (curr_pos > _max_pos[i] + _read_len) {
-                              _sub_score[i] = _max_score[i];
-                              _sub_pos[i] = _max_pos[i];
-                              _sub_count[i] = _max_count[i];
-                          }
+                          _sub_score[i] = _max_score[i];
+                          _sub_pos[i] = _max_pos[i];
+                          _sub_count[i] = _max_count[i];
                           _max_count[i] = 1;
                           _max_pos[i] = curr_pos;
                       }
                   }
+                  _max_score = max(_S[row], _max_score);
               }
 
 
               _tmp0 = _S[row] == _sub_score;
               if (_tmp0) {
-                  // Repeat sub score
+                  // Repeat sub score - do not update reported position.
                   for (unsigned i = 0; i < read_capacity(); ++i) {
-                      if (_tmp0[i] && curr_pos > _max_pos[i] + _read_len) {
-                          _sub_count[i] += curr_pos > (_sub_pos[i] + _read_len);
-                          _sub_pos[i] = curr_pos;
-                      }
+                      if (_tmp0[i]) ++(_sub_count[i]);
                   }
               }
 
@@ -652,11 +646,9 @@ namespace vargas {
               if (_tmp0) {
                   // new second best score
                   for (unsigned i = 0; i < read_capacity(); ++i) {
-                      if (_tmp0[i] && curr_pos > _max_pos[i] + _read_len) {
-                          _sub_score[i] = _S[row][i];
-                          _sub_count[i] = 1;
-                          _sub_pos[i] = curr_pos;
-                      }
+                      _sub_score[i] = _S[row][i];
+                      _sub_count[i] = 1;
+                      _sub_pos[i] = curr_pos;
                   }
               }
           }
@@ -809,13 +801,14 @@ TEST_CASE("Alignment") {
         CHECK(aligns.max_pos[4] == 7);
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5] == 6);
+        CHECK(aligns.max_pos[5] == 5);
 
         CHECK(aligns.max_score[6] == 8);
         CHECK(aligns.max_pos[6] == 10);
 
         CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7] == 4);
+        CHECK(aligns.max_pos[7] == 6);
+        CHECK(aligns.max_count[7] == 3);
     }
 
     SUBCASE("Scoring Scheme") {
@@ -852,7 +845,7 @@ TEST_CASE("Alignment") {
         CHECK(aligns.max_pos[4] == 7);
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5] == 6);
+        CHECK(aligns.max_pos[5] == 5);
 
         CHECK(aligns.max_score[6] == 8);
         CHECK(aligns.max_pos[6] == 10);
@@ -864,7 +857,7 @@ TEST_CASE("Alignment") {
         CHECK(aligns.max_pos[8] == 10);
 
         CHECK(aligns.max_score[9] == 8);
-        CHECK(aligns.max_pos[9] == 10);
+        CHECK(aligns.max_pos[9] == 4);
     }
 
     SUBCASE("Quality") {
@@ -954,13 +947,13 @@ TEST_CASE("Alignment") {
         CHECK(aligns.max_pos[4] == 7);
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5] == 6);
+        CHECK(aligns.max_pos[5] == 5);
 
         CHECK(aligns.max_score[6] == 8);
         CHECK(aligns.max_pos[6] == 10);
 
         CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7] == 4);
+        CHECK(aligns.max_pos[7] == 6);
     }
 
     SUBCASE("Scoring Scheme- Word") {
@@ -1005,7 +998,7 @@ TEST_CASE("Alignment") {
         CHECK(aligns.max_pos[4] == 7);
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5] == 6);
+        CHECK(aligns.max_pos[5] == 5);
 
         CHECK(aligns.max_score[6] == 8);
         CHECK(aligns.max_pos[6] == 10);
@@ -1017,7 +1010,7 @@ TEST_CASE("Alignment") {
         CHECK(aligns.max_pos[8] == 10);
 
         CHECK(aligns.max_score[9] == 8);
-        CHECK(aligns.max_pos[9] == 10);
+        CHECK(aligns.max_pos[9] == 4);
     }
 }
 
@@ -1218,7 +1211,7 @@ TEST_CASE("Target score") {
     CHECK(res.max_score[0] == 8);
     CHECK(res.sub_score[0] == 6);
     CHECK(res.max_pos[0] == 4);
-    CHECK(res.sub_pos[0] == 19);
+    CHECK(res.sub_pos[0] == 3);
 }
 
 TEST_SUITE_END();
