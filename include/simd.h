@@ -64,9 +64,6 @@ AVX512F for AVX-512, KNCNI
 */
 
 #ifdef VA_SIMD_USE_AVX512
-#  if !defined(__KNCNI__) && !defined(__AVX512F__)
-#    error("KNCNI or AVX512F are required for avx512 support (andnot)")
-#endif
 #  define VA_MAX_INT8 64
 #  define VA_MAX_INT16 32
 #endif
@@ -503,15 +500,14 @@ namespace vargas {
 
   #ifdef VA_SIMD_USE_AVX512
 
-  #error("AVX512 deides to return cmp* functions as masks (one value per bit). This needs refactoring before it works.")
   template<> typename int8x64::cmp_t int8x64::operator==(const int8x64 &o) const {
-      return _mm512_cmpeq_epi8(v, o.v);
+      return _mm512_cmpeq_epi8_mask(v, o.v);
   }
   template<> typename int8x64::cmp_t int8x64::operator>(const int8x64 &o) const {
-      return _mm512_cmpgt_epi8(v, o.v);
+      return _mm512_cmpgt_epi8_mask(v, o.v);
   }
   template<> typename int8x64::cmp_t int8x64::operator<(const int8x64 &o) const {
-      return _mm512_cmpgt_epi8(o.v, v);
+      return _mm512_cmpgt_epi8_mask(o.v, v);
   }
   template<> int8x64 int8x64::operator^(const int8x64 &o) const {
       return _mm512_xor_si512(v, o.v);
@@ -550,13 +546,13 @@ namespace vargas {
 
 
   template<> typename int16x32::cmp_t int16x32::operator==(const int16x32 &o) const {
-      return _mm512_cmpeq_epi16(v, o.v);
+      return _mm512_cmpeq_epi16_mask(v, o.v);
   }
   template<> typename int16x32::cmp_t int16x32::operator>(const int16x32 &o) const {
-      return _mm512_cmpgt_epi16(v, o.v);
+      return _mm512_cmpgt_epi16_mask(v, o.v);
   }
   template<> typename int16x32::cmp_t int16x32::operator<(const int16x32 &o) const {
-      return _mm512_cmpgt_epi16(o.v, v);
+      return _mm512_cmpgt_epi16_mask(o.v, v);
   }
   template<> int16x32 int16x32::operator^(const int16x32 &o) const {
       return _mm512_xor_si512(v, o.v);

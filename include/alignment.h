@@ -607,7 +607,11 @@ namespace vargas {
               _max_score = max(_S[row], _max_score);
           }
           else {
+              #ifdef VA_SIMD_USE_AVX512
+              MaskType _tmp0;
+              #else
               simd_t _tmp0;
+              #endif
               _tmp0 = _S[row] == _max_score;
               if (_tmp0) {
                   // Check for equal max score. Do not update reported position.
@@ -618,7 +622,6 @@ namespace vargas {
 
               _tmp0 = _S[row] > _max_score;
               if (_tmp0) {
-                  // Check for new max score
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i]) {
                           // Demote old max to submax
@@ -627,11 +630,10 @@ namespace vargas {
                           _sub_count[i] = _max_count[i];
                           _max_count[i] = 1;
                           _max_pos[i] = curr_pos;
-                      }
+	              }
                   }
                   _max_score = max(_S[row], _max_score);
               }
-
 
               _tmp0 = _S[row] == _sub_score;
               if (_tmp0) {
