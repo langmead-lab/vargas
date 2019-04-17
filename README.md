@@ -1,7 +1,7 @@
 # Vargas
-_Updated: March 13, 2019_
+_Updated: April 17, 2019_
 
-Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned using a SIMD vectorized version of Smith-Waterman, aligning multiple reads at once. The the aligner reports the maximal scoring positions. Vargas can also be used to simulate reads from a DAG.
+Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned using a SIMD vectorized version of Smith-Waterman, aligning multiple reads at once. The the aligner reports a maximal scoring position, and optionally the number of maximum-score occurrences, the second-best scoring position and the number of second-best score occurrences. Vargas can also be used to simulate reads from a DAG.
 
 
 # Building
@@ -34,7 +34,7 @@ To build for SKX Xeon Platinum targeting AVX2 with Intel compiler:
 
 To build for SKX Xeon Platinum targeting AVX512-BW with Intel compiler:
 
-    cmake -DCMAKE_CXX_COMPILER=icpc -DCMAKE_C_COMPILER=icc -DBUILD_SKX=ON -DCMAKE_BUILD_TYPE=Release ..
+    cmake -DCMAKE_CXX_COMPILER=icpc -DCMAKE_C_COMPILER=icc -DBUILD_AVX512BW=ON -DCMAKE_BUILD_TYPE=Release ..
     make -j4
 
 
@@ -43,7 +43,9 @@ To build for SKX Xeon Platinum targeting AVX512-BW with Intel compiler:
 `vargas -h`
 
 ```
-vargas, May 11 2017. rgaddip1@jhu.edu
+Vargas version [date]
+by Ravi Gaddipati, Charlotte Darby, Daniel Baker, Ben Langmead (langmea@cs.jhu.edu, www.langmead-lab.org)
+
         define          Define a set of graphs for use with sim and align.
         sim             Simulate reads from a set of graphs.
         align           Align reads to a set of graphs.
@@ -253,7 +255,7 @@ Usage:
 
 The MIT License (MIT)
 
-Copyright 2017 Ravi Gaddipati.
+Copyright 2019 Ravi Gaddipati, Charlotte Darby, Daniel Baker, Ben Langmead.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 

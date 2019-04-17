@@ -404,8 +404,10 @@ namespace vargas {
 
               if (!MSONLY) {
                   _max_pos = aligns.max_pos.data() + beg_offset;
+                  _max_last_pos = aligns.max_last_pos.data() + beg_offset;
                   _sub_score = std::numeric_limits<native_t>::min();
                   _sub_pos = aligns.sub_pos.data() + beg_offset;
+                  _sub_last_pos = aligns.sub_last_pos.data() + beg_offset;
                   _max_count = aligns.max_count.data() + beg_offset;
                   _sub_count = aligns.sub_count.data() + beg_offset;
               }
@@ -614,9 +616,15 @@ namespace vargas {
               #endif
               _tmp0 = _S[row] == _max_score;
               if (_tmp0) {
-                  // Check for equal max score. Do not update reported position.
+                  // Check for equal max score. Don't update reported position; increment counter if "different location"
+                  // from closest occurrence of max or 2nd-max score; update closest occurrence
                   for (unsigned i = 0; i < read_capacity(); ++i) {
-                      if (_tmp0[i]) ++(_max_count[i]);
+                      if (_tmp0[i]) {
+                          if (curr_pos > _max_last_pos[i] + _read_len && curr_pos > _sub_last_pos[i] + _read_len) {
+                              ++(_max_count[i]);
+                          }
+                          _max_last_pos[i] = curr_pos;
+                      }
                   }
               }
 
@@ -624,22 +632,30 @@ namespace vargas {
               if (_tmp0) {
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i]) {
-                          // Demote old max to submax
+                          // Check for new max score. Demote old max to 2nd-max
                           _sub_score[i] = _max_score[i];
                           _sub_pos[i] = _max_pos[i];
+                          _sub_last_pos[i] = _max_last_pos[i];
                           _sub_count[i] = _max_count[i];
                           _max_count[i] = 1;
                           _max_pos[i] = curr_pos;
-	              }
+                          _max_last_pos[i] = curr_pos;
+                      }
                   }
                   _max_score = max(_S[row], _max_score);
               }
 
               _tmp0 = _S[row] == _sub_score;
               if (_tmp0) {
-                  // Repeat sub score - do not update reported position.
+                  // Check for repeat 2nd-max score. Update reported position; increment counter if "different location"
+                  // from closest occurence of max or 2nd-max score
                   for (unsigned i = 0; i < read_capacity(); ++i) {
-                      if (_tmp0[i]) ++(_sub_count[i]);
+                      if (_tmp0[i]) {
+                          if (curr_pos > _max_last_pos[i] + _read_len && curr_pos > _sub_last_pos[i] + _read_len) {
+                              ++(_sub_count[i]);
+                          }
+                          _sub_last_pos[i] = curr_pos;
+                      }
                   }
               }
 
@@ -648,9 +664,12 @@ namespace vargas {
               if (_tmp0) {
                   // new second best score
                   for (unsigned i = 0; i < read_capacity(); ++i) {
-                      _sub_score[i] = _S[row][i];
-                      _sub_count[i] = 1;
-                      _sub_pos[i] = curr_pos;
+                      if (_tmp0[i]) {
+                          _sub_score[i] = _S[row][i];
+                          _sub_count[i] = 1;
+                          _sub_pos[i] = curr_pos;
+                          _sub_last_pos[i] = curr_pos;
+                      }
                   }
               }
           }
@@ -687,6 +706,7 @@ namespace vargas {
       _gap_extend_vec_ref, _gap_open_extend_vec_ref, _gap_extend_vec_rd, _gap_open_extend_vec_rd;
 
       pos_t *_max_pos, *_sub_pos;
+      pos_t *_max_last_pos, *_sub_last_pos;
       unsigned  *_max_count, *_sub_count;
 
       native_t _bias;
@@ -810,7 +830,6 @@ TEST_CASE("Alignment") {
 
         CHECK(aligns.max_score[7] == 8);
         CHECK(aligns.max_pos[7] == 6);
-        CHECK(aligns.max_count[7] == 3);
     }
 
     SUBCASE("Scoring Scheme") {

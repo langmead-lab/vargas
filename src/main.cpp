@@ -518,7 +518,7 @@ int query_main(int argc, char *argv[]) {
 void main_help() {
     using std::cerr;
     using std::endl;
-    cerr << "\nvargas " << VARGAS_VERSION << ". rgaddip1@jhu.edu\n";
+    cerr << "\nVargas version " << VARGAS_VERSION << " \nby Ravi Gaddipati, Charlotte Darby, Daniel Baker, Ben Langmead (langmea@cs.jhu.edu, www.langmead-lab.org)\n";
     cerr << "\tdefine          Define a set of graphs for use with sim and align.\n";
     cerr << "\tsim             Simulate reads from a set of graphs.\n";
     cerr << "\talign           Align reads to a set of graphs.\n";
