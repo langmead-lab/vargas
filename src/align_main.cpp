@@ -32,7 +32,7 @@ int align_main(int argc, char *argv[]) {
     // Load parameters
     unsigned match, npenalty, threads, chunk_size, subsample;
     std::string read_file, gdf, align_targets, out_file, pgid, mismatch, rdg, rfg;
-    bool end_to_end = false, fwdonly = false, p64=false, msonly=false;
+    bool end_to_end = false, fwdonly = false, p64=false, msonly=false, maxonly=false;
 
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
     try {
@@ -42,7 +42,8 @@ int align_main(int argc, char *argv[]) {
 
         opts.add_options("Optional")
         ("S,sam", "<str> Output file.", cxxopts::value(out_file))
-        ("msonly", "Only report max score. Improves speed for hard reads.", cxxopts::value(msonly)->implicit_value("1"))
+        ("msonly", "Only report max score. Improves speed.", cxxopts::value(msonly)->implicit_value("1"))
+        ("maxonly", "Only report max score, location, and count. Improves speed.", cxxopts::value(maxonly)->implicit_value("1"))
         ("phred64", "Qualities are Phred+64, not Phred+33.", cxxopts::value(p64)->implicit_value("1"))
         ("p,subsample", "<N> Sample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
         ("a,alignto", "<str> Target graph, or SAM Read Group -> graph mapping.\"(RG:ID:<group>,<target_graph>;)+|<graph>\"", cxxopts::value(align_targets))
@@ -94,6 +95,10 @@ int align_main(int argc, char *argv[]) {
     }
     if (align_targets.size() > 0 && format != ReadFmt::SAM) {
         throw std::invalid_argument("Alignment targets only available for SAM inputs.");
+    }
+
+    if(opts.count("msonly") && opts.count("maxonly")) {
+        throw std::invalid_argument("At most one of msonly and maxonly can be specified.");
     }
 
     vargas::isam reads;
@@ -196,19 +201,25 @@ int align_main(int argc, char *argv[]) {
 
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
-        aligners[k] = make_aligner(prof, read_len, use_wide, msonly);
+        aligners[k] = make_aligner(prof, read_len, use_wide, msonly, maxonly);
     }
 
 
     std::cerr << "\nLoading \"" << gdf << "\"...\n";
     auto start_time = std::chrono::steady_clock::now();
     vargas::GraphMan gm(gdf);
+    if (gm.labels().size() != 1 && maxonly) {
+        std::cerr << "[warn] With --maxonly, max score position and count may be incorrect because the genome is a graph." << std::endl;
+    }
+    if (gm.labels().size() != 1 && !maxonly && !msonly) {
+        throw std::invalid_argument("Cannot calculate 2nd-max score when the genome is a graph. Use --msonly or --maxonly.");
+    }
     std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
     if (out_file.length()) std::cerr << "Writing to \"" << (out_file == "" ? "stdout" : out_file) << "\".\n";
     reads_hdr.programs[assigned_pgid].aux.set(ALIGN_SAM_PG_GDF, gdf);
     vargas::osam aligns_out(out_file, reads_hdr);
-    align(gm, task_list, aligns_out, aligners, fwdonly, msonly);
+    align(gm, task_list, aligns_out, aligners, fwdonly, msonly, maxonly);
 
     return 0;
 }
@@ -218,7 +229,7 @@ struct align_helper {
     std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list;
     vargas::osam &out;
     const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners;
-    bool fwdonly, msonly;
+    bool fwdonly, msonly, maxonly;
     std::mutex &mut;
 };
 
@@ -230,6 +241,7 @@ void align_helper_func(void *data, long index, int tid) {
     auto &gm = help.gm;
     auto fwdonly = help.fwdonly;
     auto msonly = help.msonly;
+    auto maxonly = help.maxonly;
 
     const size_t num_reads = task_list.at(index).second.size();
     std::vector<std::string> read_seqs(num_reads);
@@ -254,7 +266,7 @@ void align_helper_func(void *data, long index, int tid) {
         auto abs = gm.absolute_position(aligns.max_pos[j]);
         rec.aux.set("AS", aligns.max_score[j]);
 
-            if (!msonly) {
+        if (!msonly) {
             // Can only guess start position for end to end
             if (aligns.profile.end_to_end) rec.pos = abs.second - rec.seq.size() + 1;
             rec.ref_name = abs.first;
@@ -265,17 +277,17 @@ void align_helper_func(void *data, long index, int tid) {
             }
 
             rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
-
-            // Aux flags for both primary and secondary
-            abs = gm.absolute_position(aligns.sub_pos[j]);
-            rec.aux.set(ALIGN_SAM_SUB_SEQ, abs.first);
-            rec.aux.set(ALIGN_SAM_SUB_POS_TAG, abs.second);
-
             rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
-            rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
-            rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
 
-            rec.aux.set(ALIGN_SAM_SUB_STRAND_TAG, aligns.sub_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
+            // Flags for 2nd max
+            if (!maxonly) {
+                abs = gm.absolute_position(aligns.sub_pos[j]);
+                rec.aux.set(ALIGN_SAM_SUB_SEQ, abs.first);
+                rec.aux.set(ALIGN_SAM_SUB_POS_TAG, abs.second);
+                rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
+                rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
+                rec.aux.set(ALIGN_SAM_SUB_STRAND_TAG, aligns.sub_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
+            }
         }
     }
 
@@ -296,14 +308,14 @@ void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            vargas::osam &out,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
-           bool fwdonly, bool msonly) {
+           bool fwdonly, bool msonly, bool maxonly) {
     std::cerr << "Aligning... " << std::flush;
     rg::ForPool fp(aligners.size());
     auto start_time = std::chrono::steady_clock::now();
 
     const auto num_tasks = task_list.size();
     std::mutex mut;
-    align_helper help{gm, task_list, out, aligners, fwdonly, msonly, mut};
+    align_helper help{gm, task_list, out, aligners, fwdonly, msonly, maxonly, mut};
     fp.forpool(&align_helper_func, (void *)&help, num_tasks);
 
     std::cerr << rg::chrono_duration(start_time) << "s.\n";
@@ -419,7 +431,7 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
 }
 
 std::unique_ptr<vargas::AlignerBase>
-make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide, bool msonly) {
+make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide, bool msonly, bool maxonly) {
     if (msonly) {
         if (prof.end_to_end) {
             if (use_wide) return rg::make_unique<vargas::MSWordAlignerETE>(read_len, prof);

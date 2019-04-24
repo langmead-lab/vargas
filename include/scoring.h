@@ -99,7 +99,7 @@ namespace vargas {
    * 1 based coords.
    */
   struct Results {
-      std::vector<pos_t> max_pos, sub_pos, max_last_pos, sub_last_pos;
+      std::vector<pos_t> max_pos, sub_pos, max_last_pos, sub_last_pos, waiting_pos, waiting_last_pos;
       std::vector<unsigned> max_count, sub_count;
 
       std::vector<int> max_score; /**< Best scores */

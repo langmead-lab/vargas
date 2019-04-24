@@ -61,11 +61,12 @@ int align_main(int argc, char *argv[]);
  * @param fwdonly
  * @param primary
  * @param msonly
+ * @param maxonly
  */
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            vargas::osam &out,
-           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool fwdonly, bool msonly);
+           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool fwdonly, bool msonly, bool maxonly);
 
 /**
  * @brief
@@ -90,7 +91,7 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
  * @return pointer to new aligner
  */
 std::unique_ptr<vargas::AlignerBase>
-make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide, bool msonly);
+make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide, bool msonly, bool maxonly);
 
 /**
  * @brief

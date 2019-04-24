@@ -37,6 +37,8 @@ void vargas::Results::resize(size_t size) {
     sub_strand.resize(size);
     max_last_pos.resize(size);
     sub_last_pos.resize(size);
+    waiting_pos.resize(size);
+    waiting_last_pos.resize(size);
 }
 
 std::vector<std::string> vargas::tokenize_cl(std::string cl) {

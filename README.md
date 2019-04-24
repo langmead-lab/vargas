@@ -105,6 +105,7 @@ Usage:
  Optional options:
   -S, --sam arg            <str> Output file.
       --msonly             Only report max score.
+      --maxonly            Only report max score, position, and count.
       --phred64            Qualities are Phred+64, not Phred+33.
   -p, --subsample arg      <N> Sample N random reads, 0 for all. (default: 0)
   -a, --alignto arg        <str> Target graph, or SAM Read Group -> graph

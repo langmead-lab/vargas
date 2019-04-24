@@ -142,8 +142,9 @@ namespace vargas {
    * @tparam simd_t data type of score matrix element. One of SIMD<uint8_t>, SIMD<uint16_t>
    * @tparam END_TO_END If true, perform end to end alignment
    * @tparam MSONLY Only collect max score- no positions or subscores
+   * @tparam MAXONLY Only collect max score, max position, and count (no subscore)
    */
-  template<typename simd_t, bool END_TO_END, bool MSONLY=false>
+  template<typename simd_t, bool END_TO_END, bool MSONLY=false, bool MAXONLY=false>
   class AlignerT: public AlignerBase {
     public:
 
@@ -405,12 +406,24 @@ namespace vargas {
               if (!MSONLY) {
                   _max_pos = aligns.max_pos.data() + beg_offset;
                   _max_last_pos = aligns.max_last_pos.data() + beg_offset;
+                  _max_count = aligns.max_count.data() + beg_offset;
+              }
+
+              if (!MAXONLY) {
                   _sub_score = std::numeric_limits<native_t>::min();
                   _sub_pos = aligns.sub_pos.data() + beg_offset;
                   _sub_last_pos = aligns.sub_last_pos.data() + beg_offset;
-                  _max_count = aligns.max_count.data() + beg_offset;
                   _sub_count = aligns.sub_count.data() + beg_offset;
+                  _waiting_score = std::numeric_limits<native_t>::min();
+                  _waiting_pos = aligns.waiting_pos.data() + beg_offset;
+                  _waiting_last_pos = aligns.waiting_last_pos.data() + beg_offset;
               }
+
+              #ifdef VA_SIMD_USE_AVX512
+              MaskType _tmp0;
+              #else
+              simd_t _tmp0;
+              #endif
 
               // Forward
               _alignment_group.load_reads(read_group, quals, _prof, beg_offset, end_offset, false);
@@ -420,10 +433,28 @@ namespace vargas {
                   _fill_node(*gi, _alignment_group.query_profile(), seed, seed_map.emplace(gi->id(), _read_len).first->second);
               }
 
+              _tmp0 = _waiting_score > _sub_score;
+              if (_tmp0) {
+                  // commit the waiting 2nd max score if we've got one and reached the end of the genome without
+                  // seeing a new _max_last_pos
+                  for (unsigned i = 0; i < read_capacity(); ++i) {
+                      if (_tmp0[i] && _max_last_pos[i] < _waiting_pos[i]) {
+                          _sub_score[i] = _waiting_score[i];
+                          _sub_count[i] = 1;
+                          _sub_pos[i] = _waiting_pos[i];
+                          _sub_last_pos[i] = _waiting_last_pos[i];
+                      }
+                  }
+              }
+
               // Reverse
               if (!fwdonly) {
                   seed_map.clear();
                   _alignment_group.load_reads(read_group, quals, _prof, beg_offset, end_offset, true);
+                  //reset "right-most non-adjacent occurrence of score value" to zero
+                  if (!MSONLY) for (unsigned i = 0; i < read_capacity(); ++i) { _max_last_pos[i] = 0;}
+                  if (!MAXONLY) for (unsigned i = 0; i < read_capacity(); ++i) { _sub_last_pos[i] = 0;}
+                  //remember the scores on forward strand so we can tell if it increased and assign REV strand
                   simd_t fwdmax = _max_score;
                   simd_t fwdsub = _sub_score;
 
@@ -431,6 +462,19 @@ namespace vargas {
                       _get_seed(gi.incoming(), seed_map, seed);
                       if (gi->is_pinched()) seed_map.clear();
                       _fill_node(*gi, _alignment_group.query_profile(), seed, seed_map.emplace(gi->id(), _read_len).first->second);
+                  }
+                  _tmp0 = _waiting_score > _sub_score;
+                  if (_tmp0) {
+                      // commit the waiting 2nd max score if we've got one and reached the end of the genome without
+                      // seeing a new _max_last_pos
+                      for (unsigned i = 0; i < read_capacity(); ++i) {
+                          if (_tmp0[i] && _max_last_pos[i] < _waiting_pos[i]) {
+                              _sub_score[i] = _waiting_score[i];
+                              _sub_count[i] = 1;
+                              _sub_pos[i] = _waiting_pos[i];
+                              _sub_last_pos[i] = _waiting_last_pos[i];
+                          }
+                      }
                   }
 
                   // Assign strands
@@ -445,7 +489,7 @@ namespace vargas {
               // Copy scores
               for (unsigned char i = 0; i < len; ++i) {
                   aligns.max_score[beg_offset + i] = _max_score[i] - _bias;
-                  if (!MSONLY) {
+                  if (!MSONLY && !MAXONLY) {
                       aligns.sub_score[beg_offset + i] = _sub_score[i] - _bias;
                   }
               }
@@ -600,15 +644,13 @@ namespace vargas {
        * Takes the max of D,I, and M vectors and stores the _curr_pos best score/position
        * Currently does not support non-default template args
        * @param row _curr_pos row
-       * @param col _curr_pos column
-       * @param node_origin Current position, used to get absolute alignment position
+       * @param curr_pos Current position, used to get absolute alignment position
        */
       __RG_STRONG_INLINE__ __RG_UNROLL__
       void _fill_cell_finish(const unsigned &row, const pos_t &curr_pos) {
           if (MSONLY) {
               _max_score = max(_S[row], _max_score);
-          }
-          else {
+          } else if (MAXONLY) {
               #ifdef VA_SIMD_USE_AVX512
               MaskType _tmp0;
               #else
@@ -616,13 +658,11 @@ namespace vargas {
               #endif
               _tmp0 = _S[row] == _max_score;
               if (_tmp0) {
-                  // Check for equal max score. Don't update reported position; increment counter if "different location"
-                  // from closest occurrence of max or 2nd-max score; update closest occurrence
+                  // Check for repeat max score. Update closest occurrence location; increment counter if > read_len
+                  // from closest occurrence of max
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i]) {
-                          if (curr_pos > _max_last_pos[i] + _read_len && curr_pos > _sub_last_pos[i] + _read_len) {
-                              ++(_max_count[i]);
-                          }
+                          if (curr_pos > _max_last_pos[i] + _read_len) ++(_max_count[i]);
                           _max_last_pos[i] = curr_pos;
                       }
                   }
@@ -632,11 +672,7 @@ namespace vargas {
               if (_tmp0) {
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i]) {
-                          // Check for new max score. Demote old max to 2nd-max
-                          _sub_score[i] = _max_score[i];
-                          _sub_pos[i] = _max_pos[i];
-                          _sub_last_pos[i] = _max_last_pos[i];
-                          _sub_count[i] = _max_count[i];
+                          // Check for new max score.
                           _max_count[i] = 1;
                           _max_pos[i] = curr_pos;
                           _max_last_pos[i] = curr_pos;
@@ -644,37 +680,97 @@ namespace vargas {
                   }
                   _max_score = max(_S[row], _max_score);
               }
-
-              _tmp0 = _S[row] == _sub_score;
+          }
+              else { // the genome is not a graph so we can look for the 2nd-max score
+              #ifdef VA_SIMD_USE_AVX512
+              MaskType _tmp0;
+              #else
+              simd_t _tmp0;
+              #endif
+              _tmp0 = _S[row] == _max_score;
               if (_tmp0) {
-                  // Check for repeat 2nd-max score. Update reported position; increment counter if "different location"
-                  // from closest occurence of max or 2nd-max score
+                  // Check for repeat max score. Update closest occurrence location; increment counter if > read_len
+                  // from closest occurrence of max
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i]) {
-                          if (curr_pos > _max_last_pos[i] + _read_len && curr_pos > _sub_last_pos[i] + _read_len) {
-                              ++(_sub_count[i]);
-                          }
-                          _sub_last_pos[i] = curr_pos;
+                          if (curr_pos > _max_last_pos[i] + _read_len) ++(_max_count[i]);
+                          _max_last_pos[i] = curr_pos;
+                          _waiting_pos[i] = 0;
+                          _waiting_score[i] = _sub_score[i];
                       }
                   }
               }
 
-              // Greater than old sub max and less than max score (prevent repeats of max triggering)
-              _tmp0 = (_S[row] > _sub_score) & (_S[row] < _max_score);
+              _tmp0 = _S[row] > _max_score;
               if (_tmp0) {
-                  // new second best score
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i]) {
-                          _sub_score[i] = _S[row][i];
-                          _sub_count[i] = 1;
-                          _sub_pos[i] = curr_pos;
-                          _sub_last_pos[i] = curr_pos;
+                          // Check for new max score.
+                          _max_count[i] = 1;
+                          _max_pos[i] = curr_pos;
+                          _max_last_pos[i] = curr_pos;
+                          _waiting_pos[i] = 0;
+                          _waiting_score[i] = _sub_score[i];
                       }
                   }
+                  _max_score = max(_S[row], _max_score);
               }
+
+                _tmp0 = _S[row] == _waiting_score;
+                if (_tmp0) {
+                    // Check for repeat waiting 2nd-max score. Update closest occurrence location.
+                    for (unsigned i = 0; i < read_capacity(); ++i) {
+                        if (_tmp0[i] && _waiting_pos[i] > 0) _waiting_last_pos[i] = curr_pos;
+                    }
+                }
+
+                _tmp0 = _S[row] == _sub_score;
+                if (_tmp0) {
+                    // Check for repeat 2nd-max score. Update closest occurrence location; increment counter if
+                    // > read_len from closest occurence of max or 2nd-max score
+                    // TODO will overcount if there is an upcoming max within a read-length
+                    for (unsigned i = 0; i < read_capacity(); ++i) {
+                        if (_tmp0[i]) {
+                            if (curr_pos > _max_last_pos[i] + _read_len && curr_pos > _sub_last_pos[i] + _read_len) {
+                                ++(_sub_count[i]);
+                            }
+                            _sub_last_pos[i] = curr_pos;
+                        }
+                    }
+                }
+
+                // Greater than old 2nd-max and less than max score
+                _tmp0 = (_S[row] > _sub_score) & (_S[row] < _max_score);
+                if (_tmp0) {
+                    // Check for new 2nd-max score. Set waiting 2nd max if it's greater than the current waiting 2nd max
+                    // or we have no waiting 2nd max
+                    for (unsigned i = 0; i < read_capacity(); ++i) {
+                        if (_tmp0[i] && curr_pos > _max_last_pos[i] + _read_len && (_waiting_pos[i] == 0 || _S[row][i] > _waiting_score[i])) {
+                            _waiting_score[i] = _S[row][i];
+                            _waiting_pos[i] = curr_pos;
+                            _waiting_last_pos[i] = curr_pos;
+                        }
+                    }
+                }
+
+                _tmp0 = _waiting_score > _sub_score;
+                if (_tmp0) {
+                    // commit the waiting 2nd max score if we're a read length beyond it
+                    for (unsigned i = 0; i < read_capacity(); ++i) {
+                        if (_tmp0[i] && curr_pos > _waiting_pos[i] + _read_len && _waiting_pos[i] > 0) {
+                            //set the waiting 2nd max, if it's greater than the current waiting 2nd max
+                            _sub_score[i] = _waiting_score[i];
+                            _sub_count[i] = 1;
+                            _sub_pos[i] = _waiting_pos[i];
+                            _sub_last_pos[i] = _waiting_last_pos[i];
+                            _waiting_pos[i] = 0; //if nonzero, indicates that something is waiting
+                        }
+                    }
+                }
+            }
           }
 
-      }
+
 
       static native_t _get_bias(const unsigned read_len, const unsigned match, const unsigned mismatch,
                                 const unsigned gopen, const unsigned gext) {
@@ -702,11 +798,11 @@ namespace vargas {
       AlignmentGroup _alignment_group;
       SIMDVector<simd_t> _S, _Dc, _Ic;
 
-      simd_t _Sd, _max_score, _sub_score,
+      simd_t _Sd, _max_score, _sub_score, _waiting_score,
       _gap_extend_vec_ref, _gap_open_extend_vec_ref, _gap_extend_vec_rd, _gap_open_extend_vec_rd;
 
-      pos_t *_max_pos, *_sub_pos;
-      pos_t *_max_last_pos, *_sub_last_pos;
+      pos_t *_max_pos, *_sub_pos, *_waiting_pos;
+      pos_t *_max_last_pos, *_sub_last_pos, *_waiting_last_pos;
       unsigned  *_max_count, *_sub_count;
 
       native_t _bias;
@@ -1232,7 +1328,7 @@ TEST_CASE("Target score") {
     CHECK(res.max_score[0] == 8);
     CHECK(res.sub_score[0] == 6);
     CHECK(res.max_pos[0] == 4);
-    CHECK(res.sub_pos[0] == 3);
+    CHECK(res.sub_pos[0] == 19); //max and 2nd max have to be far enough away, so sub_pos can't be 3
 }
 
 TEST_SUITE_END();
