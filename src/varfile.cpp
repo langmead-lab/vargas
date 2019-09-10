@@ -21,7 +21,7 @@ vargas::Region vargas::parse_region(const std::string &region_str) {
     std::vector <std::string> regionSplit = rg::split(region_str, ':');
 
     if(regionSplit.size() == 1) {
-        regionSplit.push_back("0-0");
+        regionSplit.emplace_back("0-0");
     }
     else if (regionSplit.size() != 2) throw std::invalid_argument("Invalid region: " + region_str);
 
@@ -60,7 +60,7 @@ std::vector<std::string> vargas::VCF::seq_names() const {
         throw std::invalid_argument("Error reading VCF header.");
     }
     for (int i = 0; i < num; ++i) {
-        ret.push_back(std::string(seqnames[i]));
+        ret.emplace_back(seqnames[i]);
     }
     free(seqnames);
     return ret;
@@ -73,7 +73,7 @@ bool vargas::VCF::next() {
     bool seqmatch;
     do {
         if (bcf_read(_bcf, _header, _curr_rec) != 0) return false;
-        seqmatch = _region.seq_name.size() == 0 || strcmp(_region.seq_name.c_str(), bcf_seqname(_header, _curr_rec)) == 0;
+        seqmatch = _region.seq_name.empty() || strcmp(_region.seq_name.c_str(), bcf_seqname(_header, _curr_rec)) == 0;
         if (seqmatch) _entered_contig = true;
         else if (_assume_contig && _entered_contig) return false;
     } while (!seqmatch || unsigned(_curr_rec->pos) < _region.min || (_region.max > 0 && unsigned(_curr_rec->pos) > _region.max));
@@ -129,7 +129,7 @@ void vargas::VCF::create_ingroup(int percent) {
     if (percent == 100) {
         _ingroup = _samples;
     } else if (percent != 0) {
-        for (auto s : _samples) {
+        for (const auto& s : _samples) {
             if (rand() % 100 < percent) _ingroup.push_back(s);
         }
     }
@@ -154,7 +154,7 @@ int vargas::VCF::_init() {
 
         // Load samples
         for (size_t i = 0; i < num_haplotypes() / 2; ++i) {
-            _samples.push_back(_header->samples[i]);
+            _samples.emplace_back(_header->samples[i]);
         }
         create_ingroup(100);
     }
@@ -189,7 +189,7 @@ void vargas::VCF::_apply_ingroup_filter() {
         throw std::logic_error("Ingroup filter should only be applied after loading header!");
     }
 
-    if (_ingroup.size() == 0) {
+    if (_ingroup.empty()) {
         if (_ingroup_cstr != nullptr) {
             free(_ingroup_cstr);
         }
@@ -202,7 +202,7 @@ void vargas::VCF::_apply_ingroup_filter() {
         strcpy(_ingroup_cstr, "-");
     } else {
         std::ostringstream ss;
-        for (auto s : _ingroup) ss << s << ',';
+        for (const auto& s : _ingroup) ss << s << ',';
         std::string smps = ss.str().substr(0, ss.str().length() - 1);
         if (_ingroup_cstr != nullptr) {
             free(_ingroup_cstr);

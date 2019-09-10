@@ -76,7 +76,7 @@ namespace vargas {
       /**
        * @param file_name output file
        */
-      ofasta(std::string file_name) {
+      explicit ofasta(const std::string& file_name) {
           open(file_name);
       }
 
@@ -85,7 +85,7 @@ namespace vargas {
        * @param file_name
        * @throws std::invalid_argument Error opening a file
        */
-      void open(std::string file_name);
+      void open(const std::string& file_name);
 
       void close() {
           _o.close();
@@ -114,7 +114,7 @@ namespace vargas {
     private:
       int _char_per_line = 70;
       std::ofstream _o;
-      bool _use_stdio;
+      bool _use_stdio{};
   };
 
   /**
@@ -138,14 +138,14 @@ namespace vargas {
 
     public:
 
-      ifasta() { }
+      ifasta() = default;
 
       /**
        * @brief
        * Load a given FASTA and its index, create one if none exists.
        * @param file filename
        */
-      ifasta(std::string file) : _file_name(file) {
+      explicit ifasta(const std::string& file) : _file_name(file) {
           open(file);
       }
 
@@ -216,7 +216,7 @@ namespace vargas {
        * @param name sequence name
        * @return sequence length
        */
-      size_t seq_len(std::string name) {
+      size_t seq_len(const std::string& name) {
           return faidx_seq_len(_index, name.c_str());
       }
 
@@ -228,7 +228,7 @@ namespace vargas {
        * @return sequence name
        * @throws std::range_error i is out of sequence index range
        */
-      std::string seq_name(const size_t i) const;
+      std::string seq_name(size_t i) const;
 
       /**
        * @brief
@@ -364,7 +364,7 @@ namespace vargas {
        * @param seq_name sequence name to start at
        * @return iter to seq_name
        */
-      iterator begin(std::string seq_name) {
+      iterator begin(const std::string& seq_name) {
           auto f = std::find(_seq_names.begin(), _seq_names.end(), seq_name);
           if (f == _seq_names.end()) return end();
           return iterator(*this, f - _seq_names.begin());

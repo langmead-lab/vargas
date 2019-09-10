@@ -152,6 +152,7 @@ void vargas::GraphMan::open(const std::string &filename) {
         rg::split(line, '\t', tokens);
         if (tokens.size() != 2) throw std::domain_error("Invalid contig def: " + line);
         _resolver._contig_offsets[std::stoul(tokens[0])] = tokens[1];
+        _resolver._contig_hdr_order.push_back(tokens[1]);
     }
 
     assert(line == "@graphs");

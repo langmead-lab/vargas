@@ -30,6 +30,7 @@
 #include <unordered_set>
 #include <type_traits>
 #include <stdexcept>
+#include <utility>
 
 namespace vargas {
 
@@ -152,19 +153,10 @@ namespace vargas {
           Node(const Node &n) : _end_pos(n._end_pos), _seq(n._seq), _individuals(n._individuals),
                                 _ref(n._ref), _pinch(n._pinch), _af(n._af), _id(n._id) {}
 
-          Node(unsigned pos, const std::string &seq, const Population &pop, bool ref, float af) :
-          _end_pos(pos), _seq(rg::seq_to_num(seq)), _individuals(pop), _ref(ref), _af(af), _id(_newID++) {}
+          Node(unsigned pos, const std::string &seq, Population pop, bool ref, float af) :
+          _end_pos(pos), _seq(rg::seq_to_num(seq)), _individuals(std::move(pop)), _ref(ref), _af(af), _id(_newID++) {}
 
-          Node &operator=(const Node &n) {
-              _end_pos = n._end_pos;
-              _seq = n._seq;
-              _individuals = n._individuals;
-              _ref = n._ref;
-              _pinch = n._pinch;
-              _af = n._af;
-              _id = n._id;
-              return *this;
-          }
+          Node &operator=(const Node &n) = default;
 
           /**
            * @return length of the sequence
@@ -362,7 +354,7 @@ namespace vargas {
            * @param g Graph
            * @param idx Node in the insertion order to begin iterator at.
            */
-          GraphIterator(const Graph &g, const unsigned idx = 0) : _graph(g), _currID(idx), _empty(0) {}
+          explicit GraphIterator(const Graph &g, const unsigned idx = 0) : _graph(g), _currID(idx), _empty(0) {}
 
           GraphIterator operator=(const GraphIterator &gi) {
               _graph = gi._graph;
@@ -469,7 +461,7 @@ namespace vargas {
            * @brief
            * Allow conversion from iterator to const_iterator
            */
-          operator GraphIterator<const T, FWD>() const {
+          explicit operator GraphIterator<const T, FWD>() const {
               return GraphIterator<const T, FWD>(_graph, _currID);
           }
 
@@ -522,15 +514,15 @@ namespace vargas {
        */
       Graph() : _IDMap(std::make_shared<nodemap_t>()) {}
 
-      Graph(std::shared_ptr<nodemap_t> nodes) : _IDMap(nodes) {}
+      explicit Graph(std::shared_ptr<nodemap_t> nodes) : _IDMap(std::move(nodes)) {}
 
       /**
        * @brief
        * Create a graph and bind it to an existing node map with given edges.
        */
-       Graph(std::shared_ptr<nodemap_t> nodes, const edgemap_t &fwd, const edgemap_t &rev,
-             const std::vector<unsigned> &node_order)
-       : _IDMap(nodes), _next_map(fwd), _prev_map(rev), _add_order(node_order) {}
+       Graph(std::shared_ptr<nodemap_t> nodes, edgemap_t fwd, edgemap_t rev,
+             std::vector<unsigned> node_order)
+       : _IDMap(std::move(std::move(nodes))), _next_map(std::move(fwd)), _prev_map(std::move(rev)), _add_order(std::move(node_order)) {}
 
       /**
        * @brief
@@ -583,9 +575,9 @@ namespace vargas {
        * @param n1 Node one ID
        * @param n2 Node two ID
        */
-      bool add_edge(const unsigned n1, const unsigned n2);
+      bool add_edge(unsigned n1, unsigned n2);
 
-      void add_edge_unchecked(const unsigned n1, const unsigned n2);
+      void add_edge_unchecked(unsigned n1, unsigned n2);
 
       /**
        * @brief
@@ -625,7 +617,7 @@ namespace vargas {
        * Exports the graph in DOT format.
        * @param name graph name
        */
-      std::string to_DOT(const std::string name = "g") const;
+      std::string to_DOT(std::string name = "g") const;
 
       /**
        * @brief
@@ -634,7 +626,7 @@ namespace vargas {
        * @param name of the graph
        * @throws std::invalid_argument if output file cannot be opened
        */
-      void to_DOT(const std::string filename, const std::string name) const {
+      void to_DOT(const std::string& filename, const std::string& name) const {
           std::ofstream out(filename);
           if (!out.good()) throw std::invalid_argument("Error opening file: \"" + filename + "\"");
           out << to_DOT(name);
@@ -676,7 +668,7 @@ namespace vargas {
        * Return a Population of a subset of the graph.
        * @return Population with ingroup % of samples set.
        */
-      Population subset(const int ingroup) const;
+      Population subset(int ingroup) const;
 
       /**
        * @brief
@@ -685,7 +677,7 @@ namespace vargas {
        * @param max
        * @return Graph
        */
-      Graph subgraph(const pos_t min, const pos_t max) const;
+      Graph subgraph(pos_t min, pos_t max) const;
 
       /**
        * @brief
@@ -769,7 +761,7 @@ namespace vargas {
        */
       Stats statistics() const {
           Stats ret;
-          for (auto i : *this) {
+          for (const auto& i : *this) {
               ++ret.num_nodes;
               ret.total_length += i.length();
               ret.num_snps += (i.length() == 1 && !i.is_ref());
@@ -806,7 +798,7 @@ namespace vargas {
        * @param a
        * @param b
        */
-      void _merge_edges(edgemap_t &a, const edgemap_t &b) {
+      static void _merge_edges(edgemap_t &a, const edgemap_t &b) {
           // For each edge pair in b
           for (const auto &p : b) {
               // If we already have that in the map, merge the mapped vectors
@@ -867,13 +859,13 @@ namespace vargas {
        * Create a graph builder for the reference file.
        * @param ref file
        */
-      GraphFactory(std::string const &reffile) : _fa_file(reffile) {}
+      explicit GraphFactory(std::string reffile) : _fa_file(std::move(reffile)) {}
 
       /**
        * @param fafile FASTA file
        * @param varfile VCF or BCF file.
        */
-      GraphFactory(std::string const &fafile, std::string const &varfile) : _fa_file(fafile) {
+      GraphFactory(std::string fafile, std::string const &varfile) : _fa_file(std::move(fafile)) {
           open_bcf(varfile);
       }
 
@@ -887,7 +879,7 @@ namespace vargas {
        */
       void set_region(std::string region) {
           if (!_vf) throw std::invalid_argument("No variant file opened.");
-          _vf->set_region(region);
+          _vf->set_region(std::move(region));
       }
 
       /**
@@ -898,7 +890,7 @@ namespace vargas {
        * Both are inclusive.
        * @param region
        */
-      void set_region(Region region) {
+      void set_region(const Region& region) {
           if (!_vf) throw std::invalid_argument("No variant file opened.");
           _vf->set_region(region);
       }

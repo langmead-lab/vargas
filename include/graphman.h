@@ -41,13 +41,14 @@ namespace vargas {
        * @return pair <contig name, position>
        */
       std::pair<std::string, unsigned> resolve(unsigned pos) const {
-          if (_contig_offsets.size() == 0) return {"", pos};
-          std::map<unsigned, std::string>::const_iterator lb = _contig_offsets.lower_bound(pos);
+          if (_contig_offsets.empty()) return {"", pos};
+          auto lb = _contig_offsets.lower_bound(pos);
           if (lb != _contig_offsets.begin()) --lb; // For rare case that pos = 0
           return {lb->second, pos - lb->first};
       }
 
       std::map<unsigned, std::string> _contig_offsets; // Maps an offset to contig
+      std::vector<std::string> _contig_hdr_order; // contigs in the order they are listed in header
   };
 
   /*
@@ -83,7 +84,7 @@ namespace vargas {
   class GraphMan {
     public:
       GraphMan() = default;
-      GraphMan(const std::string &filename) {
+      explicit GraphMan(const std::string &filename) {
           open(filename);
       }
 
@@ -98,7 +99,7 @@ namespace vargas {
        * @return pointer to new base graph
        */
       std::shared_ptr<Graph>
-      create_base(const std::string fasta, const std::string vcf="", std::vector<Region> region={},
+      create_base(std::string fasta, std::string vcf="", std::vector<Region> region={},
                   std::string sample_filter="", size_t limvar=0);
 
 
@@ -127,13 +128,24 @@ namespace vargas {
       };
 
       /**
+       * @brief
+       * Only appropriate if the graph has no variants! Gets internal nodeID based on order of contigs in header.
+       * @param contig_name
+       * @return nodeID
+       */
+      int nodeID_from_contig(const std::string& contig_name) {
+          return std::distance(_resolver._contig_hdr_order.begin(),
+                  std::find(_resolver._contig_hdr_order.begin(),_resolver._contig_hdr_order.end(), contig_name));
+      }
+
+      /**
        * @return Object to resolve coordinates with.
        */
       coordinate_resolver resolver() const {
           return _resolver;
       }
 
-      size_t count(std::string label) const {
+      size_t count(const std::string& label) const {
           return _graphs.count(label);
       }
 

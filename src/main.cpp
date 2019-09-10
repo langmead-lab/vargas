@@ -22,13 +22,12 @@
 #include "threadpool.h"
 
 #include <iostream>
-#include <thread>
 #include <algorithm>
 #include <scoring.h>
 #include <mutex>
 
 int main(int argc, char *argv[]) {
-    srand(time(0)); // Rand used in profiles and sim
+    srand(time(nullptr)); // Rand used in profiles and sim
 
     try {
         if (argc > 1) {
@@ -109,7 +108,7 @@ int define_main(int argc, char *argv[]) {
     }
 
     std::vector<vargas::Region> region_vec;
-    if (region.size()) {
+    if (!region.empty()) {
         region.erase(std::remove_if(region.begin(), region.end(), isspace), region.end());
         region.erase(std::remove(region.begin(), region.end(), ','), region.end());
         auto v = rg::split(region, ';');
@@ -119,7 +118,7 @@ int define_main(int argc, char *argv[]) {
     if (!not_contig) gm.assume_contig_chr();
     gm.create_base(fasta_file, varfile, region_vec, sample_filter, varlim);
 
-    if (subdef.size()) {
+    if (!subdef.empty()) {
         auto defs = rg::split(subdef, ';');
         for (auto &def : defs) {
             std::cerr << "Deriving subgraph \"" << def << "\"...\n";
@@ -237,7 +236,7 @@ int sim_main(int argc, char *argv[]) {
 
     std::vector<std::string> subdef_split;
     if (sim_src.length() == 0) {
-        subdef_split.push_back("base");
+        subdef_split.emplace_back("base");
     } else {
         std::replace(sim_src.begin(), sim_src.end(), '\n', ',');
         sim_src.erase(std::remove_if(sim_src.begin(), sim_src.end(), isspace), sim_src.end());
@@ -316,11 +315,10 @@ int sim_main(int argc, char *argv[]) {
                                     vargas::Sim::Profile>>> // sim prof
     task_list;
 
-    for (size_t k = 0; k < subdef_split.size(); ++k) {
-        for (size_t i = 0; i < queue.at(subdef_split[k]).size(); ++i) {
-            auto &p = queue.at(subdef_split[k]).at(i);
-            task_list.push_back(std::pair<std::string, std::pair<std::string, vargas::Sim::Profile>>
-                                (subdef_split[k], std::pair<std::string, vargas::Sim::Profile>(p.first, p.second)));
+    for (auto & k : subdef_split) {
+        for (size_t i = 0; i < queue.at(k).size(); ++i) {
+            auto &p = queue.at(k).at(i);
+            task_list.emplace_back(k, std::pair<std::string, vargas::Sim::Profile>(p.first, p.second));
         }
     }
 
@@ -353,7 +351,7 @@ int convert_main(int argc, char **argv) {
         convert_help(opts);
         return 0;
     }
-    if (format.size() == 0) {
+    if (format.empty()) {
         convert_help(opts);
         throw std::invalid_argument("Format specifier required.");
     }
@@ -364,7 +362,7 @@ int convert_main(int argc, char **argv) {
     std::vector<std::string> fmt_split = rg::split(format, ',');
     std::unordered_set<std::string> warned;
 
-    if (files.size() == 0) files.resize(1);
+    if (files.empty()) files.resize(1);
 
     for (const auto &f : files) {
         vargas::isam input(f);
@@ -399,7 +397,7 @@ int profile(int argc, char *argv[]) {
         opts.add_options()
         ("f,fasta", "<str> *Reference FASTA.", cxxopts::value(fasta))
         ("v,vcf", "<str> *Variant file (vcf, vcf.gz, or bcf)", cxxopts::value(bcf))
-        ("g,region", "<str> *Region of format \"CHR:MIN-MAX\". \"CHR:0-0\" for all.", cxxopts::value(region))
+        ("g,region", R"(<str> *Region of format "CHR:MIN-MAX". "CHR:0-0" for all.)", cxxopts::value(region))
         ("i,ingroup", "<N> Ingroup percentage.", cxxopts::value(ingroup)->default_value("100"))
         ("h,help", "Display this message.");
         opts.parse(argc, argv);
@@ -426,7 +424,7 @@ int profile(int argc, char *argv[]) {
     vargas::Graph g;
     gb.build(g);
     std::vector<bool> filter;
-    for (size_t i = 0; i < g.pop_size(); ++i) filter.push_back(rand() % 100 > 95);
+    for (size_t i = 0; i < g.pop_size(); ++i) filter.push_back(rand() % 100 > 95); //TODO what is this doing?
     std::cerr << (std::clock() - start) / (double) (CLOCKS_PER_SEC) << " s, " << "Nodes: " << g.node_map()->size()
               << std::endl;
 
@@ -492,22 +490,22 @@ int query_main(int argc, char *argv[]) {
     }
 
     vargas::GraphMan gg;
-    if (dot.size() || stat.size()) gg.open(gdef);
+    if (!dot.empty() || stat.size()) gg.open(gdef);
     else gg.open(gdef);
 
-    if (dot.size()) {
+    if (!dot.empty()) {
         if (out == "stdout") std::cout << gg.at(dot)->to_DOT(dot);
         else gg.at(dot)->to_DOT(out, dot);
     }
 
-    if (stat.size()) {
+    if (!stat.empty()) {
         if (stat == "-") {
-            for (auto lab : gg.labels()) std::cerr << lab << " : " << gg.at(lab)->statistics() << '\n';
+            for (const auto& lab : gg.labels()) std::cerr << lab << " : " << gg.at(lab)->statistics() << '\n';
         }
         else std::cerr << gg.at(stat)->statistics() << '\n';
     }
 
-    if (meta.size()) {
+    if (!meta.empty()) {
         throw std::domain_error("Not implemented.");
     }
 

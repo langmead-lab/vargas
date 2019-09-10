@@ -98,13 +98,13 @@ namespace vargas {
       template<typename st>
       struct _seed {
           _seed() = delete;
-          _seed(const unsigned _read_len) : S_col(_read_len + 1), I_col(_read_len + 1) {}
+          explicit _seed(const unsigned _read_len) : S_col(_read_len + 1), I_col(_read_len + 1) {}
           SIMDVector<st> S_col; /**< Last column of score matrix.*/
           SIMDVector<st> I_col;
       };
 
   };
-  inline AlignerBase::~AlignerBase() {}
+  inline AlignerBase::~AlignerBase() = default;
 
   /**
    * @brief Main SIMD SW Aligner.
@@ -176,7 +176,7 @@ namespace vargas {
        * @param open gap open penalty
        * @param extend gap extend penalty
        */
-      AlignerT(unsigned read_len,unsigned match = 2, unsigned mismatch = 2, unsigned open = 3, unsigned extend = 1) :
+      AlignerT(unsigned read_len, unsigned match = 2, unsigned mismatch = 2, unsigned open = 3, unsigned extend = 1) :
       AlignerT(read_len, ScoreProfile(match, mismatch, open, extend)) {}
 
 
@@ -196,7 +196,7 @@ namespace vargas {
       class AlignmentGroup {
         public:
 
-          AlignmentGroup(unsigned read_len) : _query_prof(read_len), _rd_ln(read_len) {}
+          explicit AlignmentGroup(unsigned read_len) : _query_prof(read_len), _rd_ln(read_len) {}
           AlignmentGroup() = delete;
 
           /**
@@ -301,7 +301,7 @@ namespace vargas {
                       for (auto b : bases) {
                           if (rdb == rg::Base::N) _query_prof[pos][b][qidx] = -prof.ambig;
                           else if (rdb == b) _query_prof[pos][b][qidx] = prof.match;
-                          else if (!quals.size() || !quals[r].size()) _query_prof[pos][b][qidx] = -prof.mismatch_max;
+                          else if (quals.empty() || quals[r].empty()) _query_prof[pos][b][qidx] = -prof.mismatch_max;
                           else _query_prof[pos][b][qidx] = -prof.penalty(quals[r][p]);
                       }
                       ++pos;
@@ -513,7 +513,7 @@ namespace vargas {
           if (END_TO_END) {
               seed.S_col[0] = _bias;
               for (unsigned i = 1; i <= _read_len; ++i) {
-                  int v = _bias - _prof.ref_gopen - (i * _prof.ref_gext);
+                  int v = _bias - _prof.ref_gopen - (i * _prof.ref_gext); //TODO should this be the read? since it's a gap in the read that gets penalized?
                   seed.S_col[i] = v < std::numeric_limits<native_t>::min() ? std::numeric_limits<native_t>::min() : v;
               }
           }
@@ -537,7 +537,7 @@ namespace vargas {
       void _get_seed(const std::vector<unsigned> &prev_ids,
                      std::unordered_map<unsigned, _seed<simd_t>> &seed_map,
                      _seed<simd_t> &seed) const {
-          if (prev_ids.size() == 0) {
+          if (prev_ids.empty()) {
               _seed_matrix(seed);
           }
           else {
@@ -547,9 +547,9 @@ namespace vargas {
                   seed.I_col[i] = s.I_col[i];
 
                   for (unsigned p = 1; p < prev_ids.size(); ++p) {
-                      const auto &s = seed_map.at(prev_ids[p]);
-                      seed.S_col[i] = max(seed.S_col[i], s.S_col[i]);
-                      seed.I_col[i] = max(seed.I_col[i], s.I_col[i]);
+                      const auto &t = seed_map.at(prev_ids[p]);
+                      seed.S_col[i] = max(seed.S_col[i], t.S_col[i]);
+                      seed.I_col[i] = max(seed.I_col[i], t.I_col[i]);
                   }
               }
           }
@@ -569,7 +569,7 @@ namespace vargas {
       void _fill_node(const Graph::Node &n, const qp_t &read_group,
                       const _seed <simd_t> &s, _seed <simd_t> &nxt) {
           // Empty nodes represents deletions
-          if (n.seq().size() == 0) {
+          if (n.seq().empty()) {
               nxt = s;
               return;
           }
@@ -627,6 +627,7 @@ namespace vargas {
        * @param ref reference sequence base
        * @param row _curr_pos row in matrix
        * @param col _curr_pos column in matrix
+       * Does not consider adjacent gaps in read/reference (moving from D to I matrix consecutively)
        */
       __RG_STRONG_INLINE__
       void _fill_cell(const typename qp_t::value_type &prof, const rg::Base &ref,
@@ -681,7 +682,7 @@ namespace vargas {
                   _max_score = max(_S[row], _max_score);
               }
           }
-              else { // the genome is not a graph so we can look for the 2nd-max score
+          else { // the genome is not a graph so we can look for the 2nd-max score
               #ifdef VA_SIMD_USE_AVX512
               MaskType _tmp0;
               #else

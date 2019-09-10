@@ -27,11 +27,12 @@
 
 #include <string>
 #include <cstdio>
+#include <utility>
 #include <vector>
 #include <algorithm>
-#include <stdlib.h>
+#include <cstdlib>
 #include <iostream>
-#include <time.h>
+#include <ctime>
 #include <set>
 #include <unordered_map>
 #include <map>
@@ -58,8 +59,8 @@ namespace vargas {
    */
   struct Region {
       Region() : min(0), max(0) {}
-      Region(const std::string &seq, unsigned min, unsigned max) : seq_name(seq), min(min), max(max) {}
-      Region(std::string str) {
+      Region(std::string seq, unsigned min, unsigned max) : seq_name(std::move(seq)), min(min), max(max) {}
+      Region(const std::string& str) {
           auto r = parse_region(str);
           seq_name = r.seq_name;
           min = r.min;

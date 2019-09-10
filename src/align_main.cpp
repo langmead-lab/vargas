@@ -19,8 +19,6 @@
 #include "threadpool.h"
 #include <mutex>
 
-
-
 int align_main(int argc, char *argv[]) {
     std::string cl = "vargas ";
     {
@@ -32,7 +30,7 @@ int align_main(int argc, char *argv[]) {
     // Load parameters
     unsigned match, npenalty, threads, chunk_size, subsample;
     std::string read_file, gdf, align_targets, out_file, pgid, mismatch, rdg, rfg;
-    bool end_to_end = false, fwdonly = false, p64=false, msonly=false, maxonly=false;
+    bool end_to_end = false, fwdonly = false, p64=false, msonly=false, maxonly=false, notraceback=false;
 
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
     try {
@@ -48,7 +46,8 @@ int align_main(int argc, char *argv[]) {
         ("p,subsample", "<N> Sample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
         ("a,alignto", "<str> Target graph, or SAM Read Group -> graph mapping.\"(RG:ID:<group>,<target_graph>;)+|<graph>\"", cxxopts::value(align_targets))
         ("s,assess", "[ID] Use score profile from a previous alignment.", cxxopts::value(pgid)->implicit_value("."))
-        ("f,forward", "Only align to forward strand.", cxxopts::value(fwdonly));
+        ("f,forward", "Only align to forward strand.", cxxopts::value(fwdonly))
+        ("notraceback", "If graph contains no variants, do not compute traceback", cxxopts::value(notraceback)->implicit_value("1"));
 
         opts.add_options("Scoring")
         ("ete", "End to end alignment.", cxxopts::value(end_to_end))
@@ -93,7 +92,7 @@ int align_main(int argc, char *argv[]) {
     if (opts.count("assess") && format != ReadFmt::SAM) {
         throw std::invalid_argument("Assess is only available for SAM inputs.");
     }
-    if (align_targets.size() > 0 && format != ReadFmt::SAM) {
+    if (!align_targets.empty() && format != ReadFmt::SAM) {
         throw std::invalid_argument("Alignment targets only available for SAM inputs.");
     }
 
@@ -147,7 +146,6 @@ int align_main(int argc, char *argv[]) {
             throw std::invalid_argument("Invalid --rfg argument.");
         }
     }
-
 
     if (pgid == ".") {
         bool check = false;
@@ -216,10 +214,10 @@ int align_main(int argc, char *argv[]) {
     }
     std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
-    if (out_file.length()) std::cerr << "Writing to \"" << (out_file == "" ? "stdout" : out_file) << "\".\n";
+    if (out_file.length()) std::cerr << "Writing to \"" << (out_file.empty() ? "stdout" : out_file) << "\".\n";
     reads_hdr.programs[assigned_pgid].aux.set(ALIGN_SAM_PG_GDF, gdf);
     vargas::osam aligns_out(out_file, reads_hdr);
-    align(gm, task_list, aligns_out, aligners, fwdonly, msonly, maxonly);
+    align(gm, task_list, aligns_out, aligners, fwdonly, msonly, maxonly, notraceback);
 
     return 0;
 }
@@ -229,7 +227,7 @@ struct align_helper {
     std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list;
     vargas::osam &out;
     const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners;
-    bool fwdonly, msonly, maxonly;
+    bool fwdonly, msonly, maxonly, notraceback;
     std::mutex &mut;
 };
 
@@ -242,6 +240,7 @@ void align_helper_func(void *data, long index, int tid) {
     auto fwdonly = help.fwdonly;
     auto msonly = help.msonly;
     auto maxonly = help.maxonly;
+    auto notraceback = help.notraceback;
 
     const size_t num_reads = task_list.at(index).second.size();
     std::vector<std::string> read_seqs(num_reads);
@@ -261,23 +260,268 @@ void align_helper_func(void *data, long index, int tid) {
     vargas::Results aligns;
     aligners[tid]->align_into(read_seqs, quals, subgraph->begin(), subgraph->end(), aligns, fwdonly);
 
+    //If no variants (# nodes == # contigs) compute the alignment traceback
+    bool not_graph = subgraph->node_map()->size() == gm.resolver()._contig_hdr_order.size();
+
     for (size_t j = 0; j < task_list.at(index).second.size(); ++j) {
         vargas::SAM::Record &rec = task_list.at(index).second.at(j);
         auto abs = gm.absolute_position(aligns.max_pos[j]);
         rec.aux.set("AS", aligns.max_score[j]);
-
         if (!msonly) {
             // Can only guess start position for end to end
-            if (aligns.profile.end_to_end) rec.pos = abs.second - rec.seq.size() + 1;
+            // if (aligns.profile.end_to_end) rec.pos = abs.second - rec.seq.size() + 1;
+
             rec.ref_name = abs.first;
             rec.flag.rev_complement = aligns.max_strand[j] == vargas::Strand::REV;
             if (rec.flag.rev_complement) {
                 rg::reverse_complement_inplace(rec.seq);
                 std::reverse(rec.qual.begin(), rec.qual.end());
             }
-
             rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
             rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
+
+            if (not_graph & !notraceback) {
+                int nodeID = gm.nodeID_from_contig(rec.ref_name);
+                vargas::Graph::nodemap_t _node_map = *(subgraph->node_map());
+                //TODO upper-bound the length of reference slice needed based on the score or scoring function
+                int ref_len = 2*rec.seq.length() < abs.second ? 2*rec.seq.length() : abs.second ;
+                int ref_start = abs.second-ref_len;
+                auto ref_iter = std::next(_node_map[nodeID].begin(),ref_start); //TODO this is linear time I think?
+
+                // Allocate the three DP score matrixes: M (match) D (deletion) I (insertion), initialize with zero
+                std::vector<std::vector<int>> M;
+                M.resize(rec.seq.length()+1);
+                for (auto &&r : M) r.resize(ref_len+1,0);
+                std::vector<std::vector<int>> D;
+                D.resize(rec.seq.length()+1);
+                for (auto &&r : D) r.resize(ref_len+1,0);
+                std::vector<std::vector<int>> I;
+                I.resize(rec.seq.length()+1);
+                for (auto &&r : I) r.resize(ref_len+1,0);
+
+                // Allocate the three DP traceback matrixes: tM (match) tD (deletion) tI (insertion), initialize with zero
+                std::vector<std::vector<int>> tM;
+                tM.resize(rec.seq.length()+1);
+                for (auto &&r : tM) r.resize(ref_len+1,0);
+                std::vector<std::vector<int>> tD;
+                tD.resize(rec.seq.length()+1);
+                for (auto &&r : tD) r.resize(ref_len+1,0);
+                std::vector<std::vector<int>> tI;
+                tI.resize(rec.seq.length()+1);
+                for (auto &&r : tI) r.resize(ref_len+1,0);
+
+                // TODO check initializations
+                // initialize first row and first column of each score matrix as appropriate
+                // gaps in beginning of reference (first row) ending in match doesn't make sense
+                std::fill(M[0].begin(),M[0].end(),-aligns.profile.ref_gext*ref_len);
+                M[0][0] = 0; //except zero characters of each is free
+                // gaps in beginning of reference (first row) ending in gap in query doesn't make sense
+                std::fill(I[0].begin(),I[0].end(),-aligns.profile.ref_gext*ref_len);
+                // gaps in beginning of query (first col) ending in gap in reference doesn't make sense
+                // gaps in beginning of query (first col) ending in match doesn't make sense
+                for (unsigned row = 1; row <= rec.seq.length(); ++row) {
+                    D[row][0] = -aligns.profile.ref_gext*ref_len;
+                    M[row][0] = -aligns.profile.ref_gext*ref_len;
+                }
+                if (aligns.profile.end_to_end) { //semiglobal
+                    // gaps in beginning of query (first col) ending in gap in query accumulate
+                    for (unsigned row = 1; row <= rec.seq.length(); ++row) {
+                        I[row][0] = 0 - row * aligns.profile.read_gext - aligns.profile.read_gopen;
+                    }
+                }
+
+                // Fill the matrixes
+                bool has_quality = rec.seq.size() == quals[j].size();
+                for (unsigned col = 1; col <= ref_len; ++col) {
+                    char ref_char = rg::num_to_base(*ref_iter);
+                    for (unsigned row = 1; row <= rec.seq.length(); ++row) {
+                        char query_char = rec.seq[row-1];
+                        char query_qual = has_quality ? rec.qual[row-1] : 40;
+                        // Compute the M matrix entry. Force a match or a mismatch between the last characters
+                        // Traceback always goes "diagonally" but to which other matrix?
+                        int possibleM = M[row-1][col-1];
+                        int possibleD = D[row-1][col-1];
+                        int possibleI = I[row-1][col-1];
+                        if (ref_char == 'N' or query_char == 'N') { //ambiguous query and/or reference
+                            possibleM -= aligns.profile.ambig;
+                            possibleD -= aligns.profile.ambig;
+                            possibleI -= aligns.profile.ambig;
+                        }
+                        else if (ref_char != query_char) { //mismatch
+                            possibleM -= aligns.profile.penalty(query_qual);
+                            possibleD -= aligns.profile.penalty(query_qual);
+                            possibleI -= aligns.profile.penalty(query_qual);
+                        } else { //match
+                            possibleM += aligns.profile.match;
+                            possibleD += aligns.profile.match;
+                            possibleI += aligns.profile.match;
+                        }
+                        int best = std::max({possibleM, possibleD, possibleI});
+                        if (aligns.profile.end_to_end or best > 0) { //local mode nothing happens if it's <= 0
+                            if (possibleM == best) {
+                                M[row][col] = possibleM;
+                                tM[row][col] = 0;
+                            } else if (possibleD == best) {
+                                M[row][col] = possibleD;
+                                tM[row][col] = 1;
+                            } else {
+                                M[row][col] = possibleI;
+                                tM[row][col] = 2;
+                            }
+                            //if((row == col-50) & (rec.query_name == "simulated.59")) std::cout<<M[row][col]<<' '<< query_char <<' '<<ref_char << std::endl;
+                        }
+
+                        // Compute the D matrix entry. Force a gap in end of reference.
+                        // Traceback always goes "left" but to which other matrix?
+                        //TODO check read ref gap
+                        possibleM = M[row][col-1] - aligns.profile.read_gopen - aligns.profile.read_gext;
+                        possibleD = D[row][col-1] - aligns.profile.read_gext;
+                        possibleI = I[row][col-1] - aligns.profile.read_gopen - aligns.profile.read_gext;
+                        best = std::max({possibleM, possibleD, possibleI});
+                        if (aligns.profile.end_to_end or best > 0) { //local mode nothing happens if it's <= 0
+                            if (possibleM == best) {
+                                D[row][col] = possibleM;
+                                tD[row][col] = 0;
+                            } else if (possibleD == best) {
+                                D[row][col] = possibleD;
+                                tD[row][col] = 1;
+                            } else {
+                                D[row][col] = possibleI;
+                                tD[row][col] = 2;
+                            }
+                        }
+
+                        // Compute the I entry. Force a gap in end of reference.
+                        // Traceback always goes "up" but to which other matrix?
+                        //TODO check read ref gap
+                        possibleM = M[row-1][col] - aligns.profile.ref_gopen - aligns.profile.ref_gext;
+                        possibleD = D[row-1][col] - aligns.profile.ref_gopen - aligns.profile.ref_gext;
+                        possibleI = I[row-1][col] - aligns.profile.ref_gext;
+                        best = std::max({possibleM, possibleD, possibleI});
+                        if (aligns.profile.end_to_end or best > 0) { //local mode nothing happens if it's <= 0
+                            if (possibleM == best) {
+                                I[row][col] = possibleM;
+                                tI[row][col] = 0;
+                            } else if (possibleD == best) {
+                                I[row][col] = possibleD;
+                                tI[row][col] = 1;
+                            } else {
+                                I[row][col] = possibleI;
+                                tI[row][col] = 2;
+                            }
+                        }
+                    }
+                    ref_iter++;
+                    //std::cout<<std::endl;
+                }
+                // Compute traceback: CIGAR string and start position
+                std::vector<char> aln; //reverse order of operations
+                if (aligns.profile.end_to_end) { //semiglobal
+                    //best score is in last row and last column because we ended the reference at the max-scoring position
+                    int currCol = ref_len;
+                    int currRow = rec.seq.length();
+                    int bestMatrix = 0;
+                    int best = M[currRow][currCol];
+                    if (D[currRow][currCol] > best) {
+                        bestMatrix = 1;
+                        best = D[currRow][currCol];
+                    }
+                    if (I[currRow][currCol] > best) {
+                        bestMatrix = 2;
+                        best = I[currRow][currCol];
+                    }
+                    if (best != aligns.max_score[j]) {
+                        std::cerr << "[WARNING] " << rec.query_name << " DP optimal score " << best << " and SIMD optimal score " << aligns.max_score[j] << "not equal\n";
+                    }
+                    while(currRow > 0 and currCol > 0) {
+                        if (bestMatrix == 0) {
+                            aln.push_back('M');
+                            bestMatrix = tM[currRow][currCol];
+                            --currCol;
+                            --currRow;
+                        } else if (bestMatrix == 1) {
+                            aln.push_back('D');
+                            bestMatrix = tD[currRow][currCol];
+                            --currCol;
+                        } else {
+                            aln.push_back('I');
+                            bestMatrix = tI[currRow][currCol];
+                            --currRow;
+                        }
+                    }
+                    rec.pos = abs.second - ref_len + currCol;
+                    for (int row = 0; row < currRow; ++row) {
+                        aln.push_back('I'); //unaligned bases in beginning of query
+                    }
+                } else { //local
+                    //best score is somewhere in last column because we ended the reference at the max-scoring position
+                    int bestRow = -1;
+                    int best = -1;
+                    int bestMatrix = -1;
+                    for (int row = 0; row <= rec.seq.length(); ++row) {
+                        if (M[row][ref_len] > best) {
+                            best = M[row][ref_len];
+                            bestRow = row;
+                            bestMatrix = 0;
+                        }
+                        if (D[row][ref_len] > best) {
+                            best = D[row][ref_len];
+                            bestRow = row;
+                            bestMatrix = 1;
+                        }
+                        if (I[row][ref_len] > best) {
+                            best = I[row][ref_len];
+                            bestRow = row;
+                            bestMatrix = 2;
+                        }
+                    }
+
+                    int currCol = ref_len;
+                    int currRow = bestRow;
+                    for (int row = bestRow; row < rec.seq.length(); ++row) {
+                        aln.push_back('S'); //unaligned bases in end of query
+                    }
+                    while(currRow > 0 and currCol > 0) {
+                        if (bestMatrix == 0 and M[currRow][currCol] > 0) {
+                            aln.push_back('M');
+                            bestMatrix = tM[currRow][currCol];
+                            --currCol;
+                            --currRow;
+                        } else if (bestMatrix == 1 and D[currRow][currCol] > 0) {
+                            aln.push_back('D');
+                            bestMatrix = tD[currRow][currCol];
+                            --currCol;
+                        } else if (I[currRow][currCol] > 0){
+                            aln.push_back('I');
+                            bestMatrix = tI[currRow][currCol];
+                            --currRow;
+                        } else { break; } //if score goes to or below zero
+                    }
+                    rec.pos = abs.second - ref_len + currCol;
+                    for (int row = 0; row < currRow; ++row) {
+                        aln.push_back('S'); //unaligned bases in beginning of query
+                    }
+
+                }
+                // Reverse and run-length-collapse the sequence of operations
+                char last_seen = aln.back();
+                unsigned count = 1;
+                std::string cigar;
+                auto rit = std::next(aln.rbegin(),1);
+                for (; rit != aln.rend(); ++rit) {
+                    if (*rit != last_seen) {
+                        cigar.append(std::to_string(count));
+                        cigar.push_back(last_seen);
+                        count = 1;
+                        last_seen = *rit;
+                    } else {count += 1;}
+                }
+                cigar.append(std::to_string(count));
+                cigar.push_back(last_seen);
+                rec.cigar = cigar;
+                //if (cigar != "100M") std::cout << rec.query_name << " " << cigar << " " << rec.pos << std::endl;
+                //if (rec.query_name == "simulated.59") std::cout << cigar << " " << rec.pos << std::endl;
+            }
 
             // Flags for 2nd max
             if (!maxonly) {
@@ -293,9 +537,7 @@ void align_helper_func(void *data, long index, int tid) {
 
     {
         std::lock_guard<std::mutex> lock(help.mut);
-        for (size_t j = 0; j < task_list.at(index).second.size(); ++j) {
-            out.add_record(task_list.at(index).second.at(j));
-        }
+        for (const auto & j : task_list.at(index).second) out.add_record(j);
     }
 }
 
@@ -308,14 +550,14 @@ void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            vargas::osam &out,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
-           bool fwdonly, bool msonly, bool maxonly) {
+           bool fwdonly, bool msonly, bool maxonly, bool notraceback) {
     std::cerr << "Aligning... " << std::flush;
     rg::ForPool fp(aligners.size());
     auto start_time = std::chrono::steady_clock::now();
 
     const auto num_tasks = task_list.size();
     std::mutex mut;
-    align_helper help{gm, task_list, out, aligners, fwdonly, msonly, maxonly, mut};
+    align_helper help{gm, task_list, out, aligners, fwdonly, msonly, maxonly, notraceback, mut};
     fp.forpool(&align_helper_func, (void *)&help, num_tasks);
 
     std::cerr << rg::chrono_duration(start_time) << "s.\n";
@@ -354,7 +596,7 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
         read_groups[read_group].push_back(rec);
     } while (reads.next());
 
-    if (alignment_pairs.size() == 0) {
+    if (alignment_pairs.empty()) {
         for (const auto &p : read_groups) {
             alignment_pairs.push_back("RG:ID:" + p.first + ",base");
         }
@@ -380,7 +622,7 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
         if (pair.size() != 2)
             throw std::invalid_argument("Malformed alignment pair \"" + p + "\".");
         if (pair[0].substr(0, 2) != "RG")
-            throw std::invalid_argument("Expected a read group tag \'RG:xx:\', got \"" + pair[0] + "\"");
+            throw std::invalid_argument(R"(Expected a read group tag 'RG:xx:', got ")" + pair[0] + "\"");
         if (pair[0].at(2) != ':')
             throw std::invalid_argument("Expected source format Read_group_tag:value in \"" + pair[0] + "\".");
 
@@ -454,7 +696,7 @@ make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide, b
 
 void load_fast(std::string &file, const bool fastq, vargas::isam &ret, bool p64) {
     std::string input;
-    if (file.size() == 0) {
+    if (file.empty()) {
         std::stringstream ss;
         ss << std::cin.rdbuf();
         input = ss.str();
@@ -492,7 +734,7 @@ void align_help(const cxxopts::Options &opts) {
     cerr << "Elements per SIMD vector: " << vargas::Aligner::read_capacity() << endl;
 }
 
-ReadFmt read_fmt(const std::string filename) {
+ReadFmt read_fmt(const std::string& filename) {
     std::ifstream in(filename);
     if (!in.good()) throw std::invalid_argument("Invalid read file: " + filename);
 
@@ -501,8 +743,8 @@ ReadFmt read_fmt(const std::string filename) {
     if (line.substr(0,3) == "@HD") return ReadFmt::SAM;
     if (!std::getline(in, line)) throw std::invalid_argument("Invalid Read File."); // SAM comment/header, or read
     if (!std::getline(in, line)) return ReadFmt::FASTA; // Single record fasta, or SAM line, or +, or name
-    if (line.size() && line[0] == '+') return ReadFmt::FASTQ;
-    if (line.size() && (line[0] == '>' || line[0] == '@')) return ReadFmt::FASTA;
+    if (!line.empty() && line[0] == '+') return ReadFmt::FASTQ;
+    if (!line.empty() && (line[0] == '>' || line[0] == '@')) return ReadFmt::FASTA;
     return ReadFmt::SAM;
 }
 

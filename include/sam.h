@@ -17,6 +17,7 @@
 
 #include "utils.h"
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include <sstream>
 #include <iostream>
@@ -49,7 +50,7 @@ namespace vargas {
       void parse(const std::string &s);
 
       std::string to_string() const {
-          if (_cigar.size() == 0) return "*";
+          if (_cigar.empty()) return "*";
           std::ostringstream ss;
           for (const auto &t : _cigar) {
               ss << t.first << t.second;
@@ -198,18 +199,18 @@ namespace vargas {
            */
           struct Sequence {
 
-              Sequence() { }
+              Sequence() = default;
 
               /**
                * @brief
                * Construct a sequence from a sequence header line.
                * @param line seq header line to parse
                */
-              Sequence(std::string line) {
-                  parse(line);
+              explicit Sequence(std::string line) {
+                  parse(std::move(line));
               }
 
-              int len; /**< Length of the sequence */
+              int len{}; /**< Length of the sequence */
               std::string genome_assembly = "", /**< Genome assembly identifier */
               name, /**< name of of the sequence */
               md5 = "", /**< MD5 checksum of sequence */
@@ -238,7 +239,7 @@ namespace vargas {
                * @param line to parse.
                */
               void operator<<(std::string line) {
-                  parse(line);
+                  parse(std::move(line));
               }
 
               /**
@@ -255,15 +256,15 @@ namespace vargas {
            * Defines a grouping of reads.
            */
           struct ReadGroup {
-              ReadGroup() { }
+              ReadGroup() = default;
 
               /**
                * @brief
                * Construct a read group from a RG header line.
                * @param line RG line
                */
-              ReadGroup(std::string line) {
-                  parse(line);
+              explicit ReadGroup(std::string line) {
+                  parse(std::move(line));
               }
 
               std::string
@@ -303,7 +304,7 @@ namespace vargas {
                * @param line to parse.
                */
               void operator<<(std::string line) {
-                  parse(line);
+                  parse(std::move(line));
               }
 
               /**
@@ -320,10 +321,10 @@ namespace vargas {
            * Describes a program used on the data.
            */
           struct Program {
-              Program() { }
+              Program() = default;
 
-              Program(std::string line) {
-                  parse(line);
+              explicit Program(std::string line) {
+                  parse(std::move(line));
               }
 
               std::string name = "",
@@ -355,7 +356,7 @@ namespace vargas {
                * @param line to parse.
                */
               void operator<<(std::string line) {
-                  parse(line);
+                  parse(std::move(line));
               }
 
               /**
@@ -469,15 +470,15 @@ namespace vargas {
        */
       struct Record {
 
-          Record() { }
+          Record() = default;
 
           /**
            * @brief
            * Parse the given alignment line.
            * @param line
            */
-          Record(std::string line) {
-              parse(line);
+          explicit Record(std::string line) {
+              parse(std::move(line));
           }
 
           /**
@@ -486,14 +487,14 @@ namespace vargas {
            */
           struct Flag {
 
-              Flag() { }
+              Flag() = default;
 
               /**
                * @brief
                * Decode bitwise flag.
                * @param f bitwise flag
                */
-              Flag(unsigned int f) : multiple((f & 0x001) != 0u),
+              explicit Flag(unsigned int f) : multiple((f & 0x001) != 0u),
                                      aligned((f & 0x002) != 0u),
                                      unmapped((f & 0x004) != 0u),
                                      next_unmapped((f & 0x008) != 0u),
@@ -606,7 +607,7 @@ namespace vargas {
            * @param line SAM record line
            */
           void operator<<(std::string line) {
-              parse(line);
+              parse(std::move(line));
           }
 
           /**
@@ -615,7 +616,7 @@ namespace vargas {
            * @param line SAM record line
            */
           void operator=(std::string line) {
-              parse(line);
+              parse(std::move(line));
           }
 
           /**
@@ -690,10 +691,10 @@ namespace vargas {
   class isam: public SAM {
     public:
 
-      isam() {}
+      isam() = default;
 
-      isam(std::string file_name) {
-          open(file_name);
+      explicit isam(std::string file_name) {
+          open(std::move(file_name));
       }
 
       isam(isam &&o) {
@@ -736,7 +737,7 @@ namespace vargas {
        * @return true if file is open.
        */
       bool good() const {
-          return in.good() || _use_stdio || _buff.size();
+          return in.good() || _use_stdio || !_buff.empty();
       }
 
       /**
@@ -804,7 +805,7 @@ namespace vargas {
        * @brief
        * Use stdout
        */
-      osam(const SAM::Header &hdr) {
+      explicit osam(const SAM::Header &hdr) {
           _hdr = hdr;
           open("");
       }
@@ -821,7 +822,7 @@ namespace vargas {
        */
       osam(std::string file_name, const SAM::Header &hdr) {
           _hdr = hdr;
-          open(file_name);
+          open(std::move(file_name));
       }
 
       ~osam() {

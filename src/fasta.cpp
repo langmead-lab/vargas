@@ -17,7 +17,7 @@
 #include "fasta.h"
 #include "doctest.h"
 
-void vargas::ofasta::open(std::string file_name) {
+void vargas::ofasta::open(const std::string& file_name) {
     close();
     if (file_name.length() == 0) {
         _use_stdio = true;
@@ -60,7 +60,7 @@ std::vector<std::pair<std::string, std::string>> vargas::ifasta::sequences() con
     std::vector<std::pair<std::string, std::string>> ret;
     for (size_t i = 0; i < num_seq(); ++i) {
         std::string name = std::string(faidx_iseq(_index, i));
-        ret.push_back(std::pair<std::string, std::string>(name, seq(name)));
+        ret.emplace_back(name, seq(name));
     }
     return ret;
 }

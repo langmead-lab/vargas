@@ -43,7 +43,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
-#include <stdlib.h>
+#include <cstdlib>
 
 #include "x86intrin.h"
 

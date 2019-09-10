@@ -15,7 +15,7 @@
 
 #include "sim.h"
 
-bool vargas::Sim::_update_read(const coordinate_resolver resolver) {
+bool vargas::Sim::_update_read(const coordinate_resolver& resolver) {
 
     uint32_t curr_indiv = 0, curr_node;
     const bool has_pop = _graph.pop_size() != 0;
@@ -38,7 +38,7 @@ bool vargas::Sim::_update_read(const coordinate_resolver resolver) {
 
     int var_bases = 0;
     int var_nodes = 0;
-    std::string read_str = "";
+    std::string read_str;
 
     while (true) {
         // Extract len subseq
@@ -65,7 +65,7 @@ bool vargas::Sim::_update_read(const coordinate_resolver resolver) {
                 if (_nodes.at(n).belongs(curr_indiv)) valid_next.push_back(n);
             }
         }
-        if (valid_next.size() == 0) return false;
+        if (valid_next.empty()) return false;
         curr_node = valid_next[rand() % valid_next.size()];
         curr_pos = 0;
     }
@@ -77,17 +77,17 @@ bool vargas::Sim::_update_read(const coordinate_resolver resolver) {
     // Introduce errors
     int sub_err = 0;
     int indel_err = 0;
-    std::string read_mut = "";
+    std::string read_mut;
 
     // Rate based errors
     if (_prof.rand) {
-        for (unsigned i = 0; i < read_str.length(); ++i) {
-            char m = read_str[i];
+        for (char i : read_str) {
+            char m = i;
             // Mutation error
             if (rand() % 10000 < 10000 * _prof.mut) {
                 do {
                     m = rg::rand_base();
-                } while (m == read_str[i]);
+                } while (m == i);
                 ++sub_err;
             }
 
@@ -158,13 +158,13 @@ bool vargas::Sim::_update_read(const coordinate_resolver resolver) {
     // +1 from length being 1 indexed but end() being zero indexed, +1 since POS is 1 indexed.
     auto resolved = resolver.resolve(_nodes.at(curr_node).end_pos() - _nodes.at(curr_node).length() + 2 + curr_pos - _prof.len);
     _read.pos = resolved.second;
-    if (resolved.first.size()) _read.ref_name = resolved.first;
+    if (!resolved.first.empty()) _read.ref_name = resolved.first;
 
     _read.aux.set(SIM_SAM_READ_ORIG_TAG, read_str);
 
     return true;
 }
-bool vargas::Sim::update_read(const coordinate_resolver resolver) {
+bool vargas::Sim::update_read(const coordinate_resolver& resolver) {
     // Call internal function. update_read is a wrapper to prevent stack overflow
     unsigned counter = 0;
     while (!_update_read(resolver)) {
@@ -177,7 +177,7 @@ bool vargas::Sim::update_read(const coordinate_resolver resolver) {
     }
     return true;
 }
-const std::vector<vargas::SAM::Record> &vargas::Sim::get_batch(unsigned size, const coordinate_resolver resolver) {
+const std::vector<vargas::SAM::Record> &vargas::Sim::get_batch(unsigned size, const coordinate_resolver& resolver) {
     _batch.clear();
     if (size == 0) return _batch;
     for (unsigned i = 0; i < size; ++i) {

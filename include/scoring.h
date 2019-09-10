@@ -41,7 +41,7 @@ namespace vargas {
    * Aligner scoring parameters
    */
   struct ScoreProfile {
-      ScoreProfile() {};
+      ScoreProfile() = default;
 
       /**
        * @param match Match bonus

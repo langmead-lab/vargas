@@ -50,7 +50,7 @@
 #include <chrono>
 #include <random>
 #include <type_traits>
-#include <assert.h>
+#include <cassert>
 #include <memory>
 #include <iostream>
 #include <stdexcept>
@@ -175,6 +175,7 @@ print(", ".join(map(str, map(ord, lut))))
       }
   }
 
+  //TODO resolve this
   __RG_STRONG_INLINE__
   void reverse_complement_inplace(std::string &seq){
       std::transform(seq.begin(), seq.end(), seq.begin(), complement);
@@ -280,7 +281,7 @@ print(", ".join(map(str, map(ord, lut))))
  * Opens a file and checks if its valid.
  * @param filename File to check if valid.
  */
-  inline bool file_exists(std::string filename) {
+  inline bool file_exists(const std::string& filename) {
       std::ifstream f(filename);
       return f.good();
   }
@@ -418,7 +419,7 @@ print(", ".join(map(str, map(ord, lut))))
   void from_string(const std::string &s, std::string &ret) { ret = s; }
 
   template<typename T>
-  std::string vec_to_str(const std::vector<T> &v, const std::string sep = ", ") {
+  std::string vec_to_str(const std::vector<T> &v, const std::string& sep = ", ") {
       std::stringstream os;
       if (!v.size()) return "";
       os << v[0];

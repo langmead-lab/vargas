@@ -62,11 +62,13 @@ int align_main(int argc, char *argv[]);
  * @param primary
  * @param msonly
  * @param maxonly
+ * @param notraceback
  */
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            vargas::osam &out,
-           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners, bool fwdonly, bool msonly, bool maxonly);
+           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
+           bool fwdonly, bool msonly, bool maxonly, bool notraceback);
 
 /**
  * @brief
@@ -78,7 +80,7 @@ void align(vargas::GraphMan &gm,
  * @return List of jobs of the form <subgraph label, [reads]>
  */
 std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>>
-create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_size, size_t &read_len);
+create_tasks(vargas::isam &reads, std::string &align_targets, int chunk_size, size_t &read_len);
 
 /**
  * @brief
@@ -101,7 +103,7 @@ make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide, b
  * @param ret
  * @param p64 Phred+64 encoding
  */
-void load_fast(std::string &file, const bool fastq, vargas::isam &ret, bool p64=false);
+void load_fast(std::string &file, bool fastq, vargas::isam &ret, bool p64=false);
 
 /**
  * Read file format type.
@@ -114,7 +116,7 @@ enum class ReadFmt {SAM, FASTQ, FASTA};
  * @param filename
  * @return SAM, FASTA, or FASTQ
  */
-ReadFmt read_fmt(const std::string filename);
+ReadFmt read_fmt(const std::string& filename);
 
 void align_help(const cxxopts::Options &opts);
 

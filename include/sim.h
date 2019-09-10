@@ -123,7 +123,7 @@ namespace vargas {
        * Generate and store an updated read.
        * @return true if successful
        */
-      bool update_read(const coordinate_resolver resolver);
+      bool update_read(const coordinate_resolver& resolver);
 
       /**
        * @brief
@@ -132,7 +132,7 @@ namespace vargas {
        * @param size nominal number of reads to get.
        * @param resolver coordinate_resolver
        */
-      const std::vector<SAM::Record> &get_batch(unsigned size, const coordinate_resolver resolver);
+      const std::vector<SAM::Record> &get_batch(unsigned size, const coordinate_resolver& resolver);
 
       /**
        * @brief
@@ -216,7 +216,7 @@ namespace vargas {
                                             _node_weight_dist(_rand_generator)) - _node_weights.begin()];
       }
 
-      bool _update_read(const coordinate_resolver resolver);
+      bool _update_read(const coordinate_resolver& resolver);
 
   };
 
