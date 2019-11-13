@@ -189,12 +189,12 @@ int align_main(int argc, char *argv[]) {
     threads = threads ? threads > task_list.size() ? task_list.size() : threads
                       : 1;
 
-    const bool use_wide = read_len * match > 255;
+    int bias = 255 - (read_len * match);
+    const bool use_wide = (bias < 0) or (end_to_end and (prof.ref_gopen + (prof.ref_gext * (read_len - 1)) > bias || read_len * prof.mismatch_max > bias));
     if (use_wide) {
-        std::cerr << "Maximum possible score: " << read_len * match << ". Using 16-bit aligner ("
-                  << vargas::WordAligner::read_capacity() << " reads/vector).\n";
+        std::cerr << "Score range: " << read_len * match << " to -" << std::min(prof.ref_gopen + (prof.ref_gext * (read_len - 1)), read_len * prof.mismatch_max) <<
+        ". Using 16-bit aligner (" << vargas::WordAligner::read_capacity() << " reads/vector).\n";
     }
-
     std::cerr << "Scoring profile: " << prof.to_string() << "\n";
 
     std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
@@ -368,7 +368,6 @@ void align_helper_func(void *data, long index, int tid) {
                                 M[row][col] = possibleI;
                                 tM[row][col] = 2;
                             }
-                            //if((row == col-50) & (rec.query_name == "simulated.59")) std::cout<<M[row][col]<<' '<< query_char <<' '<<ref_char << std::endl;
                         }
 
                         // Compute the D matrix entry. Force a gap in end of reference.
@@ -412,7 +411,6 @@ void align_helper_func(void *data, long index, int tid) {
                         }
                     }
                     ref_iter++;
-                    //std::cout<<std::endl;
                 }
                 // Compute traceback: CIGAR string and start position
                 std::vector<char> aln; //reverse order of operations
@@ -431,7 +429,7 @@ void align_helper_func(void *data, long index, int tid) {
                         best = I[currRow][currCol];
                     }
                     if (best != aligns.max_score[j]) {
-                        std::cerr << "[WARNING] " << rec.query_name << " DP optimal score " << best << " and SIMD optimal score " << aligns.max_score[j] << "not equal\n";
+                        std::cerr << "[WARNING] " << rec.query_name << " DP optimal score " << best << " and SIMD optimal score " << aligns.max_score[j] << " not equal\n";
                     }
                     while(currRow > 0 and currCol > 0) {
                         if (bestMatrix == 0) {
@@ -475,7 +473,9 @@ void align_helper_func(void *data, long index, int tid) {
                             bestMatrix = 2;
                         }
                     }
-
+                    if (best != aligns.max_score[j]) {
+                        std::cerr << "[WARNING] " << rec.query_name << " DP optimal score " << best << " and SIMD optimal score " << aligns.max_score[j] << " not equal\n";
+                    }
                     int currCol = ref_len;
                     int currRow = bestRow;
                     for (int row = bestRow; row < rec.seq.length(); ++row) {
@@ -519,8 +519,6 @@ void align_helper_func(void *data, long index, int tid) {
                 cigar.append(std::to_string(count));
                 cigar.push_back(last_seen);
                 rec.cigar = cigar;
-                //if (cigar != "100M") std::cout << rec.query_name << " " << cigar << " " << rec.pos << std::endl;
-                //if (rec.query_name == "simulated.59") std::cout << cigar << " " << rec.pos << std::endl;
             }
 
             // Flags for 2nd max
