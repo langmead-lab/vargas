@@ -217,7 +217,8 @@ int align_main(int argc, char *argv[]) {
     if (out_file.length()) std::cerr << "Writing to \"" << (out_file.empty() ? "stdout" : out_file) << "\".\n";
     reads_hdr.programs[assigned_pgid].aux.set(ALIGN_SAM_PG_GDF, gdf);
     vargas::osam aligns_out(out_file, reads_hdr);
-    align(gm, task_list, aligns_out, aligners, fwdonly, msonly, maxonly, notraceback);
+    char phred_offset = opts.count("phred64") ? 64 : 33;
+    align(gm, task_list, aligns_out, aligners, fwdonly, msonly, maxonly, notraceback, phred_offset);
 
     return 0;
 }
@@ -228,6 +229,7 @@ struct align_helper {
     vargas::osam &out;
     const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners;
     bool fwdonly, msonly, maxonly, notraceback;
+    char phred_offset;
     std::mutex &mut;
 };
 
@@ -241,11 +243,11 @@ void align_helper_func(void *data, long index, int tid) {
     auto msonly = help.msonly;
     auto maxonly = help.maxonly;
     auto notraceback = help.notraceback;
+    char phred_offset = help.phred_offset;
 
     const size_t num_reads = task_list.at(index).second.size();
     std::vector<std::string> read_seqs(num_reads);
     std::vector<std::vector<char>> quals(num_reads);
-
     for (size_t i = 0; i < num_reads; ++i) {
         const auto &r = task_list.at(index).second.at(i);
         read_seqs[i] = r.seq;
@@ -253,7 +255,7 @@ void align_helper_func(void *data, long index, int tid) {
             std::transform(r.qual.begin(),
                            r.qual.end(),
                            std::back_inserter(quals[i]),
-                           [](char c){ return c - 33; });
+                           [](char c){ return c - 33; }); //TODO needs to be offset variable
         }
     }
     auto subgraph = gm.at(task_list.at(index).first);
@@ -336,7 +338,7 @@ void align_helper_func(void *data, long index, int tid) {
                     char ref_char = rg::num_to_base(*ref_iter);
                     for (unsigned row = 1; row <= rec.seq.length(); ++row) {
                         char query_char = rec.seq[row-1];
-                        char query_qual = has_quality ? rec.qual[row-1] : 40;
+                        char query_qual = has_quality ? rec.qual[row-1] - phred_offset : 40;
                         // Compute the M matrix entry. Force a match or a mismatch between the last characters
                         // Traceback always goes "diagonally" but to which other matrix?
                         int possibleM = M[row-1][col-1];
@@ -548,14 +550,14 @@ void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            vargas::osam &out,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
-           bool fwdonly, bool msonly, bool maxonly, bool notraceback) {
+           bool fwdonly, bool msonly, bool maxonly, bool notraceback, char phred_offset) {
     std::cerr << "Aligning... " << std::flush;
     rg::ForPool fp(aligners.size());
     auto start_time = std::chrono::steady_clock::now();
 
     const auto num_tasks = task_list.size();
     std::mutex mut;
-    align_helper help{gm, task_list, out, aligners, fwdonly, msonly, maxonly, notraceback, mut};
+    align_helper help{gm, task_list, out, aligners, fwdonly, msonly, maxonly, notraceback, phred_offset, mut};
     fp.forpool(&align_helper_func, (void *)&help, num_tasks);
 
     std::cerr << rg::chrono_duration(start_time) << "s.\n";
