@@ -52,10 +52,10 @@ int align_main(int argc, char *argv[]) {
         opts.add_options("Scoring")
         ("ete", "End to end alignment.", cxxopts::value(end_to_end))
         ("ma", "<N> Match bonus.", cxxopts::value(match)->default_value("2"))
-        ("mp", "<MX,MN> Mismatch penalty. Lower qual=lower penalty.", cxxopts::value(mismatch)->default_value("6,2"))
+        ("mp", "<MIN,MAX> Mismatch penalty. Lower qual=lower penalty.", cxxopts::value(mismatch)->default_value("2,6"))
         ("np", "<N> Penalty for non-A/C/G/T.", cxxopts::value(npenalty)->default_value("1"))
-        ("rdg", "<N1,N2> Read gap open/extension penalty.", cxxopts::value(rdg)->default_value("1,3"))
-        ("rfg", "<N1,N2> Ref gap open/extension penalty.", cxxopts::value(rfg)->default_value("1,3"));
+        ("rdg", "<GO,GEXT> Read gap open/extension penalty.", cxxopts::value(rdg)->default_value("3,1"))
+        ("rfg", "<GO,GEXT> Ref gap open/extension penalty.", cxxopts::value(rfg)->default_value("3,1"));
 
         opts.add_options("Threading")
         ("j,threads", "<N> Number of threads.", cxxopts::value(threads)->default_value("1"))
@@ -118,8 +118,8 @@ int align_main(int argc, char *argv[]) {
 
         auto sp = rg::split(mismatch, ',');
         if (sp.size() == 2) {
-            prof.mismatch_max = std::stoi(sp[0]);
-            prof.mismatch_min = std::stoi(sp[1]);
+            prof.mismatch_min = std::stoi(sp[0]);
+            prof.mismatch_max = std::stoi(sp[1]);
         }
         else if (sp.size() == 1) {
             prof.mismatch_max = prof.mismatch_min = std::stoi(sp[0]);

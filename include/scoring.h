@@ -74,7 +74,7 @@ namespace vargas {
        * @return penalty
        */
       unsigned penalty(char c) const {
-          return mismatch_min + (unsigned) std::floor( (mismatch_max-mismatch_min) * (std::min<char>(c, 40)/40));
+          return mismatch_min + std::floor( (mismatch_max-mismatch_min) * (std::min<float>(c, 40.0)/40.0));
       }
 
       unsigned
