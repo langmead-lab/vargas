@@ -865,7 +865,7 @@ namespace vargas {
        */
       void add_record(const SAM::Record &r) {
           if (!good()) throw std::invalid_argument("No valid file open.");
-          (_use_stdio ? std::cout : out) << r.to_string() << '\n';
+          (_use_stdio ? std::cout : out) << r.to_string() << '\n' << std::flush;
       }
 
       /**

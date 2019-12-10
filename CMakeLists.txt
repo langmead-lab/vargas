@@ -1,7 +1,3 @@
-# Available Macros:
-# BUILD_PHI If set to 'ON' build for Xeon Phi. Requires Intel compiler.
-# CMAKE_BUILD_TYPE One of Release, Debug, RelWithDebInfo
-
 cmake_minimum_required(VERSION 2.8)
 
 project("vargas")
@@ -38,26 +34,21 @@ set(HEADERS
         include/scoring.h
         include/simd.h)
 
-option(BUILD_KNL "Use Intel compiler to build for KNL Xeon Phi" OFF)
-option(BUILD_SKX "Use Intel compiler to build for SKX Xeon Platinum" OFF)
-option(BUILD_AVX2 "Use GCC compiler with AVX2 instructions" OFF)
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -no-inline-max-size -wd597 -qoverride-limits")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd597")
-endif()
+option(BUILD_AVX512BW_INTEL "Use Intel compiler to build for AVX512BW" OFF)
+option(BUILD_AVX512BW_GCC "Use GCC compiler to build for AVX512BW" OFF)
+option(BUILD_AVX2_INTEL "Use Intel compiler to build for AVX2" OFF)
+option(BUILD_AVX2_GCC "Use GCC compiler to build for AVX2" OFF)
 
-option(BUILD_AVX512BW "Build for AVX512BW" OFF)
-
-if(BUILD_KNL)
-    message("   Building for KNL Xeon Phi with AVX2 (Intel)")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -xCORE-AVX2 -DVA_SIMD_USE_AVX2")
-elseif(BUILD_AVX512BW)
-    message("   Building for SKX Xeon Platinum with AVX512BW (Intel)")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -xCORE-AVX512 -DVA_SIMD_USE_AVX512")
-elseif(BUILD_SKX)
-    message("   Building for SKX Xeon Platinum with AVX2 (Intel)")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -xCore-AVX2 -DVA_SIMD_USE_AVX2")
-elseif(BUILD_AVX2)
+if(BUILD_AVX512BW_INTEL)
+    message("   Building for AVX512BW (Intel)")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd597 -xCORE-AVX512 -DVA_SIMD_USE_AVX512")
+elseif(BUILD_AVX512BW_GCC)
+    message("   Building for AVX512BW (GCC)")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512bw -DVA_SIMD_USE_AVX512")
+elseif(BUILD_AVX2_INTEL)
+    message("   Building for AVX2 (Intel)")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd597 -xCORE-AVX2 -DVA_SIMD_USE_AVX2")
+elseif(BUILD_AVX2_GCC)
     message("   Building for AVX2 (GCC)")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -DVA_SIMD_USE_AVX2")
 else()

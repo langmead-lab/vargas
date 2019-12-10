@@ -490,7 +490,6 @@ namespace vargas {
   int16x16 max(const int16x16 &a, const int16x16 &b) {
       return _mm256_max_epi16(a.v, b.v);
   }
-// This function is never used
 //  __RG_STRONG_INLINE__
 //  int16x16 blend(const int16x16 &mask, const int16x16 &t, const int16x16 &f) {
 //      return _mm256_blendv_epi16(f.v, t.v, mask.v);
@@ -539,10 +538,10 @@ namespace vargas {
   int8x64 max(const int8x64 &a, const int8x64 &b) {
       return _mm512_max_epi8(a.v, b.v);
   }
-  __RG_STRONG_INLINE__
-  int8x64 blend(const int8x64 &mask, const int8x64 &t, const int8x64 &f) {
-      return _mm512_blendv_epi8(f.v, t.v, mask.v);
-  }
+//  __RG_STRONG_INLINE__
+//  int8x64 blend(const int8x64 &mask, const int8x64 &t, const int8x64 &f) {
+//      return _mm512_blendv_epi8(f.v, t.v, mask.v);
+//  }
 
 
   template<> typename int16x32::cmp_t int16x32::operator==(const int16x32 &o) const {
@@ -584,10 +583,10 @@ namespace vargas {
   int16x32 max(const int16x32 &a, const int16x32 &b) {
       return _mm512_max_epi16(a.v, b.v);
   }
-  __RG_STRONG_INLINE__
-  int16x32 blend(const int16x32 &mask, const int16x32 &t, const int16x32 &f) {
-      return _mm512_blendv_epi16(f.v, t.v, mask.v);
-  }
+//  __RG_STRONG_INLINE__
+//  int16x32 blend(const int16x32 &mask, const int16x32 &t, const int16x32 &f) {
+//      return _mm512_blendv_epi16(f.v, t.v, mask.v);
+//  }
 
   #endif // VA_SIMD_USE_AVX512
 

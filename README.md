@@ -1,8 +1,9 @@
 # Vargas
-_Updated: April 17, 2019_
+*Updated: December 10, 2019*
 
-Vargas aligns short reads to a directed acyclic graph (DAG). Reads are aligned using a SIMD vectorized version of Smith-Waterman, aligning multiple reads at once. The the aligner reports a maximal scoring position, and optionally the number of maximum-score occurrences, the second-best scoring position and the number of second-best score occurrences. Vargas can also be used to simulate reads from a DAG.
+Vargas computes optimal alignments of short reads to a directed acyclic graph (DAG). After building a graph, reads are aligned using a SIMD-vectorized version of the Smith-Waterman dynamic programming algorithm, with 16 -- 64 reads per vector depending on the instruction set.
 
+Preprint available at *coming soon*. Supplementary processing scripts available at [vargas-experiments](https://github.com/cdarby/vargas-experiments). 
 
 # Building
 
@@ -12,30 +13,20 @@ When cloning, use the `--recursive` option to automatically retrieve dependencie
 
 Vargas relies on htslib to provide core file processing. Once cloned, the htslib is built with autoconf (version 2.63+).
 
-    cd htslib
+	cd htslib
     autoconf && autoheader && ./configure && make -j4
 
-Vargas is built with cmake. With GCC compiler, SSE 4.1 (default) or AVX2 can be targeted for SIMD support.
+Vargas is built with CMake. 
+
+With GCC compiler, SSE 4.1 (default), AVX2 (**-DBUILD\_AVX2\_GCC=ON**) or AVX512-BW (**-DBUILD\_AVX512BW\_GCC=ON**) can be targeted for SIMD support.
 
     mkdir build && cd build
-    cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_AVX2=ON .. && make -j4
-    cd ..
-    export PATH=${PWD}/bin:$PATH
+    cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_AVX512BW_GCC=ON -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc .. && make -j4
+    
+With Intel compiler, AVX2 (**-DBUILD\_AVX2\_INTEL=ON**) or AVX512-BW (**-DBUILD\_AVX512BW\_INTEL=ON**) can be targeted for SIMD support.
 
-To build for KNL Xeon Phi targeting AVX2 with Intel compiler:
-
-    cmake -DCMAKE_CXX_COMPILER=icpc -DCMAKE_C_COMPILER=icc -DBUILD_KNL=ON -DCMAKE_BUILD_TYPE=Release ..
-    make -j4
-
-To build for SKX Xeon Platinum targeting AVX2 with Intel compiler:
-
-    cmake -DCMAKE_CXX_COMPILER=icpc -DCMAKE_C_COMPILER=icc -DBUILD_SKX=ON -DCMAKE_BUILD_TYPE=Release ..
-    make -j4
-
-To build for SKX Xeon Platinum targeting AVX512-BW with Intel compiler:
-
-    cmake -DCMAKE_CXX_COMPILER=icpc -DCMAKE_C_COMPILER=icc -DBUILD_AVX512BW=ON -DCMAKE_BUILD_TYPE=Release ..
-    make -j4
+    mkdir build && cd build
+    cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_AVX512BW_INTEL=ON -DCMAKE_CXX_COMPILER=icpc -DCMAKE_C_COMPILER=icc .. && make -j4
 
 
 # Modes of Operation
@@ -236,7 +227,7 @@ Export a subgraph to a DOT graph, or get graph statistics.
 
 `vargas test` executes unit tests.
 
-`vargas profile` Generates a summary of performance.
+`vargas profile` generates a summary of performance.
 
 ```
 Run profiles. 
