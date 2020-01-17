@@ -387,33 +387,30 @@ namespace vargas {
           std::unordered_map<unsigned, _seed<simd_t>> seed_map; // Maps node ID to the ending matrix cols of the node
           _seed <simd_t> seed(_read_len);
 
-          if (fwdonly){
-              std::fill(aligns.max_strand.begin(), aligns.max_strand.end(), Strand::FWD);
-              std::fill(aligns.sub_strand.begin(), aligns.sub_strand.end(), Strand::FWD);
-          }
-
           for (unsigned group = 0; group < num_groups; ++group) {
               seed_map.clear();
 
               // Subset of read set
               const unsigned beg_offset = group * read_capacity();
               const unsigned end_offset = std::min<unsigned>((group + 1) * read_capacity(), read_group.size());
-              const unsigned len = end_offset - beg_offset;
-              assert(len <= read_capacity());
+              const unsigned n_reads_group = end_offset - beg_offset;
+              assert(n_reads_group <= read_capacity());
 
               _max_score = std::numeric_limits<native_t>::min();
 
               if (!MSONLY) {
-                  _max_pos = aligns.max_pos.data() + beg_offset;
+                  //_max_pos = aligns.max_pos.data() + beg_offset;
                   _max_last_pos = aligns.max_last_pos.data() + beg_offset;
-                  _max_count = aligns.max_count.data() + beg_offset;
+                  //_max_count = aligns.max_count.data() + beg_offset;
+                  _max_pos_list.resize(read_capacity());
+                  _sub_pos_list.resize(read_capacity());
               }
 
               if (!MAXONLY) {
                   _sub_score = std::numeric_limits<native_t>::min();
-                  _sub_pos = aligns.sub_pos.data() + beg_offset;
+                  //_sub_pos = aligns.sub_pos.data() + beg_offset;
                   _sub_last_pos = aligns.sub_last_pos.data() + beg_offset;
-                  _sub_count = aligns.sub_count.data() + beg_offset;
+                  //_sub_count = aligns.sub_count.data() + beg_offset;
                   _waiting_score = std::numeric_limits<native_t>::min();
                   _waiting_pos = aligns.waiting_pos.data() + beg_offset;
                   _waiting_last_pos = aligns.waiting_last_pos.data() + beg_offset;
@@ -435,16 +432,20 @@ namespace vargas {
 
               _tmp0 = _waiting_score > _sub_score;
               if (_tmp0) {
-                  // commit the waiting 2nd max score if we've got one and reached the end of the genome without
+                  // commit the waiting submax score if we've got one and reached the end of the genome without
                   // seeing a new _max_last_pos
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i] && _max_last_pos[i] < _waiting_pos[i]) {
                           _sub_score[i] = _waiting_score[i];
-                          _sub_count[i] = 1;
-                          _sub_pos[i] = _waiting_pos[i];
                           _sub_last_pos[i] = _waiting_last_pos[i];
+                          _sub_pos_list[i].clear();
+                          _sub_pos_list[i].push_back(_waiting_pos[i]);
                       }
                   }
+              }
+              for (int r = 0; r < n_reads_group; ++r) {
+                  aligns.max_pos_list_fwd[r + beg_offset] = _max_pos_list[r];
+                  aligns.sub_pos_list_fwd[r + beg_offset] = _sub_pos_list[r];
               }
 
               // Reverse
@@ -452,11 +453,16 @@ namespace vargas {
                   seed_map.clear();
                   _alignment_group.load_reads(read_group, quals, _prof, beg_offset, end_offset, true);
                   //reset "right-most non-adjacent occurrence of score value" to zero
-                  if (!MSONLY) for (unsigned i = 0; i < read_capacity(); ++i) { _max_last_pos[i] = 0;}
-                  if (!MAXONLY) for (unsigned i = 0; i < read_capacity(); ++i) { _sub_last_pos[i] = 0;}
+                  if (!MSONLY) for (unsigned i = 0; i < read_capacity(); ++i) { _max_last_pos[i] = 0; }
+                  if (!MAXONLY) for (unsigned i = 0; i < read_capacity(); ++i) { _sub_last_pos[i] = 0; }
                   //remember the scores on forward strand so we can tell if it increased and assign REV strand
                   simd_t fwdmax = _max_score;
                   simd_t fwdsub = _sub_score;
+                  //clear max/submax positions list
+                  _max_pos_list.clear();
+                  _max_pos_list.resize(read_capacity());
+                  _sub_pos_list.clear();
+                  _sub_pos_list.resize(read_capacity());
 
                   for (auto gi = begin; gi != end; ++gi) {
                       _get_seed(gi.incoming(), seed_map, seed);
@@ -470,24 +476,27 @@ namespace vargas {
                       for (unsigned i = 0; i < read_capacity(); ++i) {
                           if (_tmp0[i] && _max_last_pos[i] < _waiting_pos[i]) {
                               _sub_score[i] = _waiting_score[i];
-                              _sub_count[i] = 1;
-                              _sub_pos[i] = _waiting_pos[i];
                               _sub_last_pos[i] = _waiting_last_pos[i];
+                              _sub_pos_list[i].clear();
+                              _sub_pos_list[i].push_back(_waiting_pos[i]);
                           }
                       }
                   }
 
-                  // Assign strands
-                  // if both strands have an occurrence of max or submax score, position will be wrt a fwd occurrence
-                  for(size_t i = 0; i < len; ++i) {
-                     aligns.max_strand[beg_offset + i] = _max_score[i] > fwdmax[i] ? Strand::REV : Strand::FWD;
-                     aligns.sub_strand[beg_offset + i] = _sub_score[i] > fwdsub[i] ? Strand::REV : Strand::FWD;
+                  for (int r = 0; r < n_reads_group; ++r) {
+                      aligns.max_pos_list_rev[r + beg_offset] = _max_pos_list[r];
+                      aligns.sub_pos_list_rev[r + beg_offset] = _sub_pos_list[r];
+                  }
+                  for(size_t i = 0; i < read_capacity(); ++i) {
+                     // if the rev strand had a new max/submax score, old max list is cleared
+                     if (_max_score[i] > fwdmax[i]) { aligns.max_pos_list_fwd[i + beg_offset].clear(); }
+                     if (_sub_score[i] > fwdsub[i]) { aligns.sub_pos_list_fwd[i + beg_offset].clear(); }
                   }
               }
 
 
               // Copy scores
-              for (unsigned char i = 0; i < len; ++i) {
+              for (unsigned char i = 0; i < read_capacity(); ++i) {
                   aligns.max_score[beg_offset + i] = _max_score[i] - _bias;
                   if (!MSONLY && !MAXONLY) {
                       aligns.sub_score[beg_offset + i] = _sub_score[i] - _bias;
@@ -657,29 +666,31 @@ namespace vargas {
               #else
               simd_t _tmp0;
               #endif
-              _tmp0 = _S[row] == _max_score;
+              _tmp0 = _S[row] == _max_score; // repeat max score
               if (_tmp0) {
-                  // Check for repeat max score. Update closest occurrence location; increment counter if > read_len
-                  // from closest occurrence of max
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i]) {
-                          if (curr_pos > _max_last_pos[i] + _read_len) ++(_max_count[i]);
+                          // add occurrence if > read_len from leftmost occurrence of max
+                          if (curr_pos > _max_last_pos[i] + 2*_read_len) {
+                              _max_pos_list[i].push_back(curr_pos);
+                          }
+                          // update leftmost occurrence location
                           _max_last_pos[i] = curr_pos;
                       }
                   }
               }
 
-              _tmp0 = _S[row] > _max_score;
+              _tmp0 = _S[row] > _max_score; // new max score
               if (_tmp0) {
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i]) {
-                          // Check for new max score.
-                          _max_count[i] = 1;
-                          _max_pos[i] = curr_pos;
+                          // record new max score
+                          _max_score[i] = _S[row][i];
                           _max_last_pos[i] = curr_pos;
+                          _max_pos_list[i].clear();
+                          _max_pos_list[i].push_back(curr_pos);
                       }
                   }
-                  _max_score = max(_S[row], _max_score);
               }
           }
           else { // the genome is not a graph so we can look for the 2nd-max score
@@ -688,83 +699,126 @@ namespace vargas {
               #else
               simd_t _tmp0;
               #endif
-              _tmp0 = _S[row] == _max_score;
+              _tmp0 = _S[row] == _max_score; // repeat max score
               if (_tmp0) {
-                  // Check for repeat max score. Update closest occurrence location; increment counter if > read_len
-                  // from closest occurrence of max
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i]) {
-                          if (curr_pos > _max_last_pos[i] + _read_len) ++(_max_count[i]);
+                          // add occurrence if > read_len from leftmost occurrence of max
+                          if (curr_pos > _max_last_pos[i] + 2*_read_len) {
+                              _max_pos_list[i].push_back(curr_pos);
+                          }
+                          // update leftmost occurrence location
                           _max_last_pos[i] = curr_pos;
+                          // reset the waiting submax - if it existed, it was within a read-length
                           _waiting_pos[i] = 0;
                           _waiting_score[i] = _sub_score[i];
+                          // delete leftmost submax if it was within a read-length
+                          if (!_sub_pos_list[i].empty() and _sub_pos_list[i].back() + 2*_read_len > curr_pos) {
+                              _sub_pos_list[i].pop_back();
+                          }
                       }
                   }
               }
 
-              _tmp0 = _S[row] > _max_score;
+              _tmp0 = _S[row] > _max_score; // new max score
               if (_tmp0) {
                   for (unsigned i = 0; i < read_capacity(); ++i) {
                       if (_tmp0[i]) {
-                          // Check for new max score.
-                          _max_count[i] = 1;
-                          _max_pos[i] = curr_pos;
-                          _max_last_pos[i] = curr_pos;
+                          // delete leftmost old max if it was within a read-length
+                          if (!_max_pos_list[i].empty() and _max_pos_list[i].back() + 2*_read_len > curr_pos) {
+                              _max_pos_list[i].pop_back();
+                          }
+                          // demote old max to submax if it had an occurrence farther than a read-length back
+                          // (ie the pos_list is not empty after removing any within a read-length)
+                          if (!_max_pos_list[i].empty()) {
+                              _sub_score[i] = _max_score[i];
+                              _sub_last_pos[i] = _max_last_pos[i];
+                              _sub_pos_list[i] = _max_pos_list[i];
+                          } else {
+                              // delete leftmost submax if it was within a read-length
+                              if (!_sub_pos_list[i].empty() and _sub_pos_list[i].back() + 2*_read_len > curr_pos) {
+                                  _sub_pos_list[i].pop_back();
+                              }
+                          }
+                          // reset the waiting submax - if existed, it was within a read-length
                           _waiting_pos[i] = 0;
                           _waiting_score[i] = _sub_score[i];
+                          // record new max score
+                          _max_score[i] = _S[row][i];
+                          _max_last_pos[i] = curr_pos;
+                          _max_pos_list[i].clear();
+                          _max_pos_list[i].push_back(curr_pos);
+//                          if (i == 0) {
+//                              std::cout << "A " << curr_pos << " " << (int)_max_score[0] << " " << (int)_sub_score[0] << " " << (int)_waiting_score[0] << std::endl;
+//                              std::cout << "A " << curr_pos << " " << (int)_max_last_pos[0] << " " << (int)_sub_last_pos[0] << " " << (int)_waiting_last_pos[0] << std::endl;
+//                          }
                       }
                   }
-                  _max_score = max(_S[row], _max_score);
+              }
+              _tmp0 = _S[row] == _waiting_score; // repeat waiting submax score
+              if (_tmp0) {
+                  for (unsigned i = 0; i < read_capacity(); ++i) {
+                      // update closest occurrence location
+                      if (_tmp0[i] && _waiting_pos[i] > 0) {
+                          _waiting_last_pos[i] = curr_pos;
+//                          if (i == 0) {
+//                              std::cout << "B " << curr_pos << " " << (int)_max_score[0] << " " << (int)_sub_score[0] << " " << (int)_waiting_score[0] << std::endl;
+//                              std::cout << "B " << curr_pos << " " << (int)_max_last_pos[0] << " " << (int)_sub_last_pos[0] << " " << (int)_waiting_last_pos[0] << std::endl;
+//                          }
+                      }
+                  }
               }
 
-                _tmp0 = _S[row] == _waiting_score;
+                _tmp0 = _S[row] == _sub_score; // repeat submax score
                 if (_tmp0) {
-                    // Check for repeat waiting 2nd-max score. Update closest occurrence location.
-                    for (unsigned i = 0; i < read_capacity(); ++i) {
-                        if (_tmp0[i] && _waiting_pos[i] > 0) _waiting_last_pos[i] = curr_pos;
-                    }
-                }
-
-                _tmp0 = _S[row] == _sub_score;
-                if (_tmp0) {
-                    // Check for repeat 2nd-max score. Update closest occurrence location; increment counter if
-                    // > read_len from closest occurence of max or 2nd-max score
-                    // TODO will overcount if there is an upcoming max within a read-length
                     for (unsigned i = 0; i < read_capacity(); ++i) {
                         if (_tmp0[i]) {
-                            if (curr_pos > _max_last_pos[i] + _read_len && curr_pos > _sub_last_pos[i] + _read_len) {
-                                ++(_sub_count[i]);
+                            // add occurrence if > read_len from leftmost committed occ. of max or submax
+                            if ((!_max_pos_list[i].empty() && (curr_pos > _max_pos_list[i].back() + 2*_read_len))
+                                 && (!_sub_pos_list[i].empty() && (curr_pos > _sub_pos_list[i].back() + 2*_read_len))) {
+                                _sub_pos_list[i].push_back(curr_pos);
                             }
+                            // update leftmost occurrence location
                             _sub_last_pos[i] = curr_pos;
+//                            if (i == 0) {
+//                                std::cout << "C " << curr_pos << " " << (int)_max_score[0] << " " << (int)_sub_score[0] << " " << (int)_waiting_score[0] << std::endl;
+//                                std::cout << "C " << curr_pos << " " << (int)_max_last_pos[0] << " " << (int)_sub_last_pos[0] << " " << (int)_waiting_last_pos[0] << std::endl;
+//                            }
                         }
                     }
                 }
 
-                // Greater than old 2nd-max and less than max score
-                _tmp0 = (_S[row] > _sub_score) & (_S[row] < _max_score);
+                _tmp0 = (_S[row] > _sub_score) & (_S[row] < _max_score); // new waiting submax score
                 if (_tmp0) {
-                    // Check for new 2nd-max score. Set waiting 2nd max if it's greater than the current waiting 2nd max
-                    // or we have no waiting 2nd max
                     for (unsigned i = 0; i < read_capacity(); ++i) {
-                        if (_tmp0[i] && curr_pos > _max_last_pos[i] + _read_len && (_waiting_pos[i] == 0 || _S[row][i] > _waiting_score[i])) {
+                        // set waiting submax if it's greater than the current waiting submax or there is no waiting submax
+                        if (_tmp0[i] && curr_pos > _max_last_pos[i] + 2*_read_len && (_waiting_pos[i] == 0 || _S[row][i] > _waiting_score[i])) {
                             _waiting_score[i] = _S[row][i];
                             _waiting_pos[i] = curr_pos;
                             _waiting_last_pos[i] = curr_pos;
+//                            if (i == 0) {
+//                                std::cout << "D " << curr_pos << " " << (int)_max_score[0] << " " << (int)_sub_score[0] << " " << (int)_waiting_score[0] << std::endl;
+//                                std::cout << "D " << curr_pos << " " << (int)_max_last_pos[0] << " " << (int)_sub_last_pos[0] << " " << (int)_waiting_last_pos[0] << std::endl;
+//                            }
                         }
                     }
                 }
 
-                _tmp0 = _waiting_score > _sub_score;
+                _tmp0 = _waiting_score > _sub_score; // there is a waiting submax
                 if (_tmp0) {
-                    // commit the waiting 2nd max score if we're a read length beyond it
                     for (unsigned i = 0; i < read_capacity(); ++i) {
-                        if (_tmp0[i] && curr_pos > _waiting_pos[i] + _read_len && _waiting_pos[i] > 0) {
-                            //set the waiting 2nd max, if it's greater than the current waiting 2nd max
+                        // commit if submax exists and we're a read length beyond the leftmost occurrence
+                        if ( _tmp0[i] && _waiting_pos[i] > 0 && curr_pos > _waiting_last_pos[i] + 2*_read_len ) {
+                            // commit the waiting submax
                             _sub_score[i] = _waiting_score[i];
-                            _sub_count[i] = 1;
-                            _sub_pos[i] = _waiting_pos[i];
                             _sub_last_pos[i] = _waiting_last_pos[i];
-                            _waiting_pos[i] = 0; //if nonzero, indicates that something is waiting
+                            _sub_pos_list[i].clear();
+                            _sub_pos_list[i].push_back(_waiting_pos[i]);
+                            _waiting_pos[i] = 0; // set to zero to indicate there is no waiting submax
+//                            if (i == 0) {
+//                                std::cout << "E " << curr_pos << " " << (int)_max_score[0] << " " << (int)_sub_score[0] << " " << (int)_waiting_score[0] << std::endl;
+//                                std::cout << "E " << curr_pos << " " << (int)_max_last_pos[0] << " " << (int)_sub_last_pos[0] << " " << (int)_waiting_last_pos[0] << std::endl;
+//                            }
                         }
                     }
                 }
@@ -801,10 +855,9 @@ namespace vargas {
 
       simd_t _Sd, _max_score, _sub_score, _waiting_score,
       _gap_extend_vec_ref, _gap_open_extend_vec_ref, _gap_extend_vec_rd, _gap_open_extend_vec_rd;
-
-      pos_t *_max_pos, *_sub_pos, *_waiting_pos;
+      std::vector<std::vector<pos_t>> _max_pos_list, _sub_pos_list;
+      pos_t *_waiting_pos;
       pos_t *_max_last_pos, *_sub_last_pos, *_waiting_last_pos;
-      unsigned  *_max_count, *_sub_count;
 
       native_t _bias;
       const unsigned int _read_len;
@@ -831,13 +884,13 @@ TEST_CASE("Alignment") {
     vargas::Graph::Node::_newID = 0;
     vargas::Graph g;
 
-    /**
-    *     GGG
-    *    /   \
-    * AAA     TTTA
-    *    \   /
-    *     CCC(ref)
-    */
+
+//         GGG
+//        /   \
+//     AAA     TTTA
+//        \   /
+//         CCC(ref)
+
 
     {
         vargas::Graph::Node n;
@@ -905,28 +958,28 @@ TEST_CASE("Alignment") {
             aligns = a.align(reads, g.begin(), g.end());
         }
         CHECK(aligns.max_score[0] == 8);
-        CHECK(aligns.max_pos[0] == 8);
+        CHECK(aligns.max_pos_list_fwd[0][0] == 8);
 
         CHECK(aligns.max_score[1] == 8);
-        CHECK(aligns.max_pos[1] == 8);
+        CHECK(aligns.max_pos_list_fwd[1][0] == 8);
 
         CHECK(aligns.max_score[2] == 8);
-        CHECK(aligns.max_pos[2] == 5);
+        CHECK(aligns.max_pos_list_fwd[2][0] == 5);
 
         CHECK(aligns.max_score[3] == 8);
-        CHECK(aligns.max_pos[3] == 5);
+        CHECK(aligns.max_pos_list_fwd[3][0] == 5);
 
         CHECK(aligns.max_score[4] == 10);
-        CHECK(aligns.max_pos[4] == 7);
+        CHECK(aligns.max_pos_list_fwd[4][0] == 7);
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5] == 5);
+        CHECK(aligns.max_pos_list_fwd[5][0] == 5);
 
         CHECK(aligns.max_score[6] == 8);
-        CHECK(aligns.max_pos[6] == 10);
+        CHECK(aligns.max_pos_list_fwd[6][0] == 10);
 
         CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7] == 6);
+        CHECK(aligns.max_pos_list_fwd[7][0] == 6);
     }
 
     SUBCASE("Scoring Scheme") {
@@ -948,34 +1001,34 @@ TEST_CASE("Alignment") {
         vargas::Results aligns = a.align(reads, g.begin(), g.end());
 
         CHECK(aligns.max_score[0] == 8);
-        CHECK(aligns.max_pos[0] == 8);
+        CHECK(aligns.max_pos_list_fwd[0][0] == 8);
 
         CHECK(aligns.max_score[1] == 8);
-        CHECK(aligns.max_pos[1] == 8);
+        CHECK(aligns.max_pos_list_fwd[1][0] == 8);
 
         CHECK(aligns.max_score[2] == 8);
-        CHECK(aligns.max_pos[2] == 5);
+        CHECK(aligns.max_pos_list_fwd[2][0] == 5);
 
         CHECK(aligns.max_score[3] == 8);
-        CHECK(aligns.max_pos[3] == 5);
+        CHECK(aligns.max_pos_list_fwd[3][0] == 5);
 
         CHECK(aligns.max_score[4] == 10);
-        CHECK(aligns.max_pos[4] == 7);
+        CHECK(aligns.max_pos_list_fwd[4][0] == 7);
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5] == 5);
+        CHECK(aligns.max_pos_list_fwd[5][0] == 5);
 
         CHECK(aligns.max_score[6] == 8);
-        CHECK(aligns.max_pos[6] == 10);
+        CHECK(aligns.max_pos_list_fwd[6][0] == 10);
 
         CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7] == 4);
+        CHECK(aligns.max_pos_list_fwd[7][0] == 4);
 
         CHECK(aligns.max_score[8] == 12);
-        CHECK(aligns.max_pos[8] == 10);
+        CHECK(aligns.max_pos_list_fwd[8][0] == 10);
 
         CHECK(aligns.max_score[9] == 8);
-        CHECK(aligns.max_pos[9] == 4);
+        CHECK(aligns.max_pos_list_fwd[9][0] == 4);
     }
 
     SUBCASE("Quality") {
@@ -1003,12 +1056,12 @@ TEST_CASE("Alignment") {
         reads = {"TAATGG", "TAATGG", "TAATGG"};
         a.align_into(reads, quals, g.begin(), g.end(), aligns, false);
 
-        CHECK(aligns.max_strand[0] == vargas::Strand::REV);
-        CHECK(aligns.max_strand[1] == vargas::Strand::REV);
-        CHECK(aligns.max_strand[2] == vargas::Strand::REV);
-        CHECK(aligns.max_pos[0] == 10);
-        CHECK(aligns.max_pos[1] == 10);
-        CHECK(aligns.max_pos[2] == 10);
+        //CHECK(aligns.max_strand[0] == vargas::Strand::REV);
+        //CHECK(aligns.max_strand[1] == vargas::Strand::REV);
+        //CHECK(aligns.max_strand[2] == vargas::Strand::REV);
+        CHECK(aligns.max_pos_list_rev[0][0] == 10);
+        CHECK(aligns.max_pos_list_rev[1][0] == 10);
+        CHECK(aligns.max_pos_list_rev[2][0] == 10);
 
         CHECK(aligns.max_score[0] == 8);
         CHECK(aligns.max_score[1] == 7);
@@ -1027,13 +1080,13 @@ TEST_CASE("Alignment") {
         vargas::Aligner a(10, prof);
         vargas::Results aligns = a.align(reads, g.begin(), g.end());
         CHECK(aligns.max_score[0] == 17);
-        CHECK(aligns.max_pos[0] == 10);
+        CHECK(aligns.max_pos_list_fwd[0][0] == 10);
 
         CHECK(aligns.max_score[1] == 14);
-        CHECK(aligns.max_pos[1] == 10);
+        CHECK(aligns.max_pos_list_fwd[1][0] == 10);
 
         CHECK(aligns.max_score[2] == 11);
-        CHECK(aligns.max_pos[2] == 10);
+        CHECK(aligns.max_pos_list_fwd[2][0] == 10);
     }
 
     SUBCASE("Graph Alignment- Word") {
@@ -1050,39 +1103,39 @@ TEST_CASE("Alignment") {
         vargas::WordAligner a(7);
         vargas::Results aligns = a.align(reads, g.begin(), g.end());
         CHECK(aligns.max_score[0] == 8);
-        CHECK(aligns.max_pos[0] == 8);
+        CHECK(aligns.max_pos_list_fwd[0][0] == 8);
 
         CHECK(aligns.max_score[1] == 8);
-        CHECK(aligns.max_pos[1] == 8);
+        CHECK(aligns.max_pos_list_fwd[1][0] == 8);
 
         CHECK(aligns.max_score[2] == 8);
-        CHECK(aligns.max_pos[2] == 5);
+        CHECK(aligns.max_pos_list_fwd[2][0] == 5);
 
         CHECK(aligns.max_score[3] == 8);
-        CHECK(aligns.max_pos[3] == 5);
+        CHECK(aligns.max_pos_list_fwd[3][0] == 5);
 
         CHECK(aligns.max_score[4] == 10);
-        CHECK(aligns.max_pos[4] == 7);
+        CHECK(aligns.max_pos_list_fwd[4][0] == 7);
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5] == 5);
+        CHECK(aligns.max_pos_list_fwd[5][0] == 5);
 
         CHECK(aligns.max_score[6] == 8);
-        CHECK(aligns.max_pos[6] == 10);
+        CHECK(aligns.max_pos_list_fwd[6][0] == 10);
 
         CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7] == 6);
+        CHECK(aligns.max_pos_list_fwd[7][0] == 6);
     }
 
     SUBCASE("Scoring Scheme- Word") {
 
-        /**
-*     GGG
-*    /   \
-* AAA     TTTA
-*    \   /
-*     CCC(ref)
-*/
+
+//     GGG
+//    /   \
+// AAA     TTTA
+//    \   /
+//     CCC(ref)
+
 
         std::vector<std::string> reads;
         reads.push_back("CCTT");
@@ -1101,34 +1154,34 @@ TEST_CASE("Alignment") {
         vargas::Results aligns = a.align(reads, g.begin(), g.end());
 
         CHECK(aligns.max_score[0] == 8);
-        CHECK(aligns.max_pos[0] == 8);
+        CHECK(aligns.max_pos_list_fwd[0][0] == 8);
 
         CHECK(aligns.max_score[1] == 8);
-        CHECK(aligns.max_pos[1] == 8);
+        CHECK(aligns.max_pos_list_fwd[1][0] == 8);
 
         CHECK(aligns.max_score[2] == 8);
-        CHECK(aligns.max_pos[2] == 5);
+        CHECK(aligns.max_pos_list_fwd[2][0] == 5);
 
         CHECK(aligns.max_score[3] == 8);
-        CHECK(aligns.max_pos[3] == 5);
+        CHECK(aligns.max_pos_list_fwd[3][0] == 5);
 
         CHECK(aligns.max_score[4] == 10);
-        CHECK(aligns.max_pos[4] == 7);
+        CHECK(aligns.max_pos_list_fwd[4][0] == 7);
 
         CHECK(aligns.max_score[5] == 4);
-        CHECK(aligns.max_pos[5] == 5);
+        CHECK(aligns.max_pos_list_fwd[5][0] == 5);
 
         CHECK(aligns.max_score[6] == 8);
-        CHECK(aligns.max_pos[6] == 10);
+        CHECK(aligns.max_pos_list_fwd[6][0] == 10);
 
         CHECK(aligns.max_score[7] == 8);
-        CHECK(aligns.max_pos[7] == 4);
+        CHECK(aligns.max_pos_list_fwd[7][0] == 4);
 
         CHECK(aligns.max_score[8] == 12);
-        CHECK(aligns.max_pos[8] == 10);
+        CHECK(aligns.max_pos_list_fwd[8][0] == 10);
 
         CHECK(aligns.max_score[9] == 8);
-        CHECK(aligns.max_pos[9] == 4);
+        CHECK(aligns.max_pos_list_fwd[9][0] == 4);
     }
 }
 
@@ -1149,10 +1202,10 @@ TEST_CASE("Reverse strand") {
     SUBCASE("Alignment") {
         auto res = a.align(reads, g.begin(), g.end(), false);
         REQUIRE(res.size() == 2);
-        CHECK(res.max_pos[0] == 34);
-        CHECK(res.max_pos[1] == 34);
-        CHECK(res.max_strand[0] == vargas::Strand::FWD);
-        CHECK(res.max_strand[1] == vargas::Strand::REV);
+        CHECK(res.max_pos_list_fwd[0][0] == 34);
+        CHECK(res.max_pos_list_rev[1][0] == 34);
+        //CHECK(res.max_strand[0] == vargas::Strand::FWD);
+        //CHECK(res.max_strand[1] == vargas::Strand::REV);
     }
 }
 
@@ -1160,9 +1213,9 @@ TEST_CASE("Indels") {
     vargas::Graph::Node::_newID = 0;
     vargas::Graph g;
 
-    /**
-     *ACTGCTNCAGTCAGTGNANACNCAC--ACGATCGTACGCNAGCTAGCCACAGTGCCCCCCTATATACGAN
-     */
+
+     // ACTGCTNCAGTCAGTGNANACNCAC--ACGATCGTACGCNAGCTAGCCACAGTGCCCCCCTATATACGAN
+
 
     {
         vargas::Graph::Node n;
@@ -1200,25 +1253,25 @@ TEST_CASE("Indels") {
             REQUIRE(res.size() == 10);
 
             CHECK(res.max_score[0] == 22);
-            CHECK(res.max_pos[0] == 12);
+            CHECK(res.max_pos_list_fwd[0][0] == 12);
             CHECK(res.max_score[1] == 22);
-            CHECK(res.max_pos[1] == 12);
+            CHECK(res.max_pos_list_fwd[1][0] == 12);
             CHECK(res.max_score[2] == 19);
-            CHECK(res.max_pos[2] == 58);
+            CHECK(res.max_pos_list_fwd[2][0] == 58);
             CHECK(res.max_score[3] == 22);
-            CHECK(res.max_pos[3] == 31);
+            CHECK(res.max_pos_list_fwd[3][0] == 31);
             CHECK(res.max_score[4] == 18);
-            CHECK(res.max_pos[4] == 32);
+            CHECK(res.max_pos_list_fwd[4][0] == 32);
             CHECK(res.max_score[5] == 16);
-            CHECK(res.max_pos[5] == 30);
+            CHECK(res.max_pos_list_fwd[5][0] == 30);
             CHECK(res.max_score[6] == 16);
-            CHECK(res.max_pos[6] == 11);
+            CHECK(res.max_pos_list_fwd[6][0] == 11);
             CHECK(res.max_score[7] == 18);
-            CHECK(res.max_pos[7] == 32);
+            CHECK(res.max_pos_list_fwd[7][0] == 32);
             CHECK(res.max_score[8] == 16);
-            CHECK(res.max_pos[8] == 31);
+            CHECK(res.max_pos_list_fwd[8][0] == 31);
             CHECK(res.max_score[9] == 15);
-            CHECK(res.max_pos[9] == 52);
+            CHECK(res.max_pos_list_fwd[9][0] == 52);
 
         }
 
@@ -1229,25 +1282,25 @@ TEST_CASE("Indels") {
             REQUIRE(res.size() == 10);
 
             CHECK(res.max_score[0] == 22);
-            CHECK(res.max_pos[0] == 12);
+            CHECK(res.max_pos_list_fwd[0][0] == 12);
             CHECK(res.max_score[1] == 22);
-            CHECK(res.max_pos[1] == 12);
+            CHECK(res.max_pos_list_fwd[1][0] == 12);
             CHECK(res.max_score[2] == 18);
-            CHECK(res.max_pos[2] == 58);
+            CHECK(res.max_pos_list_fwd[2][0] == 58);
             CHECK(res.max_score[3] == 22);
-            CHECK(res.max_pos[3] == 31);
+            CHECK(res.max_pos_list_fwd[3][0] == 31);
             CHECK(res.max_score[4] == 17);
-            CHECK(res.max_pos[4] == 32);
+            CHECK(res.max_pos_list_fwd[4][0] == 32);
             CHECK(res.max_score[5] == 17);
-            CHECK(res.max_pos[5] == 30);
+            CHECK(res.max_pos_list_fwd[5][0] == 30);
             CHECK(res.max_score[6] == 17);
-            CHECK(res.max_pos[6] == 11);
+            CHECK(res.max_pos_list_fwd[6][0] == 11);
             CHECK(res.max_score[7] == 17);
-            CHECK(res.max_pos[7] == 32);
+            CHECK(res.max_pos_list_fwd[7][0] == 32);
             CHECK(res.max_score[8] == 15);
-            CHECK(res.max_pos[8] == 31);
+            CHECK(res.max_pos_list_fwd[8][0] == 31);
             CHECK(res.max_score[9] == 16);
-            CHECK(res.max_pos[9] == 52);
+            CHECK(res.max_pos_list_fwd[9][0] == 52);
         }
     }
 
@@ -1258,11 +1311,11 @@ TEST_CASE("End to End alignment") {
     vargas::Graph g;
 
     SUBCASE("BWT2 Local example") {
-        /**
-         * Read:      ACGGTTGCGTTAA-TCCGCCACG
-         *                ||||||||| ||||||
-         * Reference: TAACTTGCGTTAAATCCGCCTGG
-         */
+
+//         Read:      ACGGTTGCGTTAA-TCCGCCACG
+//                        ||||||||| ||||||
+//         Reference: TAACTTGCGTTAAATCCGCCTGG
+
         const std::string read("ACGGTTGCGTTAATCCGCCACG"), ref("TAACTTGCGTTAAATCCGCCTGG");
         {
             vargas::Graph::Node n;
@@ -1275,15 +1328,15 @@ TEST_CASE("End to End alignment") {
         auto res = a.align({read}, g.begin(), g.end());
         REQUIRE(res.size() == 1);
         CHECK(res.max_score[0] == 22);
-        CHECK(res.max_pos[0] == 20);
+        CHECK(res.max_pos_list_fwd[0][0] == 20);
     }
 
     SUBCASE("BWT2 ETE example") {
-        /**
-         * Read:      GACTGGGCGATCTCGACTTCG
-         *            |||||  |||||||||| |||
-         * Reference: GACTG--CGATCTCGACATCG
-         */
+
+//          Read:      GACTGGGCGATCTCGACTTCG
+//                     |||||  |||||||||| |||
+//          Reference: GACTG--CGATCTCGACATCG
+
         const std::string read("GACTGGGCGATCTCGACTTCG"), ref("GACTGCGATCTCGACATCG");
         {
             vargas::Graph::Node n;
@@ -1297,7 +1350,7 @@ TEST_CASE("End to End alignment") {
             vargas::AlignerETE a(21, 0, 6, 5, 3);
             auto res = a.align({read}, g.begin(), g.end());
             REQUIRE(res.size() == 1);
-            CHECK(res.max_pos[0] == 19);
+            CHECK(res.max_pos_list_fwd[0][0] == 19);
             CHECK(res.max_score[0] == -17); // Best score -17 with bias 255
         }
 
@@ -1305,7 +1358,7 @@ TEST_CASE("End to End alignment") {
             vargas::WordAlignerETE a(21, 0, 6, 5, 3);
             auto res = a.align({read}, g.begin(), g.end());
             REQUIRE(res.size() == 1);
-            CHECK(res.max_pos[0] == 19);
+            CHECK(res.max_pos_list_fwd[0][0] == 19);
             CHECK(res.max_score[0] == -17); // Best score -17 with bias 255
         }
     }
@@ -1328,8 +1381,8 @@ TEST_CASE("Target score") {
     REQUIRE(res.size() == 1);
     CHECK(res.max_score[0] == 8);
     CHECK(res.sub_score[0] == 6);
-    CHECK(res.max_pos[0] == 4);
-    CHECK(res.sub_pos[0] == 19); //max and 2nd max have to be far enough away, so sub_pos can't be 3
+    CHECK(res.max_pos_list_fwd[0][0] == 4);
+    CHECK(res.sub_pos_list_fwd[0][0] == 19); //max and 2nd max have to be far enough away, so sub_pos can't be 3
 }
 
 TEST_SUITE_END();

@@ -68,6 +68,7 @@ int align_main(int argc, char *argv[]);
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            vargas::osam &out,
+           std::ofstream &reportall_out,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
            bool fwdonly, bool msonly, bool maxonly, bool notraceback, char phred_offset);
 

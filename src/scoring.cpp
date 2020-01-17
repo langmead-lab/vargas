@@ -27,18 +27,16 @@ std::string vargas::ScoreProfile::to_string() const {
 }
 
 void vargas::Results::resize(size_t size) {
-    max_pos.resize(size);
-    sub_pos.resize(size);
-    max_count.resize(size);
-    sub_count.resize(size);
     max_score.resize(size);
     sub_score.resize(size);
-    max_strand.resize(size);
-    sub_strand.resize(size);
     max_last_pos.resize(size);
     sub_last_pos.resize(size);
     waiting_pos.resize(size);
     waiting_last_pos.resize(size);
+    max_pos_list_fwd.resize(size);
+    max_pos_list_rev.resize(size);
+    sub_pos_list_fwd.resize(size);
+    sub_pos_list_rev.resize(size);
 }
 
 std::vector<std::string> vargas::tokenize_cl(std::string cl) {

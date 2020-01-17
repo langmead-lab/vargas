@@ -99,19 +99,14 @@ namespace vargas {
    * 1 based coords.
    */
   struct Results {
-      std::vector<pos_t> max_pos, sub_pos, max_last_pos, sub_last_pos, waiting_pos, waiting_last_pos;
-      std::vector<unsigned> max_count, sub_count;
-
-      std::vector<int> max_score; /**< Best scores */
-      std::vector<int> sub_score; /**< Second best scores */
-
-      std::vector<Strand> max_strand;
-      std::vector<Strand> sub_strand;
-
+      std::vector<pos_t> max_last_pos, sub_last_pos, waiting_pos, waiting_last_pos;
+      std::vector<std::vector<pos_t>> max_pos_list_fwd, max_pos_list_rev;
+      std::vector<std::vector<pos_t>> sub_pos_list_fwd, sub_pos_list_rev;
+      std::vector<int> max_score, sub_score;
       ScoreProfile profile;
 
       size_t size() const {
-          return max_pos.size();
+          return max_last_pos.size();
       }
 
       /**

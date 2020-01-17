@@ -29,7 +29,7 @@ int align_main(int argc, char *argv[]) {
 
     // Load parameters
     unsigned match, npenalty, threads, chunk_size, subsample;
-    std::string read_file, gdf, align_targets, out_file, pgid, mismatch, rdg, rfg;
+    std::string read_file, gdf, align_targets, out_file, reportall_file, pgid, mismatch, rdg, rfg;
     bool end_to_end = false, fwdonly = false, p64=false, msonly=false, maxonly=false, notraceback=false;
 
     cxxopts::Options opts("vargas align", "Align reads to a graph.");
@@ -38,16 +38,19 @@ int align_main(int argc, char *argv[]) {
         ("g,gdef", "<str> *Graph definition file.", cxxopts::value(gdf))
         ("U,reads", "<str> *Unpaired reads in SAM, FASTQ, or FASTA format.", cxxopts::value(read_file));
 
-        opts.add_options("Optional")
-        ("S,sam", "<str> Output file.", cxxopts::value(out_file))
+        opts.add_options("Output")
+        ("S,sam", "<str> Output SAM (alignment) file.", cxxopts::value(out_file))
         ("msonly", "Only report max score. Improves speed.", cxxopts::value(msonly)->implicit_value("1"))
         ("maxonly", "Only report max score, location, and count. Improves speed.", cxxopts::value(maxonly)->implicit_value("1"))
+        ("reportall", "<str> Output file for location of all optimal-scoring alignments.", cxxopts::value(reportall_file)->default_value("reportall.tsv"))
+        ("notraceback", "If graph contains no variants, do not compute traceback", cxxopts::value(notraceback)->implicit_value("1"));
+
+        opts.add_options("Optional")
         ("phred64", "Qualities are Phred+64, not Phred+33.", cxxopts::value(p64)->implicit_value("1"))
         ("p,subsample", "<N> Sample N random reads, 0 for all.", cxxopts::value(subsample)->default_value("0"))
         ("a,alignto", "<str> Target graph, or SAM Read Group -> graph mapping.\"(RG:ID:<group>,<target_graph>;)+|<graph>\"", cxxopts::value(align_targets))
         ("s,assess", "[ID] Use score profile from a previous alignment.", cxxopts::value(pgid)->implicit_value("."))
-        ("f,forward", "Only align to forward strand.", cxxopts::value(fwdonly))
-        ("notraceback", "If graph contains no variants, do not compute traceback", cxxopts::value(notraceback)->implicit_value("1"));
+        ("f,forward", "Only align to forward strand.", cxxopts::value(fwdonly));
 
         opts.add_options("Scoring")
         ("ete", "End to end alignment.", cxxopts::value(end_to_end))
@@ -214,12 +217,13 @@ int align_main(int argc, char *argv[]) {
     }
     std::cerr << rg::chrono_duration(start_time) << "s.\n";
 
-    if (out_file.length()) std::cerr << "Writing to \"" << (out_file.empty() ? "stdout" : out_file) << "\".\n";
+    if (out_file.length()) std::cerr << "Writing alignments to \"" << (out_file.empty() ? "stdout" : out_file) << "\".\n";
     reads_hdr.programs[assigned_pgid].aux.set(ALIGN_SAM_PG_GDF, gdf);
     vargas::osam aligns_out(out_file, reads_hdr);
+    std::ofstream reportall_out(reportall_file);
     char phred_offset = opts.count("phred64") ? 64 : 33;
-    align(gm, task_list, aligns_out, aligners, fwdonly, msonly, maxonly, notraceback, phred_offset);
-
+    align(gm, task_list, aligns_out, reportall_out, aligners, fwdonly, msonly, maxonly, notraceback, phred_offset);
+    reportall_out.close();
     return 0;
 }
 
@@ -227,6 +231,7 @@ struct align_helper {
     vargas::GraphMan &gm;
     std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list;
     vargas::osam &out;
+    std::ofstream &reportall_out;
     const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners;
     bool fwdonly, msonly, maxonly, notraceback;
     char phred_offset;
@@ -237,6 +242,7 @@ void align_helper_func(void *data, long index, int tid) {
     align_helper &help(*(align_helper *)data);
     auto &aligners = help.aligners;
     auto &out = help.out;
+    auto &reportall_out = help.reportall_out;
     auto &task_list = help.task_list;
     auto &gm = help.gm;
     auto fwdonly = help.fwdonly;
@@ -267,20 +273,22 @@ void align_helper_func(void *data, long index, int tid) {
 
     for (size_t j = 0; j < task_list.at(index).second.size(); ++j) {
         vargas::SAM::Record &rec = task_list.at(index).second.at(j);
-        auto abs = gm.absolute_position(aligns.max_pos[j]);
+        rg::pos_t max_pos = aligns.max_pos_list_fwd[j].empty() ? aligns.max_pos_list_rev[j].front() : aligns.max_pos_list_fwd[j].front();
+        vargas::Strand max_strand = aligns.max_pos_list_fwd[j].empty() ? vargas::Strand::REV : vargas::Strand::FWD ;
+        auto abs = gm.absolute_position(max_pos);
         rec.aux.set("AS", aligns.max_score[j]);
         if (!msonly) {
             // Can only guess start position for end to end
             // if (aligns.profile.end_to_end) rec.pos = abs.second - rec.seq.size() + 1;
 
             rec.ref_name = abs.first;
-            rec.flag.rev_complement = aligns.max_strand[j] == vargas::Strand::REV;
+            rec.flag.rev_complement = max_strand == vargas::Strand::REV;
             if (rec.flag.rev_complement) {
                 rg::reverse_complement_inplace(rec.seq);
                 std::reverse(rec.qual.begin(), rec.qual.end());
             }
             rec.aux.set(ALIGN_SAM_MAX_POS_TAG, abs.second);
-            rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_count[j]);
+            rec.aux.set(ALIGN_SAM_MAX_COUNT_TAG, aligns.max_pos_list_fwd[j].size() + aligns.max_pos_list_rev[j].size());
 
             if (not_graph & !notraceback) {
                 int nodeID = gm.nodeID_from_contig(rec.ref_name);
@@ -525,12 +533,14 @@ void align_helper_func(void *data, long index, int tid) {
 
             // Flags for 2nd max
             if (!maxonly) {
-                abs = gm.absolute_position(aligns.sub_pos[j]);
+                rg::pos_t sub_pos = aligns.sub_pos_list_fwd[j].empty() ? aligns.sub_pos_list_rev[j].front() : aligns.sub_pos_list_fwd[j].front();
+                vargas::Strand sub_strand = aligns.sub_pos_list_fwd[j].empty() ? vargas::Strand::REV : vargas::Strand::FWD ;
+                abs = gm.absolute_position(sub_pos);
                 rec.aux.set(ALIGN_SAM_SUB_SEQ, abs.first);
                 rec.aux.set(ALIGN_SAM_SUB_POS_TAG, abs.second);
-                rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_count[j]);
+                rec.aux.set(ALIGN_SAM_SUB_COUNT_TAG, aligns.sub_pos_list_fwd[j].size() + aligns.sub_pos_list_rev[j].size());
                 rec.aux.set(ALIGN_SAM_SUB_SCORE_TAG, aligns.sub_score[j]);
-                rec.aux.set(ALIGN_SAM_SUB_STRAND_TAG, aligns.sub_strand[j] == vargas::Strand::FWD ? "fwd" : "rev");
+                rec.aux.set(ALIGN_SAM_SUB_STRAND_TAG, sub_strand == vargas::Strand::FWD ? "fwd" : "rev");
             }
         }
     }
@@ -538,6 +548,27 @@ void align_helper_func(void *data, long index, int tid) {
     {
         std::lock_guard<std::mutex> lock(help.mut);
         for (const auto & j : task_list.at(index).second) out.add_record(j);
+        for (size_t j = 0; j < task_list.at(index).second.size(); ++j) {
+            vargas::SAM::Record &rec = task_list.at(index).second.at(j);
+            for (auto p = aligns.max_pos_list_fwd[j].begin(); p != aligns.max_pos_list_fwd[j].end(); ++p) {
+                auto abs = gm.absolute_position(*p);
+                reportall_out << rec.query_name << "\t" << abs.first << "\t" << abs.second << "\tFWD\t" << aligns.max_score[j] << "\n";
+            }
+            for (auto p = aligns.max_pos_list_rev[j].begin(); p != aligns.max_pos_list_rev[j].end(); ++p) {
+                auto abs = gm.absolute_position(*p);
+                reportall_out << rec.query_name << "\t" << abs.first << "\t" << abs.second << "\tREV\t" << aligns.max_score[j] << "\n";
+            }
+            if (!msonly and !maxonly) {
+                for (auto p = aligns.sub_pos_list_fwd[j].begin(); p != aligns.sub_pos_list_fwd[j].end(); ++p) {
+                    auto abs = gm.absolute_position(*p);
+                    reportall_out << rec.query_name << "\t" << abs.first << "\t" << abs.second << "\tFWD\t" << aligns.sub_score[j] << "\n";
+                }
+                for (auto p = aligns.sub_pos_list_rev[j].begin(); p != aligns.sub_pos_list_rev[j].end(); ++p) {
+                    auto abs = gm.absolute_position(*p);
+                    reportall_out << rec.query_name << "\t" << abs.first << "\t" << abs.second << "\tREV\t" << aligns.sub_score[j] << "\n";
+                }
+            }
+        }
     }
 }
 
@@ -549,6 +580,7 @@ void align_helper_func(void *data, long index, int tid) {
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            vargas::osam &out,
+           std::ofstream &reportall_out,
            const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
            bool fwdonly, bool msonly, bool maxonly, bool notraceback, char phred_offset) {
     std::cerr << "Aligning... " << std::flush;
@@ -557,7 +589,7 @@ void align(vargas::GraphMan &gm,
 
     const auto num_tasks = task_list.size();
     std::mutex mut;
-    align_helper help{gm, task_list, out, aligners, fwdonly, msonly, maxonly, notraceback, phred_offset, mut};
+    align_helper help{gm, task_list, out, reportall_out, aligners, fwdonly, msonly, maxonly, notraceback, phred_offset, mut};
     fp.forpool(&align_helper_func, (void *)&help, num_tasks);
 
     std::cerr << rg::chrono_duration(start_time) << "s.\n";
