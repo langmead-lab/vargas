@@ -674,24 +674,26 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
 
 std::unique_ptr<vargas::AlignerBase>
 make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide, bool msonly, bool maxonly) {
+    std::unique_ptr<vargas::AlignerBase> ret;
     if (msonly) {
         if (prof.end_to_end) {
-            if (use_wide) return rg::make_unique<vargas::MSWordAlignerETE>(read_len, prof);
-            else return rg::make_unique<vargas::MSAlignerETE>(read_len, prof);
+            if(use_wide) ret.reset(new vargas::MSWordAlignerETE(read_len, prof));
+            else ret.reset(new vargas::MSAlignerETE(read_len, prof));
         } else {
-            if (use_wide) return rg::make_unique<vargas::MSWordAligner>(read_len, prof);
-            else return rg::make_unique<vargas::MSAligner>(read_len, prof);
+            if(use_wide) ret.reset(new vargas::MSWordAligner(read_len, prof));
+            else ret.reset(new vargas::MSAligner(read_len, prof));
         }
     }
     else {
         if (prof.end_to_end) {
-            if (use_wide) return rg::make_unique<vargas::WordAlignerETE>(read_len, prof);
-            else return rg::make_unique<vargas::AlignerETE>(read_len, prof);
+            if(use_wide) ret.reset(new vargas::WordAlignerETE(read_len, prof));
+            else ret.reset(new vargas::AlignerETE(read_len, prof));
         } else {
-            if (use_wide) return rg::make_unique<vargas::WordAligner>(read_len, prof);
-            else return rg::make_unique<vargas::Aligner>(read_len, prof);
+            if(use_wide) ret.reset(new vargas::WordAligner(read_len, prof));
+            else ret.reset(new vargas::Aligner(read_len, prof));
         }
     }
+    return ret;
 }
 
 void load_fast(std::string &file, const bool fastq, vargas::isam &ret, bool p64) {

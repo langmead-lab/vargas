@@ -406,7 +406,11 @@ namespace vargas {
       return _mm256_xor_si256(v, o.v);
   }
   template<> int8x32 &int8x32::operator=(const int8x32::native_t o) {
-      v = _mm256_set1_epi8(o);
+      //std::cerr << "Setting item to " << static_cast<int32_t>(o) << '\n';
+      std::fill(reinterpret_cast<int8x32::native_t *>(&v), reinterpret_cast<int8x32::native_t *>(&v) + sizeof(v) / sizeof(o),
+                o);
+      //std::cerr << "Set item to " << static_cast<int32_t>(o) << '\n';
+      //v = _mm256_set1_epi8(o);
       return *this;
   }
   template<> int8x32 int8x32::operator+(const int8x32 &o) const {
@@ -464,7 +468,11 @@ namespace vargas {
       return _mm256_xor_si256(v, o.v);
   }
   template<> int16x16 &int16x16::operator=(const int16x16::native_t o) {
-      v = _mm256_set1_epi16(o);
+      //std::cerr << "Setting item to " << static_cast<int32_t>(o) << '\n';
+      std::fill(reinterpret_cast<int8x32::native_t *>(&v), reinterpret_cast<int8x32::native_t *>(&v) + sizeof(v) / sizeof(o),
+                o);
+      //v = _mm256_set1_epi16(o);
+      //std::cerr << "Set item to " << static_cast<int32_t>(o) << '\n';
       return *this;
   }
   template<> int16x16 int16x16::operator+(const int16x16 &o) const {
@@ -512,7 +520,8 @@ namespace vargas {
       return _mm512_xor_si512(v, o.v);
   }
   template<> int8x64 &int8x64::operator=(const int8x64::native_t o) {
-      v = _mm512_set1_epi8(o);
+      std::fill(reinterpret_cast<int8x32::native_t *>(&v), reinterpret_cast<int8x32::native_t *>(&v) + sizeof(v) / sizeof(o),
+                o);
       return *this;
   }
   template<> int8x64 int8x64::operator+(const int8x64 &o) const {
@@ -557,7 +566,8 @@ namespace vargas {
       return _mm512_xor_si512(v, o.v);
   }
   template<> int16x32 &int16x32::operator=(const int16x32::native_t o) {
-      v = _mm512_set1_epi16(o);
+      std::fill(reinterpret_cast<int8x32::native_t *>(&v), reinterpret_cast<int8x32::native_t *>(&v) + sizeof(v) / sizeof(o),
+                o);
       return *this;
   }
   template<> int16x32 int16x32::operator+(const int16x32 &o) const {

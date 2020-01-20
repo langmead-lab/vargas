@@ -357,7 +357,7 @@ namespace vargas {
       };
 
 
-      void set_scores(const ScoreProfile &prof) override {
+      virtual void set_scores(const ScoreProfile &prof) override {
           _prof = prof;
           _prof.end_to_end = END_TO_END;
           _bias = _get_bias(_read_len, prof.match, prof.mismatch_max, prof.read_gopen, prof.read_gext);
