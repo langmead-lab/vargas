@@ -3,7 +3,7 @@
 
 Vargas computes optimal alignments of short reads to a directed acyclic graph (DAG). After building a graph, reads are aligned using a SIMD-vectorized version of the Smith-Waterman dynamic programming algorithm, with 16 -- 64 reads per vector depending on the instruction set.
 
-Preprint available at *coming soon*. Supplementary processing scripts available at [vargas-experiments](https://github.com/cdarby/vargas-experiments). 
+Preprint ["Vargas: heuristic-free alignment for assessing linear and graph read aligners"](https://www.biorxiv.org/content/10.1101/2019.12.20.884676v1) is now posted on bioRxiv. Supplementary processing scripts available at [vargas-experiments](https://github.com/cdarby/vargas-experiments). 
 
 # Building
 
