@@ -141,7 +141,7 @@ struct main_helper {
     std::mutex &m;
     vargas::osam &out;
 };
-void main_helper_func(void *data, long index, int tid) {
+void main_helper_func(void *data, long index, int) {
     main_helper &help = *(main_helper *)data;
     auto &task_list = help.task_list;
     auto &gm = help.gm;

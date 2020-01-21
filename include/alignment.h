@@ -357,7 +357,7 @@ namespace vargas {
       };
 
 
-      void set_scores(const ScoreProfile &prof) override {
+      virtual void set_scores(const ScoreProfile &prof) override {
           _prof = prof;
           _prof.end_to_end = END_TO_END;
           _bias = _get_bias(_read_len, prof.match, prof.mismatch_max, prof.read_gopen, prof.read_gext);
@@ -632,6 +632,8 @@ namespace vargas {
       __RG_STRONG_INLINE__
       void _fill_cell(const typename qp_t::value_type &prof, const rg::Base &ref,
                       const unsigned &row, const pos_t &curr_pos) {
+          assert(uint64_t(&_Dc[0]) % sizeof(_Dc[0]) == 0);
+          assert(uint64_t(&_S[0]) % sizeof(_S[0]) == 0);
           _Dc[row] = max(_Dc[row - 1] - _gap_extend_vec_ref, _S[row - 1] - _gap_open_extend_vec_ref);
           _Ic[row] = max(_Ic[row] - _gap_extend_vec_rd, _S[row] - _gap_open_extend_vec_rd);
           simd_t sr = _Sd + prof[ref];

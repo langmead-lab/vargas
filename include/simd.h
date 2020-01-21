@@ -136,14 +136,16 @@ namespace vargas {
       }
 
       // stateless allocator
-      bool operator!=(const aligned_allocator &) const { return false; }
-      bool operator==(const aligned_allocator &) const { return true; }
+      constexpr bool operator!=(const aligned_allocator &) const { return false; }
+      constexpr bool operator==(const aligned_allocator &) const { return true; }
 
       T *allocate(std::size_t n) const {
           if (n == 0) return nullptr;
 
-          // aligned_alloc needs a multiple of al
+#if USE_ALIGNED_ALLOC
+          // aligned_alloc needs a multiple of al, but posix_memalign doesn't.
           if (n % al) n += al - (n % al);
+#endif
           if (n > max_size()) throw std::length_error("aligned_allocator<T,A>::allocate() - Integer overflow.");
 
           void *p;
@@ -153,10 +155,8 @@ namespace vargas {
           return static_cast<T *>(p);
       }
 
-      void deallocate(T *p, VA_MAYBE_UNUSED std::size_t n) const {
-#if !__has_cpp_attribute(maybe_unused)
-          (void) n; // get rid of compiler warning
-#endif
+      void deallocate(T *p, std::size_t) const {
+          // Don't give std::size_t variable a name to eliminate the unused warning.
           free(p);
       }
   };
@@ -184,6 +184,8 @@ namespace vargas {
 
       static constexpr unsigned length = N;
       static constexpr unsigned size = sizeof(native_t) * N;
+      static_assert(size % 16 ==0, "size must be divisible by 16. (Sanity check: SSE[42], AVX, or AVX512)");
+      SIMD(const SIMD &o): v(o.v) {}
 
       SIMD() = default;
       SIMD(const native_t o) {
@@ -413,6 +415,8 @@ namespace vargas {
       return _mm256_adds_epi8(v, o.v);
   }
   template<> int8x32 int8x32::operator-(const int8x32 &o) const {
+      assert(reinterpret_cast<uint64_t>(&o) % sizeof(o) == 0); 
+      assert(reinterpret_cast<uint64_t>(this) % sizeof(*this) == 0); 
       return _mm256_subs_epi8(v, o.v);
   }
 #if COMPARISON_OPERATORS
@@ -512,8 +516,8 @@ namespace vargas {
       return _mm512_xor_si512(v, o.v);
   }
   template<> int8x64 &int8x64::operator=(const int8x64::native_t o) {
-      v = _mm512_set1_epi8(o);
-      return *this;
+    v =  _mm512_set1_epi8(o);
+    return *this;
   }
   template<> int8x64 int8x64::operator+(const int8x64 &o) const {
       return _mm512_adds_epi8(v, o.v);
