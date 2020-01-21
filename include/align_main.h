@@ -68,7 +68,7 @@ int align_main(int argc, char *argv[]);
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            vargas::osam &out,
-           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
+           const std::vector<std::unique_ptr<vargas::AlignerBase, rg::Deleter>> &aligners,
            bool fwdonly, bool msonly, bool maxonly, bool notraceback, char phred_offset);
 
 /**
@@ -93,7 +93,7 @@ create_tasks(vargas::isam &reads, std::string &align_targets, int chunk_size, si
  * @param end_to_end End to end alignment
  * @return pointer to new aligner
  */
-std::unique_ptr<vargas::AlignerBase>
+std::unique_ptr<vargas::AlignerBase, rg::Deleter>
 make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide, bool msonly, bool maxonly);
 
 /**

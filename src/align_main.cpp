@@ -19,6 +19,8 @@
 #include "threadpool.h"
 #include <mutex>
 
+using rg::Deleter;
+
 int align_main(int argc, char *argv[]) {
     std::string cl = "vargas ";
     {
@@ -190,14 +192,14 @@ int align_main(int argc, char *argv[]) {
                       : 1;
 
     int bias = 255 - (read_len * match);
-    const bool use_wide = (bias < 0) or (end_to_end and (prof.ref_gopen + (prof.ref_gext * (read_len - 1)) > bias || read_len * prof.mismatch_max > bias));
+    const bool use_wide = (bias < 0) or (end_to_end and (static_cast<signed long long>(prof.ref_gopen + (prof.ref_gext * (read_len - 1))) > bias || read_len * prof.mismatch_max > bias));
     if (use_wide) {
         std::cerr << "Score range: " << read_len * match << " to -" << std::min(prof.ref_gopen + (prof.ref_gext * (read_len - 1)), read_len * prof.mismatch_max) <<
         ". Using 16-bit aligner (" << vargas::WordAligner::read_capacity() << " reads/vector).\n";
     }
     std::cerr << "Scoring profile: " << prof.to_string() << "\n";
 
-    std::vector<std::unique_ptr<vargas::AlignerBase>> aligners(threads);
+    std::vector<std::unique_ptr<vargas::AlignerBase, rg::Deleter>> aligners(threads);
     for (size_t k = 0; k < threads; ++k) {
         aligners[k] = make_aligner(prof, read_len, use_wide, msonly, maxonly);
     }
@@ -227,7 +229,7 @@ struct align_helper {
     vargas::GraphMan &gm;
     std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list;
     vargas::osam &out;
-    const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners;
+    const std::vector<std::unique_ptr<vargas::AlignerBase, rg::Deleter>> &aligners;
     bool fwdonly, msonly, maxonly, notraceback;
     char phred_offset;
     std::mutex &mut;
@@ -480,7 +482,7 @@ void align_helper_func(void *data, long index, int tid) {
                     }
                     int currCol = ref_len;
                     int currRow = bestRow;
-                    for (int row = bestRow; row < rec.seq.length(); ++row) {
+                    for (unsigned row = bestRow; row < rec.seq.length(); ++row) {
                         aln.push_back('S'); //unaligned bases in end of query
                     }
                     while(currRow > 0 and currCol > 0) {
@@ -549,7 +551,7 @@ void align_helper_func(void *data, long index, int tid) {
 void align(vargas::GraphMan &gm,
            std::vector<std::pair<std::string, std::vector<vargas::SAM::Record>>> &task_list,
            vargas::osam &out,
-           const std::vector<std::unique_ptr<vargas::AlignerBase>> &aligners,
+           const std::vector<std::unique_ptr<vargas::AlignerBase, rg::Deleter>> &aligners,
            bool fwdonly, bool msonly, bool maxonly, bool notraceback, char phred_offset) {
     std::cerr << "Aligning... " << std::flush;
     rg::ForPool fp(aligners.size());
@@ -672,25 +674,35 @@ create_tasks(vargas::isam &reads, std::string &align_targets, const int chunk_si
     return task_list;
 }
 
-std::unique_ptr<vargas::AlignerBase>
+
+template<typename T, typename...Args>
+T *construct_aligned(Args &&...args) {
+    static constexpr size_t alignment = 64; // AVX512
+    T *ptr;
+    if(posix_memalign(reinterpret_cast<void **>(&ptr), alignment, sizeof(T))) throw std::bad_alloc();
+    return new(ptr) T(std::forward<Args>(args)...);
+}
+
+
+std::unique_ptr<vargas::AlignerBase, Deleter>
 make_aligner(const vargas::ScoreProfile &prof, size_t read_len, bool use_wide, bool msonly, bool maxonly) {
-    std::unique_ptr<vargas::AlignerBase> ret;
+    std::unique_ptr<vargas::AlignerBase, Deleter> ret;
     if (msonly) {
         if (prof.end_to_end) {
-            if(use_wide) ret.reset(new vargas::MSWordAlignerETE(read_len, prof));
-            else ret.reset(new vargas::MSAlignerETE(read_len, prof));
+            if(use_wide) ret.reset(construct_aligned<vargas::MSWordAlignerETE>(read_len, prof));
+            else ret.reset(construct_aligned<vargas::MSAlignerETE>(read_len, prof));
         } else {
-            if(use_wide) ret.reset(new vargas::MSWordAligner(read_len, prof));
-            else ret.reset(new vargas::MSAligner(read_len, prof));
+            if(use_wide) ret.reset(construct_aligned<vargas::MSWordAligner>(read_len, prof));
+            else ret.reset(construct_aligned<vargas::MSAligner>(read_len, prof));
         }
     }
     else {
         if (prof.end_to_end) {
-            if(use_wide) ret.reset(new vargas::WordAlignerETE(read_len, prof));
-            else ret.reset(new vargas::AlignerETE(read_len, prof));
+            if(use_wide) ret.reset(construct_aligned<vargas::WordAlignerETE>(read_len, prof));
+            else ret.reset(construct_aligned<vargas::AlignerETE>(read_len, prof));
         } else {
-            if(use_wide) ret.reset(new vargas::WordAligner(read_len, prof));
-            else ret.reset(new vargas::Aligner(read_len, prof));
+            if(use_wide) ret.reset(construct_aligned<vargas::WordAligner>(read_len, prof));
+            else ret.reset(construct_aligned<vargas::Aligner>(read_len, prof));
         }
     }
     return ret;

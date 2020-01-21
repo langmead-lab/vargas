@@ -494,6 +494,11 @@ print(", ".join(map(str, map(ord, lut))))
   typename _Unique_if<T>::_Known_bound
   make_unique(Args &&...) = delete;
 
+  struct Deleter {
+      void operator()(const void *p) const {
+          ::std::free(const_cast<void *>(p));
+      }
+  };
 
 }
 
