@@ -18,7 +18,7 @@ Vargas relies on htslib to provide core file processing. Once cloned, the htslib
 
 Vargas is built with CMake. 
 
-With GCC compiler, SSE 4.1 (default), AVX2 (**-DBUILD\_AVX2\_GCC=ON**) or AVX512-BW (**-DBUILD\_AVX512BW\_GCC=ON**) can be targeted for SIMD support.
+With GCC compiler, SSE 4.1 (default), AVX2 (**-DBUILD\_AVX2\_GCC=ON**) or AVX512-BW (**-DBUILD\_AVX512BW\_GCC=ON**) can be targeted for SIMD support. *Requires GCC version 6 or above*
 
     mkdir build && cd build
     cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_AVX512BW_GCC=ON -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc .. && make -j4
