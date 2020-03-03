@@ -225,7 +225,7 @@ Export a subgraph to a DOT graph, or get graph statistics.
 
 ## Other
 
-`vargas test` executes unit tests.
+`vargas test` executes unit tests using the doctest framework (included as a dependency of this repository). The unit tests are included at the end of the relevant .cpp source files. These tests verify the core vectorized graph dynamic programming algorithm with 16-bit and 8-bit lanes, graph building and processing, file input/output, and simulation.
 
 `vargas profile` generates a summary of performance.
 
