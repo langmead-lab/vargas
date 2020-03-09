@@ -1,5 +1,5 @@
 # Vargas
-*Updated: December 10, 2019*
+*Updated: March 9th, 2020*
 
 Vargas computes optimal alignments of short reads to a directed acyclic graph (DAG). After building a graph, reads are aligned using a SIMD-vectorized version of the Smith-Waterman dynamic programming algorithm, with 16 -- 64 reads per vector depending on the instruction set.
 
@@ -46,6 +46,8 @@ by Ravi Gaddipati, Charlotte Darby, Daniel Baker, Ben Langmead (langmea@cs.jhu.e
 ```
 
 ## define
+
+NOTE! If your VCF file contains any overlapping variants, it must be pre-processed using the Python script `vargas_preprocess_VCF.py`, otherwise Vargas will not build the correct graph. This script identifies clusters of overlapping variants and merges these records into one new record with several ALT alleles enumerating all possible combinations of variants in the cluster. These new records remove any INFO fields that may have been present in the original file. See [vargas_preprocess_VCF.py](vargas_preprocess_VCF.py) for usage information and requirements for your input VCF.
 
 `vargas define -h`
 
