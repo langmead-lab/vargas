@@ -80,9 +80,7 @@ target_link_libraries(vargas hts)
 target_link_libraries(ibvargas hts)
 target_link_libraries(static-vargas hts)
 
-IF(CMAKE_BUILD_TYPE MATCHES RELEASE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDOCTEST_CONFIG_DISABLE")
-ENDIF(CMAKE_BUILD_TYPE MATCHES RELEASE)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDOCTEST_CONFIG_DISABLE")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
