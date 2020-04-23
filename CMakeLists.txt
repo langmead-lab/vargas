@@ -9,6 +9,10 @@ if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 endif()
 
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDOCTEST_CONFIG_DISABLE")
+endif()
+
 include_directories(doctest/doctest include htslib cxxopts/src)
 link_directories(${PROJECT_SOURCE_DIR}/htslib)
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -79,8 +83,6 @@ add_library(static-vargas STATIC ${LIB_SOURCES})
 target_link_libraries(vargas hts)
 target_link_libraries(ibvargas hts)
 target_link_libraries(static-vargas hts)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDOCTEST_CONFIG_DISABLE")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
