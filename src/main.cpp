@@ -13,7 +13,9 @@
  * @file
  */
 
+#ifndef DOCTEST_CONFIG_DISABLE
 #define DOCTEST_CONFIG_IMPLEMENT // User controlled test execution
+#endif
 
 
 #include "main.h"
@@ -31,13 +33,16 @@ int main(int argc, char *argv[]) {
 
     try {
         if (argc > 1) {
+#ifndef DOCTEST_CONFIG_DISABLE
             if (!strcmp(argv[1], "test")) {
                 doctest::Context doc(argc, argv);
                 doc.setOption("abort-after", 5);
                 doc.setOption("no-version", true);
                 std::cerr << "Running tests...\n\n";
                 return doc.run();
-            } else if (!strcmp(argv[1], "profile")) {
+            } else
+#endif
+            if (!strcmp(argv[1], "profile")) {
                 return profile(argc - 1, argv + 1);
             } else if (!strcmp(argv[1], "define")) {
                 return define_main(argc - 1, argv + 1);

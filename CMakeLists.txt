@@ -5,8 +5,19 @@ project("vargas")
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
+endif()
+
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDOCTEST_CONFIG_DISABLE")
+endif()
+
 include_directories(doctest/doctest include htslib cxxopts/src)
 link_directories(${PROJECT_SOURCE_DIR}/htslib)
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set(CMAKE_MACOSX_RPATH 1)
+endif()
 
 set(MAIN_SOURCES
         src/main.cpp
@@ -17,6 +28,16 @@ set(MAIN_SOURCES
         src/fasta.cpp
         src/sam.cpp
         src/align_main.cpp
+        src/scoring.cpp
+        src/graphman.cpp)
+
+set(LIB_SOURCES
+        src/graph.cpp
+        src/utils.cpp
+        src/varfile.cpp
+        src/sim.cpp
+        src/fasta.cpp
+        src/sam.cpp
         src/scoring.cpp
         src/graphman.cpp)
 
@@ -57,7 +78,11 @@ else()
 endif()
 
 add_executable(vargas ${MAIN_SOURCES})
+add_library(ibvargas SHARED ${LIB_SOURCES})
+add_library(static-vargas STATIC ${LIB_SOURCES})
 target_link_libraries(vargas hts)
+target_link_libraries(ibvargas hts)
+target_link_libraries(static-vargas hts)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
