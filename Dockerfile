@@ -4,3 +4,4 @@
 FROM rikorose/gcc-cmake:gcc-6
 ADD . /
 RUN chmod +x /docker_compile.sh
+RUN ./docker_compile.sh
