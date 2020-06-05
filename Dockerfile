@@ -3,5 +3,4 @@
 
 FROM rikorose/gcc-cmake:gcc-6
 ADD . /
-RUN ls -lh
-RUN ["docker_compile.sh"]
+RUN chmod +x /docker_compile.sh
