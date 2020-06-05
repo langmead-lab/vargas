@@ -15,5 +15,5 @@ cd ..
 
 
 mkdir build-avx512bw && cd build-avx512bw
-cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_AVX2_GCC=ON -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc .. && make -j4
+cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_AVX512BW_GCC=ON -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc .. && make -j4
 cd ..
