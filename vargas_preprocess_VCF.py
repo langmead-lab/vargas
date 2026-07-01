@@ -5,7 +5,8 @@
 # prints header + records to stdout in VCF format with comma separated multi-alt-alleles where necessary (remains sorted)
 
 # The input VCF must be:
-#  - biallelic
+#  - biallelic (for INDELs)
+#  - may be multiallelic, for SNPs ONLY
 #  - only contain SNPs and INDELs
 #  - all INDELs have at least 1 base in REF and ALT fields - from VCF 4.2 specification: "For simple insertions and
 #       deletions in which either the REF or one of the ALT alleles would otherwise be null/empty, the REF and ALT
@@ -139,19 +140,25 @@ for line in vcf.readlines():
 	if line[0] == "#": # header line
 		print(line, end='') # don't include an additional newline
 		continue
-	fields = line.strip().split() # VCF is tab separated
-	if fields[0] != curr_chrom:
-		if curr_chrom is not None: 
+	fields_orig = line.strip().split() # VCF is tab separated
+	alts = fields_orig[4].split(',') # deal with multiple alternate alleles as separate records
+	if len(alts) > 1 and (len(fields_orig[3]) > 1 or sum([len(a) > 1 for a in alts]) > 0) :
+		sys.exit("FATAL ERROR: Multi-allelic INDELs are not supported")
+	for a in alts:
+		fields = fields_orig.copy()
+		fields[4] = a
+		if fields[0] != curr_chrom:
+			if curr_chrom is not None: 
+				process_overlapping_lines(overlapping_lines)
+				overlapping_lines = []
+				overlap_end = 0
+			curr_chrom = fields[0]
+		if int(fields[1]) <= overlap_end: # start position of this variant is within the current overlap interval -> add to set to be processed
+			overlapping_lines.append(fields)
+			overlap_end = max(overlap_end, int(fields[1]) + len(fields[3]) - 1) # extend interval bounds
+		else:
 			process_overlapping_lines(overlapping_lines)
-			overlapping_lines = []
-			overlap_end = 0
-		curr_chrom = fields[0]
-	if int(fields[1]) <= overlap_end: # start position of this variant is within the current overlap interval -> add to set to be processed
-		overlapping_lines.append(fields)
-		overlap_end = max(overlap_end, int(fields[1]) + len(fields[3]) - 1) # extend interval bounds
-	else:
-		process_overlapping_lines(overlapping_lines)
-		overlapping_lines = [fields]
-		overlap_end = int(fields[1]) + len(fields[3]) - 1 # reset interval bounds
+			overlapping_lines = [fields]
+			overlap_end = int(fields[1]) + len(fields[3]) - 1 # reset interval bounds
 
 process_overlapping_lines(overlapping_lines)
